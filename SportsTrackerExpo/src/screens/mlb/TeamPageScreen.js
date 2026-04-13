@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Animated,
   RefreshControl,
   Dimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -288,7 +288,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
         activeOpacity={0.75}
       >
         {headshotUrl && !headshotError ? (
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: headshotUrl }}
             style={rStyles.headshot}
             onError={() => setHeadshotError(true)}
@@ -949,7 +949,7 @@ const MatchCard = ({
             <View style={styles.matchTeamRow}>
               <View style={styles.matchLogoWrap}>
                 {awayLogo ? (
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: awayLogo }}
                     style={styles.matchTeamLogo}
                     resizeMode="contain"
@@ -1019,7 +1019,7 @@ const MatchCard = ({
             <View style={styles.matchTeamRow}>
               <View style={styles.matchLogoWrap}>
                 {homeLogo ? (
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: homeLogo }}
                     style={styles.matchTeamLogo}
                     resizeMode="contain"
@@ -1370,7 +1370,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           {/* Logo + name block */}
           <View style={styles.headerMain}>
             {teamLogo ? (
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: teamLogo }}
                 style={styles.headerLogo}
                 resizeMode="contain"
@@ -1463,7 +1463,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
             <View style={styles.stickyMiniContent}>
               {teamLogo ? (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: teamLogo }}
                   style={styles.stickyMiniLogo}
                   resizeMode="contain"

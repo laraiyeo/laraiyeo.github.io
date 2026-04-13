@@ -1,0 +1,4573 @@
+https://laraiyeogithubio-production-0255.up.railway.app/nhl/player-stats
+
+{
+  "source": "mixed",
+  "count": 17,
+  "data": [
+    {
+      "id": 1,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/goalies/gaa?cayenneExp=season=20252026%20and%20gameType=2%20and%20gamesPlayed%20%3E=%2024",
+      "data": {
+        "data": [
+          {
+            "gaa": 2.103888,
+            "player": {
+              "id": 8475809,
+              "fullName": "Scott Wedgewood",
+              "positionCode": "G",
+              "sweaterNumber": 41
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "gaa": 2.296531,
+            "player": {
+              "id": 8476883,
+              "fullName": "Andrei Vasilevskiy",
+              "positionCode": "G",
+              "sweaterNumber": 88
+            },
+            "team": {
+              "id": 14,
+              "fullName": "Tampa Bay Lightning",
+              "rawTricode": "TBL",
+              "triCode": "TBL"
+            }
+          },
+          {
+            "gaa": 2.336283,
+            "player": {
+              "id": 8479193,
+              "fullName": "Casey DeSmith",
+              "positionCode": "G",
+              "sweaterNumber": 1
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          },
+          {
+            "gaa": 2.43668,
+            "player": {
+              "id": 8478435,
+              "fullName": "Dan Vladar",
+              "positionCode": "G",
+              "sweaterNumber": 80
+            },
+            "team": {
+              "id": 4,
+              "fullName": "Philadelphia Flyers",
+              "rawTricode": "PHI",
+              "triCode": "PHI"
+            }
+          },
+          {
+            "gaa": 2.438281,
+            "player": {
+              "id": 8480313,
+              "fullName": "Logan Thompson",
+              "positionCode": "G",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "gaa": 2.499821,
+            "player": {
+              "id": 8478048,
+              "fullName": "Igor Shesterkin",
+              "positionCode": "G",
+              "sweaterNumber": 31
+            },
+            "team": {
+              "id": 3,
+              "fullName": "New York Rangers",
+              "rawTricode": "NYR",
+              "triCode": "NYR"
+            }
+          },
+          {
+            "gaa": 2.522399,
+            "player": {
+              "id": 8483548,
+              "fullName": "Brandon Bussi",
+              "positionCode": "G",
+              "sweaterNumber": 32
+            },
+            "team": {
+              "id": 12,
+              "fullName": "Carolina Hurricanes",
+              "rawTricode": "CAR",
+              "triCode": "CAR"
+            }
+          },
+          {
+            "gaa": 2.547588,
+            "player": {
+              "id": 8478406,
+              "fullName": "Mackenzie Blackwood",
+              "positionCode": "G",
+              "sweaterNumber": 39
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "gaa": 2.561279,
+            "player": {
+              "id": 8480045,
+              "fullName": "Ukko-Pekka Luukkonen",
+              "positionCode": "G",
+              "sweaterNumber": 1
+            },
+            "team": {
+              "id": 7,
+              "fullName": "Buffalo Sabres",
+              "rawTricode": "BUF",
+              "triCode": "BUF"
+            }
+          },
+          {
+            "gaa": 2.571182,
+            "player": {
+              "id": 8476341,
+              "fullName": "Anton Forsberg",
+              "positionCode": "G",
+              "sweaterNumber": 31
+            },
+            "team": {
+              "id": 26,
+              "fullName": "Los Angeles Kings",
+              "rawTricode": "LAK",
+              "triCode": "LAK"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 2,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/assists?cayenneExp=season=20252026%20and%20gameType=2%20and%20isRookie%20=%20%27Y%27",
+      "data": {
+        "data": [
+          {
+            "assists": 43,
+            "player": {
+              "id": 8484984,
+              "fullName": "Ivan Demidov",
+              "positionCode": "R",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "assists": 37,
+            "player": {
+              "id": 8484762,
+              "fullName": "Beckett Sennecke",
+              "positionCode": "R",
+              "sweaterNumber": 45
+            },
+            "team": {
+              "id": 24,
+              "fullName": "Anaheim Ducks",
+              "rawTricode": "ANA",
+              "triCode": "ANA"
+            }
+          },
+          {
+            "assists": 36,
+            "player": {
+              "id": 8485366,
+              "fullName": "Matthew Schaefer",
+              "positionCode": "D",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 2,
+              "fullName": "New York Islanders",
+              "rawTricode": "NYI",
+              "triCode": "NYI"
+            }
+          },
+          {
+            "assists": 26,
+            "player": {
+              "id": 8483516,
+              "fullName": "Jimmy Snuggerud",
+              "positionCode": "R",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 19,
+              "fullName": "St. Louis Blues",
+              "rawTricode": "STL",
+              "triCode": "STL"
+            }
+          },
+          {
+            "assists": 25,
+            "player": {
+              "id": 8484186,
+              "fullName": "Ryan Leonard",
+              "positionCode": "R",
+              "sweaterNumber": 9
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "assists": 22,
+            "player": {
+              "id": 8484783,
+              "fullName": "Artyom Levshunov",
+              "positionCode": "D",
+              "sweaterNumber": 55
+            },
+            "team": {
+              "id": 16,
+              "fullName": "Chicago Blackhawks",
+              "rawTricode": "CHI",
+              "triCode": "CHI"
+            }
+          },
+          {
+            "assists": 21,
+            "player": {
+              "id": 8482100,
+              "fullName": "Alexander Nikishin",
+              "positionCode": "D",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 12,
+              "fullName": "Carolina Hurricanes",
+              "rawTricode": "CAR",
+              "triCode": "CAR"
+            }
+          },
+          {
+            "assists": 20,
+            "player": {
+              "id": 8481024,
+              "fullName": "Linus Karlsson",
+              "positionCode": "C",
+              "sweaterNumber": 94
+            },
+            "team": {
+              "id": 23,
+              "fullName": "Vancouver Canucks",
+              "rawTricode": "VAN",
+              "triCode": "VAN"
+            }
+          },
+          {
+            "assists": 20,
+            "player": {
+              "id": 8482088,
+              "fullName": "Justin Sourdif",
+              "positionCode": "C",
+              "sweaterNumber": 34
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "assists": 19,
+            "player": {
+              "id": 8484798,
+              "fullName": "Zeev Buium",
+              "positionCode": "D",
+              "sweaterNumber": 24
+            },
+            "team": {
+              "id": 23,
+              "fullName": "Vancouver Canucks",
+              "rawTricode": "VAN",
+              "triCode": "VAN"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 3,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/goals?cayenneExp=season=20252026%20and%20gameType=2%20and%20isRookie%20=%20%27Y%27",
+      "data": {
+        "data": [
+          {
+            "goals": 23,
+            "player": {
+              "id": 8484762,
+              "fullName": "Beckett Sennecke",
+              "positionCode": "R",
+              "sweaterNumber": 45
+            },
+            "team": {
+              "id": 24,
+              "fullName": "Anaheim Ducks",
+              "rawTricode": "ANA",
+              "triCode": "ANA"
+            }
+          },
+          {
+            "goals": 23,
+            "player": {
+              "id": 8485366,
+              "fullName": "Matthew Schaefer",
+              "positionCode": "D",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 2,
+              "fullName": "New York Islanders",
+              "rawTricode": "NYI",
+              "triCode": "NYI"
+            }
+          },
+          {
+            "goals": 22,
+            "player": {
+              "id": 8482775,
+              "fullName": "Oliver Kapanen",
+              "positionCode": "C",
+              "sweaterNumber": 91
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "goals": 20,
+            "player": {
+              "id": 8484186,
+              "fullName": "Ryan Leonard",
+              "positionCode": "R",
+              "sweaterNumber": 9
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "goals": 18,
+            "player": {
+              "id": 8484984,
+              "fullName": "Ivan Demidov",
+              "positionCode": "R",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "goals": 18,
+            "player": {
+              "id": 8483516,
+              "fullName": "Jimmy Snuggerud",
+              "positionCode": "R",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 19,
+              "fullName": "St. Louis Blues",
+              "rawTricode": "STL",
+              "triCode": "STL"
+            }
+          },
+          {
+            "goals": 17,
+            "player": {
+              "id": 8485414,
+              "fullName": "Ben Kindel",
+              "positionCode": "C",
+              "sweaterNumber": 81
+            },
+            "team": {
+              "id": 5,
+              "fullName": "Pittsburgh Penguins",
+              "rawTricode": "PIT",
+              "triCode": "PIT"
+            }
+          },
+          {
+            "goals": 17,
+            "player": {
+              "id": 8483489,
+              "fullName": "Fraser Minten",
+              "positionCode": "C",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 6,
+              "fullName": "Boston Bruins",
+              "rawTricode": "BOS",
+              "triCode": "BOS"
+            }
+          },
+          {
+            "goals": 17,
+            "player": {
+              "id": 8484241,
+              "fullName": "Matthew Wood",
+              "positionCode": "R",
+              "sweaterNumber": 71
+            },
+            "team": {
+              "id": 18,
+              "fullName": "Nashville Predators",
+              "rawTricode": "NSH",
+              "triCode": "NSH"
+            }
+          },
+          {
+            "goals": 15,
+            "player": {
+              "id": 8481024,
+              "fullName": "Linus Karlsson",
+              "positionCode": "C",
+              "sweaterNumber": 94
+            },
+            "team": {
+              "id": 23,
+              "fullName": "Vancouver Canucks",
+              "rawTricode": "VAN",
+              "triCode": "VAN"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 4,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/points?cayenneExp=season=20252026%20and%20gameType=2%20and%20isRookie%20=%20%27Y%27",
+      "data": {
+        "data": [
+          {
+            "points": 61,
+            "player": {
+              "id": 8484984,
+              "fullName": "Ivan Demidov",
+              "positionCode": "R",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "points": 60,
+            "player": {
+              "id": 8484762,
+              "fullName": "Beckett Sennecke",
+              "positionCode": "R",
+              "sweaterNumber": 45
+            },
+            "team": {
+              "id": 24,
+              "fullName": "Anaheim Ducks",
+              "rawTricode": "ANA",
+              "triCode": "ANA"
+            }
+          },
+          {
+            "points": 59,
+            "player": {
+              "id": 8485366,
+              "fullName": "Matthew Schaefer",
+              "positionCode": "D",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 2,
+              "fullName": "New York Islanders",
+              "rawTricode": "NYI",
+              "triCode": "NYI"
+            }
+          },
+          {
+            "points": 45,
+            "player": {
+              "id": 8484186,
+              "fullName": "Ryan Leonard",
+              "positionCode": "R",
+              "sweaterNumber": 9
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "points": 44,
+            "player": {
+              "id": 8483516,
+              "fullName": "Jimmy Snuggerud",
+              "positionCode": "R",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 19,
+              "fullName": "St. Louis Blues",
+              "rawTricode": "STL",
+              "triCode": "STL"
+            }
+          },
+          {
+            "points": 37,
+            "player": {
+              "id": 8482775,
+              "fullName": "Oliver Kapanen",
+              "positionCode": "C",
+              "sweaterNumber": 91
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "points": 35,
+            "player": {
+              "id": 8481024,
+              "fullName": "Linus Karlsson",
+              "positionCode": "C",
+              "sweaterNumber": 94
+            },
+            "team": {
+              "id": 23,
+              "fullName": "Vancouver Canucks",
+              "rawTricode": "VAN",
+              "triCode": "VAN"
+            }
+          },
+          {
+            "points": 35,
+            "player": {
+              "id": 8482088,
+              "fullName": "Justin Sourdif",
+              "positionCode": "C",
+              "sweaterNumber": 34
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "points": 34,
+            "player": {
+              "id": 8485414,
+              "fullName": "Ben Kindel",
+              "positionCode": "C",
+              "sweaterNumber": 81
+            },
+            "team": {
+              "id": 5,
+              "fullName": "Pittsburgh Penguins",
+              "rawTricode": "PIT",
+              "triCode": "PIT"
+            }
+          },
+          {
+            "points": 34,
+            "player": {
+              "id": 8483489,
+              "fullName": "Fraser Minten",
+              "positionCode": "C",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 6,
+              "fullName": "Boston Bruins",
+              "rawTricode": "BOS",
+              "triCode": "BOS"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 8,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/goalies/shutouts?cayenneExp=season=20252026%20and%20gameType=2%20and%20gamesPlayed%20%3E=%2024",
+      "data": {
+        "data": [
+          {
+            "shutouts": 7,
+            "player": {
+              "id": 8478009,
+              "fullName": "Ilya Sorokin",
+              "positionCode": "G",
+              "sweaterNumber": 30
+            },
+            "team": {
+              "id": 2,
+              "fullName": "New York Islanders",
+              "rawTricode": "NYI",
+              "triCode": "NYI"
+            }
+          },
+          {
+            "shutouts": 6,
+            "player": {
+              "id": 8480981,
+              "fullName": "Joel Hofer",
+              "positionCode": "G",
+              "sweaterNumber": 30
+            },
+            "team": {
+              "id": 19,
+              "fullName": "St. Louis Blues",
+              "rawTricode": "STL",
+              "triCode": "STL"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8482661,
+              "fullName": "Jesper Wallstedt",
+              "positionCode": "G",
+              "sweaterNumber": 30
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8480313,
+              "fullName": "Logan Thompson",
+              "positionCode": "G",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8479406,
+              "fullName": "Filip Gustavsson",
+              "positionCode": "G",
+              "sweaterNumber": 32
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8476434,
+              "fullName": "John Gibson",
+              "positionCode": "G",
+              "sweaterNumber": 36
+            },
+            "team": {
+              "id": 17,
+              "fullName": "Detroit Red Wings",
+              "rawTricode": "DET",
+              "triCode": "DET"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8479979,
+              "fullName": "Jake Oettinger",
+              "positionCode": "G",
+              "sweaterNumber": 29
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          },
+          {
+            "shutouts": 4,
+            "player": {
+              "id": 8475683,
+              "fullName": "Sergei Bobrovsky",
+              "positionCode": "G",
+              "sweaterNumber": 72
+            },
+            "team": {
+              "id": 13,
+              "fullName": "Florida Panthers",
+              "rawTricode": "FLA",
+              "triCode": "FLA"
+            }
+          },
+          {
+            "shutouts": 3,
+            "player": {
+              "id": 8475809,
+              "fullName": "Scott Wedgewood",
+              "positionCode": "G",
+              "sweaterNumber": 41
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "shutouts": 3,
+            "player": {
+              "id": 8476341,
+              "fullName": "Anton Forsberg",
+              "positionCode": "G",
+              "sweaterNumber": 31
+            },
+            "team": {
+              "id": 26,
+              "fullName": "Los Angeles Kings",
+              "rawTricode": "LAK",
+              "triCode": "LAK"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 9,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/goalies/savePctg?cayenneExp=season=20252026%20and%20gameType=2%20and%20gamesPlayed%20%3E=%2024",
+      "data": {
+        "data": [
+          {
+            "savePctg": 0.918269,
+            "player": {
+              "id": 8475809,
+              "fullName": "Scott Wedgewood",
+              "positionCode": "G",
+              "sweaterNumber": 41
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "savePctg": 0.914547,
+            "player": {
+              "id": 8482661,
+              "fullName": "Jesper Wallstedt",
+              "positionCode": "G",
+              "sweaterNumber": 30
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "savePctg": 0.912595,
+            "player": {
+              "id": 8476883,
+              "fullName": "Andrei Vasilevskiy",
+              "positionCode": "G",
+              "sweaterNumber": 88
+            },
+            "team": {
+              "id": 14,
+              "fullName": "Tampa Bay Lightning",
+              "rawTricode": "TBL",
+              "triCode": "TBL"
+            }
+          },
+          {
+            "savePctg": 0.911839,
+            "player": {
+              "id": 8480313,
+              "fullName": "Logan Thompson",
+              "positionCode": "G",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 15,
+              "fullName": "Washington Capitals",
+              "rawTricode": "WSH",
+              "triCode": "WSH"
+            }
+          },
+          {
+            "savePctg": 0.911579,
+            "player": {
+              "id": 8478048,
+              "fullName": "Igor Shesterkin",
+              "positionCode": "G",
+              "sweaterNumber": 31
+            },
+            "team": {
+              "id": 3,
+              "fullName": "New York Rangers",
+              "rawTricode": "NYR",
+              "triCode": "NYR"
+            }
+          },
+          {
+            "savePctg": 0.910535,
+            "player": {
+              "id": 8480981,
+              "fullName": "Joel Hofer",
+              "positionCode": "G",
+              "sweaterNumber": 30
+            },
+            "team": {
+              "id": 19,
+              "fullName": "St. Louis Blues",
+              "rawTricode": "STL",
+              "triCode": "STL"
+            }
+          },
+          {
+            "savePctg": 0.91,
+            "player": {
+              "id": 8476341,
+              "fullName": "Anton Forsberg",
+              "positionCode": "G",
+              "sweaterNumber": 31
+            },
+            "team": {
+              "id": 26,
+              "fullName": "Los Angeles Kings",
+              "rawTricode": "LAK",
+              "triCode": "LAK"
+            }
+          },
+          {
+            "savePctg": 0.909959,
+            "player": {
+              "id": 8479193,
+              "fullName": "Casey DeSmith",
+              "positionCode": "G",
+              "sweaterNumber": 1
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          },
+          {
+            "savePctg": 0.90919,
+            "player": {
+              "id": 8480045,
+              "fullName": "Ukko-Pekka Luukkonen",
+              "positionCode": "G",
+              "sweaterNumber": 1
+            },
+            "team": {
+              "id": 7,
+              "fullName": "Buffalo Sabres",
+              "rawTricode": "BUF",
+              "triCode": "BUF"
+            }
+          },
+          {
+            "savePctg": 0.909091,
+            "player": {
+              "id": 8482445,
+              "fullName": "Devin Cooley",
+              "positionCode": "G",
+              "sweaterNumber": 1
+            },
+            "team": {
+              "id": 20,
+              "fullName": "Calgary Flames",
+              "rawTricode": "CGY",
+              "triCode": "CGY"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 10,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/assists?cayenneExp=season=20252026%20and%20gameType=2",
+      "data": {
+        "data": [
+          {
+            "assists": 86,
+            "player": {
+              "id": 8478402,
+              "fullName": "Connor McDavid",
+              "positionCode": "C",
+              "sweaterNumber": 97
+            },
+            "team": {
+              "id": 22,
+              "fullName": "Edmonton Oilers",
+              "rawTricode": "EDM",
+              "triCode": "EDM"
+            }
+          },
+          {
+            "assists": 85,
+            "player": {
+              "id": 8476453,
+              "fullName": "Nikita Kucherov",
+              "positionCode": "R",
+              "sweaterNumber": 86
+            },
+            "team": {
+              "id": 14,
+              "fullName": "Tampa Bay Lightning",
+              "rawTricode": "TBL",
+              "triCode": "TBL"
+            }
+          },
+          {
+            "assists": 74,
+            "player": {
+              "id": 8477492,
+              "fullName": "Nathan MacKinnon",
+              "positionCode": "C",
+              "sweaterNumber": 29
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "assists": 71,
+            "player": {
+              "id": 8480018,
+              "fullName": "Nick Suzuki",
+              "positionCode": "C",
+              "sweaterNumber": 14
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "assists": 70,
+            "player": {
+              "id": 8477956,
+              "fullName": "David Pastrnak",
+              "positionCode": "R",
+              "sweaterNumber": 88
+            },
+            "team": {
+              "id": 6,
+              "fullName": "Boston Bruins",
+              "rawTricode": "BOS",
+              "triCode": "BOS"
+            }
+          },
+          {
+            "assists": 70,
+            "player": {
+              "id": 8480803,
+              "fullName": "Evan Bouchard",
+              "positionCode": "D",
+              "sweaterNumber": 2
+            },
+            "team": {
+              "id": 22,
+              "fullName": "Edmonton Oilers",
+              "rawTricode": "EDM",
+              "triCode": "EDM"
+            }
+          },
+          {
+            "assists": 69,
+            "player": {
+              "id": 8480800,
+              "fullName": "Quinn Hughes",
+              "positionCode": "D",
+              "sweaterNumber": 43
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "assists": 68,
+            "player": {
+              "id": 8484801,
+              "fullName": "Macklin Celebrini",
+              "positionCode": "C",
+              "sweaterNumber": 71
+            },
+            "team": {
+              "id": 28,
+              "fullName": "San Jose Sharks",
+              "rawTricode": "SJS",
+              "triCode": "SJS"
+            }
+          },
+          {
+            "assists": 65,
+            "player": {
+              "id": 8476460,
+              "fullName": "Mark Scheifele",
+              "positionCode": "C",
+              "sweaterNumber": 55
+            },
+            "team": {
+              "id": 52,
+              "fullName": "Winnipeg Jets",
+              "rawTricode": "WPG",
+              "triCode": "WPG"
+            }
+          },
+          {
+            "assists": 64,
+            "player": {
+              "id": 8483457,
+              "fullName": "Lane Hutson",
+              "positionCode": "D",
+              "sweaterNumber": 48
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 11,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/goals?cayenneExp=season=20252026%20and%20gameType=2",
+      "data": {
+        "data": [
+          {
+            "goals": 52,
+            "player": {
+              "id": 8477492,
+              "fullName": "Nathan MacKinnon",
+              "positionCode": "C",
+              "sweaterNumber": 29
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "goals": 51,
+            "player": {
+              "id": 8481540,
+              "fullName": "Cole Caufield",
+              "positionCode": "R",
+              "sweaterNumber": 13
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "goals": 47,
+            "player": {
+              "id": 8478402,
+              "fullName": "Connor McDavid",
+              "positionCode": "C",
+              "sweaterNumber": 97
+            },
+            "team": {
+              "id": 22,
+              "fullName": "Edmonton Oilers",
+              "rawTricode": "EDM",
+              "triCode": "EDM"
+            }
+          },
+          {
+            "goals": 45,
+            "player": {
+              "id": 8478864,
+              "fullName": "Kirill Kaprizov",
+              "positionCode": "L",
+              "sweaterNumber": 97
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "goals": 44,
+            "player": {
+              "id": 8480027,
+              "fullName": "Jason Robertson",
+              "positionCode": "L",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          },
+          {
+            "goals": 44,
+            "player": {
+              "id": 8482740,
+              "fullName": "Wyatt Johnston",
+              "positionCode": "C",
+              "sweaterNumber": 53
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          },
+          {
+            "goals": 43,
+            "player": {
+              "id": 8476453,
+              "fullName": "Nikita Kucherov",
+              "positionCode": "R",
+              "sweaterNumber": 86
+            },
+            "team": {
+              "id": 14,
+              "fullName": "Tampa Bay Lightning",
+              "rawTricode": "TBL",
+              "triCode": "TBL"
+            }
+          },
+          {
+            "goals": 42,
+            "player": {
+              "id": 8484801,
+              "fullName": "Macklin Celebrini",
+              "positionCode": "C",
+              "sweaterNumber": 71
+            },
+            "team": {
+              "id": 28,
+              "fullName": "San Jose Sharks",
+              "rawTricode": "SJS",
+              "triCode": "SJS"
+            }
+          },
+          {
+            "goals": 42,
+            "player": {
+              "id": 8481557,
+              "fullName": "Matt Boldy",
+              "positionCode": "L",
+              "sweaterNumber": 12
+            },
+            "team": {
+              "id": 30,
+              "fullName": "Minnesota Wild",
+              "rawTricode": "MIN",
+              "triCode": "MIN"
+            }
+          },
+          {
+            "goals": 40,
+            "player": {
+              "id": 8479337,
+              "fullName": "Alex DeBrincat",
+              "positionCode": "R",
+              "sweaterNumber": 93
+            },
+            "team": {
+              "id": 17,
+              "fullName": "Detroit Red Wings",
+              "rawTricode": "DET",
+              "triCode": "DET"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 12,
+      "source": "origin",
+      "url": "https://api.nhle.com/stats/rest/en/leaders/skaters/points?cayenneExp=season=20252026%20and%20gameType=2",
+      "data": {
+        "data": [
+          {
+            "points": 133,
+            "player": {
+              "id": 8478402,
+              "fullName": "Connor McDavid",
+              "positionCode": "C",
+              "sweaterNumber": 97
+            },
+            "team": {
+              "id": 22,
+              "fullName": "Edmonton Oilers",
+              "rawTricode": "EDM",
+              "triCode": "EDM"
+            }
+          },
+          {
+            "points": 128,
+            "player": {
+              "id": 8476453,
+              "fullName": "Nikita Kucherov",
+              "positionCode": "R",
+              "sweaterNumber": 86
+            },
+            "team": {
+              "id": 14,
+              "fullName": "Tampa Bay Lightning",
+              "rawTricode": "TBL",
+              "triCode": "TBL"
+            }
+          },
+          {
+            "points": 126,
+            "player": {
+              "id": 8477492,
+              "fullName": "Nathan MacKinnon",
+              "positionCode": "C",
+              "sweaterNumber": 29
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "points": 110,
+            "player": {
+              "id": 8484801,
+              "fullName": "Macklin Celebrini",
+              "positionCode": "C",
+              "sweaterNumber": 71
+            },
+            "team": {
+              "id": 28,
+              "fullName": "San Jose Sharks",
+              "rawTricode": "SJS",
+              "triCode": "SJS"
+            }
+          },
+          {
+            "points": 99,
+            "player": {
+              "id": 8477956,
+              "fullName": "David Pastrnak",
+              "positionCode": "R",
+              "sweaterNumber": 88
+            },
+            "team": {
+              "id": 6,
+              "fullName": "Boston Bruins",
+              "rawTricode": "BOS",
+              "triCode": "BOS"
+            }
+          },
+          {
+            "points": 99,
+            "player": {
+              "id": 8480039,
+              "fullName": "Martin Necas",
+              "positionCode": "C",
+              "sweaterNumber": 88
+            },
+            "team": {
+              "id": 21,
+              "fullName": "Colorado Avalanche",
+              "rawTricode": "COL",
+              "triCode": "COL"
+            }
+          },
+          {
+            "points": 99,
+            "player": {
+              "id": 8476460,
+              "fullName": "Mark Scheifele",
+              "positionCode": "C",
+              "sweaterNumber": 55
+            },
+            "team": {
+              "id": 52,
+              "fullName": "Winnipeg Jets",
+              "rawTricode": "WPG",
+              "triCode": "WPG"
+            }
+          },
+          {
+            "points": 99,
+            "player": {
+              "id": 8480018,
+              "fullName": "Nick Suzuki",
+              "positionCode": "C",
+              "sweaterNumber": 14
+            },
+            "team": {
+              "id": 8,
+              "fullName": "Montréal Canadiens",
+              "rawTricode": "MTL",
+              "triCode": "MTL"
+            }
+          },
+          {
+            "points": 97,
+            "player": {
+              "id": 8477934,
+              "fullName": "Leon Draisaitl",
+              "positionCode": "C",
+              "sweaterNumber": 29
+            },
+            "team": {
+              "id": 22,
+              "fullName": "Edmonton Oilers",
+              "rawTricode": "EDM",
+              "triCode": "EDM"
+            }
+          },
+          {
+            "points": 94,
+            "player": {
+              "id": 8480027,
+              "fullName": "Jason Robertson",
+              "positionCode": "L",
+              "sweaterNumber": 21
+            },
+            "team": {
+              "id": 25,
+              "fullName": "Dallas Stars",
+              "rawTricode": "DAL",
+              "triCode": "DAL"
+            }
+          }
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": 13,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/skater-zone-time-top-10/all/all/offensive/20252026/2",
+      "data": [
+        {
+          "offensiveZoneTime": 0.49732413,
+          "neutralZoneTime": 0.17786118,
+          "defensiveZoneTime": 0.32481469,
+          "player": {
+            "firstName": "Shayne",
+            "lastName": "Gostisbehere",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476906.png",
+            "position": "D",
+            "sweaterNumber": 4,
+            "team": {
+              "commonName": "Hurricanes",
+              "placeNameWithPreposition": "Carolina",
+              "abbreviation": "CAR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.49256099,
+          "neutralZoneTime": 0.178577,
+          "defensiveZoneTime": 0.32886202,
+          "player": {
+            "firstName": "Andrei",
+            "lastName": "Svechnikov",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480830.png",
+            "position": "R",
+            "sweaterNumber": 37,
+            "team": {
+              "commonName": "Hurricanes",
+              "placeNameWithPreposition": "Carolina",
+              "abbreviation": "CAR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48589532,
+          "neutralZoneTime": 0.17016832,
+          "defensiveZoneTime": 0.34393636,
+          "player": {
+            "firstName": "Brady",
+            "lastName": "Tkachuk",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/OTT/8480801.png",
+            "position": "L",
+            "sweaterNumber": 7,
+            "team": {
+              "commonName": "Senators",
+              "placeNameWithPreposition": "Ottawa",
+              "abbreviation": "OTT",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48312166,
+          "neutralZoneTime": 0.16858007,
+          "defensiveZoneTime": 0.34829828,
+          "player": {
+            "firstName": "Zach",
+            "lastName": "Hyman",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/EDM/8475786.png",
+            "position": "L",
+            "sweaterNumber": 18,
+            "team": {
+              "commonName": "Oilers",
+              "placeNameWithPreposition": "Edmonton",
+              "abbreviation": "EDM",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48244286,
+          "neutralZoneTime": 0.17267709,
+          "defensiveZoneTime": 0.34488004,
+          "player": {
+            "firstName": "Drake",
+            "lastName": "Batherson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/OTT/8480208.png",
+            "position": "R",
+            "sweaterNumber": 19,
+            "team": {
+              "commonName": "Senators",
+              "placeNameWithPreposition": "Ottawa",
+              "abbreviation": "OTT",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48229181,
+          "neutralZoneTime": 0.17946863,
+          "defensiveZoneTime": 0.33823957,
+          "player": {
+            "firstName": "Seth",
+            "lastName": "Jarvis",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8482093.png",
+            "position": "C",
+            "sweaterNumber": 24,
+            "team": {
+              "commonName": "Hurricanes",
+              "placeNameWithPreposition": "Carolina",
+              "abbreviation": "CAR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48226122,
+          "neutralZoneTime": 0.17889159,
+          "defensiveZoneTime": 0.3388472,
+          "player": {
+            "firstName": "Sebastian",
+            "lastName": "Aho",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8478427.png",
+            "position": "C",
+            "sweaterNumber": 20,
+            "team": {
+              "commonName": "Hurricanes",
+              "placeNameWithPreposition": "Carolina",
+              "abbreviation": "CAR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48040368,
+          "neutralZoneTime": 0.17489785,
+          "defensiveZoneTime": 0.34469847,
+          "player": {
+            "firstName": "Dylan",
+            "lastName": "Cozens",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/OTT/8481528.png",
+            "position": "C",
+            "sweaterNumber": 24,
+            "team": {
+              "commonName": "Senators",
+              "placeNameWithPreposition": "Ottawa",
+              "abbreviation": "OTT",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.48000645,
+          "neutralZoneTime": 0.17464902,
+          "defensiveZoneTime": 0.34534453,
+          "player": {
+            "firstName": "Adam",
+            "lastName": "Fox",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYR/8479323.png",
+            "position": "D",
+            "sweaterNumber": 23,
+            "team": {
+              "commonName": "Rangers",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "offensiveZoneTime": 0.47752405,
+          "neutralZoneTime": 0.17978768,
+          "defensiveZoneTime": 0.34268827,
+          "player": {
+            "firstName": "Taylor",
+            "lastName": "Hall",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8475791.png",
+            "position": "L",
+            "sweaterNumber": 71,
+            "team": {
+              "commonName": "Hurricanes",
+              "placeNameWithPreposition": "Carolina",
+              "abbreviation": "CAR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/skater-shot-location-top-10/all/sog/all/20252026/2",
+      "data": [
+        {
+          "all": 344,
+          "highDanger": 80,
+          "midRange": 147,
+          "longRange": 32,
+          "player": {
+            "firstName": "Nathan",
+            "lastName": "MacKinnon",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/COL/8477492.png",
+            "position": "C",
+            "sweaterNumber": 29,
+            "team": {
+              "commonName": "Avalanche",
+              "placeNameWithPreposition": "Colorado",
+              "abbreviation": "COL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 298,
+          "highDanger": 117,
+          "midRange": 89,
+          "longRange": 8,
+          "player": {
+            "firstName": "Connor",
+            "lastName": "McDavid",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/EDM/8478402.png",
+            "position": "C",
+            "sweaterNumber": 97,
+            "team": {
+              "commonName": "Oilers",
+              "placeNameWithPreposition": "Edmonton",
+              "abbreviation": "EDM",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 288,
+          "highDanger": 107,
+          "midRange": 97,
+          "longRange": 28,
+          "player": {
+            "firstName": "Jason",
+            "lastName": "Robertson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DAL/8480027.png",
+            "position": "L",
+            "sweaterNumber": 21,
+            "team": {
+              "commonName": "Stars",
+              "placeNameWithPreposition": "Dallas",
+              "abbreviation": "DAL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DAL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 280,
+          "highDanger": 76,
+          "midRange": 114,
+          "longRange": 31,
+          "player": {
+            "firstName": "Alex",
+            "lastName": "DeBrincat",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DET/8479337.png",
+            "position": "R",
+            "sweaterNumber": 93,
+            "team": {
+              "commonName": "Red Wings",
+              "placeNameWithPreposition": "Detroit",
+              "abbreviation": "DET",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "all": 279,
+          "highDanger": 59,
+          "midRange": 152,
+          "longRange": 27,
+          "player": {
+            "firstName": "Macklin",
+            "lastName": "Celebrini",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/SJS/8484801.png",
+            "position": "C",
+            "sweaterNumber": 71,
+            "team": {
+              "commonName": "Sharks",
+              "placeNameWithPreposition": "San Jose",
+              "abbreviation": "SJS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/SJS_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 271,
+          "highDanger": 50,
+          "midRange": 112,
+          "longRange": 34,
+          "player": {
+            "firstName": "Cutter",
+            "lastName": "Gauthier",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/ANA/8483445.png",
+            "position": "L",
+            "sweaterNumber": 61,
+            "team": {
+              "commonName": "Ducks",
+              "placeNameWithPreposition": "Anaheim",
+              "abbreviation": "ANA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/ANA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 269,
+          "highDanger": 85,
+          "midRange": 75,
+          "longRange": 33,
+          "player": {
+            "firstName": "Kirill",
+            "lastName": "Kaprizov",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MIN/8478864.png",
+            "position": "L",
+            "sweaterNumber": 97,
+            "team": {
+              "commonName": "Wild",
+              "placeNameWithPreposition": "Minnesota",
+              "abbreviation": "MIN",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 266,
+          "highDanger": 91,
+          "midRange": 63,
+          "longRange": 29,
+          "player": {
+            "firstName": "Timo",
+            "lastName": "Meier",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NJD/8478414.png",
+            "position": "R",
+            "sweaterNumber": 28,
+            "team": {
+              "commonName": "Devils",
+              "placeNameWithPreposition": "New Jersey",
+              "abbreviation": "NJD",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NJD_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 266,
+          "highDanger": 71,
+          "midRange": 108,
+          "longRange": 40,
+          "player": {
+            "firstName": "Tage",
+            "lastName": "Thompson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BUF/8479420.png",
+            "position": "C",
+            "sweaterNumber": 72,
+            "team": {
+              "commonName": "Sabres",
+              "placeNameWithPreposition": "Buffalo",
+              "abbreviation": "BUF",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 258,
+          "highDanger": 58,
+          "midRange": 101,
+          "longRange": 31,
+          "player": {
+            "firstName": "Kyle",
+            "lastName": "Connor",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WPG/8478398.png",
+            "position": "L",
+            "sweaterNumber": 81,
+            "team": {
+              "commonName": "Jets",
+              "placeNameWithPreposition": "Winnipeg",
+              "abbreviation": "WPG",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/skater-distance-top-10/all/all/total/20252026/2",
+      "data": [
+        {
+          "distanceTotal": {
+            "imperial": 322.2508,
+            "metric": 518.5871
+          },
+          "distancePer60": {
+            "imperial": 10.5124,
+            "metric": 16.9172
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.8765,
+            "metric": 7.8475,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Connor"
+                },
+                "lastName": {
+                  "default": "McDavid"
+                }
+              },
+              "gameDate": "2026-01-10",
+              "awayTeam": {
+                "abbrev": "LAK",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "EDM",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.8516,
+            "metric": 2.9797,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Connor"
+                },
+                "lastName": {
+                  "default": "McDavid"
+                }
+              },
+              "gameDate": "2026-01-24",
+              "awayTeam": {
+                "abbrev": "WSH",
+                "score": 5
+              },
+              "homeTeam": {
+                "abbrev": "EDM",
+                "score": 6
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Connor",
+            "lastName": "McDavid",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/EDM/8478402.png",
+            "position": "C",
+            "sweaterNumber": 97,
+            "team": {
+              "commonName": "Oilers",
+              "placeNameWithPreposition": "Edmonton",
+              "abbreviation": "EDM",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 307.4574,
+            "metric": 494.7805
+          },
+          "distancePer60": {
+            "imperial": 8.9874,
+            "metric": 14.4632
+          },
+          "distanceMaxPerGame": {
+            "imperial": 5.0876,
+            "metric": 8.1872,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Quinn"
+                },
+                "lastName": {
+                  "default": "Hughes"
+                }
+              },
+              "gameDate": "2026-02-02",
+              "awayTeam": {
+                "abbrev": "MTL",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "MIN",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.9246,
+            "metric": 3.0971,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Quinn"
+                },
+                "lastName": {
+                  "default": "Hughes"
+                }
+              },
+              "gameDate": "2026-03-15",
+              "awayTeam": {
+                "abbrev": "TOR",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "MIN",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Quinn",
+            "lastName": "Hughes",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MIN/8480800.png",
+            "position": "D",
+            "sweaterNumber": 43,
+            "team": {
+              "commonName": "Wild",
+              "placeNameWithPreposition": "Minnesota",
+              "abbreviation": "MIN",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 293.369,
+            "metric": 472.1085
+          },
+          "distancePer60": {
+            "imperial": 8.5366,
+            "metric": 13.7376
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.6573,
+            "metric": 7.4948,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Moritz"
+                },
+                "lastName": {
+                  "default": "Seider"
+                }
+              },
+              "gameDate": "2026-01-29",
+              "awayTeam": {
+                "abbrev": "WSH",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "DET",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.713,
+            "metric": 2.7566,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Moritz"
+                },
+                "lastName": {
+                  "default": "Seider"
+                }
+              },
+              "gameDate": "2026-02-04",
+              "awayTeam": {
+                "abbrev": "DET",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "UTA",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Moritz",
+            "lastName": "Seider",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DET/8481542.png",
+            "position": "D",
+            "sweaterNumber": 53,
+            "team": {
+              "commonName": "Red Wings",
+              "placeNameWithPreposition": "Detroit",
+              "abbreviation": "DET",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 291.9406,
+            "metric": 469.8099
+          },
+          "distancePer60": {
+            "imperial": 8.83,
+            "metric": 14.2099
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.5871,
+            "metric": 7.3819,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Ivan"
+                },
+                "lastName": {
+                  "default": "Provorov"
+                }
+              },
+              "gameDate": "2025-12-31",
+              "awayTeam": {
+                "abbrev": "NJD",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "CBJ",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.6964,
+            "metric": 2.73,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Ivan"
+                },
+                "lastName": {
+                  "default": "Provorov"
+                }
+              },
+              "gameDate": "2025-12-31",
+              "awayTeam": {
+                "abbrev": "NJD",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "CBJ",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Ivan",
+            "lastName": "Provorov",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CBJ/8478500.png",
+            "position": "D",
+            "sweaterNumber": 9,
+            "team": {
+              "commonName": "Blue Jackets",
+              "placeNameWithPreposition": "Columbus",
+              "abbreviation": "CBJ",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 291.6065,
+            "metric": 469.2723
+          },
+          "distancePer60": {
+            "imperial": 8.8735,
+            "metric": 14.2799
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.748,
+            "metric": 7.6409,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Matthew"
+                },
+                "lastName": {
+                  "default": "Schaefer"
+                }
+              },
+              "gameDate": "2026-03-24",
+              "awayTeam": {
+                "abbrev": "CHI",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "NYI",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.8008,
+            "metric": 2.8979,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Matthew"
+                },
+                "lastName": {
+                  "default": "Schaefer"
+                }
+              },
+              "gameDate": "2026-04-03",
+              "awayTeam": {
+                "abbrev": "PHI",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "NYI",
+                "score": 1
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Matthew",
+            "lastName": "Schaefer",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYI/8485366.png",
+            "position": "D",
+            "sweaterNumber": 48,
+            "team": {
+              "commonName": "Islanders",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYI",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 288.0116,
+            "metric": 463.4872
+          },
+          "distancePer60": {
+            "imperial": 9.0937,
+            "metric": 14.6341
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.4073,
+            "metric": 7.0925,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Lane"
+                },
+                "lastName": {
+                  "default": "Hutson"
+                }
+              },
+              "gameDate": "2025-12-28",
+              "awayTeam": {
+                "abbrev": "MTL",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "TBL",
+                "score": 5
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.7954,
+            "metric": 2.8893,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Lane"
+                },
+                "lastName": {
+                  "default": "Hutson"
+                }
+              },
+              "gameDate": "2026-01-03",
+              "awayTeam": {
+                "abbrev": "MTL",
+                "score": 0
+              },
+              "homeTeam": {
+                "abbrev": "STL",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Lane",
+            "lastName": "Hutson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MTL/8483457.png",
+            "position": "D",
+            "sweaterNumber": 48,
+            "team": {
+              "commonName": "Canadiens",
+              "placeNameWithPreposition": "Montréal",
+              "abbreviation": "MTL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MTL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 284.6111,
+            "metric": 458.0148
+          },
+          "distancePer60": {
+            "imperial": 10.0762,
+            "metric": 16.2153
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.7046,
+            "metric": 7.5709,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Macklin"
+                },
+                "lastName": {
+                  "default": "Celebrini"
+                }
+              },
+              "gameDate": "2026-01-10",
+              "awayTeam": {
+                "abbrev": "DAL",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "SJS",
+                "score": 5
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.7225,
+            "metric": 2.772,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Macklin"
+                },
+                "lastName": {
+                  "default": "Celebrini"
+                }
+              },
+              "gameDate": "2026-03-10",
+              "awayTeam": {
+                "abbrev": "SJS",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "BUF",
+                "score": 6
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Macklin",
+            "lastName": "Celebrini",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/SJS/8484801.png",
+            "position": "C",
+            "sweaterNumber": 71,
+            "team": {
+              "commonName": "Sharks",
+              "placeNameWithPreposition": "San Jose",
+              "abbreviation": "SJS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/SJS_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 283.9263,
+            "metric": 456.9128
+          },
+          "distancePer60": {
+            "imperial": 8.9119,
+            "metric": 14.3416
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.4816,
+            "metric": 7.2121,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Jackson"
+                },
+                "lastName": {
+                  "default": "LaCombe"
+                }
+              },
+              "gameDate": "2025-12-16",
+              "awayTeam": {
+                "abbrev": "ANA",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "CBJ",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.6427,
+            "metric": 2.6435,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Jackson"
+                },
+                "lastName": {
+                  "default": "LaCombe"
+                }
+              },
+              "gameDate": "2026-03-28",
+              "awayTeam": {
+                "abbrev": "ANA",
+                "score": 2
+              },
+              "homeTeam": {
+                "abbrev": "EDM",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Jackson",
+            "lastName": "LaCombe",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/ANA/8481605.png",
+            "position": "D",
+            "sweaterNumber": 2,
+            "team": {
+              "commonName": "Ducks",
+              "placeNameWithPreposition": "Anaheim",
+              "abbreviation": "ANA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/ANA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 283.5863,
+            "metric": 456.3657
+          },
+          "distancePer60": {
+            "imperial": 8.6189,
+            "metric": 13.8701
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.4582,
+            "metric": 7.1744,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Brock"
+                },
+                "lastName": {
+                  "default": "Faber"
+                }
+              },
+              "gameDate": "2025-12-18",
+              "awayTeam": {
+                "abbrev": "MIN",
+                "score": 5
+              },
+              "homeTeam": {
+                "abbrev": "CBJ",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.6112,
+            "metric": 2.5928,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Brock"
+                },
+                "lastName": {
+                  "default": "Faber"
+                }
+              },
+              "gameDate": "2025-12-18",
+              "awayTeam": {
+                "abbrev": "MIN",
+                "score": 5
+              },
+              "homeTeam": {
+                "abbrev": "CBJ",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Brock",
+            "lastName": "Faber",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MIN/8482122.png",
+            "position": "D",
+            "sweaterNumber": 7,
+            "team": {
+              "commonName": "Wild",
+              "placeNameWithPreposition": "Minnesota",
+              "abbreviation": "MIN",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "distanceTotal": {
+            "imperial": 282.9608,
+            "metric": 455.359
+          },
+          "distancePer60": {
+            "imperial": 9.9696,
+            "metric": 16.0438
+          },
+          "distanceMaxPerGame": {
+            "imperial": 4.418,
+            "metric": 7.1098,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Kyle"
+                },
+                "lastName": {
+                  "default": "Connor"
+                }
+              },
+              "gameDate": "2026-02-27",
+              "awayTeam": {
+                "abbrev": "WPG",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "ANA",
+                "score": 5
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "distanceMaxPerPeriod": {
+            "imperial": 1.8848,
+            "metric": 3.0332,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Kyle"
+                },
+                "lastName": {
+                  "default": "Connor"
+                }
+              },
+              "gameDate": "2026-03-26",
+              "awayTeam": {
+                "abbrev": "COL",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "WPG",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "gameType": 2
+            }
+          },
+          "player": {
+            "firstName": "Kyle",
+            "lastName": "Connor",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WPG/8478398.png",
+            "position": "L",
+            "sweaterNumber": 81,
+            "team": {
+              "commonName": "Jets",
+              "placeNameWithPreposition": "Winnipeg",
+              "abbreviation": "WPG",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/skater-speed-top-10/all/max/20252026/2",
+      "data": [
+        {
+          "maxSpeed": {
+            "imperial": 24.9389,
+            "metric": 40.1352,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Beck"
+                },
+                "lastName": {
+                  "default": "Malenstyn"
+                }
+              },
+              "gameDate": "2026-03-12",
+              "awayTeam": {
+                "abbrev": "WSH",
+                "score": 2
+              },
+              "homeTeam": {
+                "abbrev": "BUF",
+                "score": 1
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "12:05",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 14,
+          "bursts20To22": 178,
+          "bursts18To20": 487,
+          "player": {
+            "firstName": "Beck",
+            "lastName": "Malenstyn",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BUF/8479359.png",
+            "position": "L",
+            "sweaterNumber": 29,
+            "team": {
+              "commonName": "Sabres",
+              "placeNameWithPreposition": "Buffalo",
+              "abbreviation": "BUF",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.7795,
+            "metric": 39.8786,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Nathan"
+                },
+                "lastName": {
+                  "default": "MacKinnon"
+                }
+              },
+              "gameDate": "2026-04-05",
+              "awayTeam": {
+                "abbrev": "STL",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "COL",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "07:56",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 45,
+          "bursts20To22": 401,
+          "bursts18To20": 802,
+          "player": {
+            "firstName": "Nathan",
+            "lastName": "MacKinnon",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/COL/8477492.png",
+            "position": "C",
+            "sweaterNumber": 29,
+            "team": {
+              "commonName": "Avalanche",
+              "placeNameWithPreposition": "Colorado",
+              "abbreviation": "COL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.6119,
+            "metric": 39.6089,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Connor"
+                },
+                "lastName": {
+                  "default": "McDavid"
+                }
+              },
+              "gameDate": "2025-10-08",
+              "awayTeam": {
+                "abbrev": "CGY",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "EDM",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "08:04",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 149,
+          "bursts20To22": 522,
+          "bursts18To20": 901,
+          "player": {
+            "firstName": "Connor",
+            "lastName": "McDavid",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/EDM/8478402.png",
+            "position": "C",
+            "sweaterNumber": 97,
+            "team": {
+              "commonName": "Oilers",
+              "placeNameWithPreposition": "Edmonton",
+              "abbreviation": "EDM",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.3765,
+            "metric": 39.2301,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Logan"
+                },
+                "lastName": {
+                  "default": "Cooley"
+                }
+              },
+              "gameDate": "2025-11-26",
+              "awayTeam": {
+                "abbrev": "MTL",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "UTA",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "18:44",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 32,
+          "bursts20To22": 175,
+          "bursts18To20": 391,
+          "player": {
+            "firstName": "Logan",
+            "lastName": "Cooley",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/UTA/8483431.png",
+            "position": "C",
+            "sweaterNumber": 92,
+            "team": {
+              "commonName": "Mammoth",
+              "placeNameWithPreposition": "Utah",
+              "abbreviation": "UTA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/UTA_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.3656,
+            "metric": 39.2125,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Jake"
+                },
+                "lastName": {
+                  "default": "Sanderson"
+                }
+              },
+              "gameDate": "2026-01-13",
+              "awayTeam": {
+                "abbrev": "VAN",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "OTT",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "01:55",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 31,
+          "bursts20To22": 173,
+          "bursts18To20": 516,
+          "player": {
+            "firstName": "Jake",
+            "lastName": "Sanderson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/OTT/8482105.png",
+            "position": "D",
+            "sweaterNumber": 85,
+            "team": {
+              "commonName": "Senators",
+              "placeNameWithPreposition": "Ottawa",
+              "abbreviation": "OTT",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.2609,
+            "metric": 39.0441,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Ryan"
+                },
+                "lastName": {
+                  "default": "Leonard"
+                }
+              },
+              "gameDate": "2026-03-28",
+              "awayTeam": {
+                "abbrev": "WSH",
+                "score": 5
+              },
+              "homeTeam": {
+                "abbrev": "VGK",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "14:41",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 11,
+          "bursts20To22": 109,
+          "bursts18To20": 397,
+          "player": {
+            "firstName": "Ryan",
+            "lastName": "Leonard",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WSH/8484186.png",
+            "position": "R",
+            "sweaterNumber": 9,
+            "team": {
+              "commonName": "Capitals",
+              "placeNameWithPreposition": "Washington",
+              "abbreviation": "WSH",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.25,
+            "metric": 39.0264,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Bobby"
+                },
+                "lastName": {
+                  "default": "McMann"
+                }
+              },
+              "gameDate": "2025-12-02",
+              "awayTeam": {
+                "abbrev": "TOR",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "FLA",
+                "score": 1
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "04:11",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 24,
+          "bursts20To22": 231,
+          "bursts18To20": 611,
+          "player": {
+            "firstName": "Bobby",
+            "lastName": "McMann",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/SEA/8482259.png",
+            "position": "C",
+            "sweaterNumber": 74,
+            "team": {
+              "commonName": "Kraken",
+              "placeNameWithPreposition": "Seattle",
+              "abbreviation": "SEA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/SEA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.2194,
+            "metric": 38.9773,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Trevor"
+                },
+                "lastName": {
+                  "default": "Moore"
+                }
+              },
+              "gameDate": "2026-04-01",
+              "awayTeam": {
+                "abbrev": "STL",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "LAK",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 4,
+                "periodType": "OT"
+              },
+              "timeInPeriod": "01:54",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 7,
+          "bursts20To22": 124,
+          "bursts18To20": 512,
+          "player": {
+            "firstName": "Trevor",
+            "lastName": "Moore",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/LAK/8479675.png",
+            "position": "L",
+            "sweaterNumber": 12,
+            "team": {
+              "commonName": "Kings",
+              "placeNameWithPreposition": "Los Angeles",
+              "abbreviation": "LAK",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/LAK_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 24.2193,
+            "metric": 38.9771,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Cole"
+                },
+                "lastName": {
+                  "default": "Koepke"
+                }
+              },
+              "gameDate": "2026-03-07",
+              "awayTeam": {
+                "abbrev": "VAN",
+                "score": 2
+              },
+              "homeTeam": {
+                "abbrev": "WPG",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "09:46",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 20,
+          "bursts20To22": 158,
+          "bursts18To20": 352,
+          "player": {
+            "firstName": "Cole",
+            "lastName": "Koepke",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WPG/8481043.png",
+            "position": "L",
+            "sweaterNumber": 45,
+            "team": {
+              "commonName": "Jets",
+              "placeNameWithPreposition": "Winnipeg",
+              "abbreviation": "WPG",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "maxSpeed": {
+            "imperial": 23.951,
+            "metric": 38.5453,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Jansen"
+                },
+                "lastName": {
+                  "default": "Harkins"
+                }
+              },
+              "gameDate": "2025-11-06",
+              "awayTeam": {
+                "abbrev": "ANA",
+                "score": 7
+              },
+              "homeTeam": {
+                "abbrev": "DAL",
+                "score": 5
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "02:02",
+              "gameType": 2
+            }
+          },
+          "burstsOver22": 3,
+          "bursts20To22": 80,
+          "bursts18To20": 297,
+          "player": {
+            "firstName": "Jansen",
+            "lastName": "Harkins",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/ANA/8478424.png",
+            "position": "C",
+            "sweaterNumber": 24,
+            "team": {
+              "commonName": "Ducks",
+              "placeNameWithPreposition": "Anaheim",
+              "abbreviation": "ANA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/ANA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/skater-shot-speed-top-10/all/max/20252026/2",
+      "data": [
+        {
+          "hardestShot": {
+            "imperial": 103.9,
+            "metric": 167.2108,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Nikita"
+                },
+                "lastName": {
+                  "default": "Zadorov"
+                }
+              },
+              "gameDate": "2026-03-28",
+              "awayTeam": {
+                "abbrev": "MIN",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "BOS",
+                "score": 6
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "08:29",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 1,
+          "shotAttempts90To100": 7,
+          "shotAttempts80To90": 41,
+          "shotAttempts70To80": 84,
+          "player": {
+            "firstName": "Nikita",
+            "lastName": "Zadorov",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BOS/8477507.png",
+            "position": "D",
+            "sweaterNumber": 91,
+            "team": {
+              "commonName": "Bruins",
+              "placeNameWithPreposition": "Boston",
+              "abbreviation": "BOS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 103.51,
+            "metric": 166.5832,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Tyler"
+                },
+                "lastName": {
+                  "default": "Kleven"
+                }
+              },
+              "gameDate": "2026-01-31",
+              "awayTeam": {
+                "abbrev": "NJD",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "OTT",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "12:37",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 1,
+          "shotAttempts90To100": 26,
+          "shotAttempts80To90": 32,
+          "shotAttempts70To80": 80,
+          "player": {
+            "firstName": "Tyler",
+            "lastName": "Kleven",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/OTT/8482095.png",
+            "position": "D",
+            "sweaterNumber": 43,
+            "team": {
+              "commonName": "Senators",
+              "placeNameWithPreposition": "Ottawa",
+              "abbreviation": "OTT",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 103.03,
+            "metric": 165.8107,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Morgan"
+                },
+                "lastName": {
+                  "default": "Geekie"
+                }
+              },
+              "gameDate": "2025-11-11",
+              "awayTeam": {
+                "abbrev": "TOR",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "BOS",
+                "score": 5
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "14:25",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 2,
+          "shotAttempts90To100": 25,
+          "shotAttempts80To90": 69,
+          "shotAttempts70To80": 51,
+          "player": {
+            "firstName": "Morgan",
+            "lastName": "Geekie",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BOS/8479987.png",
+            "position": "C",
+            "sweaterNumber": 39,
+            "team": {
+              "commonName": "Bruins",
+              "placeNameWithPreposition": "Boston",
+              "abbreviation": "BOS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 103.01,
+            "metric": 165.7785,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Ryan"
+                },
+                "lastName": {
+                  "default": "Pulock"
+                }
+              },
+              "gameDate": "2025-11-23",
+              "awayTeam": {
+                "abbrev": "SEA",
+                "score": 0
+              },
+              "homeTeam": {
+                "abbrev": "NYI",
+                "score": 1
+              },
+              "gameOutcome": {
+                "lastPeriodType": "SO"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "16:52",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 4,
+          "shotAttempts90To100": 36,
+          "shotAttempts80To90": 22,
+          "shotAttempts70To80": 58,
+          "player": {
+            "firstName": "Ryan",
+            "lastName": "Pulock",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYI/8477506.png",
+            "position": "D",
+            "sweaterNumber": 6,
+            "team": {
+              "commonName": "Islanders",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYI",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 102.83,
+            "metric": 165.4888,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Louis"
+                },
+                "lastName": {
+                  "default": "Crevier"
+                }
+              },
+              "gameDate": "2026-02-28",
+              "awayTeam": {
+                "abbrev": "CHI",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "COL",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "03:19",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 6,
+          "shotAttempts90To100": 37,
+          "shotAttempts80To90": 50,
+          "shotAttempts70To80": 78,
+          "player": {
+            "firstName": "Louis",
+            "lastName": "Crevier",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CHI/8481806.png",
+            "position": "D",
+            "sweaterNumber": 46,
+            "team": {
+              "commonName": "Blackhawks",
+              "placeNameWithPreposition": "Chicago",
+              "abbreviation": "CHI",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CHI_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CHI_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 102.58,
+            "metric": 165.0865,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "J.T."
+                },
+                "lastName": {
+                  "default": "Miller"
+                }
+              },
+              "gameDate": "2026-01-20",
+              "awayTeam": {
+                "abbrev": "NYR",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "LAK",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "19:12",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 1,
+          "shotAttempts90To100": 10,
+          "shotAttempts80To90": 29,
+          "shotAttempts70To80": 34,
+          "player": {
+            "firstName": "J.T.",
+            "lastName": "Miller",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYR/8476468.png",
+            "position": "C",
+            "sweaterNumber": 8,
+            "team": {
+              "commonName": "Rangers",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 102.47,
+            "metric": 164.9095,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Colin"
+                },
+                "lastName": {
+                  "default": "Miller"
+                }
+              },
+              "gameDate": "2025-11-26",
+              "awayTeam": {
+                "abbrev": "WPG",
+                "score": 3
+              },
+              "homeTeam": {
+                "abbrev": "WSH",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "17:49",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 3,
+          "shotAttempts90To100": 4,
+          "shotAttempts80To90": 13,
+          "shotAttempts70To80": 15,
+          "player": {
+            "firstName": "Colin",
+            "lastName": "Miller",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WPG/8476525.png",
+            "position": "D",
+            "sweaterNumber": 6,
+            "team": {
+              "commonName": "Jets",
+              "placeNameWithPreposition": "Winnipeg",
+              "abbreviation": "WPG",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 101.56,
+            "metric": 163.445,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Brandon"
+                },
+                "lastName": {
+                  "default": "Montour"
+                }
+              },
+              "gameDate": "2026-03-26",
+              "awayTeam": {
+                "abbrev": "SEA",
+                "score": 4
+              },
+              "homeTeam": {
+                "abbrev": "TBL",
+                "score": 3
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 3,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "08:37",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 2,
+          "shotAttempts90To100": 35,
+          "shotAttempts80To90": 66,
+          "shotAttempts70To80": 80,
+          "player": {
+            "firstName": "Brandon",
+            "lastName": "Montour",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/SEA/8477986.png",
+            "position": "D",
+            "sweaterNumber": 62,
+            "team": {
+              "commonName": "Kraken",
+              "placeNameWithPreposition": "Seattle",
+              "abbreviation": "SEA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/SEA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 101.42,
+            "metric": 163.2197,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Victor"
+                },
+                "lastName": {
+                  "default": "Hedman"
+                }
+              },
+              "gameDate": "2025-10-17",
+              "awayTeam": {
+                "abbrev": "TBL",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "DET",
+                "score": 2
+              },
+              "gameOutcome": {
+                "lastPeriodType": "OT",
+                "otPeriods": 1
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 2,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "01:08",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 1,
+          "shotAttempts90To100": 21,
+          "shotAttempts80To90": 28,
+          "shotAttempts70To80": 33,
+          "player": {
+            "firstName": "Victor",
+            "lastName": "Hedman",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/TBL/8475167.png",
+            "position": "D",
+            "sweaterNumber": 77,
+            "team": {
+              "commonName": "Lightning",
+              "placeNameWithPreposition": "Tampa Bay",
+              "abbreviation": "TBL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "hardestShot": {
+            "imperial": 101.12,
+            "metric": 162.7369,
+            "overlay": {
+              "player": {
+                "firstName": {
+                  "default": "Conor"
+                },
+                "lastName": {
+                  "default": "Timmins"
+                }
+              },
+              "gameDate": "2025-11-23",
+              "awayTeam": {
+                "abbrev": "CAR",
+                "score": 1
+              },
+              "homeTeam": {
+                "abbrev": "BUF",
+                "score": 4
+              },
+              "gameOutcome": {
+                "lastPeriodType": "REG"
+              },
+              "periodDescriptor": {
+                "maxRegulationPeriods": 3,
+                "number": 1,
+                "periodType": "REG"
+              },
+              "timeInPeriod": "16:09",
+              "gameType": 2
+            }
+          },
+          "shotAttemptsOver100": 1,
+          "shotAttempts90To100": 3,
+          "shotAttempts80To90": 12,
+          "shotAttempts70To80": 44,
+          "player": {
+            "firstName": "Conor",
+            "lastName": "Timmins",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BUF/8479982.png",
+            "position": "D",
+            "sweaterNumber": 21,
+            "team": {
+              "commonName": "Sabres",
+              "placeNameWithPreposition": "Buffalo",
+              "abbreviation": "BUF",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/goalie-edge-save-pctg-top-10/games/20252026/2",
+      "data": [
+        {
+          "gamesOver900": 37,
+          "pctgGamesOver900": 0.6981,
+          "player": {
+            "firstName": "Jeremy",
+            "lastName": "Swayman",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BOS/8480280.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Bruins",
+              "placeNameWithPreposition": "Boston",
+              "abbreviation": "BOS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 35,
+          "pctgGamesOver900": 0.614,
+          "player": {
+            "firstName": "Andrei",
+            "lastName": "Vasilevskiy",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/TBL/8476883.png",
+            "position": "G",
+            "sweaterNumber": 88,
+            "team": {
+              "commonName": "Lightning",
+              "placeNameWithPreposition": "Tampa Bay",
+              "abbreviation": "TBL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 34,
+          "pctgGamesOver900": 0.68,
+          "player": {
+            "firstName": "Dan",
+            "lastName": "Vladar",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/PHI/8478435.png",
+            "position": "G",
+            "sweaterNumber": 80,
+            "team": {
+              "commonName": "Flyers",
+              "placeNameWithPreposition": "Philadelphia",
+              "abbreviation": "PHI",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 34,
+          "pctgGamesOver900": 0.5965,
+          "player": {
+            "firstName": "Logan",
+            "lastName": "Thompson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WSH/8480313.png",
+            "position": "G",
+            "sweaterNumber": 48,
+            "team": {
+              "commonName": "Capitals",
+              "placeNameWithPreposition": "Washington",
+              "abbreviation": "WSH",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 33,
+          "pctgGamesOver900": 0.541,
+          "player": {
+            "firstName": "Karel",
+            "lastName": "Vejmelka",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/UTA/8478872.png",
+            "position": "G",
+            "sweaterNumber": 70,
+            "team": {
+              "commonName": "Mammoth",
+              "placeNameWithPreposition": "Utah",
+              "abbreviation": "UTA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/UTA_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 33,
+          "pctgGamesOver900": 0.6471,
+          "player": {
+            "firstName": "Jet",
+            "lastName": "Greaves",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CBJ/8482982.png",
+            "position": "G",
+            "sweaterNumber": 73,
+            "team": {
+              "commonName": "Blue Jackets",
+              "placeNameWithPreposition": "Columbus",
+              "abbreviation": "CBJ",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 32,
+          "pctgGamesOver900": 0.6275,
+          "player": {
+            "firstName": "Igor",
+            "lastName": "Shesterkin",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYR/8478048.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Rangers",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 30,
+          "pctgGamesOver900": 0.7317,
+          "player": {
+            "firstName": "Scott",
+            "lastName": "Wedgewood",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/COL/8475809.png",
+            "position": "G",
+            "sweaterNumber": 41,
+            "team": {
+              "commonName": "Avalanche",
+              "placeNameWithPreposition": "Colorado",
+              "abbreviation": "COL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 28,
+          "pctgGamesOver900": 0.5,
+          "player": {
+            "firstName": "Connor",
+            "lastName": "Hellebuyck",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WPG/8476945.png",
+            "position": "G",
+            "sweaterNumber": 37,
+            "team": {
+              "commonName": "Jets",
+              "placeNameWithPreposition": "Winnipeg",
+              "abbreviation": "WPG",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "gamesOver900": 27,
+          "pctgGamesOver900": 0.4821,
+          "player": {
+            "firstName": "John",
+            "lastName": "Gibson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DET/8476434.png",
+            "position": "G",
+            "sweaterNumber": 36,
+            "team": {
+              "commonName": "Red Wings",
+              "placeNameWithPreposition": "Detroit",
+              "abbreviation": "DET",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/goalie-5v5-top-10/save-pctg/20252026/2",
+      "data": [
+        {
+          "savePctg": 0.9261,
+          "savePctgClose": 0.9323,
+          "shots": 1096,
+          "shotsPer60": 26.4978,
+          "player": {
+            "firstName": "Igor",
+            "lastName": "Shesterkin",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYR/8478048.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Rangers",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9259,
+          "savePctgClose": 0.9204,
+          "shots": 958,
+          "shotsPer60": 24.5561,
+          "player": {
+            "firstName": "Dan",
+            "lastName": "Vladar",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/PHI/8478435.png",
+            "position": "G",
+            "sweaterNumber": 80,
+            "team": {
+              "commonName": "Flyers",
+              "placeNameWithPreposition": "Philadelphia",
+              "abbreviation": "PHI",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9258,
+          "savePctgClose": 0.9128,
+          "shots": 701,
+          "shotsPer60": 26.9256,
+          "player": {
+            "firstName": "Anton",
+            "lastName": "Forsberg",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/LAK/8476341.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Kings",
+              "placeNameWithPreposition": "Los Angeles",
+              "abbreviation": "LAK",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/LAK_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9254,
+          "savePctgClose": 0.927,
+          "shots": 697,
+          "shotsPer60": 28.2469,
+          "player": {
+            "firstName": "Philipp",
+            "lastName": "Grubauer",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/SEA/8475831.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Kraken",
+              "placeNameWithPreposition": "Seattle",
+              "abbreviation": "SEA",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/SEA_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9253,
+          "savePctgClose": 0.9231,
+          "shots": 803,
+          "shotsPer60": 25.0948,
+          "player": {
+            "firstName": "Scott",
+            "lastName": "Wedgewood",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/COL/8475809.png",
+            "position": "G",
+            "sweaterNumber": 41,
+            "team": {
+              "commonName": "Avalanche",
+              "placeNameWithPreposition": "Colorado",
+              "abbreviation": "COL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9249,
+          "savePctgClose": 0.9205,
+          "shots": 559,
+          "shotsPer60": 24.8101,
+          "player": {
+            "firstName": "Casey",
+            "lastName": "DeSmith",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DAL/8479193.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Stars",
+              "placeNameWithPreposition": "Dallas",
+              "abbreviation": "DAL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DAL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9223,
+          "savePctgClose": 0.9191,
+          "shots": 1119,
+          "shotsPer60": 26.8919,
+          "player": {
+            "firstName": "Jeremy",
+            "lastName": "Swayman",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BOS/8480280.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Bruins",
+              "placeNameWithPreposition": "Boston",
+              "abbreviation": "BOS",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.9218,
+          "savePctgClose": 0.9364,
+          "shots": 1202,
+          "shotsPer60": 26.6522,
+          "player": {
+            "firstName": "Logan",
+            "lastName": "Thompson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WSH/8480313.png",
+            "position": "G",
+            "sweaterNumber": 48,
+            "team": {
+              "commonName": "Capitals",
+              "placeNameWithPreposition": "Washington",
+              "abbreviation": "WSH",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.92,
+          "savePctgClose": 0.9245,
+          "shots": 1163,
+          "shotsPer60": 27.2484,
+          "player": {
+            "firstName": "Jet",
+            "lastName": "Greaves",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CBJ/8482982.png",
+            "position": "G",
+            "sweaterNumber": 73,
+            "team": {
+              "commonName": "Blue Jackets",
+              "placeNameWithPreposition": "Columbus",
+              "abbreviation": "CBJ",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "savePctg": 0.919,
+          "savePctgClose": 0.9243,
+          "shots": 778,
+          "shotsPer60": 29.6118,
+          "player": {
+            "firstName": "Jesper",
+            "lastName": "Wallstedt",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MIN/8482661.png",
+            "position": "G",
+            "sweaterNumber": 30,
+            "team": {
+              "commonName": "Wild",
+              "placeNameWithPreposition": "Minnesota",
+              "abbreviation": "MIN",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "source": "origin",
+      "url": "https://api-web.nhle.com/v1/edge/goalie-shot-location-top-10/save-pctg/all/20252026/2",
+      "data": [
+        {
+          "all": 0.918269,
+          "highDanger": 0.83165,
+          "midRange": 0.932806,
+          "longRange": 0.974026,
+          "player": {
+            "firstName": "Scott",
+            "lastName": "Wedgewood",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/COL/8475809.png",
+            "position": "G",
+            "sweaterNumber": 41,
+            "team": {
+              "commonName": "Avalanche",
+              "placeNameWithPreposition": "Colorado",
+              "abbreviation": "COL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.914547,
+          "highDanger": 0.828571,
+          "midRange": 0.909968,
+          "longRange": 0.972851,
+          "player": {
+            "firstName": "Jesper",
+            "lastName": "Wallstedt",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/MIN/8482661.png",
+            "position": "G",
+            "sweaterNumber": 30,
+            "team": {
+              "commonName": "Wild",
+              "placeNameWithPreposition": "Minnesota",
+              "abbreviation": "MIN",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.912534,
+          "highDanger": 0.848411,
+          "midRange": 0.910714,
+          "longRange": 0.967427,
+          "player": {
+            "firstName": "Andrei",
+            "lastName": "Vasilevskiy",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/TBL/8476883.png",
+            "position": "G",
+            "sweaterNumber": 88,
+            "team": {
+              "commonName": "Lightning",
+              "placeNameWithPreposition": "Tampa Bay",
+              "abbreviation": "TBL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.911579,
+          "highDanger": 0.842784,
+          "midRange": 0.90604,
+          "longRange": 0.964744,
+          "player": {
+            "firstName": "Igor",
+            "lastName": "Shesterkin",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/NYR/8478048.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Rangers",
+              "placeNameWithPreposition": "New York",
+              "abbreviation": "NYR",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.910535,
+          "highDanger": 0.785016,
+          "midRange": 0.909621,
+          "longRange": 0.983607,
+          "player": {
+            "firstName": "Joel",
+            "lastName": "Hofer",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/STL/8480981.png",
+            "position": "G",
+            "sweaterNumber": 30,
+            "team": {
+              "commonName": "Blues",
+              "placeNameWithPreposition": "St. Louis",
+              "abbreviation": "STL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/STL_light.svg?season=20252026",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/STL_dark.svg?season=20252026"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.910486,
+          "highDanger": 0.829268,
+          "midRange": 0.91762,
+          "longRange": 0.963415,
+          "player": {
+            "firstName": "Logan",
+            "lastName": "Thompson",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/WSH/8480313.png",
+            "position": "G",
+            "sweaterNumber": 48,
+            "team": {
+              "commonName": "Capitals",
+              "placeNameWithPreposition": "Washington",
+              "abbreviation": "WSH",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.91,
+          "highDanger": 0.853448,
+          "midRange": 0.88716,
+          "longRange": 0.979381,
+          "player": {
+            "firstName": "Anton",
+            "lastName": "Forsberg",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/LAK/8476341.png",
+            "position": "G",
+            "sweaterNumber": 31,
+            "team": {
+              "commonName": "Kings",
+              "placeNameWithPreposition": "Los Angeles",
+              "abbreviation": "LAK",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/LAK_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.909959,
+          "highDanger": 0.843602,
+          "midRange": 0.905941,
+          "longRange": 0.988235,
+          "player": {
+            "firstName": "Casey",
+            "lastName": "DeSmith",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/DAL/8479193.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Stars",
+              "placeNameWithPreposition": "Dallas",
+              "abbreviation": "DAL",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/DAL_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.90919,
+          "highDanger": 0.848375,
+          "midRange": 0.870079,
+          "longRange": 0.984043,
+          "player": {
+            "firstName": "Ukko-Pekka",
+            "lastName": "Luukkonen",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/BUF/8480045.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Sabres",
+              "placeNameWithPreposition": "Buffalo",
+              "abbreviation": "BUF",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg"
+              }
+            }
+          }
+        },
+        {
+          "all": 0.909091,
+          "highDanger": 0.849624,
+          "midRange": 0.8875,
+          "longRange": 0.975,
+          "player": {
+            "firstName": "Devin",
+            "lastName": "Cooley",
+            "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CGY/8482445.png",
+            "position": "G",
+            "sweaterNumber": 1,
+            "team": {
+              "commonName": "Flames",
+              "placeNameWithPreposition": "Calgary",
+              "abbreviation": "CGY",
+              "teamLogo": {
+                "light": "https://assets.nhle.com/logos/nhl/svg/CGY_light.svg",
+                "dark": "https://assets.nhle.com/logos/nhl/svg/CGY_dark.svg"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

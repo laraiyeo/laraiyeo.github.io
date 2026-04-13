@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
   RefreshControl,
 } from "react-native";
+import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
@@ -444,7 +444,7 @@ const GridPitcherBlock = ({ pitcher, teamColor, theme }) => {
             {summary}
           </Text>
         )}
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{ uri: headshotUrl }}
           style={[mlbGridStyles.pitcherHeadshot, { borderColor: teamColor }]}
         />
@@ -856,7 +856,7 @@ const MLBGridCard = ({
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             awayLogo ? (
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: awayLogo }}
                 style={mlbGridStyles.teamLogo}
                 resizeMode="contain"
@@ -892,7 +892,7 @@ const MLBGridCard = ({
                 {awayScore ?? "—"}
               </Text>
               {awayLogo && (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
                   style={mlbGridStyles.scoreLogoOverlay}
                   resizeMode="contain"
@@ -933,7 +933,7 @@ const MLBGridCard = ({
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             homeLogo ? (
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: homeLogo }}
                 style={mlbGridStyles.teamLogo}
                 resizeMode="contain"
@@ -969,7 +969,7 @@ const MLBGridCard = ({
                 {homeScore ?? "—"}
               </Text>
               {homeLogo && (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
                   style={mlbGridStyles.scoreLogoOverlay}
                   resizeMode="contain"
@@ -1080,7 +1080,7 @@ const MLBGridSection = ({
                 activeFilter === "upcoming" && toggleCollapse(group.dateKey)
               }
             >
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={require("../../../assets/mlb.png")}
                 style={mlbGridStyles.groupBubbleLogo}
                 resizeMode="contain"
@@ -1217,7 +1217,7 @@ const ScoreboardSection = ({
               }
             >
               <View style={styles.eventLogoContainer}>
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={require("../../../assets/mlb.png")}
                   style={styles.eventLogoImage}
                   resizeMode="contain"
@@ -1440,7 +1440,7 @@ const ScoreboardSection = ({
                         <View style={styles.teamWithLogo}>
                           <View style={styles.teamLogoSmall}>
                             {awayLogo ? (
-                              <Image
+                              <Image cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
                                 style={styles.teamLogoSmallImg}
                                 resizeMode="contain"
@@ -1508,7 +1508,7 @@ const ScoreboardSection = ({
                         <View style={styles.teamWithLogo}>
                           <View style={styles.teamLogoSmall}>
                             {homeLogo ? (
-                              <Image
+                              <Image cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
                                 style={styles.teamLogoSmallImg}
                                 resizeMode="contain"
@@ -1584,7 +1584,7 @@ const ScoreboardSection = ({
                         <View style={styles.pitcherSideCell}>
                           <View style={styles.pitcherInfoRowAway}>
                             {!!awayProbable?.id && (
-                              <Image
+                              <Image cachePolicy="memory-disk"
                                 source={{ uri: awayHeadshot }}
                                 style={[
                                   styles.listPitcherHeadshot,
@@ -1657,7 +1657,7 @@ const ScoreboardSection = ({
                               </Text>
                             </View>
                             {!!homeProbable?.id && (
-                              <Image
+                              <Image cachePolicy="memory-disk"
                                 source={{ uri: homeHeadshot }}
                                 style={[
                                   styles.listPitcherHeadshot,
@@ -2101,7 +2101,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
               <Text
                 style={[styles.emptyStateText, { color: theme.textSecondary }]}
               >
-                No games for {activeFilter}
+                No games found
               </Text>
             </View>
           )}

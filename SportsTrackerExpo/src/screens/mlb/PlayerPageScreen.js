@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Animated,
@@ -12,6 +11,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { Image } from "expo-image";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -887,7 +887,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       {formatGameDate(date)}
                     </Text>
                     {playerTeamLogoUrl ? (
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{ uri: playerTeamLogoUrl }}
                         style={glStyles.leftLogo}
                         resizeMode="contain"
@@ -1012,7 +1012,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     {prefix}
                   </Text>
                   {oppLogoUrl ? (
-                    <Image
+                    <Image cachePolicy="memory-disk"
                       source={{ uri: oppLogoUrl }}
                       style={glStyles.oppLogo}
                       resizeMode="contain"
@@ -1801,7 +1801,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                               const tColor =
                                 MLBService.getTeamColor(t.name) || teamColor;
                               return tUrl ? (
-                                <Image
+                                <Image cachePolicy="memory-disk"
                                   key={t.name}
                                   source={{ uri: tUrl }}
                                   style={cStyles.multiLogoImg}
@@ -1865,7 +1865,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                           )
                         : null;
                       return logoUrl ? (
-                        <Image
+                        <Image cachePolicy="memory-disk"
                           source={{ uri: logoUrl }}
                           style={cStyles.rowLogo}
                           resizeMode="contain"
@@ -2559,7 +2559,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   ]}
                 >
                   {tLogo ? (
-                    <Image
+                    <Image cachePolicy="memory-disk"
                       source={{ uri: tLogo }}
                       style={spStyles.vsTeamLogo}
                       resizeMode="contain"
@@ -2819,7 +2819,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           <View style={styles.headerMain}>
             {/* Player headshot */}
             {headshotUrl && !headshotError ? (
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: headshotUrl }}
                 style={styles.headerLogo}
                 resizeMode="cover"
@@ -2878,7 +2878,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
             {/* Team logo badge */}
             {teamLogoUrl ? (
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: teamLogoUrl }}
                 style={styles.headerTeamBadge}
                 resizeMode="contain"
@@ -2929,7 +2929,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
             {/* Mini headshot + name */}
             <View style={styles.stickyMiniContent}>
               {headshotUrl && !headshotError ? (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: headshotUrl }}
                   style={styles.stickyMiniLogo}
                   resizeMode="cover"
@@ -3523,7 +3523,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       activeOpacity={0.75}
                     >
                       {tLogo ? (
-                        <Image
+                        <Image cachePolicy="memory-disk"
                           source={{ uri: tLogo }}
                           style={spStyles.vsModalBtnLogo}
                           resizeMode="contain"

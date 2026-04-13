@@ -922,6 +922,13 @@ const BetLoginScreen = ({ navigation, route }) => {
   const subtitleText = onboardingMode
     ? "Log in to sync your profile"
     : "Login or create a new account";
+  const closeLoginScreen = () => {
+    if (navigation?.canGoBack && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate(returnTo);
+  };
 
   return (
     <SafeAreaView
@@ -931,6 +938,15 @@ const BetLoginScreen = ({ navigation, route }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.content}
       >
+        {!onboardingMode && (
+          <TouchableOpacity
+            onPress={closeLoginScreen}
+            style={styles.closeButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={24} color={theme.text} />
+          </TouchableOpacity>
+        )}
         {onboardingMode && (
           <View style={styles.onboardingActions}>
             <TouchableOpacity
@@ -1128,6 +1144,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 8,
+    right: 20,
+    zIndex: 10,
+    padding: 4,
   },
   onboardingActions: {
     position: "absolute",

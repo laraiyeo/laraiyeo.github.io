@@ -1,29 +1,158 @@
 // NHL API Service for Mobile App
 // Combines ESPN NHL endpoints with nhl api fallback for additional data
 
-import { BaseCacheService } from './BaseCacheService';
+import { BaseCacheService } from "./BaseCacheService";
 
 export class NHLService extends BaseCacheService {
-  static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard";
-  static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams";
+  static BACKEND_URL =
+    "https://laraiyeogithubio-production-0255.up.railway.app";
+  static SCOREBOARD_API_URL = `${this.BACKEND_URL}/nhl/scoreboard`;
+  static TEAM_COLOR_MAP = {
+    ANA: "#F47A38",
+    Ducks: "#F47A38",
+    "Anaheim Ducks": "#F47A38",
+    ARI: "#8C2633",
+    Coyotes: "#8C2633",
+    "Arizona Coyotes": "#8C2633",
+    BOS: "#FFB81C",
+    Bruins: "#FFB81C",
+    "Boston Bruins": "#FFB81C",
+    BUF: "#003087",
+    Sabres: "#003087",
+    "Buffalo Sabres": "#003087",
+    CGY: "#C8102E",
+    Flames: "#C8102E",
+    "Calgary Flames": "#C8102E",
+    CAR: "#CC0000",
+    Hurricanes: "#CC0000",
+    "Carolina Hurricanes": "#CC0000",
+    CHI: "#CF0A2C",
+    Blackhawks: "#CF0A2C",
+    "Chicago Blackhawks": "#CF0A2C",
+    COL: "#6F263D",
+    Avalanche: "#6F263D",
+    "Colorado Avalanche": "#6F263D",
+    CBJ: "#002654",
+    "Blue Jackets": "#002654",
+    "Columbus Blue Jackets": "#002654",
+    DAL: "#006847",
+    Stars: "#006847",
+    "Dallas Stars": "#006847",
+    DET: "#CE1126",
+    "Red Wings": "#CE1126",
+    "Detroit Red Wings": "#CE1126",
+    EDM: "#041E42",
+    Oilers: "#041E42",
+    "Edmonton Oilers": "#041E42",
+    FLA: "#041E42",
+    Panthers: "#041E42",
+    "Florida Panthers": "#041E42",
+    LAK: "#111111",
+    Kings: "#111111",
+    "Los Angeles Kings": "#111111",
+    MIN: "#154734",
+    Wild: "#154734",
+    "Minnesota Wild": "#154734",
+    MTL: "#AF1E2D",
+    Canadiens: "#AF1E2D",
+    "Montreal Canadiens": "#AF1E2D",
+    NSH: "#FFB81C",
+    Predators: "#FFB81C",
+    "Nashville Predators": "#FFB81C",
+    NJD: "#CE1126",
+    Devils: "#CE1126",
+    "New Jersey Devils": "#CE1126",
+    NYI: "#00539B",
+    Islanders: "#00539B",
+    "New York Islanders": "#00539B",
+    NYR: "#0038A8",
+    Rangers: "#0038A8",
+    "New York Rangers": "#0038A8",
+    OTT: "#C52032",
+    Senators: "#C52032",
+    "Ottawa Senators": "#C52032",
+    PHI: "#F74902",
+    Flyers: "#F74902",
+    "Philadelphia Flyers": "#F74902",
+    PIT: "#FFB81C",
+    Penguins: "#FFB81C",
+    "Pittsburgh Penguins": "#FFB81C",
+    SEA: "#001628",
+    Kraken: "#001628",
+    "Seattle Kraken": "#001628",
+    SJS: "#006D75",
+    Sharks: "#006D75",
+    "San Jose Sharks": "#006D75",
+    STL: "#002F87",
+    Blues: "#002F87",
+    "St. Louis Blues": "#002F87",
+    TBL: "#002868",
+    Lightning: "#002868",
+    "Tampa Bay Lightning": "#002868",
+    TOR: "#00205B",
+    "Maple Leafs": "#00205B",
+    "Toronto Maple Leafs": "#00205B",
+    UTA: "#6CAEDF",
+    "Utah Hockey Club": "#6CAEDF",
+    Utah: "#6CAEDF",
+    VAN: "#00205B",
+    Canucks: "#00205B",
+    "Vancouver Canucks": "#00205B",
+    VGK: "#B4975A",
+    "Golden Knights": "#B4975A",
+    "Vegas Golden Knights": "#B4975A",
+    WSH: "#041E42",
+    Capitals: "#041E42",
+    "Washington Capitals": "#041E42",
+    WPG: "#041E42",
+    Jets: "#041E42",
+    "Winnipeg Jets": "#041E42",
+  };
+  static TEAMS_API_URL =
+    "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams";
   static NHL_API_BASE = "https://api-web.nhle.com/v1";
+
+  static getTeamColor(teamOrKey, fallback = "#888888") {
+    if (!teamOrKey) return fallback;
+    if (typeof teamOrKey === "string") {
+      return this.TEAM_COLOR_MAP[teamOrKey] || fallback;
+    }
+
+    const keys = [
+      teamOrKey.abbrev,
+      teamOrKey.name,
+      teamOrKey.teamName,
+      teamOrKey.displayName,
+      teamOrKey.fullName,
+    ];
+
+    for (const key of keys) {
+      if (key && this.TEAM_COLOR_MAP[key]) {
+        return this.TEAM_COLOR_MAP[key];
+      }
+    }
+
+    return fallback;
+  }
 
   // Smart live game detection for NHL
   static hasLiveEvents(data) {
     try {
       const events = data?.events || [];
-      return events.some(event => {
+      return events.some((event) => {
         const status = event?.status?.type?.name;
         const description = event?.status?.type?.description;
-        
+
         // NHL live statuses
-        return status === 'STATUS_IN_PROGRESS' || 
-               description?.toLowerCase().includes('period') ||
-               description?.toLowerCase().includes('overtime') ||
-               description?.toLowerCase().includes('intermission');
+        return (
+          status === "STATUS_IN_PROGRESS" ||
+          description?.toLowerCase().includes("period") ||
+          description?.toLowerCase().includes("overtime") ||
+          description?.toLowerCase().includes("intermission")
+        );
       });
     } catch (error) {
-      console.error('NHLService: Error detecting live events', error);
+      console.error("NHLService: Error detecting live events", error);
       return false;
     }
   }
@@ -31,67 +160,73 @@ export class NHLService extends BaseCacheService {
   static getDataType(data, context) {
     try {
       if (this.hasLiveEvents(data)) {
-        return 'live';
+        return "live";
       }
-      
-      if (context?.includes('standings') || context?.includes('teams')) {
-        return 'static';
+
+      if (context?.includes("standings") || context?.includes("teams")) {
+        return "static";
       }
-      
+
       // Check if events are scheduled or finished
       const events = data?.events || [];
-      const hasScheduled = events.some(event => 
-        event?.status?.type?.name === 'STATUS_SCHEDULED'
+      const hasScheduled = events.some(
+        (event) => event?.status?.type?.name === "STATUS_SCHEDULED",
       );
-      const hasFinished = events.some(event => 
-        event?.status?.type?.completed === true
+      const hasFinished = events.some(
+        (event) => event?.status?.type?.completed === true,
       );
-      
-      if (hasScheduled && !hasFinished) return 'scheduled';
-      if (hasFinished && !hasScheduled) return 'finished';
-      
-      return 'scheduled'; // Default for mixed or unknown
+
+      if (hasScheduled && !hasFinished) return "scheduled";
+      if (hasFinished && !hasScheduled) return "finished";
+
+      return "scheduled"; // Default for mixed or unknown
     } catch (error) {
-      console.error('NHLService: Error determining data type', error);
-      return 'scheduled';
+      console.error("NHLService: Error determining data type", error);
+      return "scheduled";
     }
   }
 
   // Convert ESPN/HTTP urls to HTTPS
   static convertToHttps(url) {
-    if (typeof url !== 'string') return url;
-    return url.replace(/^http:\/\//i, 'https://');
+    if (typeof url !== "string") return url;
+    return url.replace(/^http:\/\//i, "https://");
   }
 
-  // Fetch scoreboard from ESPN (primary)
+  // Fetch scoreboard from backend contract endpoint
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `nhl_scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
-    return this.getCachedData(cacheKey, async () => {
-      let url = this.SCOREBOARD_API_URL;
-      if (startDate) {
-        if (endDate && endDate !== startDate) {
-          url += `?dates=${startDate}-${endDate}`;
-        } else {
-          url += `?dates=${startDate}`;
+    const cacheKey = `nhl_scoreboard_${startDate || "today"}_${endDate || startDate || "today"}`;
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const date =
+          startDate || new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const url = `${this.SCOREBOARD_API_URL}/${date}`;
+        const headers = this.getBrowserHeaders();
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch NHL scoreboard: ${res.status}`);
         }
-      }
-      const headers = this.getBrowserHeaders();
-      const res = await fetch(url, { headers });
-      const data = await res.json();
-      return data;
-    }, 'scoreboard');
+        const data = await res.json();
+        return data;
+      },
+      "scoreboard",
+    );
   }
 
   // Fetch game details using ESPN summary as primary
   static async getGameDetails(gameId) {
     const cacheKey = `nhl_game_details_${gameId}`;
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${gameId}`;
-      const headers = this.getBrowserHeaders();
-      const res = await fetch(this.convertToHttps(url), { headers });
-      const data = await res.json();
-      return data;
-    }, 'game_details');
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${gameId}`;
+        const headers = this.getBrowserHeaders();
+        const res = await fetch(this.convertToHttps(url), { headers });
+        const data = await res.json();
+        return data;
+      },
+      "game_details",
+    );
   }
 
   // Try NHL official API as fallback to convert or enrich data
@@ -99,7 +234,7 @@ export class NHLService extends BaseCacheService {
     try {
       const url = `${this.NHL_API_BASE}/schedule/${nhlDate}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error('NHL API fetch failed');
+      if (!res.ok) throw new Error("NHL API fetch failed");
       return await res.json();
     } catch (e) {
       return null;
@@ -110,13 +245,17 @@ export class NHLService extends BaseCacheService {
   static formatGameForMobile(game) {
     try {
       const competition = game.competitions?.[0] || {};
-      const home = (competition.competitors || []).find(c => c.homeAway === 'home') || {};
-      const away = (competition.competitors || []).find(c => c.homeAway === 'away') || {};
+      const home =
+        (competition.competitors || []).find((c) => c.homeAway === "home") ||
+        {};
+      const away =
+        (competition.competitors || []).find((c) => c.homeAway === "away") ||
+        {};
 
       return {
         id: game.id,
-        status: game.status?.type?.description || '',
-        displayClock: game.status?.displayClock || '',
+        status: game.status?.type?.description || "",
+        displayClock: game.status?.displayClock || "",
         period: game.status?.period || 0,
         isCompleted: !!game.status?.type?.completed,
         season: game.season || {},
@@ -124,163 +263,197 @@ export class NHLService extends BaseCacheService {
         situation: competition.situation || null,
         homeTeam: {
           id: home.id,
-          displayName: home.team?.displayName || '',
-          abbreviation: home.team?.abbreviation || '',
+          displayName: home.team?.displayName || "",
+          abbreviation: home.team?.abbreviation || "",
           logo: this.convertToHttps(home.team?.logo),
           score: home.score,
-          record: home.records?.[0]?.summary || ''
+          record: home.records?.[0]?.summary || "",
         },
         awayTeam: {
           id: away.id,
-          displayName: away.team?.displayName || '',
-          abbreviation: away.team?.abbreviation || '',
+          displayName: away.team?.displayName || "",
+          abbreviation: away.team?.abbreviation || "",
           logo: this.convertToHttps(away.team?.logo),
           score: away.score,
-          record: away.records?.[0]?.summary || ''
+          record: away.records?.[0]?.summary || "",
         },
-        venue: competition.venue?.fullName || '',
+        venue: competition.venue?.fullName || "",
         date: new Date(game.date),
-        broadcasts: competition.broadcasts?.[0]?.names || []
+        broadcasts: competition.broadcasts?.[0]?.names || [],
       };
     } catch (e) {
-      console.error('NHLService.formatGameForMobile error', e);
+      console.error("NHLService.formatGameForMobile error", e);
       return null;
     }
   }
 
   // Simple standings fetch via ESPN scoreboard endpoint (site api provides standings url elsewhere)
   static async getStandings() {
-    const cacheKey = 'nhl_standings';
-    return this.getCachedData(cacheKey, async () => {
-      // Prefer NHL official API which returns a flat standings array
-      const headers = this.getBrowserHeaders();
+    const cacheKey = "nhl_standings";
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        // Prefer NHL official API which returns a flat standings array
+        const headers = this.getBrowserHeaders();
 
-      try {
-        const nhlUrl = `https://corsproxy.io/?url=${this.NHL_API_BASE}/standings/now`;
-        // Try direct fetch first
         try {
-          const res = await fetch(nhlUrl, { headers });
-          if (res.ok) {
-            const data = await res.json();
-            return data;
-          }
-        } catch (directErr) {
-          // Direct fetch failed (possibly CORS) - try via a public CORS proxy
+          const nhlUrl = `https://corsproxy.io/?url=${this.NHL_API_BASE}/standings/now`;
+          // Try direct fetch first
           try {
-            const proxy = `https://corsproxy.io/?url=${encodeURIComponent(nhlUrl)}`;
-            const pres = await fetch(proxy, { headers });
-            if (pres.ok) {
-              const pdata = await pres.json();
-              return pdata;
+            const res = await fetch(nhlUrl, { headers });
+            if (res.ok) {
+              const data = await res.json();
+              return data;
             }
-          } catch (proxyErr) {
-            // proxy failed too - will fallback to ESPN below
-            console.warn('NHLService: NHL API direct and proxy fetch failed, falling back to ESPN', directErr, proxyErr);
+          } catch (directErr) {
+            // Direct fetch failed (possibly CORS) - try via a public CORS proxy
+            try {
+              const proxy = `https://corsproxy.io/?url=${encodeURIComponent(nhlUrl)}`;
+              const pres = await fetch(proxy, { headers });
+              if (pres.ok) {
+                const pdata = await pres.json();
+                return pdata;
+              }
+            } catch (proxyErr) {
+              // proxy failed too - will fallback to ESPN below
+              console.warn(
+                "NHLService: NHL API direct and proxy fetch failed, falling back to ESPN",
+                directErr,
+                proxyErr,
+              );
+            }
           }
+        } catch (e) {
+          // swallow and fallback to ESPN
         }
-      } catch (e) {
-        // swallow and fallback to ESPN
-      }
 
-      // ESPN fallback
-      try {
-        const url = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/standings';
-        const res2 = await fetch(url, { headers });
-        const data2 = await res2.json();
-        return data2;
-      } catch (err) {
-        throw err;
-      }
-    }, 'standings');
+        // ESPN fallback
+        try {
+          const url =
+            "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/standings";
+          const res2 = await fetch(url, { headers });
+          const data2 = await res2.json();
+          return data2;
+        } catch (err) {
+          throw err;
+        }
+      },
+      "standings",
+    );
   }
 
   static async getPlayerGameStats(gameId, playerId) {
     const cacheKey = `nhl_player_stats_${gameId}_${playerId}`;
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://cdn.espn.com/core/nhl/boxscore?xhr=1&gameId=${gameId}`;
-      const headers = this.getBrowserHeaders();
-      
-      const response = await fetch(this.convertToHttps(url), { headers });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const gameData = await response.json();
-      
-      // Use the exact same structure as team-page.js
-      const players = gameData.gamepackageJSON?.boxscore?.players || [];
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const url = `https://cdn.espn.com/core/nhl/boxscore?xhr=1&gameId=${gameId}`;
+        const headers = this.getBrowserHeaders();
 
-      if (players.length === 0) {
-        return null;
-      }
-
-      // Find the player in the game stats
-      let playerStats = {};
-      let foundPlayer = false;
-
-      for (const team of players) {
-        if (!team.statistics || team.statistics.length === 0) continue;
-
-        // Search through all statistics categories for this team
-        for (const statCategory of team.statistics) {
-          const athletes = statCategory.athletes || [];
-          
-          // Try different ID matching approaches
-          const foundPlayerInCategory = athletes.find(athlete => 
-            athlete.athlete.id === playerId.toString() ||
-            athlete.athlete.id === playerId
-          );
-
-          if (foundPlayerInCategory) {
-            foundPlayer = true;
-            playerStats[statCategory.name] = {
-              name: statCategory.name,
-              displayName: statCategory.displayName || statCategory.name,
-              stats: foundPlayerInCategory.stats || []
-            };
-          }
+        const response = await fetch(this.convertToHttps(url), { headers });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        if (foundPlayer) break;
-      }
+        const gameData = await response.json();
 
-      if (!foundPlayer) {
-        return null;
-      }
+        // Use the exact same structure as team-page.js
+        const players = gameData.gamepackageJSON?.boxscore?.players || [];
 
-      // Convert to the format expected by the mobile app
-      const formattedStats = {
-        splits: {
-          categories: Object.values(playerStats).map(category => ({
-            name: category.name,
-            displayName: category.displayName,
-            stats: category.stats.map((statValue, index) => {
-              // Map common stat names based on category and index for NHL
-              let statName = `Stat ${index + 1}`;
-              let displayName = statName;
-              
-              if (category.name === 'skaters' || category.name === 'forwards' || category.name === 'defensemen') {
-                const skaterStats = ['Goals', 'Assists', 'Time on Ice', 'Shots', 'Hits', 'Blocked Shots', 'Plus/Minus'];
-                displayName = skaterStats[index] || statName;
-              } else if (category.name === 'goalies' || category.name === 'goaltending') {
-                const goalieStats = ['Goals Against', 'Shots Against', 'Save Pct', 'Saves', 'Minutes'];
-                displayName = goalieStats[index] || statName;
-              }
-              
-              return {
-                name: statName,
-                displayName: displayName,
-                value: statValue,
-                displayValue: statValue.toString()
+        if (players.length === 0) {
+          return null;
+        }
+
+        // Find the player in the game stats
+        let playerStats = {};
+        let foundPlayer = false;
+
+        for (const team of players) {
+          if (!team.statistics || team.statistics.length === 0) continue;
+
+          // Search through all statistics categories for this team
+          for (const statCategory of team.statistics) {
+            const athletes = statCategory.athletes || [];
+
+            // Try different ID matching approaches
+            const foundPlayerInCategory = athletes.find(
+              (athlete) =>
+                athlete.athlete.id === playerId.toString() ||
+                athlete.athlete.id === playerId,
+            );
+
+            if (foundPlayerInCategory) {
+              foundPlayer = true;
+              playerStats[statCategory.name] = {
+                name: statCategory.name,
+                displayName: statCategory.displayName || statCategory.name,
+                stats: foundPlayerInCategory.stats || [],
               };
-            })
-          }))
-        }
-      };
+            }
+          }
 
-      return formattedStats;
-      
-    }, 'player_stats');
+          if (foundPlayer) break;
+        }
+
+        if (!foundPlayer) {
+          return null;
+        }
+
+        // Convert to the format expected by the mobile app
+        const formattedStats = {
+          splits: {
+            categories: Object.values(playerStats).map((category) => ({
+              name: category.name,
+              displayName: category.displayName,
+              stats: category.stats.map((statValue, index) => {
+                // Map common stat names based on category and index for NHL
+                let statName = `Stat ${index + 1}`;
+                let displayName = statName;
+
+                if (
+                  category.name === "skaters" ||
+                  category.name === "forwards" ||
+                  category.name === "defensemen"
+                ) {
+                  const skaterStats = [
+                    "Goals",
+                    "Assists",
+                    "Time on Ice",
+                    "Shots",
+                    "Hits",
+                    "Blocked Shots",
+                    "Plus/Minus",
+                  ];
+                  displayName = skaterStats[index] || statName;
+                } else if (
+                  category.name === "goalies" ||
+                  category.name === "goaltending"
+                ) {
+                  const goalieStats = [
+                    "Goals Against",
+                    "Shots Against",
+                    "Save Pct",
+                    "Saves",
+                    "Minutes",
+                  ];
+                  displayName = goalieStats[index] || statName;
+                }
+
+                return {
+                  name: statName,
+                  displayName: displayName,
+                  value: statValue,
+                  displayValue: statValue.toString(),
+                };
+              }),
+            })),
+          },
+        };
+
+        return formattedStats;
+      },
+      "player_stats",
+    );
   }
 
   static clearCache() {

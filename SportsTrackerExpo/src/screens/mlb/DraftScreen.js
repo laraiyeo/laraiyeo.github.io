@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Image,
   ScrollView,
 } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 
 const API_URL = "https://statsapi.mlb.com/api/v1/draft";
@@ -363,7 +363,7 @@ const DraftScreen = () => {
                   }}
                 >
                   {headshot ? (
-                    <Image
+                    <Image cachePolicy="memory-disk"
                       source={{ uri: headshot }}
                       style={styles.headshotSmall}
                     />
@@ -409,7 +409,7 @@ const DraftScreen = () => {
                   >
                     {teamAbbr && (
                       <>
-                        <Image
+                        <Image cachePolicy="memory-disk"
                           source={{ uri: getTeamLogoUrl(teamAbbr) }}
                           style={styles.teamLogoLarge}
                         />

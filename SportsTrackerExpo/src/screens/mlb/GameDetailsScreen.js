@@ -15,13 +15,13 @@ import {
   PanResponder,
   StyleSheet,
   ActivityIndicator,
-  Image,
   Dimensions,
   RefreshControl,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import Svg, {
   Defs,
   LinearGradient,
@@ -136,7 +136,7 @@ const TeamColumn = ({
         style={{ alignItems: "center", alignSelf: "stretch" }}
       >
         {logo ? (
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: logo }}
             style={styles.teamLogo}
             resizeMode="contain"
@@ -303,7 +303,7 @@ const PlayerCard = ({
       {/* Top row: headshot + name block + stat toggle */}
       <View style={pcStyles.topRow}>
         {/* Headshot */}
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{ uri: playerHeadshotUrl(playerId) }}
           style={pcStyles.headshot}
           resizeMode="cover"
@@ -1770,7 +1770,7 @@ const PlayerDetailModal = ({
               >
                 <View style={pdStyles.headshotWrap}>
                   <View style={{ position: "relative" }}>
-                    <Image
+                    <Image cachePolicy="memory-disk"
                       source={{ uri: playerHeadshotUrl(playerId) }}
                       style={[pdStyles.headshot, { borderColor: teamColor }]}
                       resizeMode="cover"
@@ -1825,7 +1825,7 @@ const PlayerDetailModal = ({
                 {compareTargetId ? (
                   <View style={{ alignItems: "center" }}>
                     <View style={{ position: "relative" }}>
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{ uri: playerHeadshotUrl(compareTargetId) }}
                         style={[
                           pdStyles.headshot,
@@ -1908,7 +1908,7 @@ const PlayerDetailModal = ({
             >
               <View style={pdStyles.headshotWrap}>
                 <View style={{ position: "relative" }}>
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(playerId) }}
                     style={[pdStyles.headshot, { borderColor: teamColor }]}
                     resizeMode="cover"
@@ -2188,7 +2188,7 @@ const PlayerDetailModal = ({
                               },
                             ]}
                           >
-                            <Image
+                            <Image cachePolicy="memory-disk"
                               source={{ uri: playerHeadshotUrl(p.pid) }}
                               style={[
                                 pdStyles.compareHeadshotImage,
@@ -2227,7 +2227,7 @@ const PlayerDetailModal = ({
                                 : null;
                               if (!logo) return null;
                               return (
-                                <Image
+                                <Image cachePolicy="memory-disk"
                                   source={{ uri: logo }}
                                   style={[
                                     pdStyles.compareTeamLogo,
@@ -3198,7 +3198,7 @@ const PlayerShareCardModal = ({
                     }}
                   >
                     {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                         }}
@@ -3230,7 +3230,7 @@ const PlayerShareCardModal = ({
                       </Text>
                     </Text>
                     {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                         }}
@@ -3244,7 +3244,7 @@ const PlayerShareCardModal = ({
 
               {/* Headshot + name/summary */}
               <View style={psStyles.headshotRow}>
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(playerId) }}
                   style={[psStyles.cardHeadshot, { borderColor: teamColor }]}
                   resizeMode="cover"
@@ -3275,7 +3275,7 @@ const PlayerShareCardModal = ({
                       {!!teamName && (
                         <View style={psStyles.teamNameRow}>
                           {!!teamLogoUri && (
-                            <Image
+                            <Image cachePolicy="memory-disk"
                               source={{ uri: teamLogoUri }}
                               style={psStyles.teamNameLogo}
                               resizeMode="contain"
@@ -3576,7 +3576,7 @@ const ShareCardModal = ({
         ];
     return (
       <View style={scStyles.miniPlayer}>
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{ uri: playerHeadshotUrl(info.id) }}
           style={[scStyles.miniHeadshot, { borderColor: bsColor }]}
           resizeMode="cover"
@@ -3653,7 +3653,7 @@ const ShareCardModal = ({
                     }}
                   >
                     {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                         }}
@@ -3665,7 +3665,7 @@ const ShareCardModal = ({
                       {awayScore} – {homeScore}
                     </Text>
                     {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image
+                      <Image cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                         }}
@@ -4300,7 +4300,7 @@ const PlayDetailModal = ({
               {/* Batter – left */}
               {batterInfo ? (
                 <View style={modalStyles.matchupPlayer}>
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(batterId) }}
                     style={[
                       modalStyles.matchupHeadshot,
@@ -4427,7 +4427,7 @@ const PlayDetailModal = ({
                     { alignItems: "flex-end" },
                   ]}
                 >
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(pitcherId) }}
                     style={[
                       modalStyles.matchupHeadshot,
@@ -6328,7 +6328,7 @@ const ProbablePitchersBubble = ({
           Probable Pitcher
         </Text>
         <View style={ppStyles.headshotWrap}>
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(playerId) }}
             style={[ppStyles.headshot, { borderColor: teamColor }]}
           />
@@ -6820,7 +6820,7 @@ const LastPlayBubble = ({
           <View style={[lpStyles.matchupRow, { borderTopColor: theme.border }]}>
             {batterInfo ? (
               <View style={lpStyles.matchupSide}>
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(batterId) }}
                   style={[lpStyles.matchupHeadshot, { borderColor: teamColor }]}
                 />
@@ -6864,7 +6864,7 @@ const LastPlayBubble = ({
                     Pitcher
                   </Text>
                 </View>
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(pitcherId) }}
                   style={[
                     lpStyles.matchupHeadshot,
@@ -7138,7 +7138,7 @@ const CurrentAtBatBubble = ({
             })
           }
         >
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(batterId) }}
             style={[cabStyles.headshot, { borderColor: batterTeamColor }]}
             resizeMode="cover"
@@ -7252,7 +7252,7 @@ const CurrentAtBatBubble = ({
             })
           }
         >
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(pitcherId) }}
             style={[cabStyles.headshot, { borderColor: pitcherTeamColor }]}
             resizeMode="cover"
@@ -7343,7 +7343,7 @@ const CurrentAtBatBubble = ({
                 },
               ]}
             >
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: playerHeadshotUrl(id) }}
                 style={[
                   cabStyles.nextHeadshot,
@@ -8848,7 +8848,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             {/* Away */}
             <View style={[styles.miniSide, { justifyContent: "flex-start" }]}>
               {WBCService.getTeamLogo(awayTeam?.id, isDarkMode) ? (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{
                     uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                   }}
@@ -8971,7 +8971,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 {homeTeam?.abbreviation ?? ""}
               </Text>
               {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{
                     uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                   }}
@@ -9699,7 +9699,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                               onPress={() => toggleRunItBackTeam(tId)}
                             >
                               {WBCService.getTeamLogo(tId, isDarkMode) ? (
-                                <Image
+                                <Image cachePolicy="memory-disk"
                                   source={{
                                     uri: WBCService.getTeamLogo(
                                       tId,
@@ -9782,7 +9782,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                             ]}
                             onPress={() => toggleRunItBackPlayer(p.id)}
                           >
-                            <Image
+                            <Image cachePolicy="memory-disk"
                               source={{ uri: playerHeadshotUrl(p.id) }}
                               style={styles.runItBackPlayerHeadshot}
                             />

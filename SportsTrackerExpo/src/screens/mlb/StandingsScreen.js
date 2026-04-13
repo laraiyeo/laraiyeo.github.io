@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Image,
   TouchableOpacity,
 } from "react-native";
+import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
@@ -15,6 +15,7 @@ import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { MLBService } from "../../services/MLBService";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
+import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 
 // Fallback division name map
 const DIVISION_NAMES = {
@@ -171,6 +172,8 @@ const TeamRow = ({
             : null;
 
   const logoUri = getTeamLogoUrl ? getTeamLogoUrl("mlb", abbr) : null;
+  const teamColor =
+    team?.color || MLBService.getTeamColorById(team?.id) || colors.primary;
 
   return (
     <TouchableOpacity
@@ -184,6 +187,28 @@ const TeamRow = ({
           : null,
       ]}
     >
+      <View style={styles.rightGradientOverlay} pointerEvents="none">
+        <Svg width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <LinearGradient
+              id={`standingsGrad-${team?.id || "x"}`}
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+            >
+              <Stop offset="0%" stopColor={teamColor} stopOpacity="0" />
+              <Stop offset="100%" stopColor={teamColor} stopOpacity="0.72" />
+            </LinearGradient>
+          </Defs>
+          <Rect
+            width="100%"
+            height="100%"
+            fill={`url(#standingsGrad-${team?.id || "x"})`}
+          />
+        </Svg>
+      </View>
+
       {/* Rank */}
       <View style={styles.rankCol}>
         <Text style={[styles.rankText, { color: theme.textSecondary }]}>
@@ -194,6 +219,7 @@ const TeamRow = ({
       {/* Logo */}
       {logoUri ? (
         <Image
+          cachePolicy="memory-disk"
           source={{ uri: logoUri }}
           style={styles.teamLogo}
           resizeMode="contain"
@@ -297,12 +323,8 @@ const TeamRow = ({
       {/* GB — hidden in sort mode */}
       {!sortByOpt && (
         <View style={styles.rightCol}>
-          <Text style={[styles.gbValue, { color: theme.textSecondary }]}>
-            {gb}
-          </Text>
-          <Text style={[styles.gbLabel, { color: theme.textSecondary }]}>
-            GB
-          </Text>
+          <Text style={styles.gbValue}>{gb}</Text>
+          <Text style={styles.gbLabel}>GB</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -613,10 +635,7 @@ const StandingsScreen = ({ route }) => {
       {hasData && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: 16 },
-          ]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 16 }]}
           onScrollBeginDrag={() => dropdownOpen && setDropdownOpen(false)}
         >
           {sortBy
@@ -822,6 +841,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
   },
+  rightGradientOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: "44%",
+  },
   rankCol: { width: 22, marginRight: 8, alignItems: "center" },
   rankText: { fontSize: 13, fontWeight: "600" },
   teamLogo: { width: 32, height: 32, marginRight: 10 },
@@ -845,12 +871,18 @@ const styles = StyleSheet.create({
   streakText: { fontSize: 12, fontWeight: "600" },
   xrText: { fontSize: 11, marginTop: 2 },
   rightCol: { alignItems: "flex-end", minWidth: 44 },
-  gbValue: { fontSize: 14, fontWeight: "600", textAlign: "right" },
+  gbValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "right",
+    color: "#fff",
+  },
   gbLabel: {
     fontSize: 9,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginTop: 1,
+    color: "#fff",
   },
 
   // ── Division records sub-row ──

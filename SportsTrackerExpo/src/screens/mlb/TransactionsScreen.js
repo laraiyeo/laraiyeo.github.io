@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 
 const API_URL = "https://statsapi.mlb.com/api/v1/transactions";
@@ -128,9 +128,9 @@ const TransactionsScreen = ({ navigation }) => {
         </View>
 
         <View style={{ marginLeft: 8, width: 56, height: 56 }}>
-          <Image source={{ uri: getTeamLogoUrl(toAbbr) }} style={styles.logo} />
+          <Image cachePolicy="memory-disk" source={{ uri: getTeamLogoUrl(toAbbr) }} style={styles.logo} />
           {fromAbbr ? (
-            <Image
+            <Image cachePolicy="memory-disk"
               source={{ uri: getTeamLogoUrl(fromAbbr) }}
               style={{
                 position: "absolute",

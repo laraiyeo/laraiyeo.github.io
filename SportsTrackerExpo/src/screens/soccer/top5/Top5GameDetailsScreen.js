@@ -351,6 +351,9 @@ const GAME_AUX_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const GAME_H2H_CACHE_KEY = (homeId, awayId) =>
   `@gameDetail_h2h_v1:${homeId}:${awayId}`;
 const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v1:${fixtureId}`;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const PRE_START_CUTOFF_MS = 5 * 60 * 1000;
+const PRE_START_WINDOW_MS = ONE_HOUR_MS + PRE_START_CUTOFF_MS;
 
 // ─── Polling helpers (same pattern as Top5ScoreboardScreen) ──────────────────
 const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
@@ -433,6 +436,18 @@ const startMsOf = (fixture) => {
   }
 };
 
+const getScheduledCacheMs = (fixture, nowMs = Date.now()) => {
+  const startMs = startMsOf(fixture);
+  if (!Number.isFinite(startMs) || startMs <= nowMs) {
+    return ONE_HOUR_MS;
+  }
+  const msUntilStart = startMs - nowMs;
+  if (msUntilStart <= PRE_START_WINDOW_MS) {
+    return Math.max(0, msUntilStart - PRE_START_CUTOFF_MS);
+  }
+  return ONE_HOUR_MS;
+};
+
 const getFixturePolicy = (fixture) => {
   if (!fixture) {
     return { mode: "default", intervalMs: INTERVAL_SLOW, cacheMs: 0 };
@@ -454,6 +469,7 @@ const getFixturePolicy = (fixture) => {
   if (short === "NS") {
     const now = Date.now();
     const startMs = startMsOf(fixture);
+    const scheduledCacheMs = getScheduledCacheMs(fixture, now);
     const withinHour =
       Number.isFinite(startMs) &&
       startMs > now &&
@@ -463,14 +479,14 @@ const getFixturePolicy = (fixture) => {
       return {
         mode: "scheduled_soon",
         intervalMs: INTERVAL_SOON,
-        cacheMs: INTERVAL_SOON,
+        cacheMs: scheduledCacheMs,
       };
     }
 
     return {
       mode: "scheduled",
       intervalMs: INTERVAL_SLOW,
-      cacheMs: INTERVAL_SLOW,
+      cacheMs: scheduledCacheMs,
     };
   }
 
@@ -11224,18 +11240,23 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             try {
               const raw = await AsyncStorage.getItem(GAME_CACHE_KEY(fixtureId));
               if (raw) {
-                const { data: cachedData, ts } = JSON.parse(raw);
-                if (Date.now() - ts < GAME_CACHE_TTL_MS) {
+                const { data: cachedData, ts, expiresAt } = JSON.parse(raw);
+                const tsNum = Number(ts) || Date.now();
+                const expiresAtNum = Number(expiresAt);
+                const isCacheValid = Number.isFinite(expiresAtNum)
+                  ? Date.now() < expiresAtNum
+                  : Date.now() - tsNum < GAME_CACHE_TTL_MS;
+                if (isCacheValid) {
                   setData(cachedData);
-                  setSnapshotTsMs(Number(ts) || Date.now());
+                  setSnapshotTsMs(tsNum);
                   // Populate the in-memory fetch cache so subsequent calls
                   // in this session use the cached value and avoid network fetch.
                   fetchCacheRef.current = {
                     data: cachedData,
-                    ts: Number(ts) || Date.now(),
+                    ts: tsNum,
                   };
                   console.log(
-                    `Top5: using AsyncStorage cache for ${fixtureId}, age=${Date.now() - Number(ts)}ms`,
+                    `Top5: using AsyncStorage cache for ${fixtureId}, age=${Date.now() - tsNum}ms`,
                   );
                   return cachedData;
                 }
@@ -11348,17 +11369,27 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           setSnapshotTsMs(ts);
           fetchCacheRef.current = { data: responseData, ts };
 
-          // Persist cache for finished or started-more-than-24h-ago games
+          // Persist cache for finished/old games and scheduled games.
           const fx = responseData?.fixtureData;
           if (fx) {
             const code = fx.state?.state || "";
             const startMs = parseUtcDateTime(fx.starting_at)?.getTime() ?? null;
             const isOld =
               startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
-            if (isFinishedState(code) || isOld) {
+            const isScheduled = shortNameOf(fx) === "NS";
+            const scheduledTtlMs = isScheduled ? getScheduledCacheMs(fx, ts) : 0;
+            const persistTtlMs = isFinishedState(code) || isOld
+              ? GAME_CACHE_TTL_MS
+              : scheduledTtlMs;
+
+            if (persistTtlMs > 0) {
               AsyncStorage.setItem(
                 GAME_CACHE_KEY(fixtureId),
-                JSON.stringify({ data: responseData, ts: Date.now() }),
+                JSON.stringify({
+                  data: responseData,
+                  ts,
+                  expiresAt: ts + persistTtlMs,
+                }),
               ).catch(() => {});
             }
           }

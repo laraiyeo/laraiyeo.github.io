@@ -6,11 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
   ActivityIndicator,
   Modal,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
@@ -416,7 +416,7 @@ const CompareScreen = ({ route }) => {
             {/* Team Logo and Name */}
             {player.teamAbbr && (
               <View style={styles.teamHeader}>
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: getTeamLogo(player) }}
                   style={styles.teamLogo}
                   resizeMode="contain"
@@ -432,7 +432,7 @@ const CompareScreen = ({ route }) => {
 
             {/* Player Image Container with fixed height */}
             <View style={styles.playerImageContainer}>
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: player.headshot }}
                 style={styles.playerImage}
                 defaultSource={{
@@ -701,7 +701,7 @@ const CompareScreen = ({ route }) => {
                 ]}
                 onPress={() => selectPlayer(player, searchingForPlayer)}
               >
-                <Image
+                <Image cachePolicy="memory-disk"
                   source={{ uri: player.headshot }}
                   style={styles.searchResultImage}
                   defaultSource={{
@@ -738,7 +738,7 @@ const CompareScreen = ({ route }) => {
                   )}
                 </View>
                 {player.teamAbbr && (
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: getTeamLogo(player) }}
                     style={styles.searchResultTeamLogo}
                     resizeMode="contain"

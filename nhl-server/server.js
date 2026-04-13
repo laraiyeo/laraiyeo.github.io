@@ -613,25 +613,31 @@ function transformLandingPayload(payload) {
   const penaltiesByPeriod = Array.isArray(summary?.penalties)
     ? summary.penalties
     : [];
-  const penalties = penaltiesByPeriod.flatMap((periodBucket) => {
+  const penalties = penaltiesByPeriod.map((periodBucket) => {
     const bucketPenalties = Array.isArray(periodBucket?.penalties)
       ? periodBucket.penalties
       : [];
-    return bucketPenalties.map((p) => ({
-      timeInPeriod: p?.timeInPeriod ?? null,
-      type: p?.type ?? null,
-      duration: p?.duration ?? null,
-      committedByPlayer: {
-        firstName: pickDefaultName(p?.committedByPlayer?.firstName),
-        lastName: pickDefaultName(p?.committedByPlayer?.lastName),
+    return {
+      periodDescriptor: {
+        number: periodBucket?.periodDescriptor?.number ?? null,
+        periodType: periodBucket?.periodDescriptor?.periodType ?? null,
       },
-      teamAbbrev: pickDefaultName(p?.teamAbbrev),
-      drawnBy: {
-        firstName: pickDefaultName(p?.drawnBy?.firstName),
-        lastName: pickDefaultName(p?.drawnBy?.lastName),
-      },
-      descKey: p?.descKey ?? null,
-    }));
+      penalties: bucketPenalties.map((p) => ({
+        timeInPeriod: p?.timeInPeriod ?? null,
+        type: p?.type ?? null,
+        duration: p?.duration ?? null,
+        committedByPlayer: {
+          firstName: pickDefaultName(p?.committedByPlayer?.firstName),
+          lastName: pickDefaultName(p?.committedByPlayer?.lastName),
+        },
+        teamAbbrev: pickDefaultName(p?.teamAbbrev),
+        drawnBy: {
+          firstName: pickDefaultName(p?.drawnBy?.firstName),
+          lastName: pickDefaultName(p?.drawnBy?.lastName),
+        },
+        descKey: p?.descKey ?? null,
+      })),
+    };
   });
 
   return {
@@ -900,6 +906,7 @@ function transformScoreboardPayload(payload) {
         id: g?.awayTeam?.id ?? null,
         name: g?.awayTeam?.name?.default ?? null,
         abbrev: g?.awayTeam?.abbrev ?? null,
+        record: g?.awayTeam?.record ?? null,
         score: g?.awayTeam?.score ?? null,
         logoLight: g?.awayTeam?.logo ?? "",
         logoDark: getDarkLogoFromLight(g?.awayTeam?.logo),
@@ -908,6 +915,7 @@ function transformScoreboardPayload(payload) {
         id: g?.homeTeam?.id ?? null,
         name: g?.homeTeam?.name?.default ?? null,
         abbrev: g?.homeTeam?.abbrev ?? null,
+        record: g?.homeTeam?.record ?? null,
         score: g?.homeTeam?.score ?? null,
         logoLight: g?.homeTeam?.logo ?? "",
         logoDark: getDarkLogoFromLight(g?.homeTeam?.logo),

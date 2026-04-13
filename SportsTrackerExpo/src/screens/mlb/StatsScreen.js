@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Modal,
   FlatList,
 } from "react-native";
+import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
@@ -150,7 +150,7 @@ const StatsScreen = ({ route }) => {
           key={leader.person.id}
           style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}
         >
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{
               uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${leader.person.id}/headshot/67/current`,
             }}
@@ -161,7 +161,7 @@ const StatsScreen = ({ route }) => {
           />
           <View style={styles.firstLeaderInfo}>
             <View style={styles.playerNameRow}>
-              <Image
+              <Image cachePolicy="memory-disk"
                 source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
                 style={styles.teamLogoSmall}
               />
@@ -196,7 +196,7 @@ const StatsScreen = ({ route }) => {
           >
             {leader.rank}
           </Text>
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
             style={styles.teamLogoSmall}
           />
@@ -265,7 +265,7 @@ const StatsScreen = ({ route }) => {
       >
         {item.rank}
       </Text>
-      <Image
+      <Image cachePolicy="memory-disk"
         source={{
           uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.person.id}/headshot/67/current`,
         }}
@@ -274,7 +274,7 @@ const StatsScreen = ({ route }) => {
       />
       <View style={styles.modalPlayerInfo}>
         <View style={styles.modalNameRow}>
-          <Image
+          <Image cachePolicy="memory-disk"
             source={{
               uri: getTeamLogoUrl("mlb", getTeamAbbreviation(item.team.id)),
             }}

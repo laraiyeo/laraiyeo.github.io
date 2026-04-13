@@ -6,10 +6,10 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
@@ -246,7 +246,7 @@ const SearchScreen = ({ route, navigation }) => {
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
           style={styles.teamLogo}
           defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
@@ -280,7 +280,7 @@ const SearchScreen = ({ route, navigation }) => {
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{
             uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.id}/headshot/67/current`,
           }}

@@ -1,0 +1,3496 @@
+https://laraiyeogithubio-production-0255.up.railway.app/nhl/team/CAR
+
+{
+  "source": "origin",
+  "id": "CAR",
+  "data": {
+    "stats": {
+      "skaters": [
+        {
+          "playerId": 8473533,
+          "positionCode": "C",
+          "gamesPlayed": 75,
+          "goals": 20,
+          "assists": 16,
+          "points": 36,
+          "plusMinus": 5,
+          "penaltyMinutes": 29,
+          "powerPlayGoals": 4,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 4,
+          "overtimeGoals": 0,
+          "shots": 107,
+          "shootingPctg": 0.186916,
+          "avgTimeOnIcePerGame": 971.2533,
+          "avgShiftsPerGame": 22.6533,
+          "faceoffWinPctg": 0.554894
+        },
+        {
+          "playerId": 8475235,
+          "positionCode": "L",
+          "gamesPlayed": 29,
+          "goals": 0,
+          "assists": 2,
+          "points": 2,
+          "plusMinus": -2,
+          "penaltyMinutes": 38,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 17,
+          "shootingPctg": 0,
+          "avgTimeOnIcePerGame": 503,
+          "avgShiftsPerGame": 11.4138,
+          "faceoffWinPctg": 1
+        },
+        {
+          "playerId": 8475791,
+          "positionCode": "L",
+          "gamesPlayed": 79,
+          "goals": 18,
+          "assists": 30,
+          "points": 48,
+          "plusMinus": 6,
+          "penaltyMinutes": 44,
+          "powerPlayGoals": 3,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 0,
+          "shots": 136,
+          "shootingPctg": 0.132353,
+          "avgTimeOnIcePerGame": 868.5949,
+          "avgShiftsPerGame": 17.8734,
+          "faceoffWinPctg": 0.408163
+        },
+        {
+          "playerId": 8476422,
+          "positionCode": "D",
+          "gamesPlayed": 40,
+          "goals": 1,
+          "assists": 8,
+          "points": 9,
+          "plusMinus": 11,
+          "penaltyMinutes": 24,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 1,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 62,
+          "shootingPctg": 0.016129,
+          "avgTimeOnIcePerGame": 891.25,
+          "avgShiftsPerGame": 21.05,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8476873,
+          "positionCode": "L",
+          "gamesPlayed": 66,
+          "goals": 10,
+          "assists": 10,
+          "points": 20,
+          "plusMinus": 6,
+          "penaltyMinutes": 16,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 2,
+          "overtimeGoals": 0,
+          "shots": 61,
+          "shootingPctg": 0.163934,
+          "avgTimeOnIcePerGame": 661.3182,
+          "avgShiftsPerGame": 15.8788,
+          "faceoffWinPctg": 0.514837
+        },
+        {
+          "playerId": 8476906,
+          "positionCode": "D",
+          "gamesPlayed": 54,
+          "goals": 13,
+          "assists": 37,
+          "points": 50,
+          "plusMinus": 11,
+          "penaltyMinutes": 22,
+          "powerPlayGoals": 6,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 0,
+          "shots": 117,
+          "shootingPctg": 0.111111,
+          "avgTimeOnIcePerGame": 1153.8889,
+          "avgShiftsPerGame": 22.0741,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8476921,
+          "positionCode": "L",
+          "gamesPlayed": 75,
+          "goals": 12,
+          "assists": 17,
+          "points": 29,
+          "plusMinus": 7,
+          "penaltyMinutes": 35,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 3,
+          "gameWinningGoals": 3,
+          "overtimeGoals": 0,
+          "shots": 107,
+          "shootingPctg": 0.11215,
+          "avgTimeOnIcePerGame": 887.64,
+          "avgShiftsPerGame": 20.6,
+          "faceoffWinPctg": 0.449275
+        },
+        {
+          "playerId": 8476958,
+          "positionCode": "D",
+          "gamesPlayed": 39,
+          "goals": 1,
+          "assists": 7,
+          "points": 8,
+          "plusMinus": 8,
+          "penaltyMinutes": 4,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 1,
+          "shots": 63,
+          "shootingPctg": 0.015873,
+          "avgTimeOnIcePerGame": 1278.6154,
+          "avgShiftsPerGame": 25.0513,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8477478,
+          "positionCode": "L",
+          "gamesPlayed": 68,
+          "goals": 7,
+          "assists": 11,
+          "points": 18,
+          "plusMinus": 5,
+          "penaltyMinutes": 18,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 2,
+          "overtimeGoals": 0,
+          "shots": 77,
+          "shootingPctg": 0.090909,
+          "avgTimeOnIcePerGame": 644.7794,
+          "avgShiftsPerGame": 15.75,
+          "faceoffWinPctg": 0.352941
+        },
+        {
+          "playerId": 8477940,
+          "positionCode": "L",
+          "gamesPlayed": 80,
+          "goals": 24,
+          "assists": 44,
+          "points": 68,
+          "plusMinus": 6,
+          "penaltyMinutes": 12,
+          "powerPlayGoals": 9,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 6,
+          "overtimeGoals": 1,
+          "shots": 196,
+          "shootingPctg": 0.122449,
+          "avgTimeOnIcePerGame": 997.05,
+          "avgShiftsPerGame": 19.5,
+          "faceoffWinPctg": 0.366667
+        },
+        {
+          "playerId": 8478427,
+          "positionCode": "C",
+          "gamesPlayed": 79,
+          "goals": 27,
+          "assists": 53,
+          "points": 80,
+          "plusMinus": 11,
+          "penaltyMinutes": 46,
+          "powerPlayGoals": 7,
+          "shorthandedGoals": 2,
+          "gameWinningGoals": 4,
+          "overtimeGoals": 2,
+          "shots": 195,
+          "shootingPctg": 0.138462,
+          "avgTimeOnIcePerGame": 1176.7468,
+          "avgShiftsPerGame": 22.4304,
+          "faceoffWinPctg": 0.504657
+        },
+        {
+          "playerId": 8478970,
+          "positionCode": "D",
+          "gamesPlayed": 71,
+          "goals": 2,
+          "assists": 15,
+          "points": 17,
+          "plusMinus": 16,
+          "penaltyMinutes": 18,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 0,
+          "shots": 99,
+          "shootingPctg": 0.020202,
+          "avgTimeOnIcePerGame": 1205.7746,
+          "avgShiftsPerGame": 25.2394,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8480291,
+          "positionCode": "C",
+          "gamesPlayed": 2,
+          "goals": 0,
+          "assists": 0,
+          "points": 0,
+          "plusMinus": 0,
+          "penaltyMinutes": 2,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 1,
+          "shootingPctg": 0,
+          "avgTimeOnIcePerGame": 899,
+          "avgShiftsPerGame": 19.5,
+          "faceoffWinPctg": 0.684211
+        },
+        {
+          "playerId": 8480336,
+          "positionCode": "D",
+          "gamesPlayed": 80,
+          "goals": 9,
+          "assists": 21,
+          "points": 30,
+          "plusMinus": 5,
+          "penaltyMinutes": 57,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 1,
+          "shots": 178,
+          "shootingPctg": 0.050562,
+          "avgTimeOnIcePerGame": 1306.925,
+          "avgShiftsPerGame": 27.05,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8480762,
+          "positionCode": "L",
+          "gamesPlayed": 65,
+          "goals": 12,
+          "assists": 6,
+          "points": 18,
+          "plusMinus": 7,
+          "penaltyMinutes": 6,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 3,
+          "overtimeGoals": 0,
+          "shots": 80,
+          "shootingPctg": 0.15,
+          "avgTimeOnIcePerGame": 679.8769,
+          "avgShiftsPerGame": 15.3077,
+          "faceoffWinPctg": 0.076923
+        },
+        {
+          "playerId": 8480817,
+          "positionCode": "D",
+          "gamesPlayed": 71,
+          "goals": 8,
+          "assists": 29,
+          "points": 37,
+          "plusMinus": 8,
+          "penaltyMinutes": 56,
+          "powerPlayGoals": 1,
+          "shorthandedGoals": 1,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 0,
+          "shots": 122,
+          "shootingPctg": 0.065574,
+          "avgTimeOnIcePerGame": 1339.0563,
+          "avgShiftsPerGame": 26.8169,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8480829,
+          "positionCode": "C",
+          "gamesPlayed": 40,
+          "goals": 2,
+          "assists": 7,
+          "points": 9,
+          "plusMinus": 2,
+          "penaltyMinutes": 8,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 40,
+          "shootingPctg": 0.05,
+          "avgTimeOnIcePerGame": 665.85,
+          "avgShiftsPerGame": 14.65,
+          "faceoffWinPctg": 0.484252
+        },
+        {
+          "playerId": 8480830,
+          "positionCode": "R",
+          "gamesPlayed": 79,
+          "goals": 31,
+          "assists": 39,
+          "points": 70,
+          "plusMinus": 1,
+          "penaltyMinutes": 66,
+          "powerPlayGoals": 12,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 3,
+          "overtimeGoals": 0,
+          "shots": 203,
+          "shootingPctg": 0.152709,
+          "avgTimeOnIcePerGame": 1019.1013,
+          "avgShiftsPerGame": 20.1392,
+          "faceoffWinPctg": 0.454545
+        },
+        {
+          "playerId": 8481004,
+          "positionCode": "L",
+          "gamesPlayed": 2,
+          "goals": 0,
+          "assists": 0,
+          "points": 0,
+          "plusMinus": 1,
+          "penaltyMinutes": 2,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 0,
+          "shootingPctg": 0,
+          "avgTimeOnIcePerGame": 901,
+          "avgShiftsPerGame": 19,
+          "faceoffWinPctg": 0.5
+        },
+        {
+          "playerId": 8481491,
+          "positionCode": "C",
+          "gamesPlayed": 17,
+          "goals": 2,
+          "assists": 1,
+          "points": 3,
+          "plusMinus": -7,
+          "penaltyMinutes": 4,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 14,
+          "shootingPctg": 0.142857,
+          "avgTimeOnIcePerGame": 596.5882,
+          "avgShiftsPerGame": 13.6471,
+          "faceoffWinPctg": 0.560976
+        },
+        {
+          "playerId": 8481562,
+          "positionCode": "D",
+          "gamesPlayed": 1,
+          "goals": 0,
+          "assists": 0,
+          "points": 0,
+          "plusMinus": -2,
+          "penaltyMinutes": 0,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 2,
+          "shootingPctg": 0,
+          "avgTimeOnIcePerGame": 1162,
+          "avgShiftsPerGame": 27,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8482093,
+          "positionCode": "C",
+          "gamesPlayed": 71,
+          "goals": 32,
+          "assists": 34,
+          "points": 66,
+          "plusMinus": 6,
+          "penaltyMinutes": 23,
+          "powerPlayGoals": 5,
+          "shorthandedGoals": 4,
+          "gameWinningGoals": 7,
+          "overtimeGoals": 2,
+          "shots": 224,
+          "shootingPctg": 0.142857,
+          "avgTimeOnIcePerGame": 1132.7746,
+          "avgShiftsPerGame": 21.7042,
+          "faceoffWinPctg": 0.405063
+        },
+        {
+          "playerId": 8482100,
+          "positionCode": "D",
+          "gamesPlayed": 79,
+          "goals": 11,
+          "assists": 21,
+          "points": 32,
+          "plusMinus": 17,
+          "penaltyMinutes": 33,
+          "powerPlayGoals": 4,
+          "shorthandedGoals": 1,
+          "gameWinningGoals": 1,
+          "overtimeGoals": 1,
+          "shots": 122,
+          "shootingPctg": 0.090164,
+          "avgTimeOnIcePerGame": 1082.7595,
+          "avgShiftsPerGame": 22.3418,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8482702,
+          "positionCode": "C",
+          "gamesPlayed": 79,
+          "goals": 21,
+          "assists": 21,
+          "points": 42,
+          "plusMinus": 11,
+          "penaltyMinutes": 25,
+          "powerPlayGoals": 4,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 3,
+          "overtimeGoals": 0,
+          "shots": 161,
+          "shootingPctg": 0.130435,
+          "avgTimeOnIcePerGame": 925.2911,
+          "avgShiftsPerGame": 18.2405,
+          "faceoffWinPctg": 0.444444
+        },
+        {
+          "playerId": 8482785,
+          "positionCode": "C",
+          "gamesPlayed": 2,
+          "goals": 0,
+          "assists": 1,
+          "points": 1,
+          "plusMinus": 0,
+          "penaltyMinutes": 0,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 2,
+          "shootingPctg": 0,
+          "avgTimeOnIcePerGame": 641,
+          "avgShiftsPerGame": 14.5,
+          "faceoffWinPctg": 0.5
+        },
+        {
+          "playerId": 8482809,
+          "positionCode": "R",
+          "gamesPlayed": 79,
+          "goals": 22,
+          "assists": 30,
+          "points": 52,
+          "plusMinus": 4,
+          "penaltyMinutes": 40,
+          "powerPlayGoals": 3,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 3,
+          "overtimeGoals": 1,
+          "shots": 167,
+          "shootingPctg": 0.131737,
+          "avgTimeOnIcePerGame": 989.6456,
+          "avgShiftsPerGame": 18.9114,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8482911,
+          "positionCode": "D",
+          "gamesPlayed": 37,
+          "goals": 1,
+          "assists": 8,
+          "points": 9,
+          "plusMinus": 5,
+          "penaltyMinutes": 6,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 43,
+          "shootingPctg": 0.023256,
+          "avgTimeOnIcePerGame": 910.0811,
+          "avgShiftsPerGame": 21.8108,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8484203,
+          "positionCode": "L",
+          "gamesPlayed": 10,
+          "goals": 2,
+          "assists": 0,
+          "points": 2,
+          "plusMinus": 0,
+          "penaltyMinutes": 2,
+          "powerPlayGoals": 1,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 9,
+          "shootingPctg": 0.222222,
+          "avgTimeOnIcePerGame": 735.6,
+          "avgShiftsPerGame": 15.6,
+          "faceoffWinPctg": 0
+        },
+        {
+          "playerId": 8484428,
+          "positionCode": "D",
+          "gamesPlayed": 10,
+          "goals": 1,
+          "assists": 1,
+          "points": 2,
+          "plusMinus": 4,
+          "penaltyMinutes": 15,
+          "powerPlayGoals": 0,
+          "shorthandedGoals": 0,
+          "gameWinningGoals": 0,
+          "overtimeGoals": 0,
+          "shots": 11,
+          "shootingPctg": 0.090909,
+          "avgTimeOnIcePerGame": 810.9,
+          "avgShiftsPerGame": 19.5,
+          "faceoffWinPctg": 0
+        }
+      ],
+      "goalies": [
+        {
+          "playerId": 8475883,
+          "gamesPlayed": 35,
+          "gamesStarted": 35,
+          "wins": 16,
+          "losses": 14,
+          "overtimeLosses": 5,
+          "goalsAgainstAverage": 3.054428,
+          "savePercentage": 0.873969,
+          "shotsAgainst": 849,
+          "saves": 742,
+          "goalsAgainst": 107,
+          "shutouts": 0,
+          "goals": 0,
+          "assists": 1,
+          "points": 1,
+          "penaltyMinutes": 4,
+          "timeOnIce": 126112
+        },
+        {
+          "playerId": 8480051,
+          "gamesPlayed": 3,
+          "gamesStarted": 3,
+          "wins": 2,
+          "losses": 1,
+          "overtimeLosses": 0,
+          "goalsAgainstAverage": 4.29831,
+          "savePercentage": 0.8375,
+          "shotsAgainst": 80,
+          "saves": 67,
+          "goalsAgainst": 13,
+          "shutouts": 0,
+          "goals": 0,
+          "assists": 0,
+          "points": 0,
+          "penaltyMinutes": 0,
+          "timeOnIce": 10888
+        },
+        {
+          "playerId": 8481611,
+          "gamesPlayed": 9,
+          "gamesStarted": 8,
+          "wins": 6,
+          "losses": 2,
+          "overtimeLosses": 0,
+          "goalsAgainstAverage": 2.325819,
+          "savePercentage": 0.899471,
+          "shotsAgainst": 189,
+          "saves": 170,
+          "goalsAgainst": 19,
+          "shutouts": 1,
+          "goals": 0,
+          "assists": 0,
+          "points": 0,
+          "penaltyMinutes": 0,
+          "timeOnIce": 29409
+        },
+        {
+          "playerId": 8483548,
+          "gamesPlayed": 37,
+          "gamesStarted": 37,
+          "wins": 30,
+          "losses": 6,
+          "overtimeLosses": 1,
+          "goalsAgainstAverage": 2.522399,
+          "savePercentage": 0.891735,
+          "shotsAgainst": 859,
+          "saves": 766,
+          "goalsAgainst": 94,
+          "shutouts": 2,
+          "goals": 0,
+          "assists": 1,
+          "points": 1,
+          "penaltyMinutes": 2,
+          "timeOnIce": 134158
+        }
+      ]
+    },
+    "schedule": {
+      "currentSeason": 20252026,
+      "games": [
+        {
+          "id": 2025010016,
+          "gameType": 1,
+          "gameDate": "2025-09-22",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-09-22T23:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 14,
+            "commonName": "Lightning",
+            "abbrev": "TBL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025010030,
+          "gameType": 1,
+          "gameDate": "2025-09-24",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-09-24T22:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 13,
+            "commonName": "Panthers",
+            "abbrev": "FLA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/FLA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025010040,
+          "gameType": 1,
+          "gameDate": "2025-09-26",
+          "venue": "Benchmark International Arena",
+          "startTimeUTC": "2025-09-26T23:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 14,
+            "commonName": "Lightning",
+            "abbrev": "TBL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025010055,
+          "gameType": 1,
+          "gameDate": "2025-09-28",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-09-28T23:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 18,
+            "commonName": "Predators",
+            "abbrev": "NSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NSH_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025010061,
+          "gameType": 1,
+          "gameDate": "2025-09-29",
+          "venue": "Amerant Bank Arena",
+          "startTimeUTC": "2025-09-29T22:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 13,
+            "commonName": "Panthers",
+            "abbrev": "FLA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/FLA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025010091,
+          "gameType": 1,
+          "gameDate": "2025-10-04",
+          "venue": "Bridgestone Arena",
+          "startTimeUTC": "2025-10-04T20:00:00Z",
+          "gameState": "FINAL",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 18,
+            "commonName": "Predators",
+            "abbrev": "NSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NSH_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020014,
+          "gameType": 2,
+          "gameDate": "2025-10-09",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-10-09T23:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 1,
+            "commonName": "Devils",
+            "abbrev": "NJD",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NJD_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020030,
+          "gameType": 2,
+          "gameDate": "2025-10-11",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-10-11T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 4,
+            "commonName": "Flyers",
+            "abbrev": "PHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020055,
+          "gameType": 2,
+          "gameDate": "2025-10-14",
+          "venue": "SAP Center at San Jose",
+          "startTimeUTC": "2025-10-15T02:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 28,
+            "commonName": "Sharks",
+            "abbrev": "SJS",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/SJS_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020070,
+          "gameType": 2,
+          "gameDate": "2025-10-16",
+          "venue": "Honda Center",
+          "startTimeUTC": "2025-10-17T02:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 24,
+            "commonName": "Ducks",
+            "abbrev": "ANA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/ANA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020086,
+          "gameType": 2,
+          "gameDate": "2025-10-18",
+          "venue": "Crypto.com Arena",
+          "startTimeUTC": "2025-10-19T01:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 26,
+            "commonName": "Kings",
+            "abbrev": "LAK",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/LAK_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020097,
+          "gameType": 2,
+          "gameDate": "2025-10-20",
+          "venue": "T-Mobile Arena",
+          "startTimeUTC": "2025-10-21T02:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 54,
+            "commonName": "Golden Knights",
+            "abbrev": "VGK",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/VGK_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/VGK_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020121,
+          "gameType": 2,
+          "gameDate": "2025-10-23",
+          "venue": "Ball Arena",
+          "startTimeUTC": "2025-10-24T01:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 21,
+            "commonName": "Avalanche",
+            "abbrev": "COL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020138,
+          "gameType": 2,
+          "gameDate": "2025-10-25",
+          "venue": "American Airlines Center",
+          "startTimeUTC": "2025-10-26T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 25,
+            "commonName": "Stars",
+            "abbrev": "DAL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/DAL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020155,
+          "gameType": 2,
+          "gameDate": "2025-10-28",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-10-28T22:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 54,
+            "commonName": "Golden Knights",
+            "abbrev": "VGK",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/VGK_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/VGK_dark.svg",
+            "score": 6
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020171,
+          "gameType": 2,
+          "gameDate": "2025-10-30",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-10-30T23:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 2,
+            "commonName": "Islanders",
+            "abbrev": "NYI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020181,
+          "gameType": 2,
+          "gameDate": "2025-11-01",
+          "venue": "TD Garden",
+          "startTimeUTC": "2025-11-01T17:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 6,
+            "commonName": "Bruins",
+            "abbrev": "BOS",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020206,
+          "gameType": 2,
+          "gameDate": "2025-11-04",
+          "venue": "Madison Square Garden",
+          "startTimeUTC": "2025-11-05T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 3,
+            "commonName": "Rangers",
+            "abbrev": "NYR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg",
+            "score": 0
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020222,
+          "gameType": 2,
+          "gameDate": "2025-11-06",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-07T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 30,
+            "commonName": "Wild",
+            "abbrev": "MIN",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020238,
+          "gameType": 2,
+          "gameDate": "2025-11-08",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-09T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 7,
+            "commonName": "Sabres",
+            "abbrev": "BUF",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020246,
+          "gameType": 2,
+          "gameDate": "2025-11-09",
+          "venue": "Scotiabank Arena",
+          "startTimeUTC": "2025-11-10T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 10,
+            "commonName": "Maple Leafs",
+            "abbrev": "TOR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TOR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TOR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020259,
+          "gameType": 2,
+          "gameDate": "2025-11-11",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-12T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 15,
+            "commonName": "Capitals",
+            "abbrev": "WSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020279,
+          "gameType": 2,
+          "gameDate": "2025-11-14",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-15T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 23,
+            "commonName": "Canucks",
+            "abbrev": "VAN",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/VAN_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/VAN_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020289,
+          "gameType": 2,
+          "gameDate": "2025-11-15",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-16T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 22,
+            "commonName": "Oilers",
+            "abbrev": "EDM",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020301,
+          "gameType": 2,
+          "gameDate": "2025-11-17",
+          "venue": "TD Garden",
+          "startTimeUTC": "2025-11-18T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 6,
+            "commonName": "Bruins",
+            "abbrev": "BOS",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020317,
+          "gameType": 2,
+          "gameDate": "2025-11-19",
+          "venue": "Grand Casino Arena",
+          "startTimeUTC": "2025-11-20T02:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 30,
+            "commonName": "Wild",
+            "abbrev": "MIN",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/MIN_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/MIN_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020333,
+          "gameType": 2,
+          "gameDate": "2025-11-21",
+          "venue": "Canada Life Centre",
+          "startTimeUTC": "2025-11-22T01:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 52,
+            "commonName": "Jets",
+            "abbrev": "WPG",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020347,
+          "gameType": 2,
+          "gameDate": "2025-11-23",
+          "venue": "KeyBank Center",
+          "startTimeUTC": "2025-11-23T18:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 7,
+            "commonName": "Sabres",
+            "abbrev": "BUF",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020368,
+          "gameType": 2,
+          "gameDate": "2025-11-26",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-27T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 3,
+            "commonName": "Rangers",
+            "abbrev": "NYR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020387,
+          "gameType": 2,
+          "gameDate": "2025-11-28",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-28T22:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 52,
+            "commonName": "Jets",
+            "abbrev": "WPG",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/WPG_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/WPG_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020404,
+          "gameType": 2,
+          "gameDate": "2025-11-30",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-11-30T22:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 20,
+            "commonName": "Flames",
+            "abbrev": "CGY",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CGY_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CGY_dark.svg",
+            "score": 0
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020431,
+          "gameType": 2,
+          "gameDate": "2025-12-04",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-05T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 10,
+            "commonName": "Maple Leafs",
+            "abbrev": "TOR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TOR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TOR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020447,
+          "gameType": 2,
+          "gameDate": "2025-12-06",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-07T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 18,
+            "commonName": "Predators",
+            "abbrev": "NSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NSH_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020455,
+          "gameType": 2,
+          "gameDate": "2025-12-07",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-07T22:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 28,
+            "commonName": "Sharks",
+            "abbrev": "SJS",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/SJS_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/SJS_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020471,
+          "gameType": 2,
+          "gameDate": "2025-12-09",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-10T00:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 29,
+            "commonName": "Blue Jackets",
+            "abbrev": "CBJ",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020485,
+          "gameType": 2,
+          "gameDate": "2025-12-11",
+          "venue": "Capital One Arena",
+          "startTimeUTC": "2025-12-12T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 15,
+            "commonName": "Capitals",
+            "abbrev": "WSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020501,
+          "gameType": 2,
+          "gameDate": "2025-12-13",
+          "venue": "Xfinity Mobile Arena",
+          "startTimeUTC": "2025-12-14T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 4,
+            "commonName": "Flyers",
+            "abbrev": "PHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020510,
+          "gameType": 2,
+          "gameDate": "2025-12-14",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-14T22:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 4,
+            "commonName": "Flyers",
+            "abbrev": "PHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020532,
+          "gameType": 2,
+          "gameDate": "2025-12-17",
+          "venue": "Bridgestone Arena",
+          "startTimeUTC": "2025-12-18T01:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 18,
+            "commonName": "Predators",
+            "abbrev": "NSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NSH_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020544,
+          "gameType": 2,
+          "gameDate": "2025-12-19",
+          "venue": "Amerant Bank Arena",
+          "startTimeUTC": "2025-12-20T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 13,
+            "commonName": "Panthers",
+            "abbrev": "FLA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/FLA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020557,
+          "gameType": 2,
+          "gameDate": "2025-12-20",
+          "venue": "Benchmark International Arena",
+          "startTimeUTC": "2025-12-21T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 14,
+            "commonName": "Lightning",
+            "abbrev": "TBL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020581,
+          "gameType": 2,
+          "gameDate": "2025-12-23",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-24T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 13,
+            "commonName": "Panthers",
+            "abbrev": "FLA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/FLA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020593,
+          "gameType": 2,
+          "gameDate": "2025-12-27",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-28T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 17,
+            "commonName": "Red Wings",
+            "abbrev": "DET",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020608,
+          "gameType": 2,
+          "gameDate": "2025-12-29",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2025-12-30T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 3,
+            "commonName": "Rangers",
+            "abbrev": "NYR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020619,
+          "gameType": 2,
+          "gameDate": "2025-12-30",
+          "venue": "PPG Paints Arena",
+          "startTimeUTC": "2025-12-31T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 5,
+            "commonName": "Penguins",
+            "abbrev": "PIT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PIT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020636,
+          "gameType": 2,
+          "gameDate": "2026-01-01",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-02T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 8,
+            "commonName": "Canadiens",
+            "abbrev": "MTL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/MTL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg",
+            "score": 7
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020653,
+          "gameType": 2,
+          "gameDate": "2026-01-03",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-04T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 21,
+            "commonName": "Avalanche",
+            "abbrev": "COL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/COL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/COL_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020660,
+          "gameType": 2,
+          "gameDate": "2026-01-04",
+          "venue": "Prudential Center",
+          "startTimeUTC": "2026-01-05T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 1,
+            "commonName": "Devils",
+            "abbrev": "NJD",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NJD_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020671,
+          "gameType": 2,
+          "gameDate": "2026-01-06",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-07T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 25,
+            "commonName": "Stars",
+            "abbrev": "DAL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/DAL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/DAL_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020688,
+          "gameType": 2,
+          "gameDate": "2026-01-08",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-09T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 24,
+            "commonName": "Ducks",
+            "abbrev": "ANA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/ANA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/ANA_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020706,
+          "gameType": 2,
+          "gameDate": "2026-01-10",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-11T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 55,
+            "commonName": "Kraken",
+            "abbrev": "SEA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/SEA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020717,
+          "gameType": 2,
+          "gameDate": "2026-01-12",
+          "venue": "Little Caesars Arena",
+          "startTimeUTC": "2026-01-13T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 17,
+            "commonName": "Red Wings",
+            "abbrev": "DET",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020730,
+          "gameType": 2,
+          "gameDate": "2026-01-13",
+          "venue": "Enterprise Center",
+          "startTimeUTC": "2026-01-14T00:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 0
+          },
+          "homeTeam": {
+            "id": 19,
+            "commonName": "Blues",
+            "abbrev": "STL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/STL_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/STL_dark.svg?season=20252026",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020750,
+          "gameType": 2,
+          "gameDate": "2026-01-16",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-17T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 13,
+            "commonName": "Panthers",
+            "abbrev": "FLA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/FLA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/FLA_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 9
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020759,
+          "gameType": 2,
+          "gameDate": "2026-01-17",
+          "venue": "Prudential Center",
+          "startTimeUTC": "2026-01-18T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 1,
+            "commonName": "Devils",
+            "abbrev": "NJD",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NJD_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020770,
+          "gameType": 2,
+          "gameDate": "2026-01-19",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-19T18:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 7,
+            "commonName": "Sabres",
+            "abbrev": "BUF",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BUF_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BUF_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020796,
+          "gameType": 2,
+          "gameDate": "2026-01-22",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-23T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 16,
+            "commonName": "Blackhawks",
+            "abbrev": "CHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CHI_dark.svg?season=20252026",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025020813,
+          "gameType": 2,
+          "gameDate": "2026-01-24",
+          "venue": "Canadian Tire Centre",
+          "startTimeUTC": "2026-01-25T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 9,
+            "commonName": "Senators",
+            "abbrev": "OTT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020851,
+          "gameType": 2,
+          "gameDate": "2026-01-29",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-01-30T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 68,
+            "commonName": "Mammoth",
+            "abbrev": "UTA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/UTA_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg?season=20252026",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020864,
+          "gameType": 2,
+          "gameDate": "2026-01-31",
+          "venue": "Capital One Arena",
+          "startTimeUTC": "2026-01-31T22:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 15,
+            "commonName": "Capitals",
+            "abbrev": "WSH",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/WSH_secondary_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020874,
+          "gameType": 2,
+          "gameDate": "2026-02-01",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-02-01T20:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 26,
+            "commonName": "Kings",
+            "abbrev": "LAK",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/LAK_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/LAK_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025020890,
+          "gameType": 2,
+          "gameDate": "2026-02-03",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-02-04T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 9,
+            "commonName": "Senators",
+            "abbrev": "OTT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020906,
+          "gameType": 2,
+          "gameDate": "2026-02-05",
+          "venue": "Madison Square Garden",
+          "startTimeUTC": "2026-02-06T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 3,
+            "commonName": "Rangers",
+            "abbrev": "NYR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYR_dark.svg",
+            "score": 0
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020923,
+          "gameType": 2,
+          "gameDate": "2026-02-26",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-02-27T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 14,
+            "commonName": "Lightning",
+            "abbrev": "TBL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020942,
+          "gameType": 2,
+          "gameDate": "2026-02-28",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-01T00:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 17,
+            "commonName": "Red Wings",
+            "abbrev": "DET",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/DET_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/DET_dark.svg?season=20252026",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020957,
+          "gameType": 2,
+          "gameDate": "2026-03-02",
+          "venue": "Climate Pledge Arena",
+          "startTimeUTC": "2026-03-03T03:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 55,
+            "commonName": "Kraken",
+            "abbrev": "SEA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/SEA_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/SEA_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020972,
+          "gameType": 2,
+          "gameDate": "2026-03-04",
+          "venue": "Rogers Arena",
+          "startTimeUTC": "2026-03-05T03:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "homeTeam": {
+            "id": 23,
+            "commonName": "Canucks",
+            "abbrev": "VAN",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/VAN_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/VAN_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020986,
+          "gameType": 2,
+          "gameDate": "2026-03-06",
+          "venue": "Rogers Place",
+          "startTimeUTC": "2026-03-07T02:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "homeTeam": {
+            "id": 22,
+            "commonName": "Oilers",
+            "abbrev": "EDM",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/EDM_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/EDM_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025020998,
+          "gameType": 2,
+          "gameDate": "2026-03-07",
+          "venue": "Scotiabank Saddledome",
+          "startTimeUTC": "2026-03-08T03:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 20,
+            "commonName": "Flames",
+            "abbrev": "CGY",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CGY_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CGY_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021018,
+          "gameType": 2,
+          "gameDate": "2026-03-10",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-10T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 5,
+            "commonName": "Penguins",
+            "abbrev": "PIT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PIT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "SO"
+          }
+        },
+        {
+          "id": 2025021033,
+          "gameType": 2,
+          "gameDate": "2026-03-12",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-12T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 19,
+            "commonName": "Blues",
+            "abbrev": "STL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/STL_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/STL_dark.svg?season=20252026",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021049,
+          "gameType": 2,
+          "gameDate": "2026-03-14",
+          "venue": "Benchmark International Arena",
+          "startTimeUTC": "2026-03-14T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 14,
+            "commonName": "Lightning",
+            "abbrev": "TBL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021070,
+          "gameType": 2,
+          "gameDate": "2026-03-17",
+          "venue": "Nationwide Arena",
+          "startTimeUTC": "2026-03-17T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 29,
+            "commonName": "Blue Jackets",
+            "abbrev": "CBJ",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021078,
+          "gameType": 2,
+          "gameDate": "2026-03-18",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-18T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 5,
+            "commonName": "Penguins",
+            "abbrev": "PIT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PIT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025021094,
+          "gameType": 2,
+          "gameDate": "2026-03-20",
+          "venue": "Scotiabank Arena",
+          "startTimeUTC": "2026-03-20T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 10,
+            "commonName": "Maple Leafs",
+            "abbrev": "TOR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/TOR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/TOR_dark.svg",
+            "score": 3
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025021112,
+          "gameType": 2,
+          "gameDate": "2026-03-22",
+          "venue": "PPG Paints Arena",
+          "startTimeUTC": "2026-03-22T19:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 5,
+            "commonName": "Penguins",
+            "abbrev": "PIT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PIT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PIT_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021121,
+          "gameType": 2,
+          "gameDate": "2026-03-24",
+          "venue": "Centre Bell",
+          "startTimeUTC": "2026-03-24T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 8,
+            "commonName": "Canadiens",
+            "abbrev": "MTL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/MTL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021157,
+          "gameType": 2,
+          "gameDate": "2026-03-28",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-28T21:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 1,
+            "commonName": "Devils",
+            "abbrev": "NJD",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NJD_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NJD_dark.svg",
+            "score": 2
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021169,
+          "gameType": 2,
+          "gameDate": "2026-03-29",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-03-29T21:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 8,
+            "commonName": "Canadiens",
+            "abbrev": "MTL",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/MTL_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/MTL_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021185,
+          "gameType": 2,
+          "gameDate": "2026-03-31",
+          "venue": "Nationwide Arena",
+          "startTimeUTC": "2026-03-31T23:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 29,
+            "commonName": "Blue Jackets",
+            "abbrev": "CBJ",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021197,
+          "gameType": 2,
+          "gameDate": "2026-04-02",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-04-02T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 29,
+            "commonName": "Blue Jackets",
+            "abbrev": "CBJ",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CBJ_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CBJ_dark.svg",
+            "score": 1
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 5
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021214,
+          "gameType": 2,
+          "gameDate": "2026-04-04",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-04-04T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 2,
+            "commonName": "Islanders",
+            "abbrev": "NYI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021225,
+          "gameType": 2,
+          "gameDate": "2026-04-05",
+          "venue": "Canadian Tire Centre",
+          "startTimeUTC": "2026-04-05T21:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 3
+          },
+          "homeTeam": {
+            "id": 9,
+            "commonName": "Senators",
+            "abbrev": "OTT",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/OTT_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/OTT_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021237,
+          "gameType": 2,
+          "gameDate": "2026-04-07",
+          "venue": "Lenovo Center",
+          "startTimeUTC": "2026-04-07T23:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 6,
+            "commonName": "Bruins",
+            "abbrev": "BOS",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/BOS_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/BOS_dark.svg?season=20252026",
+            "score": 5
+          },
+          "homeTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 6
+          },
+          "gameOutcome": {
+            "periodType": "OT"
+          }
+        },
+        {
+          "id": 2025021255,
+          "gameType": 2,
+          "gameDate": "2026-04-09",
+          "venue": "United Center",
+          "startTimeUTC": "2026-04-10T00:30:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 7
+          },
+          "homeTeam": {
+            "id": 16,
+            "commonName": "Blackhawks",
+            "abbrev": "CHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CHI_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CHI_dark.svg?season=20252026",
+            "score": 2
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021269,
+          "gameType": 2,
+          "gameDate": "2026-04-11",
+          "venue": "Delta Center",
+          "startTimeUTC": "2026-04-11T21:00:00Z",
+          "gameState": "OFF",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": 4
+          },
+          "homeTeam": {
+            "id": 68,
+            "commonName": "Mammoth",
+            "abbrev": "UTA",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/UTA_light.svg?season=20252026",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/UTA_dark.svg?season=20252026",
+            "score": 1
+          },
+          "gameOutcome": {
+            "periodType": "REG"
+          }
+        },
+        {
+          "id": 2025021284,
+          "gameType": 2,
+          "gameDate": "2026-04-13",
+          "venue": "Xfinity Mobile Arena",
+          "startTimeUTC": "2026-04-13T23:00:00Z",
+          "gameState": "FUT",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": null
+          },
+          "homeTeam": {
+            "id": 4,
+            "commonName": "Flyers",
+            "abbrev": "PHI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/PHI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/PHI_dark.svg",
+            "score": null
+          },
+          "gameOutcome": {
+            "periodType": null
+          }
+        },
+        {
+          "id": 2025021293,
+          "gameType": 2,
+          "gameDate": "2026-04-14",
+          "venue": "UBS Arena",
+          "startTimeUTC": "2026-04-14T23:00:00Z",
+          "gameState": "FUT",
+          "gameScheduledState": "OK",
+          "awayTeam": {
+            "id": 12,
+            "commonName": "Hurricanes",
+            "abbrev": "CAR",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/CAR_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/CAR_dark.svg",
+            "score": null
+          },
+          "homeTeam": {
+            "id": 2,
+            "commonName": "Islanders",
+            "abbrev": "NYI",
+            "logo": "https://assets.nhle.com/logos/nhl/svg/NYI_light.svg",
+            "darkLogo": "https://assets.nhle.com/logos/nhl/svg/NYI_dark.svg",
+            "score": null
+          },
+          "gameOutcome": {
+            "periodType": null
+          }
+        }
+      ]
+    },
+    "roster": {
+      "forwards": [
+        {
+          "id": 8478427,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8478427.png",
+          "firstName": "Sebastian",
+          "lastName": "Aho",
+          "sweaterNumber": 20,
+          "positionCode": "C",
+          "shootsCatches": "L",
+          "heightInInches": 72,
+          "heightInCentimeters": 183,
+          "birthDate": "1997-07-26",
+          "birthCity": "Rauma",
+          "birthCountry": "FIN"
+        },
+        {
+          "id": 8482809,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8482809.png",
+          "firstName": "Jackson",
+          "lastName": "Blake",
+          "sweaterNumber": 53,
+          "positionCode": "R",
+          "shootsCatches": "R",
+          "heightInInches": 71,
+          "heightInCentimeters": 180,
+          "birthDate": "2003-08-03",
+          "birthCity": "Fargo",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8480291,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480291.png",
+          "firstName": "Skyler",
+          "lastName": "Brind'Amour",
+          "sweaterNumber": 76,
+          "positionCode": "C",
+          "shootsCatches": "L",
+          "heightInInches": 74,
+          "heightInCentimeters": 188,
+          "birthDate": "1999-07-27",
+          "birthCity": "Raleigh",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8477478,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8477478.png",
+          "firstName": "William",
+          "lastName": "Carrier",
+          "sweaterNumber": 28,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 74,
+          "heightInCentimeters": 188,
+          "birthDate": "1994-12-20",
+          "birthCity": "LaSalle",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8475235,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8475235.png",
+          "firstName": "Nicolas",
+          "lastName": "Deslauriers",
+          "sweaterNumber": 44,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 73,
+          "heightInCentimeters": 185,
+          "birthDate": "1991-02-22",
+          "birthCity": "LaSalle",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8477940,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8477940.png",
+          "firstName": "Nikolaj",
+          "lastName": "Ehlers",
+          "sweaterNumber": 27,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 72,
+          "heightInCentimeters": 183,
+          "birthDate": "1996-02-14",
+          "birthCity": "Aalborg",
+          "birthCountry": "DNK"
+        },
+        {
+          "id": 8475791,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8475791.png",
+          "firstName": "Taylor",
+          "lastName": "Hall",
+          "sweaterNumber": 71,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 73,
+          "heightInCentimeters": 185,
+          "birthDate": "1991-11-14",
+          "birthCity": "Calgary",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8476873,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476873.png",
+          "firstName": "Mark",
+          "lastName": "Jankowski",
+          "sweaterNumber": 77,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 76,
+          "heightInCentimeters": 193,
+          "birthDate": "1994-09-13",
+          "birthCity": "Hamilton",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8482093,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8482093.png",
+          "firstName": "Seth",
+          "lastName": "Jarvis",
+          "sweaterNumber": 24,
+          "positionCode": "C",
+          "shootsCatches": "R",
+          "heightInInches": 70,
+          "heightInCentimeters": 178,
+          "birthDate": "2002-02-01",
+          "birthCity": "Winnipeg",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8480829,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480829.png",
+          "firstName": "Jesperi",
+          "lastName": "Kotkaniemi",
+          "sweaterNumber": 82,
+          "positionCode": "C",
+          "shootsCatches": "L",
+          "heightInInches": 75,
+          "heightInCentimeters": 191,
+          "birthDate": "2000-07-06",
+          "birthCity": "Pori",
+          "birthCountry": "FIN"
+        },
+        {
+          "id": 8476921,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476921.png",
+          "firstName": "Jordan",
+          "lastName": "Martinook",
+          "sweaterNumber": 48,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 73,
+          "heightInCentimeters": 185,
+          "birthDate": "1992-07-25",
+          "birthCity": "Brandon",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8484203,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8484203.png",
+          "firstName": "Bradly",
+          "lastName": "Nadeau",
+          "sweaterNumber": 29,
+          "positionCode": "L",
+          "shootsCatches": "R",
+          "heightInInches": 71,
+          "heightInCentimeters": 180,
+          "birthDate": "2005-05-05",
+          "birthCity": "St-Francois de Madaw",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8480762,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480762.png",
+          "firstName": "Eric",
+          "lastName": "Robinson",
+          "sweaterNumber": 50,
+          "positionCode": "L",
+          "shootsCatches": "L",
+          "heightInInches": 74,
+          "heightInCentimeters": 188,
+          "birthDate": "1995-06-14",
+          "birthCity": "Bellmawr",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8473533,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8473533.png",
+          "firstName": "Jordan",
+          "lastName": "Staal",
+          "sweaterNumber": 11,
+          "positionCode": "C",
+          "shootsCatches": "L",
+          "heightInInches": 76,
+          "heightInCentimeters": 193,
+          "birthDate": "1988-09-10",
+          "birthCity": "Thunder Bay",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8482702,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8482702.png",
+          "firstName": "Logan",
+          "lastName": "Stankoven",
+          "sweaterNumber": 22,
+          "positionCode": "C",
+          "shootsCatches": "R",
+          "heightInInches": 68,
+          "heightInCentimeters": 173,
+          "birthDate": "2003-02-26",
+          "birthCity": "Kamloops",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8480830,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480830.png",
+          "firstName": "Andrei",
+          "lastName": "Svechnikov",
+          "sweaterNumber": 37,
+          "positionCode": "R",
+          "shootsCatches": "L",
+          "heightInInches": 75,
+          "heightInCentimeters": 191,
+          "birthDate": "2000-03-26",
+          "birthCity": "Barnaul",
+          "birthCountry": "RUS"
+        }
+      ],
+      "defensemen": [
+        {
+          "id": 8478970,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8478970.png",
+          "firstName": "Jalen",
+          "lastName": "Chatfield",
+          "sweaterNumber": 5,
+          "positionCode": "D",
+          "shootsCatches": "R",
+          "heightInInches": 73,
+          "heightInCentimeters": 185,
+          "birthDate": "1996-05-15",
+          "birthCity": "Ypsilanti",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8476906,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476906.png",
+          "firstName": "Shayne",
+          "lastName": "Gostisbehere",
+          "sweaterNumber": 4,
+          "positionCode": "D",
+          "shootsCatches": "L",
+          "heightInInches": 71,
+          "heightInCentimeters": 180,
+          "birthDate": "1993-04-20",
+          "birthCity": "Pembroke Pines",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8484428,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8484428.png",
+          "firstName": "Charles Alexis",
+          "lastName": "Legault",
+          "sweaterNumber": 62,
+          "positionCode": "D",
+          "shootsCatches": "R",
+          "heightInInches": 76,
+          "heightInCentimeters": 193,
+          "birthDate": "2003-09-05",
+          "birthCity": "Montréal",
+          "birthCountry": "CAN"
+        },
+        {
+          "id": 8480817,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480817.png",
+          "firstName": "K'Andre",
+          "lastName": "Miller",
+          "sweaterNumber": 19,
+          "positionCode": "D",
+          "shootsCatches": "L",
+          "heightInInches": 77,
+          "heightInCentimeters": 196,
+          "birthDate": "2000-01-21",
+          "birthCity": "St. Paul",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8482100,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8482100.png",
+          "firstName": "Alexander",
+          "lastName": "Nikishin",
+          "sweaterNumber": 21,
+          "positionCode": "D",
+          "shootsCatches": "L",
+          "heightInInches": 75,
+          "heightInCentimeters": 191,
+          "birthDate": "2001-10-02",
+          "birthCity": "Orel",
+          "birthCountry": "RUS"
+        },
+        {
+          "id": 8476422,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476422.png",
+          "firstName": "Mike",
+          "lastName": "Reilly",
+          "sweaterNumber": 6,
+          "positionCode": "D",
+          "shootsCatches": "L",
+          "heightInInches": 74,
+          "heightInCentimeters": 188,
+          "birthDate": "1993-07-13",
+          "birthCity": "Glenview",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8476958,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8476958.png",
+          "firstName": "Jaccob",
+          "lastName": "Slavin",
+          "sweaterNumber": 74,
+          "positionCode": "D",
+          "shootsCatches": "L",
+          "heightInInches": 75,
+          "heightInCentimeters": 191,
+          "birthDate": "1994-05-01",
+          "birthCity": "Denver",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8480336,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8480336.png",
+          "firstName": "Sean",
+          "lastName": "Walker",
+          "sweaterNumber": 26,
+          "positionCode": "D",
+          "shootsCatches": "R",
+          "heightInInches": 71,
+          "heightInCentimeters": 180,
+          "birthDate": "1994-11-13",
+          "birthCity": "Keswick",
+          "birthCountry": "CAN"
+        }
+      ],
+      "goalies": [
+        {
+          "id": 8475883,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8475883.png",
+          "firstName": "Frederik",
+          "lastName": "Andersen",
+          "sweaterNumber": 31,
+          "positionCode": "G",
+          "shootsCatches": "L",
+          "heightInInches": 76,
+          "heightInCentimeters": 193,
+          "birthDate": "1989-10-02",
+          "birthCity": "Herning",
+          "birthCountry": "DNK"
+        },
+        {
+          "id": 8483548,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8483548.png",
+          "firstName": "Brandon",
+          "lastName": "Bussi",
+          "sweaterNumber": 32,
+          "positionCode": "G",
+          "shootsCatches": "R",
+          "heightInInches": 76,
+          "heightInCentimeters": 193,
+          "birthDate": "1998-06-25",
+          "birthCity": "Sound Beach",
+          "birthCountry": "USA"
+        },
+        {
+          "id": 8481611,
+          "headshot": "https://assets.nhle.com/mugs/nhl/20252026/CAR/8481611.png",
+          "firstName": "Pyotr",
+          "lastName": "Kochetkov",
+          "sweaterNumber": 52,
+          "positionCode": "G",
+          "shootsCatches": "L",
+          "heightInInches": 75,
+          "heightInCentimeters": 191,
+          "birthDate": "1999-06-25",
+          "birthCity": "Penza",
+          "birthCountry": "RUS"
+        }
+      ]
+    }
+  }
+}
