@@ -77,7 +77,7 @@ const SoccerHomeScreen = () => {
   const navigation = useNavigation();
   const { theme, colors, isDarkMode } = useTheme();
 
-  const show = false; // Placeholder for future "show more" functionality
+  const show = true; // Placeholder for future "show more" functionality
 
 const soccerLeagues = [
   ...(!show)

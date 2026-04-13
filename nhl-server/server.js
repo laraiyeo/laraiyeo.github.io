@@ -561,6 +561,7 @@ function getGamePollingInterval(landingPayload) {
 
 function transformLandingPayload(payload) {
   const summary = payload?.summary || {};
+  const matchup = payload?.matchup || {};
 
   const mapIceSurfaceTeam = (team) => ({
     forwards: Array.isArray(team?.forwards)
@@ -657,6 +658,45 @@ function transformLandingPayload(payload) {
     };
   });
 
+  const skaterComparisonLeaders = Array.isArray(
+    matchup?.skaterComparison?.leaders,
+  )
+    ? matchup.skaterComparison.leaders
+    : [];
+
+  const mapSkaterLeader = (leader) => ({
+    playerId: leader?.playerId ?? null,
+    firstName: pickDefaultName(leader?.firstName),
+    lastName: pickDefaultName(leader?.lastName),
+    sweaterNumber: leader?.sweaterNumber ?? null,
+    positionCode: leader?.positionCode ?? null,
+    headshot: leader?.headshot ?? null,
+    value: leader?.value ?? null,
+  });
+
+  const mapGoalieLeader = (leader) => ({
+    playerId: leader?.playerId ?? null,
+    firstName: pickDefaultName(leader?.firstName),
+    lastName: pickDefaultName(leader?.lastName),
+    sweaterNumber: leader?.sweaterNumber ?? null,
+    positionCode: leader?.positionCode ?? null,
+    headshot: leader?.headshot ?? null,
+    gamesPlayed: leader?.gamesPlayed ?? null,
+    seasonPoints: leader?.seasonPoints ?? null,
+    record: leader?.record ?? null,
+    gaa: leader?.gaa ?? null,
+    savePcts: leader?.savePcts ?? leader?.savePctg ?? null,
+    shutouts: leader?.shutouts ?? null,
+  });
+
+  const skaterSeasonStats = Array.isArray(matchup?.skaterSeasonStats?.skaters)
+    ? matchup.skaterSeasonStats.skaters
+    : [];
+
+  const goalieSeasonStats = Array.isArray(matchup?.goalieSeasonStats?.goalies)
+    ? matchup.goalieSeasonStats.goalies
+    : [];
+
   return {
     id: payload?.id ?? null,
     gameType: payload?.gameType ?? null,
@@ -700,6 +740,59 @@ function transformLandingPayload(payload) {
       scoring,
       threeStars,
       penalties,
+    },
+    matchup: {
+      skaterComparison: {
+        contextLabel: matchup?.skaterComparison?.contextLabel ?? null,
+        leaders: skaterComparisonLeaders.map((entry) => ({
+          category: entry?.category ?? null,
+          awayLeader: mapSkaterLeader(entry?.awayLeader),
+          homeLeader: mapSkaterLeader(entry?.homeLeader),
+        })),
+      },
+      goalieComparison: {
+        contextLabel: matchup?.goalieComparison?.contextLabel ?? null,
+        homeTeam: {
+          teamTotals: {
+            record:
+              matchup?.goalieComparison?.homeTeam?.teamTotals?.record ?? null,
+          },
+          leaders: (Array.isArray(matchup?.goalieComparison?.homeTeam?.leaders)
+            ? matchup.goalieComparison.homeTeam.leaders
+            : []
+          ).map(mapGoalieLeader),
+        },
+        awayTeam: {
+          teamTotals: {
+            record:
+              matchup?.goalieComparison?.awayTeam?.teamTotals?.record ?? null,
+          },
+          leaders: (Array.isArray(matchup?.goalieComparison?.awayTeam?.leaders)
+            ? matchup.goalieComparison.awayTeam.leaders
+            : []
+          ).map(mapGoalieLeader),
+        },
+      },
+      skaterSeasonStats: {
+        skaters: skaterSeasonStats.map((skater) => ({
+          ...skater,
+          playerId: skater?.playerId ?? null,
+          teamId: skater?.teamId ?? null,
+          sweaterNumber: skater?.sweaterNumber ?? null,
+          name: pickDefaultName(skater?.name),
+          position: skater?.position ?? null,
+        })),
+      },
+      goalieSeasonStats: {
+        goalies: goalieSeasonStats.map((goalie) => ({
+          ...goalie,
+          playerId: goalie?.playerId ?? null,
+          teamId: goalie?.teamId ?? null,
+          sweaterNumber: goalie?.sweaterNumber ?? null,
+          name: pickDefaultName(goalie?.name),
+          position: goalie?.position ?? null,
+        })),
+      },
     },
     clock: {
       timeRemaining: payload?.clock?.timeRemaining ?? null,
@@ -793,6 +886,10 @@ function transformRightRailPayload(payload) {
       awayValue: s?.awayValue ?? null,
       homeValue: s?.homeValue ?? null,
     })),
+    teamSeasonStats: {
+      awayTeam: payload?.teamSeasonStats?.awayTeam ?? {},
+      homeTeam: payload?.teamSeasonStats?.homeTeam ?? {},
+    },
   };
 }
 

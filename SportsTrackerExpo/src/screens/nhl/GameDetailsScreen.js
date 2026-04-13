@@ -12,7 +12,13 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { FontAwesome6, MaterialIcons, Ionicons } from "@expo/vector-icons";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Circle,
+} from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { NHLService } from "../../services/NHLService";
@@ -153,7 +159,7 @@ const parseClockSecs = (mmss) => {
   return Number(m[1]) * 60 + Number(m[2]);
 };
 
-const TABS = ["Main", "Home", "Away", "Stats", "Plays", "Shifts", "Series"];
+const TABS = ["Main", "Away", "Home", "Stats", "Plays", "Shifts", "Series"];
 const INTERVAL_FAST = 5 * 1000;
 const INTERVAL_SLOW = 30 * 60 * 1000;
 const SOON_THRESHOLD = 5 * 60 * 1000;
@@ -405,10 +411,18 @@ const normalizeGameData = (details, isDarkMode) => {
         .filter(Boolean),
       lineScoreByPeriod: details?.data?.rightRail?.linescore?.byPeriod || [],
       teamGameStats: details?.data?.rightRail?.teamGameStats || [],
+      seasonSeries: details?.data?.rightRail?.seasonSeries || [],
       shifts: details?.data?.shifts || {},
       plays: details?.data?.plays?.plays || [],
       playerMetaById: buildPlayerMetaById(details?.data?.boxscore),
       playRosterSpots: buildPlayRosterSpots(details?.data?.plays),
+      boxscorePlayerByGameStats:
+        details?.data?.boxscore?.playerByGameStats || {},
+      iceSurface: landing?.summary?.iceSurface || {},
+      injuriesByTeam: {
+        away: details?.data?.rightRail?.gameInfo?.awayTeam?.scratches || [],
+        home: details?.data?.rightRail?.gameInfo?.homeTeam?.scratches || [],
+      },
     };
   }
 
@@ -492,10 +506,17 @@ const normalizeGameData = (details, isDarkMode) => {
       .filter(Boolean),
     lineScoreByPeriod: [],
     teamGameStats: details?.teamGameStats || [],
+    seasonSeries: details?.rightRail?.seasonSeries || [],
     shifts: details?.shifts || {},
     plays: details?.plays || [],
     playerMetaById: buildPlayerMetaById(details?.boxscore),
     playRosterSpots: buildPlayRosterSpots(details?.plays),
+    boxscorePlayerByGameStats: details?.boxscore?.playerByGameStats || {},
+    iceSurface: details?.summary?.iceSurface || {},
+    injuriesByTeam: {
+      away: details?.gameInfo?.awayTeam?.scratches || [],
+      home: details?.gameInfo?.homeTeam?.scratches || [],
+    },
   };
 };
 
@@ -569,12 +590,35 @@ const buildScorers = ({ summaryScoring, plays, awayAbbr, homeAbbr }) => {
     return b.secs - a.secs;
   };
 
-  const format = (g) =>
-    `${g.name} ${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber)})`;
+  const formatGoalMoment = (g) =>
+    `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber)})`;
+
+  const formatGroupedByPlayer = (goals) => {
+    const grouped = new Map();
+
+    goals
+      .slice()
+      .sort(byEarliest)
+      .forEach((goal) => {
+        const name = String(goal?.name || "").trim();
+        if (!name) return;
+
+        const key = name.toLowerCase();
+        if (!grouped.has(key)) {
+          grouped.set(key, { name, moments: [] });
+        }
+
+        grouped.get(key).moments.push(formatGoalMoment(goal));
+      });
+
+    return Array.from(grouped.values()).map(
+      (entry) => `${entry.name} ${entry.moments.join(", ")}`,
+    );
+  };
 
   return {
-    away: awayGoals.sort(byEarliest).map(format),
-    home: homeGoals.sort(byEarliest).map(format),
+    away: formatGroupedByPlayer(awayGoals),
+    home: formatGroupedByPlayer(homeGoals),
   };
 };
 
@@ -623,6 +667,26 @@ const toSafeStatValue = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const parseStatPrimaryNumber = (value) => {
+  if (value == null) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value).trim();
+  const ratio = raw.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (ratio) return Number(ratio[1]);
+  const n = Number(raw.replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatStatLabel = (category) =>
+  String(category || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
 const withAlpha30 = (color) => {
   const raw = String(color || "").trim();
   const fullHex = raw.match(/^#([0-9a-fA-F]{6})$/);
@@ -638,6 +702,23 @@ const withAlpha30 = (color) => {
   if (hexWithAlpha) return `#${hexWithAlpha[1].slice(0, 6)}30`;
 
   return "rgba(255,255,255,0.18)";
+};
+
+const withAlpha66 = (color) => {
+  const raw = String(color || "").trim();
+  const fullHex = raw.match(/^#([0-9a-fA-F]{6})$/);
+  if (fullHex) return `${raw}66`;
+
+  const shortHex = raw.match(/^#([0-9a-fA-F]{3})$/);
+  if (shortHex) {
+    const [r, g, b] = shortHex[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}66`;
+  }
+
+  const hexWithAlpha = raw.match(/^#([0-9a-fA-F]{8})$/);
+  if (hexWithAlpha) return `#${hexWithAlpha[1].slice(0, 6)}66`;
+
+  return "rgba(128,128,128,0.4)";
 };
 
 const splitOfficialName = (value) => {
@@ -897,6 +978,739 @@ const LinescoreTable = ({ game, theme, colors }) => {
             </View>
           </View>
         </View>
+      </View>
+    </View>
+  );
+};
+
+const NHLRosterPlayerCard = ({ player, theme, teamColor, showStats = true }) => {
+  const fullName = String(player?.name || "").trim() || "Unknown Player";
+  const number =
+    player?.number != null && Number.isFinite(Number(player.number))
+      ? `#${Number(player.number)}`
+      : "";
+  const position = String(player?.position || "").trim();
+  const meta = [number, position].filter(Boolean).join(" \u00B7 ");
+  const hasHeadshot = !!String(player?.headshot || "").trim();
+  const initials =
+    fullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join("") || "?";
+  const isGoalie = String(player?.position || "").trim().toUpperCase() === "G";
+  const decisionRaw = String(player?.decision || "").trim().toUpperCase();
+  const decisionLabel =
+    decisionRaw === "W" ? "WON" : decisionRaw === "L" ? "LOSS" : "";
+  const decisionColor =
+    decisionRaw === "W"
+      ? theme.success
+      : decisionRaw === "L"
+        ? theme.error
+        : theme.textSecondary;
+
+  const plusMinusRaw = Number(player?.stats?.plusMinus);
+  const plusMinusDisplay = Number.isFinite(plusMinusRaw)
+    ? plusMinusRaw > 0
+      ? `+${plusMinusRaw}`
+      : String(plusMinusRaw)
+    : "-";
+  const plusMinusColor = Number.isFinite(plusMinusRaw)
+    ? plusMinusRaw < 0
+      ? theme.error
+      : plusMinusRaw > 0
+        ? theme.success
+        : theme.text
+    : theme.text;
+
+  const formatSavePct = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "-";
+    const pct = n <= 1 ? n * 100 : n;
+    return `${pct.toFixed(1)}%`;
+  };
+
+  const statItems = isGoalie
+    ? [
+        { label: "GA", value: toSafeStatValue(player?.stats?.goalsAgainst) },
+        { label: "SA", value: toSafeStatValue(player?.stats?.shotsAgainst) },
+        { label: "SV", value: toSafeStatValue(player?.stats?.saves) },
+        { label: "SV%", value: formatSavePct(player?.stats?.savePctg) },
+        { label: "TOI", value: String(player?.stats?.toi || "-") },
+      ]
+    : [
+        { label: "GLS", value: toSafeStatValue(player?.stats?.goals) },
+        { label: "AST", value: toSafeStatValue(player?.stats?.assists) },
+        { label: "PTS", value: toSafeStatValue(player?.stats?.points) },
+        {
+          label: "+/-",
+          value: plusMinusDisplay,
+          valueColor: plusMinusColor,
+        },
+        { label: "TOI", value: String(player?.stats?.toi || "-") },
+      ];
+
+  return (
+    <View
+      style={[
+        styles.nhlRosterPlayerCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: teamColor ?? theme.border,
+        },
+      ]}
+    >
+      <View style={styles.nhlRosterPlayerTopRow}>
+        <View
+          style={[
+            styles.nhlRosterPlayerHeadshotWrap,
+            {
+              backgroundColor: withAlpha66(teamColor),
+              borderColor: teamColor ?? theme.border,
+            },
+          ]}
+        >
+          {hasHeadshot ? (
+            <Image
+              source={{ uri: String(player?.headshot || "") }}
+              style={styles.nhlRosterPlayerHeadshot}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View style={styles.nhlRosterPlayerFallback}>
+              <Text
+                style={[
+                  styles.nhlRosterPlayerFallbackText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.nhlRosterPlayerNameBlock}>
+          <View style={styles.nhlRosterPlayerNameRow}>
+            <Text
+              style={[styles.nhlRosterPlayerName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {fullName}
+            </Text>
+            {!!decisionLabel && (
+              <Text
+                style={[
+                  styles.nhlRosterDecisionLabel,
+                  { color: decisionColor },
+                ]}
+              >
+                {decisionLabel}
+              </Text>
+            )}
+          </View>
+          {!!meta && (
+            <Text
+              style={[
+                styles.nhlRosterPlayerMeta,
+                { color: theme.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {meta}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {showStats ? (
+        <View style={styles.nhlRosterStatsRow}>
+          {statItems.map((item) => (
+            <View key={item.label} style={styles.nhlRosterStatCell}>
+              <Text
+                style={[
+                  styles.nhlRosterStatValue,
+                  { color: item.valueColor || theme.text },
+                ]}
+                numberOfLines={1}
+              >
+                {item.value}
+              </Text>
+              <Text
+                style={[styles.nhlRosterStatLabel, { color: theme.textSecondary }]}
+              >
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
+const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
+  const boxscoreKey = teamSide === "home" ? "homeTeam" : "awayTeam";
+
+  const rosterSpotById = useMemo(() => {
+    const map = {};
+    const spots = Array.isArray(game?.playRosterSpots) ? game.playRosterSpots : [];
+    spots.forEach((spot) => {
+      const id = Number(spot?.playerId);
+      if (Number.isFinite(id)) map[id] = spot;
+    });
+    return map;
+  }, [game?.playRosterSpots]);
+
+  const toPlayerId = (entry) => {
+    const candidates = [
+      entry?.playerId,
+      entry?.id,
+      entry?.personId,
+      entry?.player?.id,
+    ];
+    for (const value of candidates) {
+      const id = Number(value);
+      if (Number.isFinite(id)) return id;
+    }
+    return null;
+  };
+
+  const resolveName = (entry, roster) => {
+    const first = String(roster?.firstName || "").trim();
+    const last = String(roster?.lastName || "").trim();
+    const fromRoster = [first, last].filter(Boolean).join(" ").trim();
+    if (fromRoster) return fromRoster;
+
+    const entryFirst =
+      String(entry?.firstName?.default || entry?.firstName || "").trim();
+    const entryLast =
+      String(entry?.lastName?.default || entry?.lastName || "").trim();
+    const fromEntryParts = [entryFirst, entryLast].filter(Boolean).join(" ").trim();
+    if (fromEntryParts) return fromEntryParts;
+
+    return String(entry?.name || "").trim();
+  };
+
+  const toCardPlayer = (entry, fallbackKey) => {
+    const playerId = toPlayerId(entry);
+    const roster =
+      playerId != null && Number.isFinite(playerId)
+        ? rosterSpotById[playerId] || null
+        : null;
+    const number =
+      entry?.sweaterNumber != null
+        ? Number(entry.sweaterNumber)
+        : roster?.sweaterNumber != null
+          ? Number(roster.sweaterNumber)
+          : null;
+
+    return {
+      key:
+        playerId != null && Number.isFinite(playerId)
+          ? `${fallbackKey}_${playerId}`
+          : `${fallbackKey}_${String(resolveName(entry, roster) || "unknown")}`,
+      id: playerId,
+      name: resolveName(entry, roster),
+      number,
+      position: String(entry?.position || "").trim(),
+      headshot: roster?.headshot || null,
+      decision: String(entry?.decision || "").trim().toUpperCase() || null,
+      stats: {
+        goals: Number(entry?.goals ?? 0),
+        assists: Number(entry?.assists ?? 0),
+        points: Number(entry?.points ?? 0),
+        plusMinus: Number(entry?.plusMinus ?? 0),
+        toi: String(entry?.toi || "").trim() || "-",
+        goalsAgainst: Number(entry?.goalsAgainst ?? 0),
+        shotsAgainst: Number(entry?.shotsAgainst ?? 0),
+        saves: Number(entry?.saves ?? 0),
+        savePctg: Number(entry?.savePctg),
+      },
+    };
+  };
+
+  const dedupePlayers = (rows) => {
+    const seen = new Set();
+    return rows.filter((row, idx) => {
+      const key =
+        row?.id != null && Number.isFinite(Number(row.id))
+          ? `id_${Number(row.id)}`
+          : `name_${String(row?.name || "")}_${idx}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const skaters = useMemo(() => {
+    const side = game?.boxscorePlayerByGameStats?.[boxscoreKey] || {};
+    const forwards = Array.isArray(side?.forwards) ? side.forwards : [];
+    const defense = Array.isArray(side?.defense) ? side.defense : [];
+    return dedupePlayers(
+      [...forwards, ...defense].map((entry) => toCardPlayer(entry, "skater")),
+    );
+  }, [boxscoreKey, game?.boxscorePlayerByGameStats, rosterSpotById]);
+
+  const goalies = useMemo(() => {
+    const side = game?.boxscorePlayerByGameStats?.[boxscoreKey] || {};
+    const goalieRows = Array.isArray(side?.goalies) ? side.goalies : [];
+    return dedupePlayers(goalieRows.map((entry) => toCardPlayer(entry, "goalie")));
+  }, [boxscoreKey, game?.boxscorePlayerByGameStats, rosterSpotById]);
+
+  const injured = useMemo(() => {
+    const rows = Array.isArray(game?.injuriesByTeam?.[teamSide])
+      ? game.injuriesByTeam[teamSide]
+      : [];
+    return dedupePlayers(rows.map((entry) => toCardPlayer(entry, "injured")));
+  }, [game?.injuriesByTeam, rosterSpotById, teamSide]);
+
+  const onIce = useMemo(() => {
+    const side = game?.iceSurface?.[boxscoreKey] || {};
+    const forwards = Array.isArray(side?.forwards) ? side.forwards : [];
+    const defense = Array.isArray(side?.defensemen) ? side.defensemen : [];
+    return dedupePlayers(
+      [...forwards, ...defense].map((entry) => toCardPlayer(entry, "onice")),
+    );
+  }, [boxscoreKey, game?.iceSurface, rosterSpotById]);
+
+  const isFinished = isNhlGameFinished(game);
+  const isLive = isNhlGameLive(game);
+
+  const sections = useMemo(() => {
+    const goalieLabel = goalies.length > 1 ? "Goalies" : "Goalie";
+
+    if (isFinished) {
+      return [
+        { key: "skaters", label: "Skaters", players: skaters },
+        { key: "goalies", label: goalieLabel, players: goalies },
+        { key: "injured", label: "Injured", players: injured },
+      ];
+    }
+
+    if (isLive) {
+      return [
+        { key: "onice", label: "On Ice", players: onIce },
+        { key: "goalies", label: goalieLabel, players: goalies },
+      ];
+    }
+
+    const scheduledSections = [];
+    if (skaters.length > 0) {
+      scheduledSections.push({ key: "skaters", label: "Skaters", players: skaters });
+    }
+    if (goalies.length > 0) {
+      scheduledSections.push({ key: "goalies", label: goalieLabel, players: goalies });
+    }
+    scheduledSections.push({ key: "injured", label: "Injured", players: injured });
+    return scheduledSections;
+  }, [goalies, injured, isFinished, isLive, onIce, skaters]);
+
+  const [sectionKey, setSectionKey] = useState(() => sections[0]?.key || "skaters");
+
+  useEffect(() => {
+    if (!sections.some((section) => section.key === sectionKey)) {
+      setSectionKey(sections[0]?.key || "skaters");
+    }
+  }, [sectionKey, sections]);
+
+  const activeSection =
+    sections.find((section) => section.key === sectionKey) || sections[0] || null;
+  const players = Array.isArray(activeSection?.players) ? activeSection.players : [];
+
+  return (
+    <View style={{ paddingBottom: 24 }}>
+      <View style={styles.nhlRosterSectionToggle}>
+        {sections.map((section) => (
+          <TouchableOpacity
+            key={section.key}
+            style={[
+              styles.nhlRosterSectionBtn,
+              sectionKey === section.key && styles.nhlRosterSectionBtnActive,
+            ]}
+            onPress={() => setSectionKey(section.key)}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.nhlRosterSectionLabel,
+                { color: sectionKey === section.key ? theme.text : theme.textSecondary },
+              ]}
+            >
+              {section.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {players.map((player) => (
+        <NHLRosterPlayerCard
+          key={player.key}
+          player={player}
+          theme={theme}
+          teamColor={teamColor}
+          showStats={activeSection?.key !== "injured"}
+        />
+      ))}
+
+      {players.length === 0 ? (
+        <Text style={[styles.nhlRosterEmpty, { color: theme.textSecondary }]}>
+          No {activeSection?.label || "players"} available.
+        </Text>
+      ) : null}
+    </View>
+  );
+};
+
+const NHLStatsSection = ({ game, theme, homeColor, awayColor }) => {
+  const { faceoffWins, faceoffPct, sog, others } = useMemo(() => {
+    const rows = (Array.isArray(game?.teamGameStats) ? game.teamGameStats : [])
+      .map((row, idx) => {
+        const category = String(row?.category || `stat_${idx}`);
+        const key = category.toLowerCase();
+        const homeRaw = row?.homeValue;
+        const awayRaw = row?.awayValue;
+        return {
+          key: `${category}_${idx}`,
+          category,
+          keyNorm: key,
+          homeText: String(homeRaw ?? "0"),
+          awayText: String(awayRaw ?? "0"),
+          homeNum: parseStatPrimaryNumber(homeRaw),
+          awayNum: parseStatPrimaryNumber(awayRaw),
+        };
+      })
+      .filter((row) => row.category);
+
+    const toPctBase = (key) =>
+      String(key || "")
+        .replace(/percentage$/i, "")
+        .replace(/pctg$/i, "")
+        .replace(/pct$/i, "");
+
+    const percentByBase = new Map(
+      rows
+        .filter((row) => /percentage$|pctg$|pct$/i.test(row.keyNorm))
+        .map((row) => [toPctBase(row.keyNorm), row]),
+    );
+
+    const faceoff = rows.find((row) => row.keyNorm === "faceoffwins") || null;
+    const faceoffPct =
+      rows.find((row) => row.keyNorm === "faceoffwinningpctg") || null;
+    const sogRow = rows.find((row) => row.keyNorm === "sog") || null;
+    const rest = rows
+      .filter((row) => {
+        if (row.keyNorm === "faceoffwins" || row.keyNorm === "sog")
+          return false;
+        if (row.keyNorm === "faceoffwinningpctg") return false;
+        if (/percentage$|pctg$|pct$/i.test(row.keyNorm)) return false;
+        return true;
+      })
+      .map((row) => {
+        const pctRow = percentByBase.get(row.keyNorm);
+
+        const formatPct = (v) => {
+          const n = Number(v);
+          if (!Number.isFinite(n)) return null;
+          const pct = n <= 1 ? n * 100 : n;
+          return `${pct.toFixed(1)}%`;
+        };
+
+        const awayPct = pctRow ? formatPct(pctRow.awayNum) : null;
+        const homePct = pctRow ? formatPct(pctRow.homeNum) : null;
+
+        return {
+          ...row,
+          awayText: awayPct ? `${row.awayText} (${awayPct})` : row.awayText,
+          homeText: homePct ? `${row.homeText} (${homePct})` : row.homeText,
+        };
+      });
+
+    return {
+      faceoffWins: faceoff,
+      faceoffPct,
+      sog: sogRow,
+      others: rest,
+    };
+  }, [game?.teamGameStats]);
+
+  const renderBarStat = (row) => {
+    const total = row.homeNum + row.awayNum;
+    const homeShare = total > 0 ? row.homeNum / total : 0.5;
+    const awayShare = total > 0 ? row.awayNum / total : 0.5;
+
+    return (
+      <View key={row.key} style={styles.nhlStatRowWrap}>
+        <View style={styles.nhlStatValueRow}>
+          <Text style={[styles.nhlStatValueText, { color: theme.text }]}>
+            {row.awayText}
+          </Text>
+          <Text style={[styles.nhlStatValueText, { color: theme.text }]}>
+            {row.homeText}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.nhlStatBarTrack,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          <View
+            style={[
+              styles.nhlStatBarFillLeft,
+              {
+                width: `${Math.max(0, Math.min(100, awayShare * 100))}%`,
+                backgroundColor: awayColor,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.nhlStatBarFillRight,
+              {
+                width: `${Math.max(0, Math.min(100, homeShare * 100))}%`,
+                backgroundColor: homeColor,
+              },
+            ]}
+          />
+        </View>
+
+        <Text
+          style={[styles.nhlStatCategoryLabel, { color: theme.textSecondary }]}
+          numberOfLines={2}
+        >
+          {formatStatLabel(row.category).toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderFaceoff = () => {
+    if (!faceoffWins) return null;
+    const total = faceoffWins.homeNum + faceoffWins.awayNum;
+    const homeShareRaw = total > 0 ? faceoffWins.homeNum / total : 0.5;
+    const awayShareRaw = total > 0 ? faceoffWins.awayNum / total : 0.5;
+    const homeShare = Number.isFinite(Number(faceoffPct?.homeNum))
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            Number(faceoffPct.homeNum) <= 1
+              ? Number(faceoffPct.homeNum)
+              : Number(faceoffPct.homeNum) / 100,
+          ),
+        )
+      : homeShareRaw;
+    const awayShare = Number.isFinite(Number(faceoffPct?.awayNum))
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            Number(faceoffPct.awayNum) <= 1
+              ? Number(faceoffPct.awayNum)
+              : Number(faceoffPct.awayNum) / 100,
+          ),
+        )
+      : awayShareRaw;
+
+    const radius = 52;
+    const stroke = 20;
+    const size = radius * 2 + stroke * 2;
+    const c = 2 * Math.PI * radius;
+    const homeLen = c * Math.max(0, Math.min(1, homeShare));
+
+    const awayPctText = `${(awayShare * 100).toFixed(1)}%`;
+    const homePctText = `${(homeShare * 100).toFixed(1)}%`;
+
+    return (
+      <View style={[styles.nhlFeatureBlock, { marginBottom: -16 }]}>
+        <Text style={[styles.nhlFeatureLabel, { color: theme.textSecondary }]}>
+          Faceoff Wins
+        </Text>
+
+        <View style={styles.nhlFeatureValuesRow}>
+          <Text style={[styles.nhlFeatureValueText, { color: theme.text }]}>
+            {faceoffWins.awayText}
+          </Text>
+
+          <View style={styles.nhlFaceoffRingWrap}>
+            <Svg
+              width={size}
+              height={size}
+              style={{ transform: [{ rotate: "-90deg" }] }}
+            >
+              <Circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={awayColor}
+                strokeWidth={stroke}
+                fill="none"
+              />
+              <Circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={homeColor}
+                strokeWidth={stroke}
+                fill="none"
+                strokeDasharray={`${homeLen} ${Math.max(0, c - homeLen)}`}
+                strokeLinecap="butt"
+              />
+            </Svg>
+            <View
+              style={[
+                styles.nhlFaceoffRingInner,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.nhlFaceoffPctText,
+                  styles.nhlFaceoffPctLeft,
+                  { color: theme.text },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {awayPctText}
+              </Text>
+              <View
+                style={[
+                  styles.nhlFaceoffSplitLine,
+                  { backgroundColor: theme.border },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.nhlFaceoffPctText,
+                  styles.nhlFaceoffPctRight,
+                  { color: theme.text },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {homePctText}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.nhlFeatureValueText, { color: theme.text }]}>
+            {faceoffWins.homeText}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSog = () => {
+    if (!sog) return null;
+    const total = sog.homeNum + sog.awayNum;
+    const homeShare = total > 0 ? sog.homeNum / total : 0.5;
+    const awayShare = total > 0 ? sog.awayNum / total : 0.5;
+    const awayWidth = `${Math.max(0, Math.min(100, awayShare * 100))}%`;
+    const homeWidth = `${Math.max(0, Math.min(100, homeShare * 100))}%`;
+
+    return (
+      <View style={[styles.nhlFeatureBlock, styles.nhlSogBlockGap]}>
+        <Text style={[styles.nhlFeatureLabel, { color: theme.textSecondary }]}>
+          SHOTS ON GOAL
+        </Text>
+
+        <View
+          style={[
+            styles.nhlShotsSimpleOuter,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.nhlShotsSimpleInner,
+              {
+                borderColor: "#ccc",
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <View style={styles.nhlShotsSimpleInnerValues}>
+              <View
+                style={[
+                  styles.nhlShotsSimpleFillLeft,
+                  {
+                    width: awayWidth,
+                    backgroundColor: awayColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nhlShotsSimpleInnerValueText,
+                    { color: "#fff" },
+                  ]}
+                >
+                  {sog.awayText}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.nhlShotsSimpleFillRight,
+                  {
+                    width: homeWidth,
+                    backgroundColor: homeColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nhlShotsSimpleInnerValueText,
+                    { color: "#fff" },
+                  ]}
+                >
+                  {sog.homeText}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View
+      style={[
+        styles.nhlStatsCard,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View
+        style={[styles.nhlStatsHeaderRow, { borderBottomColor: theme.border }]}
+      >
+        <Text style={[styles.nhlStatsHeaderTitle, { color: theme.text }]}>
+          Stats
+        </Text>
+      </View>
+
+      <View style={styles.nhlStatsBody}>
+        {renderFaceoff()}
+        {renderSog()}
+        {others.map(renderBarStat)}
+
+        {!faceoffWins && !sog && others.length === 0 ? (
+          <Text
+            style={[styles.nhlStatsEmptyText, { color: theme.textTertiary }]}
+          >
+            No stats available
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -1661,6 +2475,514 @@ const OfficialsSection = ({ game, theme }) => {
   );
 };
 
+const SeriesSummarySection = ({
+  game,
+  summary,
+  theme,
+  homeColor,
+  awayColor,
+  homeOnly,
+  onToggleHomeOnly,
+  getTeamLogoUrl,
+}) => {
+  if (!game?.home || !game?.away || !summary) return null;
+
+  const homeLogoUri =
+    game?.home?.logo || getTeamLogoUrl("nhl", game?.home?.abbreviation);
+  const awayLogoUri =
+    game?.away?.logo || getTeamLogoUrl("nhl", game?.away?.abbreviation);
+
+  const homeWinsCount = Number(summary?.homeWins ?? 0);
+  const awayWinsCount = Number(summary?.awayWins ?? 0);
+  const total = homeWinsCount + awayWinsCount;
+
+  const homeFlex = total > 0 ? homeWinsCount : 1;
+  const awayFlex = total > 0 ? awayWinsCount : 1;
+
+  return (
+    <View style={[seriesStyles.card, { backgroundColor: theme.surface }]}>
+      <View
+        style={[seriesStyles.headerRow, { borderBottomColor: theme.border }]}
+      >
+        <Text style={[seriesStyles.headerTitle, { color: theme.text }]}>
+          SEASON SERIES
+        </Text>
+        <TouchableOpacity
+          style={[
+            seriesStyles.homeFilterBtn,
+            {
+              borderColor: homeColor,
+              backgroundColor: homeOnly ? `${homeColor}1A` : theme.surface,
+            },
+          ]}
+          onPress={onToggleHomeOnly}
+          activeOpacity={0.8}
+        >
+          {homeLogoUri ? (
+            <Image
+              source={{ uri: homeLogoUri }}
+              style={seriesStyles.homeFilterLogo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.homeFilterLogoFallback,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.homeFilterLogoFallbackText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {String(game?.home?.abbreviation || "H")
+                  .charAt(0)
+                  .toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text
+            style={[
+              seriesStyles.homeFilterText,
+              { color: homeOnly ? theme.text : theme.textSecondary },
+            ]}
+          >
+            HOME
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={seriesStyles.bodyRow}>
+        <View style={[seriesStyles.sideBlock, seriesStyles.sideBlockLeft]}>
+          {awayLogoUri ? (
+            <Image
+              source={{ uri: awayLogoUri }}
+              style={seriesStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.logoInitial,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {String(game?.away?.abbreviation || "A")
+                  .charAt(0)
+                  .toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>
+            {awayWinsCount}
+          </Text>
+        </View>
+
+        <View style={seriesStyles.centerBlock}>
+          <Text style={[seriesStyles.vsText, { color: theme.textSecondary }]}>
+            VS
+          </Text>
+        </View>
+
+        <View style={[seriesStyles.sideBlock, seriesStyles.sideBlockRight]}>
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>
+            {homeWinsCount}
+          </Text>
+          {homeLogoUri ? (
+            <Image
+              source={{ uri: homeLogoUri }}
+              style={seriesStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.logoInitial,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {String(game?.home?.abbreviation || "H")
+                  .charAt(0)
+                  .toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View
+        style={[
+          seriesStyles.summaryFooter,
+          {
+            borderTopColor: theme.surface,
+            backgroundColor: theme.surfaceSecondary,
+          },
+        ]}
+      >
+        <View
+          style={[
+            seriesStyles.summaryFooterFill,
+            {
+              flex: awayFlex,
+              backgroundColor: awayColor,
+              borderRightColor: theme.surface,
+              borderRightWidth: 2.5,
+            },
+          ]}
+        />
+        <View
+          style={[
+            seriesStyles.summaryFooterFill,
+            { flex: homeFlex, backgroundColor: homeColor },
+          ]}
+        />
+      </View>
+    </View>
+  );
+};
+
+const SeriesMatchCard = ({
+  match,
+  game,
+  theme,
+  navigation,
+  getTeamLogoUrl,
+  homeColor,
+  awayColor,
+}) => {
+  const matchHomeTeam = match?.homeTeam || null;
+  const matchAwayTeam = match?.awayTeam || null;
+  if (!matchHomeTeam || !matchAwayTeam) return null;
+
+  const selectedHomeId = Number(game?.home?.id);
+  const selectedAwayId = Number(game?.away?.id);
+  const leftTeam = matchAwayTeam;
+  const rightTeam = matchHomeTeam;
+
+  const leftTeamId = Number(leftTeam?.id);
+  const rightTeamId = Number(rightTeam?.id);
+
+  const leftName =
+    leftTeamId === selectedAwayId
+      ? game?.away?.name
+      : leftTeamId === selectedHomeId
+        ? game?.home?.name
+        : leftTeam?.commonName || leftTeam?.placeName;
+  const rightName =
+    rightTeamId === selectedHomeId
+      ? game?.home?.name
+      : rightTeamId === selectedAwayId
+        ? game?.away?.name
+        : rightTeam?.commonName || rightTeam?.placeName;
+
+  const leftAbbr = String(
+    leftTeam?.abbrev ||
+      (leftTeamId === selectedAwayId
+        ? game?.away?.abbreviation
+        : game?.home?.abbreviation) ||
+      "",
+  ).toUpperCase();
+  const rightAbbr = String(
+    rightTeam?.abbrev ||
+      (rightTeamId === selectedHomeId
+        ? game?.home?.abbreviation
+        : game?.away?.abbreviation) ||
+      "",
+  ).toUpperCase();
+
+  const leftColor = NHLService.getTeamColor(leftAbbr, awayColor);
+  const rightColor = NHLService.getTeamColor(rightAbbr, homeColor);
+
+  const toNullableScore = (value) => {
+    if (value == null || value === "") return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const leftScore = toNullableScore(leftTeam?.score);
+  const rightScore = toNullableScore(rightTeam?.score);
+  const hasScore = leftScore != null && rightScore != null;
+
+  const leftWon = hasScore && leftScore > rightScore;
+  const rightWon = hasScore && rightScore > leftScore;
+
+  const startTime = match?.startTimeUTC || match?.gameDate || "";
+  const { time, ampm } = formatLocalTime(startTime);
+
+  let topDate = "";
+  try {
+    const d = new Date(startTime);
+    if (!Number.isNaN(d.getTime())) {
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      topDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+  } catch {
+    topDate = "";
+  }
+
+  const gameTypeDesc =
+    Number(match?.gameType) === 1
+      ? "Preseason"
+      : Number(match?.gameType) === 2
+        ? "Regular Season"
+        : Number(match?.gameType) === 3
+          ? "Playoffs"
+          : "NHL";
+  const topLine = topDate ? `${topDate} \u00B7 ${gameTypeDesc}` : gameTypeDesc;
+  const periodType = String(
+    match?.periodDescriptor?.periodType || "REG",
+  ).toUpperCase();
+  const showOt = periodType && periodType !== "REG";
+  const gradId = `series_grad_${String(match?.id ?? Math.random()).replace(/[^a-zA-Z0-9_]/g, "_")}`;
+
+  const leftLogoUri =
+    leftTeam?.logo ||
+    (leftTeamId === selectedAwayId ? game?.away?.logo : game?.home?.logo) ||
+    getTeamLogoUrl("nhl", leftAbbr);
+  const rightLogoUri =
+    rightTeam?.logo ||
+    (rightTeamId === selectedHomeId ? game?.home?.logo : game?.away?.logo) ||
+    getTeamLogoUrl("nhl", rightAbbr);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={() =>
+        navigation?.navigate("GameDetails", {
+          gameId: String(match?.id),
+          sport: "nhl",
+        })
+      }
+      disabled={!navigation || !match?.id}
+      style={[
+        seriesStyles.matchCard,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={seriesStyles.matchCardTopRow}>
+        <Text
+          style={[
+            seriesStyles.matchCardTopText,
+            { color: theme.textSecondary },
+          ]}
+          numberOfLines={1}
+        >
+          {topLine}
+        </Text>
+      </View>
+
+      <View
+        style={[
+          seriesStyles.matchCardBody,
+          { backgroundColor: theme.surfaceSecondary ?? theme.background },
+        ]}
+      >
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+        >
+          <Defs>
+            <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor={leftColor} stopOpacity="0.35" />
+              <Stop offset="35%" stopColor={leftColor} stopOpacity="0" />
+              <Stop offset="65%" stopColor={rightColor} stopOpacity="0" />
+              <Stop offset="100%" stopColor={rightColor} stopOpacity="0.35" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+        </Svg>
+
+        <View style={seriesStyles.matchCardInner}>
+          <View style={seriesStyles.matchTeamSide}>
+            {leftLogoUri ? (
+              <Image
+                source={{ uri: leftLogoUri }}
+                style={seriesStyles.matchTeamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  seriesStyles.logoFallback,
+                  { backgroundColor: `${leftColor}40` },
+                ]}
+              >
+                <Text
+                  style={[seriesStyles.logoFallbackText, { color: theme.text }]}
+                >
+                  {String(leftAbbr || "H").charAt(0)}
+                </Text>
+              </View>
+            )}
+            <View style={seriesStyles.matchTeamTextCol}>
+              <Text
+                style={[
+                  seriesStyles.matchTeamName,
+                  {
+                    color: leftWon ? theme.text : theme.textSecondary,
+                    fontWeight: leftWon ? "700" : "500",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {leftName || leftAbbr || "Away"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={seriesStyles.matchScoreBlock}>
+            <View style={seriesStyles.matchStatusSlot}>
+              {showOt ? (
+                <Text
+                  style={[
+                    seriesStyles.matchStatusText,
+                    { color: theme.textSecondary, marginTop: -6 },
+                  ]}
+                >
+                  OT
+                </Text>
+              ) : null}
+            </View>
+
+            {hasScore ? (
+              <View style={seriesStyles.matchScoreRow}>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    {
+                      color: leftWon ? theme.text : theme.textSecondary,
+                      fontWeight: leftWon ? "800" : "500",
+                    },
+                  ]}
+                >
+                  {leftScore}
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchScoreDash,
+                    { color: theme.textTertiary ?? theme.textSecondary },
+                  ]}
+                >
+                  -
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    {
+                      color: rightWon ? theme.text : theme.textSecondary,
+                      fontWeight: rightWon ? "800" : "500",
+                    },
+                  ]}
+                >
+                  {rightScore}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    { color: theme.text, fontWeight: "800" },
+                  ]}
+                >
+                  {time}
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchTimeAmPm,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {ampm.toUpperCase()}
+                </Text>
+              </>
+            )}
+          </View>
+
+          <View style={seriesStyles.matchTeamSideAway}>
+            <View
+              style={[
+                seriesStyles.matchTeamTextCol,
+                seriesStyles.matchTeamTextColAway,
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.matchTeamName,
+                  seriesStyles.matchTeamNameAway,
+                  {
+                    color: rightWon ? theme.text : theme.textSecondary,
+                    fontWeight: rightWon ? "700" : "500",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {rightName || rightAbbr || "Home"}
+              </Text>
+            </View>
+            {rightLogoUri ? (
+              <Image
+                source={{ uri: rightLogoUri }}
+                style={seriesStyles.matchTeamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  seriesStyles.logoFallback,
+                  { backgroundColor: `${rightColor}40` },
+                ]}
+              >
+                <Text
+                  style={[seriesStyles.logoFallbackText, { color: theme.text }]}
+                >
+                  {String(rightAbbr || "A").charAt(0)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 const PlaysTabSection = ({ game, theme, colors }) => {
   const [activeType, setActiveType] = useState("ALL");
   const [periodIndex, setPeriodIndex] = useState(0);
@@ -2238,7 +3560,7 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                   </Text>
                 )}
 
-                {!!row.detailSub && (
+                {!!row.detailSub && !row.isGoal && (
                   <Text
                     style={[styles.playsCardSubText, { color: bodyColor }]}
                     numberOfLines={2}
@@ -2253,7 +3575,10 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                       {row.scorerProfile?.headshot ? (
                         <Image
                           source={{ uri: row.scorerProfile.headshot }}
-                          style={styles.playsGoalAvatar}
+                          style={[
+                            styles.playsGoalAvatar,
+                            { borderColor: row.teamColor },
+                          ]}
                           contentFit="cover"
                         />
                       ) : (
@@ -2261,6 +3586,7 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                           style={[
                             styles.playsGoalAvatar,
                             styles.playsGoalAvatarFallback,
+                            { borderColor: row.teamColor },
                           ]}
                         >
                           <Text style={styles.playsGoalAvatarFallbackText}>
@@ -2276,7 +3602,15 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                       )}
 
                       {!!row.teamLogo && (
-                        <View style={styles.playsGoalTeamBadge}>
+                        <View
+                          style={[
+                            styles.playsGoalTeamBadge,
+                            {
+                              borderColor: row.teamColor,
+                              backgroundColor: row.teamColor + "66",
+                            },
+                          ]}
+                        >
                           <Image
                             source={{ uri: row.teamLogo }}
                             style={styles.playsGoalTeamLogo}
@@ -2286,31 +3620,70 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                       )}
 
                       {!!row.scorerProfile?.position && (
-                        <View style={styles.playsGoalPosBadge}>
-                          <Text style={styles.playsGoalPosText}>
+                        <View
+                          style={[
+                            styles.playsGoalPosBadge,
+                            {
+                              backgroundColor: theme.surface,
+                              borderColor: theme.surface,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.playsGoalPosText,
+                              { color: theme.text },
+                            ]}
+                          >
                             {row.scorerProfile.position}
                           </Text>
                         </View>
                       )}
 
-                      <View style={styles.playsGoalCountBadge}>
+                      <View
+                        style={[
+                          styles.playsGoalCountBadge,
+                          { backgroundColor: theme.surface },
+                        ]}
+                      >
                         <FontAwesome6
                           name="hockey-puck"
                           size={9}
-                          color="#FFFFFF"
+                          color={theme.text}
                         />
-                        <Text style={styles.playsGoalCountText}>
+                        <Text
+                          style={[
+                            styles.playsGoalCountText,
+                            { color: theme.text },
+                          ]}
+                        >
                           {row.scorerGoalsInGame}
                         </Text>
                       </View>
                     </View>
 
-                    <Text
-                      style={[styles.playsGoalScorerName, { color: bodyColor }]}
-                      numberOfLines={1}
-                    >
-                      {row.scorerName}
-                    </Text>
+                    <View style={styles.playsGoalTextCol}>
+                      <Text
+                        style={[
+                          styles.playsGoalScorerName,
+                          { color: bodyColor },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {row.scorerName}
+                      </Text>
+                      {!!row.detailSub && (
+                        <Text
+                          style={[
+                            styles.playsGoalAssistText,
+                            { color: bodyColor },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {row.detailSub}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 )}
               </View>
@@ -3135,6 +4508,8 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [details, setDetails] = useState(null);
   const [headerH, setHeaderH] = useState(190);
   const [activeTab, setActiveTab] = useState("Main");
+  const [seriesHomeOnly, setSeriesHomeOnly] = useState(false);
+  const [seriesVisibleCount, setSeriesVisibleCount] = useState(5);
   const [nowMs, setNowMs] = useState(Date.now());
   const [clockGame, setClockGame] = useState(null);
   const scrollY = useMemo(() => new Animated.Value(0), []);
@@ -3207,6 +4582,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       }),
     [game],
   );
+  const liveGame = clockGame || game;
 
   useEffect(() => {
     setClockGame((prev) => normalizeGameWithClockState(game, prev, Date.now()));
@@ -3233,23 +4609,6 @@ const NHLGameDetailsScreen = ({ route }) => {
     return () => clearInterval(id);
   }, [clockGame, gameId, isDarkMode]);
 
-  if (loading) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (!game) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <Text style={{ color: theme.textSecondary }}>No details available</Text>
-      </View>
-    );
-  }
-
-  const liveGame = clockGame || game;
   const statusLines = getStatusLines(liveGame, nowMs);
 
   const awayColor = NHLService.getTeamColor(
@@ -3265,6 +4624,110 @@ const NHLGameDetailsScreen = ({ route }) => {
     game?.away?.logo || getTeamLogoUrl("nhl", game?.away?.abbreviation);
   const homeLogo =
     game?.home?.logo || getTeamLogoUrl("nhl", game?.home?.abbreviation);
+
+  const seriesMatches = useMemo(() => {
+    const matches = Array.isArray(liveGame?.seasonSeries)
+      ? liveGame.seasonSeries
+      : [];
+    const currentHomeId = Number(liveGame?.home?.id);
+    const currentAwayId = Number(liveGame?.away?.id);
+    if (
+      !matches.length ||
+      !Number.isFinite(currentHomeId) ||
+      !Number.isFinite(currentAwayId)
+    ) {
+      return [];
+    }
+
+    return matches
+      .filter((match) => {
+        if (!match) return false;
+
+        const matchHomeId = Number(match?.homeTeam?.id);
+        const matchAwayId = Number(match?.awayTeam?.id);
+        const ids = [matchHomeId, matchAwayId];
+
+        if (!ids.includes(currentHomeId) || !ids.includes(currentAwayId)) {
+          return false;
+        }
+
+        if (seriesHomeOnly && matchHomeId !== currentHomeId) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const aTs = new Date(a?.startTimeUTC || a?.gameDate || 0).getTime();
+        const bTs = new Date(b?.startTimeUTC || b?.gameDate || 0).getTime();
+        const safeA = Number.isNaN(aTs) ? 0 : aTs;
+        const safeB = Number.isNaN(bTs) ? 0 : bTs;
+        return safeB - safeA;
+      });
+  }, [
+    liveGame?.away?.id,
+    liveGame?.home?.id,
+    liveGame?.seasonSeries,
+    seriesHomeOnly,
+  ]);
+
+  const seriesSummary = useMemo(() => {
+    const currentHomeId = Number(liveGame?.home?.id);
+    const currentAwayId = Number(liveGame?.away?.id);
+
+    if (
+      !seriesMatches.length ||
+      !Number.isFinite(currentHomeId) ||
+      !Number.isFinite(currentAwayId)
+    ) {
+      return { homeWins: 0, awayWins: 0 };
+    }
+
+    let homeWinsCount = 0;
+    let awayWinsCount = 0;
+
+    seriesMatches.forEach((match) => {
+      const homeScore = Number(match?.homeTeam?.score);
+      const awayScore = Number(match?.awayTeam?.score);
+      const matchHomeId = Number(match?.homeTeam?.id);
+      const matchAwayId = Number(match?.awayTeam?.id);
+
+      if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return;
+      if (homeScore === awayScore) return;
+
+      const winnerId = homeScore > awayScore ? matchHomeId : matchAwayId;
+      if (winnerId === currentHomeId) homeWinsCount += 1;
+      else if (winnerId === currentAwayId) awayWinsCount += 1;
+    });
+
+    return {
+      homeWins: homeWinsCount,
+      awayWins: awayWinsCount,
+    };
+  }, [liveGame?.away?.id, liveGame?.home?.id, seriesMatches]);
+
+  useEffect(() => {
+    if (activeTab !== "Series") {
+      setSeriesVisibleCount(5);
+      setSeriesHomeOnly(false);
+    }
+  }, [activeTab]);
+
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!game) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.textSecondary }}>No details available</Text>
+      </View>
+    );
+  }
 
   const homeWins = (game?.home?.score || 0) > (game?.away?.score || 0);
   const awayWins = (game?.away?.score || 0) > (game?.home?.score || 0);
@@ -3537,6 +5000,30 @@ const NHLGameDetailsScreen = ({ route }) => {
               <OfficialsSection game={liveGame} theme={theme} />
             </>
           )}
+          {activeTab === "Home" && (
+            <NHLTeamRosterSection
+              game={liveGame}
+              theme={theme}
+              teamSide="home"
+              teamColor={homeColor}
+            />
+          )}
+          {activeTab === "Away" && (
+            <NHLTeamRosterSection
+              game={liveGame}
+              theme={theme}
+              teamSide="away"
+              teamColor={awayColor}
+            />
+          )}
+          {activeTab === "Stats" && (
+            <NHLStatsSection
+              game={liveGame}
+              theme={theme}
+              homeColor={homeColor}
+              awayColor={awayColor}
+            />
+          )}
           {activeTab === "Shifts" && (
             <ShiftsTabSection
               game={liveGame}
@@ -3548,8 +5035,83 @@ const NHLGameDetailsScreen = ({ route }) => {
           {activeTab === "Plays" && (
             <PlaysTabSection game={liveGame} theme={theme} colors={colors} />
           )}
+          {activeTab === "Series" && (
+            <View style={{ paddingTop: 6 }}>
+              <SeriesSummarySection
+                game={liveGame}
+                summary={seriesSummary}
+                theme={theme}
+                homeColor={homeColor}
+                awayColor={awayColor}
+                homeOnly={seriesHomeOnly}
+                onToggleHomeOnly={() => {
+                  setSeriesHomeOnly((prev) => !prev);
+                  setSeriesVisibleCount(5);
+                }}
+                getTeamLogoUrl={getTeamLogoUrl}
+              />
+
+              <View style={seriesStyles.matchesWrap}>
+                {seriesMatches.slice(0, seriesVisibleCount).map((match) => (
+                  <SeriesMatchCard
+                    key={String(match?.id)}
+                    match={match}
+                    game={liveGame}
+                    theme={theme}
+                    navigation={navigation}
+                    getTeamLogoUrl={getTeamLogoUrl}
+                    homeColor={homeColor}
+                    awayColor={awayColor}
+                  />
+                ))}
+
+                {seriesMatches.length === 0 ? (
+                  <Text
+                    style={[
+                      seriesStyles.emptyText,
+                      { color: theme.textTertiary, borderColor: theme.border },
+                    ]}
+                  >
+                    No series matches available for this filter.
+                  </Text>
+                ) : null}
+
+                {seriesVisibleCount < seriesMatches.length ? (
+                  <TouchableOpacity
+                    style={[
+                      seriesStyles.showMoreBtn,
+                      {
+                        borderColor: theme.border,
+                        backgroundColor: theme.surface,
+                      },
+                    ]}
+                    onPress={() =>
+                      setSeriesVisibleCount((prev) =>
+                        Math.min(prev + 5, seriesMatches.length),
+                      )
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        seriesStyles.showMoreText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Show more
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          )}
           {activeTab !== "Main" &&
-            (activeTab !== "Shifts" && activeTab !== "Plays" ? (
+            (activeTab !== "Shifts" &&
+            activeTab !== "Home" &&
+            activeTab !== "Away" &&
+            activeTab !== "Stats" &&
+            activeTab !== "Plays" &&
+            activeTab !== "Series" ? (
               <View style={styles.comingSoon}>
                 <Text
                   style={[
@@ -3815,6 +5377,301 @@ const styles = StyleSheet.create({
   linescoreTotalVal: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  nhlStatsCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  nhlStatsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  nhlStatsHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  nhlStatsBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 14,
+  },
+  nhlFeatureBlock: {
+    gap: 8,
+  },
+  nhlFeatureValuesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  nhlFeatureValueText: {
+    minWidth: 52,
+    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  nhlFeatureLabel: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  nhlFaceoffRingWrap: {
+    width: 156,
+    height: 156,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nhlFaceoffRingInner: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  nhlFaceoffPctText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.25,
+    textAlign: "center",
+  },
+  nhlFaceoffPctLeft: {
+    position: "absolute",
+    left: 4,
+    width: "40%",
+    top: "50%",
+    marginTop: -8,
+  },
+  nhlFaceoffPctRight: {
+    position: "absolute",
+    right: 4,
+    width: "40%",
+    top: "50%",
+    marginTop: -8,
+  },
+  nhlFaceoffSplitLine: {
+    width: 2,
+    height: "80%",
+    opacity: 0.9,
+  },
+  nhlSogBlockGap: {
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  nhlShotsSimpleOuter: {
+    height: 130,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    position: "relative",
+  },
+  nhlShotsSimpleOuterValuesRow: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 2,
+  },
+  nhlShotsSimpleOuterValueText: {
+    fontSize: 25,
+    fontWeight: "900",
+    minWidth: 36,
+  },
+  nhlShotsSimpleOuterValueLeft: {
+    textAlign: "left",
+  },
+  nhlShotsSimpleOuterValueRight: {
+    textAlign: "right",
+  },
+  nhlShotsSimpleInner: {
+    width: "82%",
+    height: "82.5%",
+    borderBottomWidth: 0,
+    borderWidth: 10,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    justifyContent: "center",
+  },
+  nhlShotsSimpleInnerValues: {
+    flex: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
+  nhlShotsSimpleFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nhlShotsSimpleFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nhlShotsSimpleInnerValueText: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  nhlStatRowWrap: {
+    gap: 6,
+  },
+  nhlStatValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  nhlStatValueText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  nhlStatBarTrack: {
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  nhlStatBarFillLeft: {
+    height: "100%",
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+  },
+  nhlStatBarFillRight: {
+    height: "100%",
+    marginLeft: "auto",
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+  },
+  nhlStatCategoryLabel: {
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "none",
+  },
+  nhlStatsEmptyText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  nhlRosterSectionToggle: {
+    flexDirection: "row",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  nhlRosterSectionBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  nhlRosterSectionBtnActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  nhlRosterSectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  nhlRosterPlayerCard: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  nhlRosterPlayerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  nhlRosterPlayerHeadshotWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: "hidden",
+    borderWidth: 2,
+  },
+  nhlRosterPlayerHeadshot: {
+    width: "100%",
+    height: "100%",
+  },
+  nhlRosterPlayerFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nhlRosterPlayerFallbackText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  nhlRosterPlayerNameBlock: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  nhlRosterPlayerName: {
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+  },
+  nhlRosterPlayerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  nhlRosterDecisionLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginLeft: 8,
+  },
+  nhlRosterPlayerMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  nhlRosterStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  nhlRosterStatCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  nhlRosterStatValue: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  nhlRosterStatLabel: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  nhlRosterEmpty: {
+    textAlign: "center",
+    marginTop: 32,
+    fontSize: 14,
   },
   eventsCard: {
     marginHorizontal: 12,
@@ -4268,7 +6125,7 @@ const styles = StyleSheet.create({
   },
   playsGoalTeamBadge: {
     position: "absolute",
-    right: -3,
+    left: -2,
     bottom: -3,
     width: 18,
     height: 18,
@@ -4280,12 +6137,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,0,0,0.12)",
   },
   playsGoalTeamLogo: {
-    width: 15,
-    height: 15,
+    width: 20,
+    height: 20,
   },
   playsGoalPosBadge: {
     position: "absolute",
-    left: -2,
+    right: -3,
     bottom: -3,
     borderRadius: 5,
     paddingHorizontal: 4,
@@ -4294,7 +6151,7 @@ const styles = StyleSheet.create({
   },
   playsGoalPosText: {
     color: "#FFFFFF",
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "800",
   },
   playsGoalCountBadge: {
@@ -4316,10 +6173,18 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
   },
+  playsGoalTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
   playsGoalScorerName: {
     fontSize: 12,
     fontWeight: "700",
-    flex: 1,
+  },
+  playsGoalAssistText: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "500",
   },
   playsEmptyWrap: {
     minHeight: 180,
@@ -4507,6 +6372,267 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     fontWeight: "500",
+  },
+});
+
+const seriesStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  bodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  sideBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  sideBlockLeft: {
+    justifyContent: "flex-start",
+  },
+  sideBlockRight: {
+    justifyContent: "flex-end",
+  },
+  logo: {
+    width: 80,
+    height: 40,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoInitial: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  winCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  centerBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 76,
+  },
+  drawCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  drawLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  vsText: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  winsNamesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+  },
+  winsNameText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  winsNameTextRight: {
+    textAlign: "right",
+  },
+  summaryFooter: {
+    height: 12.5,
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  summaryFooterFill: {
+    height: "100%",
+  },
+  homeFilterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  homeFilterLogo: {
+    width: 20,
+    height: 14,
+  },
+  homeFilterLogoFallback: {
+    width: 20,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  homeFilterLogoFallbackText: {
+    fontSize: 8,
+    fontWeight: "800",
+  },
+  homeFilterText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  matchesWrap: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    gap: 10,
+  },
+  matchCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  matchCardTopRow: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  matchCardTopText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  matchCardBody: {
+    overflow: "hidden",
+  },
+  matchCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  matchTeamSide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  matchTeamSideAway: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  matchTeamLogo: { width: 50, height: 36, marginHorizontal: -5 },
+  logoFallback: {
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoFallbackText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  matchTeamName: {
+    fontSize: 13,
+    fontWeight: "500",
+    flexWrap: "wrap",
+  },
+  matchTeamTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  matchTeamTextColAway: {
+    alignItems: "flex-end",
+  },
+  matchTeamNameAway: {
+    textAlign: "right",
+  },
+  matchScoreBlock: {
+    alignItems: "center",
+    paddingHorizontal: 8,
+    minWidth: 80,
+  },
+  matchScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  matchScore: {
+    fontSize: 22,
+    minWidth: 24,
+    textAlign: "center",
+  },
+  matchScoreDash: {
+    fontSize: 18,
+  },
+  matchStatusText: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  matchTimeAmPm: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  matchCardBottomText: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  emptyText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "500",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  showMoreBtn: {
+    alignSelf: "center",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  showMoreText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 

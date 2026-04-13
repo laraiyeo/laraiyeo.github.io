@@ -1,0 +1,8 @@
+teamSeasonStats {
+    awayTeam {
+        everything the same
+    }
+    homeTeam {
+        everything the same
+    }
+}
