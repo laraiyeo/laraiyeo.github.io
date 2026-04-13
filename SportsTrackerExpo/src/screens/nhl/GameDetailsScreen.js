@@ -784,7 +784,12 @@ const EventsSection = ({ game, theme, colors }) => {
 
               {rows.length === 0 ? (
                 <View style={styles.noEventsRow}>
-                  <Text style={[styles.noEventsText, { color: theme.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.noEventsText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     NO EVENTS
                   </Text>
                 </View>
@@ -808,10 +813,7 @@ const EventsSection = ({ game, theme, colors }) => {
                       >
                         {isAway && (
                           <Text
-                            style={[
-                              styles.minuteText,
-                              { color: theme.text },
-                            ]}
+                            style={[styles.minuteText, { color: theme.text }]}
                           >
                             {event.timeInPeriod}
                           </Text>
@@ -912,10 +914,7 @@ const EventsSection = ({ game, theme, colors }) => {
 
                         {!isAway && (
                           <Text
-                            style={[
-                              styles.minuteText,
-                              { color: theme.text },
-                            ]}
+                            style={[styles.minuteText, { color: theme.text }]}
                           >
                             {event.timeInPeriod}
                           </Text>
