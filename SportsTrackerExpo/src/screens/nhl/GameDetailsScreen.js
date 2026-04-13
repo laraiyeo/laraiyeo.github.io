@@ -983,7 +983,12 @@ const LinescoreTable = ({ game, theme, colors }) => {
   );
 };
 
-const NHLRosterPlayerCard = ({ player, theme, teamColor, showStats = true }) => {
+const NHLRosterPlayerCard = ({
+  player,
+  theme,
+  teamColor,
+  showStats = true,
+}) => {
   const fullName = String(player?.name || "").trim() || "Unknown Player";
   const number =
     player?.number != null && Number.isFinite(Number(player.number))
@@ -999,8 +1004,13 @@ const NHLRosterPlayerCard = ({ player, theme, teamColor, showStats = true }) => 
       .map((part) => part.charAt(0).toUpperCase())
       .slice(0, 2)
       .join("") || "?";
-  const isGoalie = String(player?.position || "").trim().toUpperCase() === "G";
-  const decisionRaw = String(player?.decision || "").trim().toUpperCase();
+  const isGoalie =
+    String(player?.position || "")
+      .trim()
+      .toUpperCase() === "G";
+  const decisionRaw = String(player?.decision || "")
+    .trim()
+    .toUpperCase();
   const decisionLabel =
     decisionRaw === "W" ? "WON" : decisionRaw === "L" ? "LOSS" : "";
   const decisionColor =
@@ -1139,7 +1149,10 @@ const NHLRosterPlayerCard = ({ player, theme, teamColor, showStats = true }) => 
                 {item.value}
               </Text>
               <Text
-                style={[styles.nhlRosterStatLabel, { color: theme.textSecondary }]}
+                style={[
+                  styles.nhlRosterStatLabel,
+                  { color: theme.textSecondary },
+                ]}
               >
                 {item.label}
               </Text>
@@ -1156,7 +1169,9 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
 
   const rosterSpotById = useMemo(() => {
     const map = {};
-    const spots = Array.isArray(game?.playRosterSpots) ? game.playRosterSpots : [];
+    const spots = Array.isArray(game?.playRosterSpots)
+      ? game.playRosterSpots
+      : [];
     spots.forEach((spot) => {
       const id = Number(spot?.playerId);
       if (Number.isFinite(id)) map[id] = spot;
@@ -1184,11 +1199,16 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
     const fromRoster = [first, last].filter(Boolean).join(" ").trim();
     if (fromRoster) return fromRoster;
 
-    const entryFirst =
-      String(entry?.firstName?.default || entry?.firstName || "").trim();
-    const entryLast =
-      String(entry?.lastName?.default || entry?.lastName || "").trim();
-    const fromEntryParts = [entryFirst, entryLast].filter(Boolean).join(" ").trim();
+    const entryFirst = String(
+      entry?.firstName?.default || entry?.firstName || "",
+    ).trim();
+    const entryLast = String(
+      entry?.lastName?.default || entry?.lastName || "",
+    ).trim();
+    const fromEntryParts = [entryFirst, entryLast]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     if (fromEntryParts) return fromEntryParts;
 
     return String(entry?.name || "").trim();
@@ -1217,7 +1237,10 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
       number,
       position: String(entry?.position || "").trim(),
       headshot: roster?.headshot || null,
-      decision: String(entry?.decision || "").trim().toUpperCase() || null,
+      decision:
+        String(entry?.decision || "")
+          .trim()
+          .toUpperCase() || null,
       stats: {
         goals: Number(entry?.goals ?? 0),
         assists: Number(entry?.assists ?? 0),
@@ -1257,7 +1280,9 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
   const goalies = useMemo(() => {
     const side = game?.boxscorePlayerByGameStats?.[boxscoreKey] || {};
     const goalieRows = Array.isArray(side?.goalies) ? side.goalies : [];
-    return dedupePlayers(goalieRows.map((entry) => toCardPlayer(entry, "goalie")));
+    return dedupePlayers(
+      goalieRows.map((entry) => toCardPlayer(entry, "goalie")),
+    );
   }, [boxscoreKey, game?.boxscorePlayerByGameStats, rosterSpotById]);
 
   const injured = useMemo(() => {
@@ -1299,16 +1324,30 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
 
     const scheduledSections = [];
     if (skaters.length > 0) {
-      scheduledSections.push({ key: "skaters", label: "Skaters", players: skaters });
+      scheduledSections.push({
+        key: "skaters",
+        label: "Skaters",
+        players: skaters,
+      });
     }
     if (goalies.length > 0) {
-      scheduledSections.push({ key: "goalies", label: goalieLabel, players: goalies });
+      scheduledSections.push({
+        key: "goalies",
+        label: goalieLabel,
+        players: goalies,
+      });
     }
-    scheduledSections.push({ key: "injured", label: "Injured", players: injured });
+    scheduledSections.push({
+      key: "injured",
+      label: "Injured",
+      players: injured,
+    });
     return scheduledSections;
   }, [goalies, injured, isFinished, isLive, onIce, skaters]);
 
-  const [sectionKey, setSectionKey] = useState(() => sections[0]?.key || "skaters");
+  const [sectionKey, setSectionKey] = useState(
+    () => sections[0]?.key || "skaters",
+  );
 
   useEffect(() => {
     if (!sections.some((section) => section.key === sectionKey)) {
@@ -1317,8 +1356,12 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
   }, [sectionKey, sections]);
 
   const activeSection =
-    sections.find((section) => section.key === sectionKey) || sections[0] || null;
-  const players = Array.isArray(activeSection?.players) ? activeSection.players : [];
+    sections.find((section) => section.key === sectionKey) ||
+    sections[0] ||
+    null;
+  const players = Array.isArray(activeSection?.players)
+    ? activeSection.players
+    : [];
 
   return (
     <View style={{ paddingBottom: 24 }}>
@@ -1336,7 +1379,12 @@ const NHLTeamRosterSection = ({ game, theme, teamSide, teamColor }) => {
             <Text
               style={[
                 styles.nhlRosterSectionLabel,
-                { color: sectionKey === section.key ? theme.text : theme.textSecondary },
+                {
+                  color:
+                    sectionKey === section.key
+                      ? theme.text
+                      : theme.textSecondary,
+                },
               ]}
             >
               {section.label}
