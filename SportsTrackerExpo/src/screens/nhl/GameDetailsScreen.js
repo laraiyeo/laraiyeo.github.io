@@ -1739,7 +1739,10 @@ const PlaysTabSection = ({ game, theme, colors }) => {
 
     const firstName = String(roster?.firstName || "").trim();
     const lastName = String(roster?.lastName || "").trim();
-    const fullFromNames = [firstName, lastName].filter(Boolean).join(" ").trim();
+    const fullFromNames = [firstName, lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
 
     return {
       name: fullFromNames || String(meta?.name || fallback || "").trim(),
@@ -1795,23 +1798,30 @@ const PlaysTabSection = ({ game, theme, colors }) => {
       const assistLines = [];
       [1, 2].forEach((idx) => {
         const idKey = idx === 1 ? "assist1PlayerId" : "assist2PlayerId";
-        const totalKey = idx === 1 ? "assist1PlayerTotal" : "assist2PlayerTotal";
+        const totalKey =
+          idx === 1 ? "assist1PlayerTotal" : "assist2PlayerTotal";
         const assistProfile = playerProfile(details?.[idKey], "");
         const assistName = displayName(assistProfile, "");
         if (!assistName) return;
         const total = Number(details?.[totalKey]);
         const totalText = Number.isFinite(total) ? ` (${total})` : "";
-        assistLines.push(`${assistName}${sweaterTag(assistProfile)}${totalText}`);
+        assistLines.push(
+          `${assistName}${sweaterTag(assistProfile)}${totalText}`,
+        );
       });
 
       return {
         main: `${scorer}${sweaterTag(scorerProfile)} scores for ${teamName}${shotType ? ` with a ${shotType} shot` : ""}.${seasonTotal ? ` His ${seasonTotal} of the season.` : ""}`,
-        sub: assistLines.length > 0 ? `Assists: ${assistLines.join(", ")}` : null,
+        sub:
+          assistLines.length > 0 ? `Assists: ${assistLines.join(", ")}` : null,
       };
     }
 
     if (typeKey === "penalty") {
-      const committedByProfile = playerProfile(details?.committedByPlayerId, "Player");
+      const committedByProfile = playerProfile(
+        details?.committedByPlayerId,
+        "Player",
+      );
       const committedBy = displayName(committedByProfile, "Player");
       const drawnByProfile = playerProfile(details?.drawnByPlayerId, "");
       const drawnBy = displayName(drawnByProfile, "");
@@ -1819,7 +1829,9 @@ const PlaysTabSection = ({ game, theme, colors }) => {
       const duration = Number(details?.duration);
       return {
         main: `${committedBy}${sweaterTag(committedByProfile)} ${Number.isFinite(duration) ? `${duration} minutes` : ""} for ${desc}`.trim(),
-        sub: drawnBy ? `Drawn by ${drawnBy}${sweaterTag(drawnByProfile)}` : null,
+        sub: drawnBy
+          ? `Drawn by ${drawnBy}${sweaterTag(drawnByProfile)}`
+          : null,
       };
     }
 
@@ -1869,7 +1881,10 @@ const PlaysTabSection = ({ game, theme, colors }) => {
     }
 
     if (typeKey === "blocked-shot") {
-      const shooterProfile = playerProfile(details?.shootingPlayerId, "Shooter");
+      const shooterProfile = playerProfile(
+        details?.shootingPlayerId,
+        "Shooter",
+      );
       const shooter = displayName(shooterProfile, "Shooter");
       const reason = cleanKeyWords(details?.reason || "");
       return {
@@ -1980,7 +1995,10 @@ const PlaysTabSection = ({ game, theme, colors }) => {
       const scoringPlayerProfile = playerProfile(scoringPlayerId, "Scorer");
       const scoringPlayerName = displayName(scoringPlayerProfile, "Scorer");
 
-      if (Number.isFinite(scoringPlayerId) && !preparedGoalCounts[scoringPlayerId]) {
+      if (
+        Number.isFinite(scoringPlayerId) &&
+        !preparedGoalCounts[scoringPlayerId]
+      ) {
         preparedGoalCounts[scoringPlayerId] = 0;
       }
       if (typeKey === "goal" && Number.isFinite(scoringPlayerId)) {
@@ -2018,7 +2036,20 @@ const PlaysTabSection = ({ game, theme, colors }) => {
     });
 
     return annotated.reverse();
-  }, [awayTeam.id, colors.primary, game?.away?.logo, game?.away?.name, game?.home?.logo, game?.home?.name, homeTeam.id, playerMetaById, plays, rosterSpotById, teamById, theme.border]);
+  }, [
+    awayTeam.id,
+    colors.primary,
+    game?.away?.logo,
+    game?.away?.name,
+    game?.home?.logo,
+    game?.home?.name,
+    homeTeam.id,
+    playerMetaById,
+    plays,
+    rosterSpotById,
+    teamById,
+    theme.border,
+  ]);
 
   const filterTypes = useMemo(() => {
     const unique = new Set(preparedPlays.map((row) => row.typeLabel));
@@ -2263,7 +2294,11 @@ const PlaysTabSection = ({ game, theme, colors }) => {
                       )}
 
                       <View style={styles.playsGoalCountBadge}>
-                        <FontAwesome6 name="hockey-puck" size={9} color="#FFFFFF" />
+                        <FontAwesome6
+                          name="hockey-puck"
+                          size={9}
+                          color="#FFFFFF"
+                        />
                         <Text style={styles.playsGoalCountText}>
                           {row.scorerGoalsInGame}
                         </Text>
