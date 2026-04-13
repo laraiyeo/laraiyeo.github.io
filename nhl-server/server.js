@@ -1113,11 +1113,7 @@ app.get("/nhl/game/:id", async (req, res) => {
         urls.boxscore,
         pollingIntervalMs,
       ),
-      getCachedJsonWithTtl(
-        `game:shifts:${id}`,
-        urls.shifts,
-        pollingIntervalMs,
-      ),
+      getCachedJsonWithTtl(`game:shifts:${id}`, urls.shifts, pollingIntervalMs),
     ]);
 
     let playByPlay = null;

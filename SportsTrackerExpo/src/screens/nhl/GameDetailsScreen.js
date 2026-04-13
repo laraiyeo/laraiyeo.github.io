@@ -569,7 +569,6 @@ const LinescoreTable = ({ game, theme, colors }) => {
 
   return (
     <View style={[styles.linescoreCard, { backgroundColor: theme.surface }]}>
-
       <View style={{ flexDirection: "row" }}>
         <View style={{ width: LABEL_W }}>
           <View
@@ -592,7 +591,9 @@ const LinescoreTable = ({ game, theme, colors }) => {
               },
             ]}
           >
-            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>{awayAbbr}</Text>
+            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>
+              {awayAbbr}
+            </Text>
           </View>
           <View
             style={[
@@ -604,7 +605,9 @@ const LinescoreTable = ({ game, theme, colors }) => {
               },
             ]}
           >
-            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>{homeAbbr}</Text>
+            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>
+              {homeAbbr}
+            </Text>
           </View>
         </View>
 
@@ -633,7 +636,14 @@ const LinescoreTable = ({ game, theme, colors }) => {
                     },
                   ]}
                 >
-                  <Text style={[styles.linescorePeriodNum, { color: theme.textSecondary }]}>{label}</Text>
+                  <Text
+                    style={[
+                      styles.linescorePeriodNum,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {label}
+                  </Text>
                 </View>
               );
             })}
@@ -682,7 +692,12 @@ const LinescoreTable = ({ game, theme, colors }) => {
           </View>
         </ScrollView>
 
-        <View style={[styles.linescoreTotalsSection, { borderLeftColor: borderCol }]}>
+        <View
+          style={[
+            styles.linescoreTotalsSection,
+            { borderLeftColor: borderCol },
+          ]}
+        >
           <View
             style={[
               styles.linescoreTotalsRow,
@@ -694,7 +709,14 @@ const LinescoreTable = ({ game, theme, colors }) => {
             ]}
           >
             <View style={{ width: TOTAL_W, alignItems: "center" }}>
-              <Text style={[styles.linescoreTotalHeader, { color: theme.textSecondary }]}>T</Text>
+              <Text
+                style={[
+                  styles.linescoreTotalHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                T
+              </Text>
             </View>
           </View>
 
@@ -709,7 +731,9 @@ const LinescoreTable = ({ game, theme, colors }) => {
             ]}
           >
             <View style={{ width: TOTAL_W, alignItems: "center" }}>
-              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>{awayTotal}</Text>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>
+                {awayTotal}
+              </Text>
             </View>
           </View>
 
@@ -724,7 +748,9 @@ const LinescoreTable = ({ game, theme, colors }) => {
             ]}
           >
             <View style={{ width: TOTAL_W, alignItems: "center" }}>
-              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>{homeTotal}</Text>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>
+                {homeTotal}
+              </Text>
             </View>
           </View>
         </View>
@@ -736,8 +762,12 @@ const LinescoreTable = ({ game, theme, colors }) => {
 const EventsSection = ({ game, theme, colors }) => {
   const awayAbbr = String(game?.away?.abbreviation || "").toUpperCase();
   const homeAbbr = String(game?.home?.abbreviation || "").toUpperCase();
-  const awayName = toCapitalizedWords(game?.away?.name || game?.away?.abbreviation || "Away");
-  const homeName = toCapitalizedWords(game?.home?.name || game?.home?.abbreviation || "Home");
+  const awayName = toCapitalizedWords(
+    game?.away?.name || game?.away?.abbreviation || "Away",
+  );
+  const homeName = toCapitalizedWords(
+    game?.home?.name || game?.home?.abbreviation || "Home",
+  );
   const live = isNhlGameLive(game);
 
   const { periods, cumulativeByPeriod, periodOnlyScore } = useMemo(() => {
@@ -1002,8 +1032,13 @@ const EventsSection = ({ game, theme, colors }) => {
                 rows.map((event, idx) => {
                   const isAway = event.teamAbbr === awayAbbr;
                   const isHome = event.teamAbbr === homeAbbr;
-                  const fallbackTeamName = isAway ? awayName.toUpperCase() : isHome ? homeName.toUpperCase() : "Team";
-                  const displayName = String(event.mainText || "").trim() || fallbackTeamName;
+                  const fallbackTeamName = isAway
+                    ? awayName.toUpperCase()
+                    : isHome
+                      ? homeName.toUpperCase()
+                      : "Team";
+                  const displayName =
+                    String(event.mainText || "").trim() || fallbackTeamName;
 
                   return (
                     <View
