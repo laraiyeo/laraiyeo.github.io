@@ -532,9 +532,212 @@ const formatPenaltyLine = (penalty) => {
   return desc ? `${type} - ${desc}` : type;
 };
 
+const toCapitalizedWords = (value) =>
+  String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const LinescoreTable = ({ game, theme, colors }) => {
+  const byPeriod = Array.isArray(game?.lineScoreByPeriod)
+    ? game.lineScoreByPeriod
+    : [];
+  if (byPeriod.length === 0) return null;
+
+  const awayTotal = Number(game?.away?.score ?? 0);
+  const homeTotal = Number(game?.home?.score ?? 0);
+  const awayAbbr = game?.away?.abbreviation || "AWY";
+  const homeAbbr = game?.home?.abbreviation || "HME";
+  const awayTeamColor = NHLService.getTeamColor(awayAbbr, colors.primary);
+  const homeTeamColor = NHLService.getTeamColor(homeAbbr, colors.secondary);
+
+  const CELL_W = 32;
+  const ROW_H = 34;
+  const LABEL_W = 48;
+  const TOTAL_W = 38;
+
+  const [availableW, setAvailableW] = useState(0);
+  const cellW =
+    availableW > 0 && byPeriod.length > 0
+      ? Math.max(CELL_W, availableW / byPeriod.length)
+      : CELL_W;
+
+  const headerBg = theme.surfaceSecondary ?? "rgba(128,128,128,0.08)";
+  const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+
+  return (
+    <View style={[styles.linescoreCard, { backgroundColor: theme.surface }]}>
+
+      <View style={{ flexDirection: "row" }}>
+        <View style={{ width: LABEL_W }}>
+          <View
+            style={[
+              styles.linescoreCell,
+              {
+                height: ROW_H,
+                borderBottomColor: borderCol,
+                backgroundColor: headerBg,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.linescoreCell,
+              {
+                height: ROW_H,
+                borderBottomColor: awayTeamColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>{awayAbbr}</Text>
+          </View>
+          <View
+            style={[
+              styles.linescoreCell,
+              {
+                height: ROW_H,
+                borderBottomColor: homeTeamColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            <Text style={[styles.linescoreTeamAbbr, { color: theme.text }]}>{homeAbbr}</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexDirection: "column" }}
+          onLayout={(e) => setAvailableW(e.nativeEvent.layout.width)}
+        >
+          <View style={{ flexDirection: "row" }}>
+            {byPeriod.map((row, idx) => {
+              const pNum = Number(row?.periodDescriptor?.number || idx + 1);
+              const label = pNum <= 3 ? String(pNum) : `OT${pNum - 3}`;
+              return (
+                <View
+                  key={`p-h-${idx}`}
+                  style={[
+                    styles.linescoreCell,
+                    {
+                      width: cellW,
+                      height: ROW_H,
+                      backgroundColor: headerBg,
+                      borderBottomColor: borderCol,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.linescorePeriodNum, { color: theme.textSecondary }]}>{label}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          <View style={{ flexDirection: "row" }}>
+            {byPeriod.map((row, idx) => (
+              <View
+                key={`p-a-${idx}`}
+                style={[
+                  styles.linescoreCell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: awayTeamColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[styles.linescoreRunsText, { color: theme.text }]}>
+                  {Number(row?.away ?? 0)}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: "row" }}>
+            {byPeriod.map((row, idx) => (
+              <View
+                key={`p-hm-${idx}`}
+                style={[
+                  styles.linescoreCell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: homeTeamColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[styles.linescoreRunsText, { color: theme.text }]}>
+                  {Number(row?.home ?? 0)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={[styles.linescoreTotalsSection, { borderLeftColor: borderCol }]}>
+          <View
+            style={[
+              styles.linescoreTotalsRow,
+              {
+                height: ROW_H,
+                backgroundColor: headerBg,
+                borderBottomColor: borderCol,
+              },
+            ]}
+          >
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text style={[styles.linescoreTotalHeader, { color: theme.textSecondary }]}>T</Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.linescoreTotalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: awayTeamColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>{awayTotal}</Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.linescoreTotalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: homeTeamColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>{homeTotal}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const EventsSection = ({ game, theme, colors }) => {
   const awayAbbr = String(game?.away?.abbreviation || "").toUpperCase();
   const homeAbbr = String(game?.home?.abbreviation || "").toUpperCase();
+  const awayName = toCapitalizedWords(game?.away?.name || game?.away?.abbreviation || "Away");
+  const homeName = toCapitalizedWords(game?.home?.name || game?.home?.abbreviation || "Home");
   const live = isNhlGameLive(game);
 
   const { periods, cumulativeByPeriod, periodOnlyScore } = useMemo(() => {
@@ -690,6 +893,8 @@ const EventsSection = ({ game, theme, colors }) => {
             away: 0,
             home: 0,
           };
+          const currentLivePeriod = Number(game?.periodNumber || 0);
+          const showLiveDivider = !live || period !== currentLivePeriod;
           const divider = (
             <View style={styles.periodDividerRow}>
               <View
@@ -780,7 +985,7 @@ const EventsSection = ({ game, theme, colors }) => {
 
           return (
             <View key={`period-${period}`}>
-              {live && divider}
+              {live && showLiveDivider && divider}
 
               {rows.length === 0 ? (
                 <View style={styles.noEventsRow}>
@@ -797,6 +1002,8 @@ const EventsSection = ({ game, theme, colors }) => {
                 rows.map((event, idx) => {
                   const isAway = event.teamAbbr === awayAbbr;
                   const isHome = event.teamAbbr === homeAbbr;
+                  const fallbackTeamName = isAway ? awayName.toUpperCase() : isHome ? homeName.toUpperCase() : "Team";
+                  const displayName = String(event.mainText || "").trim() || fallbackTeamName;
 
                   return (
                     <View
@@ -848,7 +1055,7 @@ const EventsSection = ({ game, theme, colors }) => {
                             ]}
                             numberOfLines={2}
                           >
-                            {event.mainText}
+                            {displayName}
                             {event.type === "goal" &&
                             event.homeScoreAfter != null &&
                             event.awayScoreAfter != null ? (
@@ -1334,6 +1541,7 @@ const NHLGameDetailsScreen = ({ route }) => {
           {activeTab === "Main" && (
             <>
               <View style={{ height: 12 }} />
+              <LinescoreTable game={liveGame} theme={theme} colors={colors} />
               <EventsSection game={liveGame} theme={theme} colors={colors} />
             </>
           )}
@@ -1543,6 +1751,64 @@ const styles = StyleSheet.create({
   },
   comingSoonText: {
     fontSize: 14,
+  },
+  linescoreCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  linescoreHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  linescoreHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  linescoreCell: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  linescoreTeamAbbr: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textAlign: "center",
+  },
+  linescorePeriodNum: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  linescoreRunsText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  linescoreTotalsSection: {
+    borderLeftWidth: 1,
+    flexDirection: "column",
+  },
+  linescoreTotalsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  linescoreTotalHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  linescoreTotalVal: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   eventsCard: {
     marginHorizontal: 12,

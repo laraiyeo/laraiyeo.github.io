@@ -1102,7 +1102,7 @@ app.get("/nhl/game/:id", async (req, res) => {
       pollingIntervalMs = getGamePollingInterval(landing.data);
     }
 
-    const [rightRail, boxscore, playByPlay, shifts] = await Promise.all([
+    const [rightRail, boxscore, shifts] = await Promise.all([
       getCachedJsonWithTtl(
         `game:rightRail:${id}`,
         urls.rightRail,
@@ -1114,12 +1114,35 @@ app.get("/nhl/game/:id", async (req, res) => {
         pollingIntervalMs,
       ),
       getCachedJsonWithTtl(
+        `game:shifts:${id}`,
+        urls.shifts,
+        pollingIntervalMs,
+      ),
+    ]);
+
+    let playByPlay = null;
+    try {
+      playByPlay = await getCachedJsonWithTtl(
         `game:playByPlay:${id}`,
         urls.playByPlay,
         pollingIntervalMs,
-      ),
-      getCachedJsonWithTtl(`game:shifts:${id}`, urls.shifts, pollingIntervalMs),
-    ]);
+      );
+    } catch (playByPlayErr) {
+      console.warn(
+        `playByPlay unavailable for game ${id}; returning partial game payload`,
+        playByPlayErr?.message || playByPlayErr,
+      );
+    }
+
+    const data = {
+      landing: transformLandingPayload(landing.data),
+      rightRail: transformRightRailPayload(rightRail.data),
+      boxscore: transformBoxscorePayload(boxscore.data),
+      shifts: transformShiftsPayload(shifts.data),
+    };
+    if (playByPlay?.data) {
+      data.plays = transformPlaysPayload(playByPlay.data);
+    }
 
     setCachingHeaders(res, pollingIntervalMs);
     res.json({
@@ -1127,7 +1150,7 @@ app.get("/nhl/game/:id", async (req, res) => {
         landing.fromCache &&
         rightRail.fromCache &&
         boxscore.fromCache &&
-        playByPlay.fromCache &&
+        (playByPlay ? playByPlay.fromCache : true) &&
         shifts.fromCache
           ? "cache"
           : "origin",
@@ -1136,13 +1159,7 @@ app.get("/nhl/game/:id", async (req, res) => {
         intervalMs: pollingIntervalMs,
         mode: pollingIntervalMs === INTERVAL_FAST ? "fast" : "slow",
       },
-      data: {
-        landing: transformLandingPayload(landing.data),
-        rightRail: transformRightRailPayload(rightRail.data),
-        boxscore: transformBoxscorePayload(boxscore.data),
-        plays: transformPlaysPayload(playByPlay.data),
-        shifts: transformShiftsPayload(shifts.data),
-      },
+      data,
     });
   } catch (err) {
     res
