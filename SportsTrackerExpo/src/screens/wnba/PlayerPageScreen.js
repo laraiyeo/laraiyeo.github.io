@@ -118,6 +118,8 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       19: "CHI",
       20: "ATL",
       129689: "GS",
+      131935: 'TOR', 
+      132052: 'POR',
     };
     return teamMapping[idStr] || null;
   };
@@ -140,6 +142,9 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       19: "Chicago Sky",
       20: "Atlanta Dream",
       129689: "Golden State Warriors",
+      131935: "Toronto Tempo",
+      132052: "Portland Fire"
+
     };
     return nameMap[idStr] || null;
   };
@@ -162,6 +167,8 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       "chicago sky": "CHI",
       "atlanta dream": "ATL",
       "golden state warriors": "GS",
+      "toronto tempo": "TOR",
+      "portland fire": "POR"
     };
     return nameToAbbrMap[name] || null;
   };

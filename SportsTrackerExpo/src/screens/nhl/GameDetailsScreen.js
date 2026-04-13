@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Modal,
 } from "react-native";
 import { Image } from "expo-image";
-import { FontAwesome6, MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome6, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
@@ -275,6 +276,57 @@ const getStatusLines = (game, nowMs) => {
   return { line1: game.statusMain || "--", line2: game.statusSub || "" };
 };
 
+const buildPlayerMetaById = (boxscore) => {
+  const map = {};
+  const byGameStats = boxscore?.playerByGameStats;
+  const buckets = [
+    byGameStats?.awayTeam?.forwards,
+    byGameStats?.awayTeam?.defense,
+    byGameStats?.awayTeam?.goalies,
+    byGameStats?.homeTeam?.forwards,
+    byGameStats?.homeTeam?.defense,
+    byGameStats?.homeTeam?.goalies,
+  ];
+
+  buckets.forEach((bucket) => {
+    (Array.isArray(bucket) ? bucket : []).forEach((player) => {
+      const id = Number(player?.playerId);
+      const name = String(player?.name || "").trim();
+      if (Number.isFinite(id) && name) {
+        map[id] = {
+          name,
+          position: String(player?.position || "").trim() || null,
+          sweaterNumber:
+            player?.sweaterNumber != null ? Number(player.sweaterNumber) : null,
+        };
+      }
+    });
+  });
+
+  return map;
+};
+
+const buildPlayRosterSpots = (playPayload) => {
+  const spots = Array.isArray(playPayload?.rosterSpots)
+    ? playPayload.rosterSpots
+    : [];
+  return spots
+    .map((spot) => {
+      const playerId = Number(spot?.playerId);
+      if (!Number.isFinite(playerId)) return null;
+      return {
+        teamId: Number(spot?.teamId),
+        playerId,
+        firstName: String(spot?.firstName?.default || "").trim(),
+        lastName: String(spot?.lastName?.default || "").trim(),
+        sweaterNumber:
+          spot?.sweaterNumber != null ? Number(spot.sweaterNumber) : null,
+        headshot: String(spot?.headshot || "").trim() || null,
+      };
+    })
+    .filter(Boolean);
+};
+
 const normalizeGameData = (details, isDarkMode) => {
   if (!details) return null;
 
@@ -287,6 +339,7 @@ const normalizeGameData = (details, isDarkMode) => {
     const gameDate = landing?.startTimeUTC || landing?.gameDate || "";
     const periodNumber = Number(landing?.periodDescriptor?.number || 0);
     const remaining = landing?.clock?.timeRemaining || "";
+    const periodType = landing?.periodDescriptor?.periodType || "";
 
     let statusMain = "FT";
     let statusSub = "Final";
@@ -305,7 +358,8 @@ const normalizeGameData = (details, isDarkMode) => {
       statusSub = `${toOrdinal(periodNumber) || "1st"} Period`;
     } else if (state === "OFF" || state === "FINAL" || state === "OVER") {
       const { time, ampm } = formatLocalTime(gameDate);
-      statusMain = "FT";
+      statusMain =
+        "FT" + (periodType && periodType !== "REG" ? ` (${periodType})` : "");
       statusSub = `${time} ${ampm}`.trim();
     }
 
@@ -342,8 +396,19 @@ const normalizeGameData = (details, isDarkMode) => {
       },
       summaryScoring: landing?.summary?.scoring || [],
       summaryPenalties: landing?.summary?.penalties || [],
+      threeStars: landing?.summary?.threeStars || [],
+      referees: (details?.data?.rightRail?.gameInfo?.referees || [])
+        .map((entry) => String(entry?.default || entry?.name || "").trim())
+        .filter(Boolean),
+      linesmen: (details?.data?.rightRail?.gameInfo?.linesmen || [])
+        .map((entry) => String(entry?.default || entry?.name || "").trim())
+        .filter(Boolean),
       lineScoreByPeriod: details?.data?.rightRail?.linescore?.byPeriod || [],
+      teamGameStats: details?.data?.rightRail?.teamGameStats || [],
+      shifts: details?.data?.shifts || {},
       plays: details?.data?.plays?.plays || [],
+      playerMetaById: buildPlayerMetaById(details?.data?.boxscore),
+      playRosterSpots: buildPlayRosterSpots(details?.data?.plays),
     };
   }
 
@@ -356,6 +421,7 @@ const normalizeGameData = (details, isDarkMode) => {
     competitors.find((c) => c.homeAway === "home") || competitors[1] || {};
   const statusType = competition?.status?.type || {};
   const gameDate = competition?.date || "";
+  const periodType = landing?.periodDescriptor?.periodType || "";
 
   let statusMain = "FT";
   let statusSub = "Final";
@@ -375,7 +441,8 @@ const normalizeGameData = (details, isDarkMode) => {
     statusSub = `${toOrdinal(period)} Period`;
   } else if (statusType?.state === "post") {
     const { time, ampm } = formatLocalTime(gameDate);
-    statusMain = "FT";
+    statusMain =
+      "FT" + (periodType && periodType !== "REG" ? ` (${periodType})` : "");
     statusSub = `${time} ${ampm}`.trim();
   }
 
@@ -416,8 +483,19 @@ const normalizeGameData = (details, isDarkMode) => {
     },
     summaryScoring: details?.summary?.scoring || [],
     summaryPenalties: details?.summary?.penalties || [],
+    threeStars: details?.summary?.threeStars || [],
+    referees: (details?.gameInfo?.referees || [])
+      .map((entry) => String(entry?.default || entry?.name || "").trim())
+      .filter(Boolean),
+    linesmen: (details?.gameInfo?.linesmen || [])
+      .map((entry) => String(entry?.default || entry?.name || "").trim())
+      .filter(Boolean),
     lineScoreByPeriod: [],
+    teamGameStats: details?.teamGameStats || [],
+    shifts: details?.shifts || {},
     plays: details?.plays || [],
+    playerMetaById: buildPlayerMetaById(details?.boxscore),
+    playRosterSpots: buildPlayRosterSpots(details?.plays),
   };
 };
 
@@ -540,6 +618,38 @@ const toCapitalizedWords = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
 
+const toSafeStatValue = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const withAlpha30 = (color) => {
+  const raw = String(color || "").trim();
+  const fullHex = raw.match(/^#([0-9a-fA-F]{6})$/);
+  if (fullHex) return `${raw}30`;
+
+  const shortHex = raw.match(/^#([0-9a-fA-F]{3})$/);
+  if (shortHex) {
+    const [r, g, b] = shortHex[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}30`;
+  }
+
+  const hexWithAlpha = raw.match(/^#([0-9a-fA-F]{8})$/);
+  if (hexWithAlpha) return `#${hexWithAlpha[1].slice(0, 6)}30`;
+
+  return "rgba(255,255,255,0.18)";
+};
+
+const splitOfficialName = (value) => {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+};
+
 const LinescoreTable = ({ game, theme, colors }) => {
   const byPeriod = Array.isArray(game?.lineScoreByPeriod)
     ? game.lineScoreByPeriod
@@ -552,6 +662,19 @@ const LinescoreTable = ({ game, theme, colors }) => {
   const homeAbbr = game?.home?.abbreviation || "HME";
   const awayTeamColor = NHLService.getTeamColor(awayAbbr, colors.primary);
   const homeTeamColor = NHLService.getTeamColor(homeAbbr, colors.secondary);
+
+  const teamStats = Array.isArray(game?.teamGameStats)
+    ? game.teamGameStats
+    : [];
+  const sogStat = teamStats.find(
+    (row) => String(row?.category || "").toLowerCase() === "sog",
+  );
+  const awaySog = Number.isFinite(Number(sogStat?.awayValue))
+    ? Number(sogStat.awayValue)
+    : 0;
+  const homeSog = Number.isFinite(Number(sogStat?.homeValue))
+    ? Number(sogStat.homeValue)
+    : 0;
 
   const CELL_W = 32;
   const ROW_H = 34;
@@ -718,6 +841,16 @@ const LinescoreTable = ({ game, theme, colors }) => {
                 T
               </Text>
             </View>
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text
+                style={[
+                  styles.linescoreTotalHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                SOG
+              </Text>
+            </View>
           </View>
 
           <View
@@ -735,6 +868,11 @@ const LinescoreTable = ({ game, theme, colors }) => {
                 {awayTotal}
               </Text>
             </View>
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>
+                {awaySog}
+              </Text>
+            </View>
           </View>
 
           <View
@@ -750,6 +888,11 @@ const LinescoreTable = ({ game, theme, colors }) => {
             <View style={{ width: TOTAL_W, alignItems: "center" }}>
               <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>
                 {homeTotal}
+              </Text>
+            </View>
+            <View style={{ width: TOTAL_W, alignItems: "center" }}>
+              <Text style={[styles.linescoreTotalVal, { color: theme.text }]}>
+                {homeSog}
               </Text>
             </View>
           </View>
@@ -1176,6 +1319,1778 @@ const EventsSection = ({ game, theme, colors }) => {
   );
 };
 
+const ThreeStarRowGradient = ({ gradId, teamColor, theme }) => (
+  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg width={width} height="100%" pointerEvents="none">
+      <Defs>
+        <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={teamColor} stopOpacity="0.24" />
+          <Stop
+            offset="55%"
+            stopColor={theme.surfaceSecondary || teamColor}
+            stopOpacity="0"
+          />
+          <Stop
+            offset="100%"
+            stopColor={theme.surfaceSecondary || teamColor}
+            stopOpacity="0"
+          />
+        </LinearGradient>
+      </Defs>
+      <Rect width={width} height="100%" fill={`url(#${gradId})`} />
+    </Svg>
+  </View>
+);
+
+const ThreeStarsSection = ({ game, theme, colors, getTeamLogoUrl }) => {
+  const stars = useMemo(() => {
+    const list = Array.isArray(game?.threeStars) ? game.threeStars : [];
+    return list
+      .filter((entry) => entry && typeof entry === "object")
+      .sort((a, b) => Number(b?.star || 0) - Number(a?.star || 0));
+  }, [game?.threeStars]);
+
+  if (stars.length === 0) return null;
+
+  const awayAbbr = String(game?.away?.abbreviation || "").toUpperCase();
+  const homeAbbr = String(game?.home?.abbreviation || "").toUpperCase();
+  const awayLogo =
+    game?.away?.logo || getTeamLogoUrl("nhl", game?.away?.abbreviation);
+  const homeLogo =
+    game?.home?.logo || getTeamLogoUrl("nhl", game?.home?.abbreviation);
+
+  const logoForTeam = (abbr) => {
+    const teamAbbr = String(abbr || "").toUpperCase();
+    if (teamAbbr && teamAbbr === awayAbbr) return awayLogo;
+    if (teamAbbr && teamAbbr === homeAbbr) return homeLogo;
+    return getTeamLogoUrl("nhl", teamAbbr);
+  };
+
+  const colorForTeam = (abbr) => {
+    const teamAbbr = String(abbr || "").toUpperCase();
+    return NHLService.getTeamColor(teamAbbr, colors.primary);
+  };
+
+  return (
+    <View
+      style={[
+        styles.threeStarsCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.threeStarsHeaderRow,
+          { borderBottomColor: theme.border },
+        ]}
+      >
+        <Text style={[styles.threeStarsHeaderTitle, { color: theme.text }]}>
+          Three Stars
+        </Text>
+      </View>
+
+      {stars.map((entry, idx) => {
+        const teamAbbr = String(entry?.teamAbbrev || "").toUpperCase();
+        const teamColor = colorForTeam(teamAbbr);
+        const logo = logoForTeam(teamAbbr);
+
+        return (
+          <View
+            key={`three-star-${idx}-${entry?.playerId || "x"}`}
+            style={[
+              styles.threeStarRow,
+              idx < stars.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            <ThreeStarRowGradient
+              gradId={`nhlThreeStarGrad-${idx}`}
+              teamColor={teamColor}
+              theme={theme}
+            />
+
+            <View style={styles.threeStarLeftCol}>
+              <View
+                style={[
+                  styles.threeStarHeadshotWrap,
+                  { borderColor: teamColor },
+                ]}
+              >
+                <View style={styles.threeStarHeadshotClip}>
+                  <Image
+                    source={{ uri: entry?.headshot || "" }}
+                    style={styles.threeStarHeadshot}
+                    contentFit="cover"
+                  />
+                </View>
+
+                <View
+                  style={[
+                    styles.threeStarCountBadge,
+                    { backgroundColor: theme.surface, borderColor: teamColor },
+                  ]}
+                >
+                  <Ionicons name="star" size={12} color="#f7b500" />
+                </View>
+
+                <View
+                  style={[
+                    styles.threeStarTeamBadge,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: withAlpha30(teamColor),
+                    },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: logo }}
+                    style={styles.threeStarTeamLogo}
+                    contentFit="contain"
+                  />
+                </View>
+
+                <View
+                  style={[
+                    styles.threeStarPosBadge,
+                    { backgroundColor: theme.surface, borderColor: teamColor },
+                  ]}
+                >
+                  <Text
+                    style={[styles.threeStarPosText, { color: theme.text }]}
+                  >
+                    {String(entry?.position || "-").toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.threeStarMidCol}>
+              <Text
+                style={[styles.threeStarPlayerName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {String(entry?.name || "Unknown")}
+              </Text>
+              <Text
+                style={[
+                  styles.threeStarTeamAbbr,
+                  { color: theme.textSecondary },
+                ]}
+                numberOfLines={1}
+              >
+                {entry?.sweaterNo ? `#${entry.sweaterNo} · ` : ""}
+                {teamAbbr || "---"}
+              </Text>
+            </View>
+
+            {entry?.position === "G" ? (
+              <View style={styles.threeStarStatsCol}>
+                <View style={styles.threeStarStatItem}>
+                  <Text
+                    style={[styles.threeStarStatVal, { color: theme.text }]}
+                  >
+                    {toSafeStatValue(entry?.goalsAgainstAverage)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.threeStarStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    GAA
+                  </Text>
+                </View>
+                <View style={styles.threeStarStatItem}>
+                  <Text
+                    style={[styles.threeStarStatVal, { color: theme.text }]}
+                  >
+                    {toSafeStatValue(entry?.savePctg) * 100}%
+                  </Text>
+                  <Text
+                    style={[
+                      styles.threeStarStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    SV%
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.threeStarStatsCol}>
+                <View style={styles.threeStarStatItem}>
+                  <Text
+                    style={[styles.threeStarStatVal, { color: theme.text }]}
+                  >
+                    {toSafeStatValue(entry?.goals)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.threeStarStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    GLS
+                  </Text>
+                </View>
+                <View style={styles.threeStarStatItem}>
+                  <Text
+                    style={[styles.threeStarStatVal, { color: theme.text }]}
+                  >
+                    {toSafeStatValue(entry?.assists)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.threeStarStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    AST
+                  </Text>
+                </View>
+                <View style={styles.threeStarStatItem}>
+                  <Text
+                    style={[styles.threeStarStatVal, { color: theme.text }]}
+                  >
+                    {toSafeStatValue(entry?.points)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.threeStarStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    PTS
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const OfficialsSection = ({ game, theme }) => {
+  const referees = Array.isArray(game?.referees) ? game.referees : [];
+  const linesmen = Array.isArray(game?.linesmen) ? game.linesmen : [];
+
+  if (referees.length === 0 && linesmen.length === 0) return null;
+
+  const renderOfficial = (name, key) => {
+    const split = splitOfficialName(name);
+    return (
+      <View key={key} style={styles.officialItem}>
+        <Text
+          style={[styles.officialFirstName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {split.first}
+        </Text>
+        {!!split.last && (
+          <Text
+            style={[styles.officialLastName, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {split.last}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View
+      style={[
+        styles.officialsCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <View
+        style={[styles.officialsHeaderRow, { borderBottomColor: theme.border }]}
+      >
+        <Text style={[styles.officialsHeaderTitle, { color: theme.text }]}>
+          Officials
+        </Text>
+      </View>
+
+      <View style={styles.officialsBody}>
+        <View style={styles.officialsColumn}>
+          <Text
+            style={[styles.officialsRoleLabel, { color: theme.textSecondary }]}
+          >
+            Referees
+          </Text>
+          <View style={styles.officialsNamesWrap}>
+            {referees.map((name, idx) =>
+              renderOfficial(name, `ref-${idx}-${String(name)}`),
+            )}
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.officialsDivider,
+            { backgroundColor: theme.border || "rgba(128,128,128,0.2)" },
+          ]}
+        />
+
+        <View style={styles.officialsColumn}>
+          <Text
+            style={[styles.officialsRoleLabel, { color: theme.textSecondary }]}
+          >
+            Linesmen
+          </Text>
+          <View style={styles.officialsNamesWrap}>
+            {linesmen.map((name, idx) =>
+              renderOfficial(name, `line-${idx}-${String(name)}`),
+            )}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const PlaysTabSection = ({ game, theme, colors }) => {
+  const [activeType, setActiveType] = useState("ALL");
+  const [periodIndex, setPeriodIndex] = useState(0);
+
+  const plays = Array.isArray(game?.plays) ? game.plays : [];
+  const playerMetaById =
+    game?.playerMetaById && typeof game.playerMetaById === "object"
+      ? game.playerMetaById
+      : {};
+  const playRosterSpots = Array.isArray(game?.playRosterSpots)
+    ? game.playRosterSpots
+    : [];
+
+  const awayTeam = {
+    id: Number(game?.away?.id),
+    abbr: String(game?.away?.abbreviation || "AWY").toUpperCase(),
+  };
+  const homeTeam = {
+    id: Number(game?.home?.id),
+    abbr: String(game?.home?.abbreviation || "HME").toUpperCase(),
+  };
+
+  const teamById = useMemo(
+    () => ({
+      [awayTeam.id]: awayTeam,
+      [homeTeam.id]: homeTeam,
+    }),
+    [awayTeam.abbr, awayTeam.id, homeTeam.abbr, homeTeam.id],
+  );
+
+  const toTypeLabel = (raw) =>
+    String(raw || "update")
+      .split("-")
+      .filter(Boolean)
+      .join(" ")
+      .toUpperCase();
+
+  const cleanKeyWords = (value) =>
+    String(value || "")
+      .split("-")
+      .filter(Boolean)
+      .join(" ");
+
+  const toPeriodChip = (periodNumber) => {
+    const p = Number(periodNumber || 0);
+    if (!Number.isFinite(p) || p <= 0) return "P?";
+    if (p <= 3) return `P${p}`;
+    return `OT${p - 3}`;
+  };
+
+  const rosterSpotById = useMemo(() => {
+    const map = {};
+    playRosterSpots.forEach((spot) => {
+      const id = Number(spot?.playerId);
+      if (Number.isFinite(id)) map[id] = spot;
+    });
+    return map;
+  }, [playRosterSpots]);
+
+  const playerProfile = (playerId, fallback = "") => {
+    const id = Number(playerId);
+    if (!Number.isFinite(id)) {
+      return {
+        name: String(fallback || "").trim(),
+        firstName: "",
+        lastName: "",
+        sweaterNumber: null,
+        headshot: null,
+        position: null,
+        teamId: null,
+      };
+    }
+
+    const roster = rosterSpotById[id] || {};
+    const meta = playerMetaById[id] || {};
+
+    const firstName = String(roster?.firstName || "").trim();
+    const lastName = String(roster?.lastName || "").trim();
+    const fullFromNames = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+    return {
+      name: fullFromNames || String(meta?.name || fallback || "").trim(),
+      firstName,
+      lastName,
+      sweaterNumber:
+        roster?.sweaterNumber != null
+          ? Number(roster.sweaterNumber)
+          : meta?.sweaterNumber != null
+            ? Number(meta.sweaterNumber)
+            : null,
+      headshot: roster?.headshot || null,
+      position: String(meta?.position || "").trim() || null,
+      teamId: Number(roster?.teamId),
+    };
+  };
+
+  const displayName = (profile, fallback = "") => {
+    const first = String(profile?.firstName || "").trim();
+    const last = String(profile?.lastName || "").trim();
+    if (first && last) return `${first} ${last}`;
+    return String(profile?.name || fallback || "").trim();
+  };
+
+  const sweaterTag = (profile) =>
+    Number.isFinite(Number(profile?.sweaterNumber))
+      ? ` (#${Number(profile.sweaterNumber)})`
+      : "";
+
+  const ordinalSafe = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return toOrdinal(n);
+  };
+
+  const playDetailsText = (play, eventTeam) => {
+    const details = play?.details || {};
+    const typeKey = String(play?.typeDescKey || "").toLowerCase();
+    const teamLabel = eventTeam?.abbr || "GAME";
+
+    if (typeKey === "goal") {
+      const scorerProfile = playerProfile(details?.scoringPlayerId, "Scorer");
+      const scorer = displayName(scorerProfile, "Scorer");
+      const shotType = String(details?.shotType || "").toLowerCase();
+      const teamName =
+        Number(eventTeam?.id) === awayTeam.id
+          ? game?.away?.name || awayTeam.abbr
+          : Number(eventTeam?.id) === homeTeam.id
+            ? game?.home?.name || homeTeam.abbr
+            : teamLabel;
+      const seasonTotal = ordinalSafe(details?.scoringPlayerTotal);
+
+      const assistLines = [];
+      [1, 2].forEach((idx) => {
+        const idKey = idx === 1 ? "assist1PlayerId" : "assist2PlayerId";
+        const totalKey = idx === 1 ? "assist1PlayerTotal" : "assist2PlayerTotal";
+        const assistProfile = playerProfile(details?.[idKey], "");
+        const assistName = displayName(assistProfile, "");
+        if (!assistName) return;
+        const total = Number(details?.[totalKey]);
+        const totalText = Number.isFinite(total) ? ` (${total})` : "";
+        assistLines.push(`${assistName}${sweaterTag(assistProfile)}${totalText}`);
+      });
+
+      return {
+        main: `${scorer}${sweaterTag(scorerProfile)} scores for ${teamName}${shotType ? ` with a ${shotType} shot` : ""}.${seasonTotal ? ` His ${seasonTotal} of the season.` : ""}`,
+        sub: assistLines.length > 0 ? `Assists: ${assistLines.join(", ")}` : null,
+      };
+    }
+
+    if (typeKey === "penalty") {
+      const committedByProfile = playerProfile(details?.committedByPlayerId, "Player");
+      const committedBy = displayName(committedByProfile, "Player");
+      const drawnByProfile = playerProfile(details?.drawnByPlayerId, "");
+      const drawnBy = displayName(drawnByProfile, "");
+      const desc = cleanKeyWords(details?.descKey || "penalty");
+      const duration = Number(details?.duration);
+      return {
+        main: `${committedBy}${sweaterTag(committedByProfile)} ${Number.isFinite(duration) ? `${duration} minutes` : ""} for ${desc}`.trim(),
+        sub: drawnBy ? `Drawn by ${drawnBy}${sweaterTag(drawnByProfile)}` : null,
+      };
+    }
+
+    if (typeKey === "faceoff") {
+      const winnerProfile = playerProfile(details?.winningPlayerId, "Winner");
+      const loserProfile = playerProfile(details?.losingPlayerId, "Loser");
+      const winner = displayName(winnerProfile, "Winner");
+      const loser = displayName(loserProfile, "Loser");
+      return {
+        main: `${winner}${sweaterTag(winnerProfile)} faceoff won against ${loser}${sweaterTag(loserProfile)}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "hit") {
+      const hitterProfile = playerProfile(details?.hittingPlayerId, "Player");
+      const hitteeProfile = playerProfile(details?.hitteePlayerId, "");
+      const hitter = displayName(hitterProfile, "Player");
+      const hittee = displayName(hitteeProfile, "");
+      return {
+        main: `${hitter}${sweaterTag(hitterProfile)} hit ${hittee}${sweaterTag(hitteeProfile)}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "shot-on-goal") {
+      const shooterProfile = playerProfile(details?.shootingPlayerId, "Player");
+      const goalieProfile = playerProfile(details?.goalieInNetId, "Goalie");
+      const shooter = displayName(shooterProfile, "Player");
+      const goalie = displayName(goalieProfile, "Goalie");
+      const shotType = String(details?.shotType || "").toLowerCase();
+      return {
+        main: `${shooter}${sweaterTag(shooterProfile)} ${shotType ? `${shotType} ` : ""}shot saved by ${goalie}${sweaterTag(goalieProfile)}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "missed-shot") {
+      const shooterProfile = playerProfile(details?.shootingPlayerId, "Player");
+      const shooter = displayName(shooterProfile, "Player");
+      const shotType = String(details?.shotType || "").toLowerCase();
+      const reason = cleanKeyWords(details?.reason || "");
+      return {
+        main: `${shooter}${sweaterTag(shooterProfile)} ${shotType ? `${shotType} ` : ""}shot${reason ? ` ${reason}` : ""}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "blocked-shot") {
+      const shooterProfile = playerProfile(details?.shootingPlayerId, "Shooter");
+      const shooter = displayName(shooterProfile, "Shooter");
+      const reason = cleanKeyWords(details?.reason || "");
+      return {
+        main: `${shooter}${sweaterTag(shooterProfile)}${reason ? ` ${reason}` : ""}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "takeaway") {
+      const pProfile = playerProfile(details?.playerId, "Player");
+      const p = displayName(pProfile, "Player");
+      return {
+        main: `Takeaway by ${p}${sweaterTag(pProfile)}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "giveaway") {
+      const pProfile = playerProfile(details?.playerId, "Player");
+      const p = displayName(pProfile, "Player");
+      return {
+        main: `Giveaway by ${p}${sweaterTag(pProfile)}`,
+        sub: null,
+      };
+    }
+
+    if (typeKey === "stoppage") {
+      const reason = String(details?.reason || "stoppage")
+        .replace(/-/g, " ")
+        .toUpperCase();
+      const secondary = String(details?.secondaryReason || "")
+        .replace(/-/g, " ")
+        .toUpperCase();
+      return { main: reason, sub: secondary || null };
+    }
+
+    return {
+      main: `${teamLabel} - ${toTypeLabel(typeKey)}`,
+      sub: null,
+    };
+  };
+
+  const preparedPlays = useMemo(() => {
+    const rows = plays
+      .map((play, idx) => {
+        const period = Number(play?.periodDescriptor?.number || 0);
+        const periodType = String(
+          play?.periodDescriptor?.periodType || "",
+        ).toUpperCase();
+        const remainingSecs = parseClockSecs(play?.timeRemaining);
+        const periodLengthSecs = periodType === "OT" ? 5 * 60 : 20 * 60;
+        const elapsedSecs = Number.isFinite(remainingSecs)
+          ? Math.max(0, periodLengthSecs - remainingSecs)
+          : 0;
+        return {
+          play,
+          idx,
+          period,
+          elapsedSecs,
+          sortKey: period * 100000 + elapsedSecs * 10 + idx,
+        };
+      })
+      .sort((a, b) => a.sortKey - b.sortKey);
+
+    let awayScore = 0;
+    let homeScore = 0;
+    const preparedGoalCounts = {};
+
+    const annotated = rows.map((row) => {
+      const play = row.play;
+      const details = play?.details || {};
+      const typeKey = String(play?.typeDescKey || "").toLowerCase();
+      const eventOwnerTeamId = Number(details?.eventOwnerTeamId);
+      const eventTeam = teamById[eventOwnerTeamId] || null;
+
+      const directAway = Number(details?.awayScore);
+      const directHome = Number(details?.homeScore);
+      const hasDirectScore =
+        Number.isFinite(directAway) && Number.isFinite(directHome);
+      const scoreBefore = { away: awayScore, home: homeScore };
+
+      if (hasDirectScore) {
+        awayScore = directAway;
+        homeScore = directHome;
+      } else if (typeKey === "goal") {
+        if (eventOwnerTeamId === awayTeam.id) awayScore += 1;
+        else if (eventOwnerTeamId === homeTeam.id) homeScore += 1;
+      }
+
+      const teamColor = eventTeam
+        ? NHLService.getTeamColor(eventTeam.abbr, colors.primary)
+        : colors.primary;
+      const borderColor = eventTeam
+        ? NHLService.getTeamColor(eventTeam.abbr, theme.border)
+        : theme.border;
+
+      const detailText = playDetailsText(play, eventTeam);
+
+      let scoringSide = null;
+      if (typeKey === "goal") {
+        if (awayScore > scoreBefore.away) scoringSide = "away";
+        else if (homeScore > scoreBefore.home) scoringSide = "home";
+        else if (eventOwnerTeamId === awayTeam.id) scoringSide = "away";
+        else if (eventOwnerTeamId === homeTeam.id) scoringSide = "home";
+      }
+
+      const scoringPlayerId = Number(details?.scoringPlayerId);
+      const scoringPlayerProfile = playerProfile(scoringPlayerId, "Scorer");
+      const scoringPlayerName = displayName(scoringPlayerProfile, "Scorer");
+
+      if (Number.isFinite(scoringPlayerId) && !preparedGoalCounts[scoringPlayerId]) {
+        preparedGoalCounts[scoringPlayerId] = 0;
+      }
+      if (typeKey === "goal" && Number.isFinite(scoringPlayerId)) {
+        preparedGoalCounts[scoringPlayerId] += 1;
+      }
+
+      return {
+        key: `${row.idx}-${typeKey}-${row.period}`,
+        typeKey,
+        typeLabel: toTypeLabel(typeKey),
+        period: row.period,
+        periodLabel: toPeriodChip(row.period),
+        timeRemaining: String(play?.timeRemaining || "--:--"),
+        scoreBefore,
+        scoreAt: { away: awayScore, home: homeScore },
+        scoringSide,
+        isGoal: typeKey === "goal",
+        teamColor,
+        borderColor,
+        detailMain: detailText.main,
+        detailSub: detailText.sub,
+        scorerProfile: scoringPlayerProfile,
+        scorerName: scoringPlayerName,
+        scorerGoalsInGame:
+          typeKey === "goal" && Number.isFinite(scoringPlayerId)
+            ? preparedGoalCounts[scoringPlayerId]
+            : 0,
+        teamLogo:
+          Number(eventTeam?.id) === awayTeam.id
+            ? game?.away?.logo || null
+            : Number(eventTeam?.id) === homeTeam.id
+              ? game?.home?.logo || null
+              : null,
+      };
+    });
+
+    return annotated.reverse();
+  }, [awayTeam.id, colors.primary, game?.away?.logo, game?.away?.name, game?.home?.logo, game?.home?.name, homeTeam.id, playerMetaById, plays, rosterSpotById, teamById, theme.border]);
+
+  const filterTypes = useMemo(() => {
+    const unique = new Set(preparedPlays.map((row) => row.typeLabel));
+    const ordered = ["ALL"];
+    const preferred = [
+      "GOAL",
+      "PENALTY",
+      "SHOT ON GOAL",
+      "MISSED SHOT",
+      "BLOCKED SHOT",
+      "HIT",
+      "FACEOFF",
+      "STOPPAGE",
+      "TAKEAWAY",
+      "GIVEAWAY",
+    ];
+
+    preferred.forEach((type) => {
+      if (unique.has(type)) ordered.push(type);
+    });
+    unique.forEach((type) => {
+      if (!ordered.includes(type)) ordered.push(type);
+    });
+
+    return ordered;
+  }, [preparedPlays]);
+
+  useEffect(() => {
+    if (!filterTypes.includes(activeType)) {
+      setActiveType("ALL");
+    }
+  }, [activeType, filterTypes]);
+
+  const periodOptions = useMemo(() => {
+    const unique = [
+      ...new Set(
+        preparedPlays
+          .map((row) => Number(row.period))
+          .filter((p) => Number.isFinite(p) && p > 0),
+      ),
+    ];
+    return unique.sort((a, b) => b - a);
+  }, [preparedPlays]);
+
+  useEffect(() => {
+    if (periodOptions.length === 0) {
+      setPeriodIndex(0);
+      return;
+    }
+    setPeriodIndex((prev) => {
+      if (prev < 0 || prev >= periodOptions.length) {
+        return 0;
+      }
+      return prev;
+    });
+  }, [periodOptions]);
+
+  const selectedPeriod = periodOptions[periodIndex] || null;
+
+  const visibleRows = useMemo(() => {
+    const byType =
+      activeType === "ALL"
+        ? preparedPlays
+        : preparedPlays.filter((row) => row.typeLabel === activeType);
+    if (!selectedPeriod) return byType;
+    return byType.filter((row) => row.period === selectedPeriod);
+  }, [activeType, preparedPlays, selectedPeriod]);
+
+  const renderScore = (row, textColor) => (
+    <Text style={[styles.playsScoreText, { color: textColor }]}>
+      <Text
+        style={
+          row.isGoal && row.scoringSide === "away"
+            ? styles.playsScoreNumBold
+            : styles.playsScoreNum
+        }
+      >
+        {row.scoreAt.away}
+      </Text>
+      {" - "}
+      <Text
+        style={
+          row.isGoal && row.scoringSide === "home"
+            ? styles.playsScoreNumBold
+            : styles.playsScoreNum
+        }
+      >
+        {row.scoreAt.home}
+      </Text>
+    </Text>
+  );
+
+  if (preparedPlays.length === 0) {
+    return (
+      <View style={styles.playsSectionWrap}>
+        <View style={styles.playsEmptyWrap}>
+          <Text style={[styles.playsEmptyText, { color: theme.textSecondary }]}>
+            No plays available
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.playsSectionWrap}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.playsFilterRow}
+      >
+        {filterTypes.map((type) => {
+          const active = activeType === type;
+          return (
+            <TouchableOpacity
+              key={type}
+              activeOpacity={0.8}
+              onPress={() => setActiveType(type)}
+              style={[
+                styles.playsFilterChip,
+                {
+                  borderColor: active ? theme.text : theme.border,
+                  backgroundColor: active
+                    ? theme.surfaceSecondary
+                    : theme.surface,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.playsFilterChipText,
+                  { color: active ? theme.text : theme.textSecondary },
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.playsCardsWrap}>
+        {visibleRows.map((row) => {
+          const headerColor = row.isGoal ? "#FFFFFF" : theme.text;
+          const bodyColor = row.isGoal ? "#FFFFFF" : theme.textSecondary;
+
+          return (
+            <View key={row.key} style={styles.playsRowWrap}>
+              <View style={styles.playsTimeCol}>
+                <Text style={[styles.playsMinuteText, { color: theme.text }]}>
+                  {row.timeRemaining}
+                </Text>
+                <Text
+                  style={[
+                    styles.playsPeriodText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {row.periodLabel}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.playsCard,
+                  {
+                    borderColor: row.borderColor,
+                    backgroundColor: row.isGoal
+                      ? row.teamColor + "66"
+                      : theme.surface,
+                  },
+                ]}
+              >
+                <View style={styles.playsCardHeaderRow}>
+                  <Text style={[styles.playsCardTitle, { color: headerColor }]}>
+                    {row.typeLabel}
+                  </Text>
+                  {renderScore(row, headerColor)}
+                </View>
+
+                {!!row.detailMain && (
+                  <Text
+                    style={[styles.playsCardMainText, { color: bodyColor }]}
+                  >
+                    {row.detailMain}
+                  </Text>
+                )}
+
+                {!!row.detailSub && (
+                  <Text
+                    style={[styles.playsCardSubText, { color: bodyColor }]}
+                    numberOfLines={2}
+                  >
+                    {row.detailSub}
+                  </Text>
+                )}
+
+                {row.isGoal && (
+                  <View style={styles.playsGoalPlayerRow}>
+                    <View style={styles.playsGoalAvatarWrap}>
+                      {row.scorerProfile?.headshot ? (
+                        <Image
+                          source={{ uri: row.scorerProfile.headshot }}
+                          style={styles.playsGoalAvatar}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.playsGoalAvatar,
+                            styles.playsGoalAvatarFallback,
+                          ]}
+                        >
+                          <Text style={styles.playsGoalAvatarFallbackText}>
+                            {String(row.scorerName || "P")
+                              .split(" ")
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((part) => part[0])
+                              .join("")
+                              .toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!row.teamLogo && (
+                        <View style={styles.playsGoalTeamBadge}>
+                          <Image
+                            source={{ uri: row.teamLogo }}
+                            style={styles.playsGoalTeamLogo}
+                            contentFit="contain"
+                          />
+                        </View>
+                      )}
+
+                      {!!row.scorerProfile?.position && (
+                        <View style={styles.playsGoalPosBadge}>
+                          <Text style={styles.playsGoalPosText}>
+                            {row.scorerProfile.position}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.playsGoalCountBadge}>
+                        <FontAwesome6 name="hockey-puck" size={9} color="#FFFFFF" />
+                        <Text style={styles.playsGoalCountText}>
+                          {row.scorerGoalsInGame}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text
+                      style={[styles.playsGoalScorerName, { color: bodyColor }]}
+                      numberOfLines={1}
+                    >
+                      {row.scorerName}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.playsPagerRow}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={periodIndex <= 0}
+          onPress={() => setPeriodIndex((idx) => Math.max(0, idx - 1))}
+          style={[
+            styles.playsPagerBtn,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface,
+              opacity: periodIndex <= 0 ? 0.45 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.playsPagerBtnText, { color: theme.text }]}>
+            Previous
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.playsPagerLabel, { color: theme.textSecondary }]}>
+          {selectedPeriod ? toPeriodChip(selectedPeriod) : "P?"}
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={periodIndex >= periodOptions.length - 1}
+          onPress={() =>
+            setPeriodIndex((idx) => Math.min(periodOptions.length - 1, idx + 1))
+          }
+          style={[
+            styles.playsPagerBtn,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface,
+              opacity: periodIndex >= periodOptions.length - 1 ? 0.45 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.playsPagerBtnText, { color: theme.text }]}>
+            Next
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [selectedPlayerKey, setSelectedPlayerKey] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const [openPicker, setOpenPicker] = useState(null);
+
+  const shiftsByTeam =
+    game?.shifts && typeof game.shifts === "object" ? game.shifts : {};
+
+  const PX_PER_MIN = 18;
+  const NAME_COL_W = 128;
+
+  const getPeriodStartMin = (periodNumber) => {
+    const p = Number(periodNumber || 0);
+    if (!Number.isFinite(p) || p <= 0) return 0;
+    if (p <= 3) return (p - 1) * 20;
+    return 60 + (p - 4) * 5;
+  };
+
+  const getPeriodLengthMin = (periodNumber) => {
+    const p = Number(periodNumber || 0);
+    if (!Number.isFinite(p) || p <= 0) return 20;
+    return p <= 3 ? 20 : 5;
+  };
+
+  const parseShiftClockToMinutes = (clock) => {
+    const secs = parseClockSecs(clock);
+    if (!Number.isFinite(secs) || secs < 0) return null;
+    return secs / 60;
+  };
+
+  const formatAxisLabel = (minuteValue) => {
+    const totalSecs = Math.max(0, Math.round((Number(minuteValue) || 0) * 60));
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const teamOptions = useMemo(() => {
+    const ids = Object.keys(shiftsByTeam);
+    return ids
+      .map((id) => {
+        const isAway = String(game?.away?.id || "") === String(id);
+        const isHome = String(game?.home?.id || "") === String(id);
+        const abbr = isAway
+          ? game?.away?.abbreviation || "AWY"
+          : isHome
+            ? game?.home?.abbreviation || "HME"
+            : `T${id}`;
+        const name = isAway
+          ? game?.away?.name || abbr
+          : isHome
+            ? game?.home?.name || abbr
+            : abbr;
+        return {
+          id: String(id),
+          abbr,
+          name,
+          logo:
+            (isAway ? game?.away?.logo : isHome ? game?.home?.logo : null) ||
+            getTeamLogoUrl("nhl", abbr),
+          color: NHLService.getTeamColor(abbr, colors.primary),
+        };
+      })
+      .sort((a, b) => {
+        if (String(a.id) === String(game?.away?.id || "")) return -1;
+        if (String(b.id) === String(game?.away?.id || "")) return 1;
+        if (String(a.id) === String(game?.home?.id || "")) return -1;
+        if (String(b.id) === String(game?.home?.id || "")) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [colors.primary, game, getTeamLogoUrl, shiftsByTeam]);
+
+  const playerSections = useMemo(() => {
+    const teamList = selectedTeamId
+      ? teamOptions.filter((team) => team.id === String(selectedTeamId))
+      : teamOptions;
+
+    return teamList.map((team) => {
+      const playersObj = shiftsByTeam?.[team.id] || {};
+      const names = Object.keys(playersObj || {})
+        .map((n) => String(n || "").trim())
+        .filter(Boolean);
+
+      const seen = new Set();
+      const deduped = [];
+      names.forEach((name) => {
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        deduped.push(name);
+      });
+
+      deduped.sort((a, b) => {
+        const aFirst = a.split(/\s+/)[0] || a;
+        const bFirst = b.split(/\s+/)[0] || b;
+        const cmpFirst = aFirst.localeCompare(bFirst);
+        if (cmpFirst !== 0) return cmpFirst;
+        return a.localeCompare(b);
+      });
+
+      return {
+        team,
+        players: deduped.map((name) => ({
+          key: `${team.id}::${name}`,
+          name,
+          team,
+        })),
+      };
+    });
+  }, [selectedTeamId, shiftsByTeam, teamOptions]);
+
+  const periodOptions = useMemo(() => {
+    const periods = new Set();
+    Object.values(shiftsByTeam).forEach((teamObj) => {
+      Object.values(teamObj || {}).forEach((playerShifts) => {
+        (Array.isArray(playerShifts) ? playerShifts : []).forEach((shift) => {
+          const p = Number(shift?.period ?? shift?.periodNumber ?? 0);
+          if (Number.isFinite(p) && p > 0) periods.add(p);
+        });
+      });
+    });
+    return Array.from(periods).sort((a, b) => a - b);
+  }, [shiftsByTeam]);
+
+  const selectedTeam =
+    teamOptions.find((team) => team.id === String(selectedTeamId)) || null;
+  const selectedPlayer = useMemo(() => {
+    if (!selectedPlayerKey) return null;
+    for (const section of playerSections) {
+      const found = section.players.find(
+        (player) => player.key === selectedPlayerKey,
+      );
+      if (found) return found;
+    }
+    return null;
+  }, [playerSections, selectedPlayerKey]);
+
+  const closePicker = () => setOpenPicker(null);
+
+  const periodWindow = useMemo(() => {
+    if (!selectedPeriod) return null;
+    const startMin = getPeriodStartMin(selectedPeriod);
+    const endMin = startMin + getPeriodLengthMin(selectedPeriod);
+    return { startMin, endMin };
+  }, [selectedPeriod]);
+
+  const chartSections = useMemo(() => {
+    const sections = [];
+    playerSections.forEach((section) => {
+      const rows = section.players
+        .filter(
+          (player) => !selectedPlayerKey || player.key === selectedPlayerKey,
+        )
+        .map((player) => {
+          const rawShifts = Array.isArray(
+            shiftsByTeam?.[section.team.id]?.[player.name],
+          )
+            ? shiftsByTeam[section.team.id][player.name]
+            : [];
+
+          const seenShift = new Set();
+          const bars = [];
+
+          rawShifts.forEach((shift) => {
+            const period = Number(shift?.period ?? shift?.periodNumber ?? 0);
+            if (!period || (selectedPeriod && period !== selectedPeriod))
+              return;
+
+            const startClock = String(shift?.startTime || shift?.start || "");
+            const endClock = String(shift?.endTime || shift?.end || "");
+            const dedupeKey = `${period}|${startClock}|${endClock}`;
+            if (seenShift.has(dedupeKey)) return;
+            seenShift.add(dedupeKey);
+
+            const startInPeriod = parseShiftClockToMinutes(startClock);
+            const endInPeriod = parseShiftClockToMinutes(endClock);
+            if (startInPeriod === null || endInPeriod === null) return;
+
+            const baseMin = getPeriodStartMin(period);
+            let startMin = baseMin + startInPeriod;
+            let endMin = baseMin + endInPeriod;
+            if (endMin < startMin) {
+              const tmp = startMin;
+              startMin = endMin;
+              endMin = tmp;
+            }
+
+            if (periodWindow) {
+              if (
+                endMin < periodWindow.startMin ||
+                startMin > periodWindow.endMin
+              ) {
+                return;
+              }
+            }
+
+            bars.push({
+              period,
+              startMin,
+              endMin,
+            });
+          });
+
+          bars.sort((a, b) => a.startMin - b.startMin);
+          return {
+            type: "player",
+            team: section.team,
+            player,
+            bars,
+          };
+        })
+        .filter((row) => row.bars.length > 0);
+
+      rows.sort((a, b) => {
+        const aFirst = a.bars[0];
+        const bFirst = b.bars[0];
+        const startDiff = aFirst.startMin - bFirst.startMin;
+        if (startDiff !== 0) return startDiff;
+
+        const aDuration = aFirst.endMin - aFirst.startMin;
+        const bDuration = bFirst.endMin - bFirst.startMin;
+        const durationDiff = bDuration - aDuration;
+        if (durationDiff !== 0) return durationDiff;
+
+        return a.player.name.localeCompare(b.player.name);
+      });
+
+      if (rows.length > 0) {
+        sections.push({
+          type: "team",
+          team: section.team,
+          rows,
+        });
+      }
+    });
+
+    return sections;
+  }, [
+    periodWindow,
+    playerSections,
+    selectedPeriod,
+    selectedPlayerKey,
+    shiftsByTeam,
+  ]);
+
+  const chartRows = useMemo(() => {
+    const rows = [];
+    chartSections.forEach((section) => {
+      rows.push({ type: "team", team: section.team });
+      section.rows.forEach((playerRow) => rows.push(playerRow));
+    });
+    return rows;
+  }, [chartSections]);
+
+  const timelineBounds = useMemo(() => {
+    let minStart = periodWindow ? periodWindow.startMin : 0;
+    let maxEnd = periodWindow ? periodWindow.endMin : 65;
+
+    chartRows.forEach((row) => {
+      if (row.type !== "player") return;
+      row.bars.forEach((bar) => {
+        minStart = Math.min(minStart, bar.startMin);
+        maxEnd = Math.max(maxEnd, bar.endMin);
+      });
+    });
+
+    if (!periodWindow) {
+      maxEnd = Math.max(65, Math.ceil(maxEnd / 5) * 5);
+      minStart = 0;
+    }
+
+    return { minStart, maxEnd };
+  }, [chartRows, periodWindow]);
+
+  const axisTicks = useMemo(() => {
+    const ticks = [];
+    const { minStart, maxEnd } = timelineBounds;
+    const first = Math.floor(minStart / 5) * 5;
+    const last = Math.ceil(maxEnd / 5) * 5;
+    for (let t = first; t <= last; t += 5) {
+      ticks.push(t);
+    }
+    return ticks;
+  }, [timelineBounds]);
+
+  const timelineWidth = Math.max(
+    420,
+    (timelineBounds.maxEnd - timelineBounds.minStart) * PX_PER_MIN,
+  );
+
+  return (
+    <View style={styles.shiftsSectionWrap}>
+      <View style={styles.shiftsFiltersRow}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setOpenPicker("team")}
+          style={[
+            styles.shiftsFilterBtn,
+            {
+              borderColor: selectedTeam?.color || theme.border,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        >
+          {selectedTeam?.logo ? (
+            <Image
+              source={{ uri: selectedTeam.logo }}
+              style={styles.shiftsFilterLogo}
+              contentFit="contain"
+            />
+          ) : null}
+          <Text
+            style={[styles.shiftsFilterBtnText, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {selectedTeam ? selectedTeam.abbr : "Team"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setOpenPicker("player")}
+          style={[
+            styles.shiftsFilterBtn,
+            styles.shiftsFilterBtnPlayer,
+            {
+              borderColor: selectedPlayer?.team?.color || theme.border,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.shiftsFilterBtnText, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {selectedPlayer ? selectedPlayer.name : "Player"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setOpenPicker("period")}
+          style={[
+            styles.shiftsFilterBtn,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.shiftsFilterBtnText, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {selectedPeriod
+              ? selectedPeriod > 3
+                ? `OT${selectedPeriod - 3}`
+                : `P${selectedPeriod}`
+              : "Period"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        transparent
+        visible={openPicker === "team"}
+        animationType="fade"
+        onRequestClose={closePicker}
+      >
+        <TouchableOpacity
+          style={styles.shiftsPickerOverlay}
+          activeOpacity={1}
+          onPress={closePicker}
+        >
+          <View
+            style={[
+              styles.shiftsPickerCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.shiftsPickerItem}
+                onPress={() => {
+                  setSelectedTeamId(null);
+                  setSelectedPlayerKey(null);
+                  closePicker();
+                }}
+              >
+                <Text
+                  style={[styles.shiftsPickerItemText, { color: theme.text }]}
+                >
+                  None
+                </Text>
+              </TouchableOpacity>
+
+              {teamOptions.map((team) => (
+                <TouchableOpacity
+                  key={`team-${team.id}`}
+                  style={styles.shiftsPickerItem}
+                  onPress={() => {
+                    setSelectedTeamId(team.id);
+                    setSelectedPlayerKey(null);
+                    closePicker();
+                  }}
+                >
+                  <Image
+                    source={{ uri: team.logo }}
+                    style={styles.shiftsPickerLogo}
+                    contentFit="contain"
+                  />
+                  <Text
+                    style={[styles.shiftsPickerItemText, { color: theme.text }]}
+                  >
+                    {team.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={openPicker === "player"}
+        animationType="fade"
+        onRequestClose={closePicker}
+      >
+        <TouchableOpacity
+          style={styles.shiftsPickerOverlay}
+          activeOpacity={1}
+          onPress={closePicker}
+        >
+          <View
+            style={[
+              styles.shiftsPickerCardLarge,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.shiftsPickerItem}
+                onPress={() => {
+                  setSelectedPlayerKey(null);
+                  closePicker();
+                }}
+              >
+                <Text
+                  style={[styles.shiftsPickerItemText, { color: theme.text }]}
+                >
+                  None
+                </Text>
+              </TouchableOpacity>
+
+              {playerSections.map((section) => (
+                <View
+                  key={`players-${section.team.id}`}
+                  style={styles.shiftsPickerGroup}
+                >
+                  <View style={styles.shiftsPickerGroupHeader}>
+                    <Image
+                      source={{ uri: section.team.logo }}
+                      style={styles.shiftsPickerLogo}
+                      contentFit="contain"
+                    />
+                    <Text
+                      style={[
+                        styles.shiftsPickerGroupTitle,
+                        { color: section.team.color },
+                      ]}
+                    >
+                      {section.team.name}
+                    </Text>
+                  </View>
+
+                  {section.players.map((player) => (
+                    <TouchableOpacity
+                      key={player.key}
+                      style={styles.shiftsPickerItem}
+                      onPress={() => {
+                        setSelectedTeamId(player.team.id);
+                        setSelectedPlayerKey(player.key);
+                        closePicker();
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.shiftsPickerItemText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {player.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={openPicker === "period"}
+        animationType="fade"
+        onRequestClose={closePicker}
+      >
+        <TouchableOpacity
+          style={styles.shiftsPickerOverlay}
+          activeOpacity={1}
+          onPress={closePicker}
+        >
+          <View
+            style={[
+              styles.shiftsPickerCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.shiftsPickerItem}
+                onPress={() => {
+                  setSelectedPeriod(null);
+                  closePicker();
+                }}
+              >
+                <Text
+                  style={[styles.shiftsPickerItemText, { color: theme.text }]}
+                >
+                  None
+                </Text>
+              </TouchableOpacity>
+
+              {periodOptions.map((period) => (
+                <TouchableOpacity
+                  key={`period-${period}`}
+                  style={styles.shiftsPickerItem}
+                  onPress={() => {
+                    setSelectedPeriod(period);
+                    closePicker();
+                  }}
+                >
+                  <Text
+                    style={[styles.shiftsPickerItemText, { color: theme.text }]}
+                  >
+                    {period > 3 ? `Overtime ${period - 3}` : `Period ${period}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <View
+        style={[
+          styles.shiftsChartCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        {chartRows.length === 0 ? (
+          <View style={styles.shiftsEmptyWrap}>
+            <Text
+              style={[styles.shiftsEmptyText, { color: theme.textSecondary }]}
+            >
+              No shifts found for the selected filters.
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.shiftsChartVerticalScroll}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
+            <View style={styles.shiftsChartBodyRow}>
+              <View
+                style={[
+                  styles.shiftsNamesColumn,
+                  { width: NAME_COL_W, borderRightColor: theme.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.shiftsAxisTopPad,
+                    { borderBottomColor: theme.border },
+                  ]}
+                />
+
+                {chartRows.map((row, idx) =>
+                  row.type === "team" ? (
+                    <View
+                      key={`name-team-${idx}`}
+                      style={styles.shiftsTeamRowName}
+                    >
+                      <Text
+                        style={[
+                          styles.shiftsTeamLabel,
+                          { color: row.team.color },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {row.team.name}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View
+                      key={`name-player-${row.player.key}`}
+                      style={[
+                        styles.shiftsPlayerNameRow,
+                        { borderBottomColor: theme.border },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.shiftsPlayerNameText,
+                          { color: theme.text },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {row.player.name}
+                      </Text>
+                    </View>
+                  ),
+                )}
+              </View>
+
+              <ScrollView
+                horizontal
+                bounces={false}
+                showsHorizontalScrollIndicator
+                contentContainerStyle={{ width: timelineWidth }}
+              >
+                <View style={{ width: timelineWidth }}>
+                  <View
+                    style={[
+                      styles.shiftsAxisTopPad,
+                      { borderBottomColor: theme.border },
+                    ]}
+                  >
+                    {axisTicks.map((tick) => {
+                      const left =
+                        (tick - timelineBounds.minStart) * PX_PER_MIN;
+                      return (
+                        <Text
+                          key={`top-tick-${tick}`}
+                          style={[
+                            styles.shiftsAxisTopLabel,
+                            {
+                              color: theme.textTertiary,
+                              left,
+                            },
+                          ]}
+                        >
+                          {formatAxisLabel(tick)}
+                        </Text>
+                      );
+                    })}
+                  </View>
+
+                  {chartRows.map((row, idx) =>
+                    row.type === "team" ? (
+                      <View
+                        key={`time-team-${idx}`}
+                        style={styles.shiftsTeamRowTimeline}
+                      >
+                        <View
+                          style={[
+                            styles.shiftsTeamDivider,
+                            { backgroundColor: row.team.color },
+                          ]}
+                        />
+                      </View>
+                    ) : (
+                      <View
+                        key={`time-player-${row.player.key}`}
+                        style={[
+                          styles.shiftsPlayerTimelineRow,
+                          { borderBottomColor: theme.border },
+                        ]}
+                      >
+                        {axisTicks.map((tick) => {
+                          const left =
+                            (tick - timelineBounds.minStart) * PX_PER_MIN;
+                          return (
+                            <View
+                              key={`grid-${row.player.key}-${tick}`}
+                              style={[
+                                styles.shiftsGridLine,
+                                {
+                                  left,
+                                  backgroundColor: theme.border,
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+
+                        {row.bars.map((bar, barIdx) => {
+                          const left =
+                            (bar.startMin - timelineBounds.minStart) *
+                            PX_PER_MIN;
+                          const width = Math.max(
+                            2,
+                            (bar.endMin - bar.startMin) * PX_PER_MIN,
+                          );
+                          return (
+                            <View
+                              key={`bar-${row.player.key}-${barIdx}`}
+                              style={[
+                                styles.shiftsBar,
+                                {
+                                  left,
+                                  width,
+                                  backgroundColor: row.team.color,
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+                    ),
+                  )}
+
+                  <View style={styles.shiftsAxisBottomPad}>
+                    {axisTicks.map((tick) => {
+                      const left =
+                        (tick - timelineBounds.minStart) * PX_PER_MIN;
+                      return (
+                        <Text
+                          key={`bottom-tick-${tick}`}
+                          style={[
+                            styles.shiftsAxisBottomLabel,
+                            {
+                              color: theme.textTertiary,
+                              left,
+                            },
+                          ]}
+                        >
+                          {formatAxisLabel(tick)}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    </View>
+  );
+};
+
 const NHLGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
   const navigation = useNavigation();
@@ -1578,17 +3493,39 @@ const NHLGameDetailsScreen = ({ route }) => {
               <View style={{ height: 12 }} />
               <LinescoreTable game={liveGame} theme={theme} colors={colors} />
               <EventsSection game={liveGame} theme={theme} colors={colors} />
+              <ThreeStarsSection
+                game={liveGame}
+                theme={theme}
+                colors={colors}
+                getTeamLogoUrl={getTeamLogoUrl}
+              />
+              <OfficialsSection game={liveGame} theme={theme} />
             </>
           )}
-          {activeTab !== "Main" && (
-            <View style={styles.comingSoon}>
-              <Text
-                style={[styles.comingSoonText, { color: theme.textSecondary }]}
-              >
-                No data yet
-              </Text>
-            </View>
+          {activeTab === "Shifts" && (
+            <ShiftsTabSection
+              game={liveGame}
+              theme={theme}
+              colors={colors}
+              getTeamLogoUrl={getTeamLogoUrl}
+            />
           )}
+          {activeTab === "Plays" && (
+            <PlaysTabSection game={liveGame} theme={theme} colors={colors} />
+          )}
+          {activeTab !== "Main" &&
+            (activeTab !== "Shifts" && activeTab !== "Plays" ? (
+              <View style={styles.comingSoon}>
+                <Text
+                  style={[
+                    styles.comingSoonText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  No data yet
+                </Text>
+              </View>
+            ) : null)}
         </View>
       </Animated.ScrollView>
     </View>
@@ -1597,7 +3534,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scrollContent: { paddingBottom: 20 },
+  scrollContent: { paddingBottom: 52 },
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -1791,7 +3728,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 14,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
   linescoreHeaderRow: {
@@ -1869,6 +3805,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0.4,
+    marginBottom: -18,
   },
   eventsBody: {
     paddingHorizontal: 14,
@@ -1972,6 +3909,569 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.4,
+  },
+  threeStarsCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  threeStarsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  threeStarsHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  threeStarRow: {
+    minHeight: 92,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  threeStarLeftCol: {
+    width: 70,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  threeStarHeadshotWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    overflow: "visible",
+    borderWidth: 1.5,
+    backgroundColor: "transparent",
+    position: "relative",
+  },
+  threeStarHeadshotClip: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 31,
+    overflow: "hidden",
+    backgroundColor: "rgba(0,0,0,0.08)",
+  },
+  threeStarHeadshot: {
+    width: "100%",
+    height: "100%",
+  },
+  threeStarCountBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  threeStarTeamBadge: {
+    position: "absolute",
+    left: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  threeStarTeamLogo: {
+    width: 25,
+    height: 25,
+  },
+  threeStarPosBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.16)",
+  },
+  threeStarPosText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  threeStarMidCol: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  threeStarPlayerName: {
+    fontSize: 20,
+    fontWeight: "800",
+    lineHeight: 24,
+  },
+  threeStarTeamAbbr: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  threeStarStatsCol: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  threeStarStatItem: {
+    alignItems: "center",
+    minWidth: 30,
+  },
+  threeStarStatVal: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  threeStarStatLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.35,
+  },
+  officialsCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  officialsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  officialsHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  officialsBody: {
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  officialsColumn: {
+    flex: 1,
+  },
+  officialsDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: "stretch",
+  },
+  officialsRoleLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.35,
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  officialsNamesWrap: {
+    gap: 10,
+  },
+  officialItem: {
+    alignItems: "flex-start",
+  },
+  officialFirstName: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  officialLastName: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
+  playsSectionWrap: {
+    paddingTop: 12,
+  },
+  playsFilterRow: {
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  playsFilterChip: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  playsFilterChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  playsCardsWrap: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  playsPagerRow: {
+    marginTop: 8,
+    marginHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  playsPagerBtn: {
+    minWidth: 92,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  playsPagerBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  playsPagerLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  playsRowWrap: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  playsTimeCol: {
+    width: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 10,
+  },
+  playsMinuteText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  playsPeriodText: {
+    marginTop: 1,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  playsCard: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  playsCardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  playsCardTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  playsScoreText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  playsScoreNum: {
+    fontWeight: "500",
+  },
+  playsScoreNumBold: {
+    fontWeight: "800",
+  },
+  playsCardMainText: {
+    marginTop: 7,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  playsCardSubText: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  playsGoalPlayerRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  playsGoalAvatarWrap: {
+    width: 44,
+    height: 44,
+    position: "relative",
+    flexShrink: 0,
+  },
+  playsGoalAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  playsGoalAvatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.16)",
+  },
+  playsGoalAvatarFallbackText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  playsGoalTeamBadge: {
+    position: "absolute",
+    right: -3,
+    bottom: -3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.12)",
+  },
+  playsGoalTeamLogo: {
+    width: 15,
+    height: 15,
+  },
+  playsGoalPosBadge: {
+    position: "absolute",
+    left: -2,
+    bottom: -3,
+    borderRadius: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  playsGoalPosText: {
+    color: "#FFFFFF",
+    fontSize: 8,
+    fontWeight: "800",
+  },
+  playsGoalCountBadge: {
+    position: "absolute",
+    top: -3,
+    right: -3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  playsGoalCountText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  playsGoalScorerName: {
+    fontSize: 12,
+    fontWeight: "700",
+    flex: 1,
+  },
+  playsEmptyWrap: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  playsEmptyText: {
+    fontSize: 13,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  shiftsSectionWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  },
+  shiftsFiltersRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  shiftsFilterBtn: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    flex: 1,
+  },
+  shiftsFilterBtnPlayer: {
+    flex: 1.5,
+  },
+  shiftsFilterBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  shiftsFilterLogo: {
+    width: 26,
+    height: 18,
+  },
+  shiftsPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.32)",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  shiftsPickerCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: "58%",
+    overflow: "hidden",
+  },
+  shiftsPickerCardLarge: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: "76%",
+    overflow: "hidden",
+  },
+  shiftsPickerGroup: {
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(128,128,128,0.2)",
+  },
+  shiftsPickerGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+  },
+  shiftsPickerGroupTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  shiftsPickerItem: {
+    minHeight: 40,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  shiftsPickerItemText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  shiftsPickerLogo: {
+    width: 26,
+    height: 18,
+  },
+  shiftsChartCard: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  shiftsChartVerticalScroll: {
+    maxHeight: 520,
+  },
+  shiftsChartBodyRow: {
+    flexDirection: "row",
+  },
+  shiftsNamesColumn: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  shiftsAxisTopPad: {
+    height: 24,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+  },
+  shiftsAxisTopLabel: {
+    position: "absolute",
+    top: 4,
+    marginLeft: -16,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  shiftsTeamRowName: {
+    height: 16,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  shiftsTeamLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  shiftsPlayerNameRow: {
+    height: 22,
+    justifyContent: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+  },
+  shiftsPlayerNameText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  shiftsTeamRowTimeline: {
+    height: 16,
+    justifyContent: "center",
+  },
+  shiftsTeamDivider: {
+    height: 1.5,
+    width: "100%",
+  },
+  shiftsPlayerTimelineRow: {
+    height: 22,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+  },
+  shiftsGridLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    opacity: 0.75,
+  },
+  shiftsBar: {
+    position: "absolute",
+    height: 10,
+    top: 6,
+    borderRadius: 1,
+  },
+  shiftsAxisBottomPad: {
+    height: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    position: "relative",
+  },
+  shiftsAxisBottomLabel: {
+    position: "absolute",
+    top: 5,
+    marginLeft: -16,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  shiftsEmptyWrap: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  shiftsEmptyText: {
+    fontSize: 13,
+    textAlign: "center",
+    fontWeight: "500",
   },
 });
 

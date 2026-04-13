@@ -22,7 +22,7 @@ const normalizeAbbreviation = (abbrev) => {
 // entries here as needed; this avoids undefined teamId navigation errors.
 const abbrToIdMap = {
   'dal': '3', 'ind': '5', 'la': '6', 'min': '8', 'ny': '9', 'phx': '11',
-  'sea': '14', 'wsh': '16', 'lv': '17', 'con': '18', 'chi': '19', 'atl': '20', 'gs': '129689'
+  'sea': '14', 'wsh': '16', 'lv': '17', 'con': '18', 'chi': '19', 'atl': '20', 'gs': '129689', 'tor': '131935', 'por': '132052'
 };
 
 const mapAbbrToId = (abbr) => {

@@ -436,10 +436,44 @@ const toDateStr = (date) => {
   return `${y}${m}${d}`;
 };
 
+const PST_TIMEZONE = "America/Los_Angeles";
+
+const getDateFromDateStr = (dateStr) => {
+  const safe = String(dateStr || "");
+  const y = Number(safe.slice(0, 4));
+  const m = Number(safe.slice(4, 6));
+  const d = Number(safe.slice(6, 8));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return new Date();
+  }
+  return new Date(y, m - 1, d);
+};
+
+const getPstNowParts = (date = new Date()) => {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(date);
+  const read = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+  };
+};
+
 const getTodayDateStr = () => toDateStr(new Date());
 
+const getAutoSelectedDateStr = () => {
+  const { year, month, day } = getPstNowParts();
+  return toDateStr(new Date(year, month - 1, day));
+};
+
 const DATE_OPTIONS = (() => {
-  const today = new Date();
+  const today = getDateFromDateStr(getTodayDateStr());
   today.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -467,7 +501,7 @@ const MONTH_NAMES = [
 const getDateLabel = (date) => {
   const ds = toDateStr(date);
   if (ds === getTodayDateStr()) return "Today";
-  const base = new Date();
+  const base = getDateFromDateStr(getTodayDateStr());
   base.setHours(0, 0, 0, 0);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -1644,7 +1678,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(getTodayDateStr());
+  const [activeFilter, setActiveFilter] = useState(getAutoSelectedDateStr());
   const [isGridView, setIsGridView] = useState(false);
   const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
   const [nowMs, setNowMs] = useState(Date.now());

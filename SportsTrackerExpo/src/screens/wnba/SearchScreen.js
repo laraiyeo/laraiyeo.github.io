@@ -86,7 +86,8 @@ const SearchScreen = ({ route, navigation }) => {
   const getWNBATeamAbbreviation = (team) => {
     const teamMapping = {
       '3' : 'DAL', '5' : 'IND', '6' : 'LA', '8' : 'MIN', '9' : 'NY', '11' : 'PHX', '14' : 'SEA', 
-      '16' : 'WSH', '17' : 'LV', '18' : 'CON', '19' : 'CHI', '20' : 'ATL', '129689' : 'GS'
+      '16' : 'WSH', '17' : 'LV', '18' : 'CON', '19' : 'CHI', '20' : 'ATL', '129689' : 'GS',
+      '131935': 'TOR', '132052': 'POR'
     };
 
     if (team?.abbreviation) {

@@ -1,0 +1,9 @@
+faceoff: winningPlayer (#sweaterNumber) faceoff won against losingPlayer (#sweaterNumber)
+hit: hittingPlayer (#sweaterNumber) hit hitteePlayer (#sweaterNumber)
+shot-on-goal: shootingPlayer (#sweaterNumber) shotType shot saved by goaliePlayer (#sweaterNumber)
+penalty: committedPlayer (#sweaterNumber) {duration} minutes for descKey (split by '-') drawnByPlayerId
+takeaway: Takeaway by playerName (#sweaterNumber)
+missed-shot: shootingPlayer (#sweaterNumber) shotType shot {reason} (split by '-')
+blocked-shot: shootingPlayer (#sweaterNumber) {reason} (split by '-')
+giveaway: Giveaway by playerName (#sweaterNumber)
+goal: scoringPlayer (#sweaterNumber) scores for teamName with a shotType shot. His scoringPlayerTotal(ordinal) of the season (still keep the 2nd line with assists but for the players, add '#sweaterNumber (assistTotal)). Just like with top5, Have player headshot to the left with team logo in overlay bottom right, position bottom left and then in top right, have number of goals scored in game with hockey puck icon beside

@@ -28,14 +28,48 @@ const toDateStr = (date) => {
   return `${y}${m}${d}`;
 };
 
+const PST_TIMEZONE = "America/Los_Angeles";
+
+const getDateFromDateStr = (dateStr) => {
+  const safe = String(dateStr || "");
+  const y = Number(safe.slice(0, 4));
+  const m = Number(safe.slice(4, 6));
+  const d = Number(safe.slice(6, 8));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return new Date();
+  }
+  return new Date(y, m - 1, d);
+};
+
+const getPstNowParts = (date = new Date()) => {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(date);
+  const read = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+  };
+};
+
 const getTodayDateStr = () => toDateStr(new Date());
+
+const getAutoSelectedDateStr = () => {
+  const { year, month, day } = getPstNowParts();
+  return toDateStr(new Date(year, month - 1, day));
+};
 
 const DATE_ITEM_W = 90;
 const DATE_FADE_W = 50;
 const DATE_BAR_H = 52;
 
 const DATE_OPTIONS = (() => {
-  const today = new Date();
+  const today = getDateFromDateStr(getTodayDateStr());
   today.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -47,7 +81,7 @@ const DATE_OPTIONS = (() => {
 const getDateLabel = (date) => {
   const ds = toDateStr(date);
   if (ds === getTodayDateStr()) return "Today";
-  const base = new Date();
+  const base = getDateFromDateStr(getTodayDateStr());
   base.setHours(0, 0, 0, 0);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -577,16 +611,21 @@ const NHLGridCard = ({
   const awayFav = isFavorite(String(away.id || ""), "nhl");
   const homeFav = isFavorite(String(home.id || ""), "nhl");
 
+  const awayRecord = away?.record ? away.record : null;
+  const homeRecord = home?.record ? home.record : null;
+
   const gradId = `ng_${game.id}`;
   const { time, ampm } = formatLocalTime(game.startTimeUTC);
   const live = getLiveClockAndPeriod(game, nowMs);
+
+  const periodType = game.periodDescriptor?.periodType || "";
 
   let statusLine = "";
   let statusLine2 = "";
   if (isLive) {
     statusLine = live.period ? `${live.clock} - ${live.period}` : live.clock;
   } else if (isFinished) {
-    statusLine2 = "Final";
+    statusLine2 = "Final" + (periodType !== "REG" ? ` (${periodType})` : "");
   } else {
     statusLine = `${time}`.trim();
     statusLine2 = ampm;
@@ -705,6 +744,16 @@ const NHLGridCard = ({
             {awayFav ? "★ " : ""}
             {awayAbbr}
           </Text>
+          {awayRecord && (
+          <Text
+            style={[
+              nhlGridStyles.teamRecord,
+              { color: theme.textSecondary },
+            ]}
+          >
+            {awayRecord}
+          </Text>
+          )}
         </View>
 
         <View
@@ -769,6 +818,16 @@ const NHLGridCard = ({
             {homeFav ? "★ " : ""}
             {homeAbbr}
           </Text>
+          {homeRecord && (
+          <Text
+            style={[
+              nhlGridStyles.teamRecord,
+              { color: theme.textSecondary },
+            ]}
+          >
+            {homeRecord}
+          </Text>
+          )}
         </View>
       </View>
 
@@ -952,10 +1011,12 @@ const ScoreboardSection = ({
                   homeScore != null &&
                   parseInt(homeScore, 10) > parseInt(awayScore, 10);
 
+                const periodType = game.periodDescriptor?.periodType || "";
+
                 let statusLine1 = "";
                 let statusLine2 = "";
                 if (isFinished) {
-                  statusLine1 = "Final";
+                  statusLine1 = "Final" + (periodType !== "REG" ? ` (${periodType})` : "");
                   const { time, ampm } = formatLocalTime(game.startTimeUTC);
                   statusLine2 = `${time} ${ampm}`.trim();
                 } else if (isLive) {
@@ -1243,7 +1304,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(getTodayDateStr());
+  const [activeFilter, setActiveFilter] = useState(getAutoSelectedDateStr());
   const [isGridView, setIsGridView] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -1851,6 +1912,12 @@ const nhlGridStyles = StyleSheet.create({
   teamAbbr: {
     fontSize: 11,
     fontWeight: "700",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  teamRecord: {
+    fontSize: 9,
+    fontWeight: "500",
     textAlign: "center",
     textTransform: "uppercase",
   },

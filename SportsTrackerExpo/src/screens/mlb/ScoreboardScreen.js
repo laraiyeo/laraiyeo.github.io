@@ -33,14 +33,48 @@ const toDateStr = (date) => {
   return `${y}${m}${d}`;
 };
 
+const PST_TIMEZONE = "America/Los_Angeles";
+
+const getDateFromDateStr = (dateStr) => {
+  const safe = String(dateStr || "");
+  const y = Number(safe.slice(0, 4));
+  const m = Number(safe.slice(4, 6));
+  const d = Number(safe.slice(6, 8));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return new Date();
+  }
+  return new Date(y, m - 1, d);
+};
+
+const getPstNowParts = (date = new Date()) => {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(date);
+  const read = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+  };
+};
+
 const getTodayDateStr = () => toDateStr(new Date());
+
+const getAutoSelectedDateStr = () => {
+  const { year, month, day } = getPstNowParts();
+  return toDateStr(new Date(year, month - 1, day));
+};
 
 const DATE_ITEM_W = 90;
 const DATE_FADE_W = 50;
 const DATE_BAR_H = 52;
 
 const DATE_OPTIONS = (() => {
-  const today = new Date();
+  const today = getDateFromDateStr(getTodayDateStr());
   today.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -52,7 +86,7 @@ const DATE_OPTIONS = (() => {
 const getDateLabel = (date) => {
   const ds = toDateStr(date);
   if (ds === getTodayDateStr()) return "Today";
-  const base = new Date();
+  const base = getDateFromDateStr(getTodayDateStr());
   base.setHours(0, 0, 0, 0);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -444,7 +478,8 @@ const GridPitcherBlock = ({ pitcher, teamColor, theme }) => {
             {summary}
           </Text>
         )}
-        <Image cachePolicy="memory-disk"
+        <Image
+          cachePolicy="memory-disk"
           source={{ uri: headshotUrl }}
           style={[mlbGridStyles.pitcherHeadshot, { borderColor: teamColor }]}
         />
@@ -856,7 +891,8 @@ const MLBGridCard = ({
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             awayLogo ? (
-              <Image cachePolicy="memory-disk"
+              <Image
+                cachePolicy="memory-disk"
                 source={{ uri: awayLogo }}
                 style={mlbGridStyles.teamLogo}
                 resizeMode="contain"
@@ -892,7 +928,8 @@ const MLBGridCard = ({
                 {awayScore ?? "—"}
               </Text>
               {awayLogo && (
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
                   style={mlbGridStyles.scoreLogoOverlay}
                   resizeMode="contain"
@@ -933,7 +970,8 @@ const MLBGridCard = ({
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             homeLogo ? (
-              <Image cachePolicy="memory-disk"
+              <Image
+                cachePolicy="memory-disk"
                 source={{ uri: homeLogo }}
                 style={mlbGridStyles.teamLogo}
                 resizeMode="contain"
@@ -969,7 +1007,8 @@ const MLBGridCard = ({
                 {homeScore ?? "—"}
               </Text>
               {homeLogo && (
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
                   style={mlbGridStyles.scoreLogoOverlay}
                   resizeMode="contain"
@@ -1080,7 +1119,8 @@ const MLBGridSection = ({
                 activeFilter === "upcoming" && toggleCollapse(group.dateKey)
               }
             >
-              <Image cachePolicy="memory-disk"
+              <Image
+                cachePolicy="memory-disk"
                 source={require("../../../assets/mlb.png")}
                 style={mlbGridStyles.groupBubbleLogo}
                 resizeMode="contain"
@@ -1217,7 +1257,8 @@ const ScoreboardSection = ({
               }
             >
               <View style={styles.eventLogoContainer}>
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={require("../../../assets/mlb.png")}
                   style={styles.eventLogoImage}
                   resizeMode="contain"
@@ -1440,7 +1481,8 @@ const ScoreboardSection = ({
                         <View style={styles.teamWithLogo}>
                           <View style={styles.teamLogoSmall}>
                             {awayLogo ? (
-                              <Image cachePolicy="memory-disk"
+                              <Image
+                                cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
                                 style={styles.teamLogoSmallImg}
                                 resizeMode="contain"
@@ -1508,7 +1550,8 @@ const ScoreboardSection = ({
                         <View style={styles.teamWithLogo}>
                           <View style={styles.teamLogoSmall}>
                             {homeLogo ? (
-                              <Image cachePolicy="memory-disk"
+                              <Image
+                                cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
                                 style={styles.teamLogoSmallImg}
                                 resizeMode="contain"
@@ -1584,7 +1627,8 @@ const ScoreboardSection = ({
                         <View style={styles.pitcherSideCell}>
                           <View style={styles.pitcherInfoRowAway}>
                             {!!awayProbable?.id && (
-                              <Image cachePolicy="memory-disk"
+                              <Image
+                                cachePolicy="memory-disk"
                                 source={{ uri: awayHeadshot }}
                                 style={[
                                   styles.listPitcherHeadshot,
@@ -1657,7 +1701,8 @@ const ScoreboardSection = ({
                               </Text>
                             </View>
                             {!!homeProbable?.id && (
-                              <Image cachePolicy="memory-disk"
+                              <Image
+                                cachePolicy="memory-disk"
                                 source={{ uri: homeHeadshot }}
                                 style={[
                                   styles.listPitcherHeadshot,
@@ -1743,7 +1788,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(getTodayDateStr());
+  const [activeFilter, setActiveFilter] = useState(getAutoSelectedDateStr());
   const [isGridView, setIsGridView] = useState(false);
   const [showPitchersEnabled, setShowPitchersEnabled] = useState(false);
 

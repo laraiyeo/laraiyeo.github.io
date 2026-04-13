@@ -236,8 +236,8 @@ export class WNBAService extends BaseCacheService {
       const allEntries = standingsData?.content?.standings?.standings?.entries || [];
       
       // Define conference mappings like in the JS version
-      const eastTeams = ["ATL", "CHI", "CON", "IND", "NY", "WSH"];
-      const westTeams = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA"];
+      const eastTeams = ["ATL", "CHI", "CON", "IND", "NY", "WSH", "TOR"];
+      const westTeams = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA", "POR"];
       
       const formatted = {};
 

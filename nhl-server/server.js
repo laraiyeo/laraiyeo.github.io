@@ -142,6 +142,21 @@ function toDarkLogo(url) {
   return raw.replace("light", "dark");
 }
 
+function normalizePossiblyMojibakeName(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  // Common UTF-8->Latin1 mojibake markers (e.g. "RÃ¤ty").
+  if (!/[ÃÂâ]/.test(raw)) return raw;
+
+  try {
+    const repaired = Buffer.from(raw, "latin1").toString("utf8").trim();
+    return repaired || raw;
+  } catch {
+    return raw;
+  }
+}
+
 function transformPlayerInfoPayload(payload) {
   const seasonTotals = (
     Array.isArray(payload?.seasonTotals) ? payload.seasonTotals : []
@@ -607,6 +622,8 @@ function transformLandingPayload(payload) {
         goals: s?.goals ?? null,
         assists: s?.assists ?? null,
         points: s?.points ?? null,
+        goalsAgainstAverage: s?.goalsAgainstAverage ?? null,
+        savePctg: s?.savePctg ?? null,
       }))
     : [];
 
@@ -806,6 +823,9 @@ function transformBoxscorePayload(payload) {
 
 function transformPlaysPayload(payload) {
   const plays = Array.isArray(payload?.plays) ? payload.plays : [];
+  const rosterSpots = Array.isArray(payload?.rosterSpots)
+    ? payload.rosterSpots
+    : [];
   return {
     plays: plays.map((p) => {
       const rawDetails = {
@@ -864,6 +884,20 @@ function transformPlaysPayload(payload) {
 
       return play;
     }),
+    rosterSpots: rosterSpots
+      .map((spot) => ({
+        teamId: spot?.teamId ?? null,
+        playerId: spot?.playerId ?? null,
+        firstName: {
+          default: pickDefaultName(spot?.firstName),
+        },
+        lastName: {
+          default: pickDefaultName(spot?.lastName),
+        },
+        sweaterNumber: spot?.sweaterNumber ?? null,
+        headshot: spot?.headshot ?? null,
+      }))
+      .filter((spot) => spot.playerId != null),
   };
 }
 
@@ -873,10 +907,12 @@ function transformShiftsPayload(payload) {
 
   for (const row of rows) {
     const teamId = String(row?.teamId ?? "unknown");
-    const firstName = String(
+    const firstName = normalizePossiblyMojibakeName(
       row?.firstName ?? row?.playerFirstName ?? "Unknown",
     );
-    const lastName = String(row?.lastName ?? row?.playerLastName ?? "Player");
+    const lastName = normalizePossiblyMojibakeName(
+      row?.lastName ?? row?.playerLastName ?? "Player",
+    );
     const playerKey = `${firstName} ${lastName}`.trim();
 
     if (!grouped[teamId]) grouped[teamId] = {};
