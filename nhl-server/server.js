@@ -1218,9 +1218,10 @@ app.get("/nhl/team/:id", async (req, res) => {
     ]);
 
     const transformedStandings = transformStandingsPayload(standings.data);
-    const teamStanding = (Array.isArray(transformedStandings?.standings)
-      ? transformedStandings.standings
-      : []
+    const teamStanding = (
+      Array.isArray(transformedStandings?.standings)
+        ? transformedStandings.standings
+        : []
     ).find((entry) => {
       const entryTeamId = String(entry?.teamId ?? "");
       const entryAbbrev = String(entry?.teamAbbrev ?? "").toUpperCase();
