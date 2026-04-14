@@ -23,7 +23,12 @@ import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
 import ViewShot from "react-native-view-shot";
 import { WebView } from "react-native-webview";
-import { FontAwesome6, MaterialIcons, Ionicons } from "@expo/vector-icons";
+import {
+  FontAwesome6,
+  MaterialIcons,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import Svg, {
   Defs,
   LinearGradient,
@@ -707,6 +712,7 @@ const normalizeGameData = (details, isDarkMode) => {
       matchup: landing?.matchup || {},
       summaryScoring: landing?.summary?.scoring || [],
       summaryPenalties: landing?.summary?.penalties || [],
+      summaryShootout: landing?.summary?.shootout || null,
       threeStars: landing?.summary?.threeStars || [],
       referees: (details?.data?.rightRail?.gameInfo?.referees || [])
         .map((entry) => String(entry?.default || entry?.name || "").trim())
@@ -811,6 +817,7 @@ const normalizeGameData = (details, isDarkMode) => {
     matchup: details?.matchup || {},
     summaryScoring: details?.summary?.scoring || [],
     summaryPenalties: details?.summary?.penalties || [],
+    summaryShootout: details?.summary?.shootout || null,
     threeStars: details?.summary?.threeStars || [],
     referees: (details?.gameInfo?.referees || [])
       .map((entry) => String(entry?.default || entry?.name || "").trim())
@@ -3440,6 +3447,10 @@ const EventsSection = ({
 
     (game?.summaryScoring || []).forEach((periodBlock) => {
       const periodNumber = Number(periodBlock?.periodDescriptor?.number || 0);
+      const periodType = String(
+        periodBlock?.periodDescriptor?.periodType || "REG",
+      ).toUpperCase();
+      if (periodType === "SO" || periodNumber >= 5) return;
       const goals = Array.isArray(periodBlock?.goals) ? periodBlock.goals : [];
       goals.forEach((goal) => {
         const time = goal?.timeInPeriod || goal?.timeRemaining || "";
@@ -3534,9 +3545,7 @@ const EventsSection = ({
             : null,
           subText: assistsLine ? `Assists: ${assistsLine}` : "",
           period: periodNumber,
-          periodType: String(
-            periodBlock?.periodDescriptor?.periodType || "REG",
-          ).toUpperCase(),
+          periodType,
         });
       });
     });
@@ -3633,6 +3642,64 @@ const EventsSection = ({
           subText: formatPenaltyLine(penalty),
           period: periodNumber,
         });
+      });
+    });
+
+    const shootoutLiveScore =
+      game?.summaryShootout && typeof game.summaryShootout === "object"
+        ? game.summaryShootout.liveScore || {}
+        : {};
+    const shootoutEvents = Array.isArray(game?.summaryShootout?.events)
+      ? game.summaryShootout.events
+      : [];
+    shootoutEvents.forEach((attempt, index) => {
+      const playerId = Number(attempt?.playerId);
+      const firstName = String(
+        attempt?.firstName?.default || attempt?.firstName || "",
+      ).trim();
+      const lastName = String(
+        attempt?.lastName?.default || attempt?.lastName || "",
+      ).trim();
+      const fullName = `${firstName} ${lastName}`.trim();
+      const teamAbbr = String(
+        attempt?.teamAbbrev?.default || attempt?.teamAbbrev || "",
+      )
+        .trim()
+        .toUpperCase();
+      const shotType = startCaseFromHyphen(attempt?.shotType) + " Shot";
+      const result = startCaseFromHyphen(attempt?.result);
+      const detailLine = [shotType, result].filter(Boolean).join(" - ");
+      const awayScore = Number(
+        attempt?.awayScore ??
+          attempt?.awayScoreAfter ??
+          shootoutLiveScore?.away ??
+          null,
+      );
+      const homeScore = Number(
+        attempt?.homeScore ??
+          attempt?.homeScoreAfter ??
+          shootoutLiveScore?.home ??
+          null,
+      );
+
+      pushEvent(5, {
+        type: "shootout",
+        teamAbbr,
+        timeInPeriod: `SO ${index + 1}`,
+        sortSecs: index + 1,
+        playerId: Number.isFinite(playerId) ? playerId : null,
+        mainText: fullName || "Shootout Attempt",
+        subText: detailLine,
+        shotResult: String(attempt?.result || "")
+          .trim()
+          .toLowerCase(),
+        shotType: String(attempt?.shotType || "")
+          .trim()
+          .toLowerCase(),
+        homeScoreAfter: Number.isFinite(homeScore) ? homeScore : null,
+        awayScoreAfter: Number.isFinite(awayScore) ? awayScore : null,
+        period: 5,
+        periodType: "SO",
       });
     });
 
@@ -3821,6 +3888,52 @@ const EventsSection = ({
                         : "Team";
                     const displayName =
                       String(event.mainText || "").trim() || fallbackTeamName;
+                    const eventPeriodType = String(
+                      event?.periodType || "",
+                    ).toUpperCase();
+                    const isShootoutEvent =
+                      event.type === "shootout" || eventPeriodType === "SO";
+                    const showEventScore =
+                      (event.type === "goal" || isShootoutEvent) &&
+                      event.homeScoreAfter != null &&
+                      event.awayScoreAfter != null;
+                    const shootoutResult = String(
+                      event?.shotResult || event?.result || "",
+                    )
+                      .trim()
+                      .toLowerCase();
+                    const shootoutIconName =
+                      shootoutResult === "goal"
+                        ? "hockey-puck"
+                        : shootoutResult === "save" || shootoutResult === "miss"
+                          ? "close-circle"
+                          : "";
+                    const shootoutIconColor =
+                      shootoutResult === "goal"
+                        ? theme.success || colors.primary
+                        : shootoutResult === "save" || shootoutResult === "miss"
+                          ? theme.error || "#e03131"
+                          : "transparent";
+                    const awayScoreStyle =
+                      event.type === "goal"
+                        ? isAway
+                          ? { color: colors.primary, fontWeight: "800" }
+                          : { color: theme.text, fontWeight: "400" }
+                        : isShootoutEvent && shootoutResult === "goal"
+                          ? isAway
+                            ? { color: colors.primary, fontWeight: "800" }
+                            : { color: theme.text, fontWeight: "400" }
+                          : { color: theme.text, fontWeight: "400" };
+                    const homeScoreStyle =
+                      event.type === "goal"
+                        ? isHome
+                          ? { color: colors.primary, fontWeight: "800" }
+                          : { color: theme.text, fontWeight: "400" }
+                        : isShootoutEvent && shootoutResult === "goal"
+                          ? isHome
+                            ? { color: colors.primary, fontWeight: "800" }
+                            : { color: theme.text, fontWeight: "400" }
+                          : { color: theme.text, fontWeight: "400" };
 
                     return (
                       <TouchableOpacity
@@ -3849,7 +3962,17 @@ const EventsSection = ({
                           )}
 
                           {isAway &&
-                            (event.type === "goal" ? (
+                            (isShootoutEvent ? (
+                              shootoutIconName ? (
+                                <MaterialCommunityIcons
+                                  name={shootoutIconName}
+                                  size={18}
+                                  color={shootoutIconColor}
+                                />
+                              ) : (
+                                <View style={{ width: 16 }} />
+                              )
+                            ) : event.type === "goal" ? (
                               <FontAwesome6
                                 name="hockey-puck"
                                 size={15}
@@ -3875,43 +3998,17 @@ const EventsSection = ({
                                 { color: theme.text },
                                 !isAway && styles.eventTextAway,
                               ]}
-                              numberOfLines={2}
+                              numberOfLines={1}
                             >
                               {displayName}
-                              {event.type === "goal" &&
-                              event.homeScoreAfter != null &&
-                              event.awayScoreAfter != null ? (
+                              {showEventScore ? (
                                 <>
                                   {" ("}
-                                  <Text
-                                    style={
-                                      isAway
-                                        ? {
-                                            color: colors.primary,
-                                            fontWeight: "800",
-                                          }
-                                        : {
-                                            color: theme.text,
-                                            fontWeight: "400",
-                                          }
-                                    }
-                                  >
+                                  <Text style={awayScoreStyle}>
                                     {event.awayScoreAfter}
                                   </Text>
                                   {" - "}
-                                  <Text
-                                    style={
-                                      isHome
-                                        ? {
-                                            color: colors.primary,
-                                            fontWeight: "800",
-                                          }
-                                        : {
-                                            color: theme.text,
-                                            fontWeight: "400",
-                                          }
-                                    }
-                                  >
+                                  <Text style={homeScoreStyle}>
                                     {event.homeScoreAfter}
                                   </Text>
                                   {")"}
@@ -3925,7 +4022,7 @@ const EventsSection = ({
                                   { color: theme.textSecondary },
                                   !isAway && styles.goalDetailTextAway,
                                 ]}
-                                numberOfLines={2}
+                                numberOfLines={1}
                               >
                                 {event.subText}
                               </Text>
@@ -3933,7 +4030,17 @@ const EventsSection = ({
                           </View>
 
                           {!isAway &&
-                            (event.type === "goal" ? (
+                            (isShootoutEvent ? (
+                              shootoutIconName ? (
+                                <MaterialCommunityIcons
+                                  name={shootoutIconName}
+                                  size={18}
+                                  color={shootoutIconColor}
+                                />
+                              ) : (
+                                <View style={{ width: 16 }} />
+                              )
+                            ) : event.type === "goal" ? (
                               <FontAwesome6
                                 name="hockey-puck"
                                 size={15}
@@ -8885,6 +8992,7 @@ const NHLPlayerDetailModal = ({
   const [compareChooserVisible, setCompareChooserVisible] = useState(false);
   const [compareTargetId, setCompareTargetId] = useState(null);
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  const navigation = useNavigation();
 
   const panResponder = useRef(
     PanResponder.create({
@@ -9103,7 +9211,17 @@ const NHLPlayerDetailModal = ({
                 justifyContent: "space-between",
               }}
             >
-              <View
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  closeModal();
+                  navigation.navigate("PlayerPage", {
+                    playerId: Number(player?.id),
+                    playerName: playerDisplayName,
+                    teamId: player?.teamId,
+                    sport: "nhl",
+                  });
+                }}
                 style={{
                   width: "48%",
                   alignItems: "center",
@@ -9147,7 +9265,7 @@ const NHLPlayerDetailModal = ({
                     .filter(Boolean)
                     .join(" • ")}
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               <View
                 style={{
@@ -9252,7 +9370,19 @@ const NHLPlayerDetailModal = ({
               </View>
             </View>
           ) : (
-            <View style={{ alignItems: "center" }}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                closeModal();
+                navigation.navigate("PlayerPage", {
+                  playerId: Number(player?.id),
+                  playerName: playerDisplayName,
+                  teamId: player?.teamId,
+                  sport: "nhl",
+                });
+              }}
+              style={{ alignItems: "center" }}
+            >
               <View style={nhlModalStyles.headshotWrap}>
                 <View style={{ position: "relative" }}>
                   <Image
@@ -9290,7 +9420,7 @@ const NHLPlayerDetailModal = ({
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
 

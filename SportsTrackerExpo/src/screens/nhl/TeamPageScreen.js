@@ -14,6 +14,7 @@ import {
   Animated,
   RefreshControl,
   Dimensions,
+  PanResponder,
 } from "react-native";
 import { Image } from "expo-image";
 import Svg, {
@@ -31,6 +32,11 @@ const STAT_CHIP_GAP = 8;
 const STAT_CHIP_W =
   (width - 2 * 12 - 2 * 14 - STAT_CHIP_GAP * (STAT_CHIP_COLS - 1)) /
   STAT_CHIP_COLS;
+const TOP3_CARD_COLS = 2;
+const TOP3_CARD_GAP = 10;
+const TOP3_CARD_W =
+  (width - 2 * 12 - TOP3_CARD_GAP * (TOP3_CARD_COLS - 1)) / TOP3_CARD_COLS;
+const FILTER_PANEL_H = 34;
 
 const TABS = ["Team", "Matches", "Stats", "Roster"];
 
@@ -184,6 +190,137 @@ const getGameLabel = (game) => {
   if (type === 1) return "Preseason";
   if (type === 3) return "Playoffs";
   return null;
+};
+
+const toTitleWords = (value) =>
+  String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const formatRosterStatValue = (rawKey, rawValue) => {
+  const n = Number(rawValue);
+  if (!Number.isFinite(n)) return String(rawValue ?? "");
+
+  if (rawKey === "plusMinus") {
+    if (n > 0) return `+${Math.round(n)}`;
+    if (n < 0) return String(Math.round(n));
+    return "0";
+  }
+
+  const label = toTitleWords(rawKey);
+  if (/\bPctg\b/i.test(label)) {
+    return `${(n * 100).toFixed(1)}%`;
+  }
+
+  if (Number.isInteger(n)) return String(n);
+  return (Math.round(n * 10) / 10).toFixed(1);
+};
+
+const formatTopRankName = (player) => {
+  const first = String(player?.firstName || "").trim();
+  const last = String(player?.lastName || "").trim();
+  const full = String(player?.fullName || "").trim();
+  if (last) {
+    return `${first ? `${first.charAt(0).toUpperCase()}. ` : ""}${last}`;
+  }
+  if (!full) return "Unknown";
+  const parts = full.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0).toUpperCase()}. ${parts.slice(1).join(" ")}`;
+  }
+  return full;
+};
+
+const isReverseRankStat = (statKey) => {
+  const key = String(statKey || "").toLowerCase();
+  return key === "losses" || key === "overtimelosses";
+};
+
+const getStatKeys = (players) => {
+  const keys = new Set();
+  for (const p of Array.isArray(players) ? players : []) {
+    for (const [key, value] of Object.entries(p || {})) {
+      if (key === "playerId" || key === "positionCode") continue;
+      if (!Number.isFinite(Number(value))) continue;
+      keys.add(key);
+    }
+  }
+  return [...keys].sort((a, b) =>
+    toTitleWords(a).localeCompare(toTitleWords(b)),
+  );
+};
+
+const passesGamesFilter = (gamesPlayed, minGames, comparator) => {
+  const gp = Number(gamesPlayed);
+  const threshold = Number(minGames);
+  if (!Number.isFinite(gp) || !Number.isFinite(threshold)) return false;
+  return comparator === "<=" ? gp <= threshold : gp >= threshold;
+};
+
+const buildTopThreeCards = (players, rosterIndex, filters) => {
+  const selectedPosition = String(filters?.position || "ALL").toUpperCase();
+  const minGames = Number(filters?.minGames || 0);
+  const comparator = filters?.gamesComparator === "<=" ? "<=" : ">=";
+  const list = Array.isArray(players) ? players : [];
+  return getStatKeys(list)
+    .map((statKey) => {
+      const reverse = isReverseRankStat(statKey);
+      const ranked = list
+        .filter((p) => Number.isFinite(Number(p?.[statKey])))
+        .filter((p) => {
+          const pid = String(p?.playerId || "");
+          if (!pid || !rosterIndex[pid]) return false;
+          const rosterMeta = rosterIndex[pid];
+          const pos = String(
+            p?.positionCode || rosterMeta?.positionCode || "",
+          ).toUpperCase();
+          if (selectedPosition !== "ALL" && pos !== selectedPosition) {
+            return false;
+          }
+          return passesGamesFilter(p?.gamesPlayed, minGames, comparator);
+        })
+        .slice()
+        .sort((a, b) => {
+          const av = Number(a?.[statKey]);
+          const bv = Number(b?.[statKey]);
+          if (av === bv)
+            return String(a?.playerId || "").localeCompare(
+              String(b?.playerId || ""),
+            );
+          return reverse ? av - bv : bv - av;
+        })
+        .slice(0, 3)
+        .map((p) => {
+          const pid = String(p?.playerId || "");
+          const person = rosterIndex[pid] || {};
+          return {
+            id: pid,
+            firstName: person.firstName || "",
+            lastName: person.lastName || "",
+            fullName: person.fullName || "",
+            headshot: person.headshot || null,
+            positionCode: String(
+              p?.positionCode || person.positionCode || "",
+            ).toUpperCase(),
+            rawValue: Number(p?.[statKey]),
+            value: formatRosterStatValue(statKey, p?.[statKey]),
+          };
+        });
+
+      if (!ranked.length) return null;
+
+      return {
+        key: statKey,
+        label: toTitleWords(statKey),
+        leaders: ranked,
+      };
+    })
+    .filter(Boolean);
 };
 
 const toFinite = (v, fallback = 0) => {
@@ -377,7 +514,10 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
           <Image
             cachePolicy="memory-disk"
             source={{ uri: headshotUrl }}
-            style={rStyles.headshot}
+            style={[
+              rStyles.headshot,
+              { backgroundColor: teamColor + "66", borderColor: teamColor },
+            ]}
             onError={() => setHeadshotError(true)}
           />
         ) : (
@@ -457,7 +597,19 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
                   )}
                   <Text
                     allowFontScaling={false}
-                    style={[rStyles.chipValue, { color: theme.text }]}
+                    style={[
+                      rStyles.chipValue,
+                      {
+                        color:
+                          info?.rawKey === "plusMinus"
+                            ? Number(info?.numericValue) > 0
+                              ? theme.success
+                              : Number(info?.numericValue) < 0
+                                ? theme.error
+                                : theme.text
+                            : theme.text,
+                      },
+                    ]}
                   >
                     {info.value}
                   </Text>
@@ -466,7 +618,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
                     style={[rStyles.chipLabel, { color: theme.textSecondary }]}
                     numberOfLines={2}
                   >
-                    {label}
+                    {info?.label || label}
                   </Text>
                 </View>
               ))}
@@ -496,6 +648,7 @@ const rStyles = StyleSheet.create({
     height: 46,
     borderRadius: 23,
     backgroundColor: "rgba(128,128,128,0.1)",
+    borderWidth: 1,
   },
   headshotPlaceholder: { borderRadius: 23 },
   nameBlock: { flex: 1 },
@@ -567,9 +720,715 @@ const rStyles = StyleSheet.create({
   },
 });
 
+const MinGamesSlider = ({ value, min, max, onChange, theme, teamColor }) => {
+  const [trackW, setTrackW] = useState(0);
+  const ratio =
+    max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+  const knobLeft = ratio * trackW;
+
+  const updateFromX = useCallback(
+    (x) => {
+      if (!trackW || max <= min) return;
+      const clamped = Math.max(0, Math.min(trackW, x));
+      const next = Math.round(min + (clamped / trackW) * (max - min));
+      onChange(next);
+    },
+    [trackW, max, min, onChange],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => updateFromX(evt.nativeEvent.locationX),
+        onPanResponderMove: (evt) => updateFromX(evt.nativeEvent.locationX),
+      }),
+    [updateFromX],
+  );
+
+  return (
+    <View style={topStyles.sliderRow}>
+      <View
+        style={topStyles.sliderTrackWrap}
+        onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
+        {...panResponder.panHandlers}
+      >
+        <View
+          style={[topStyles.sliderTrack, { backgroundColor: theme.border }]}
+        />
+        <View
+          style={[
+            topStyles.sliderFill,
+            { width: knobLeft, backgroundColor: teamColor },
+          ]}
+        />
+        <View
+          style={[
+            topStyles.sliderKnob,
+            {
+              left: knobLeft - 8,
+              borderColor: teamColor,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        />
+      </View>
+      <Text style={[topStyles.sliderValue, { color: theme.text }]}>
+        {value}
+      </Text>
+    </View>
+  );
+};
+
+const TopFilters = ({
+  theme,
+  teamColor,
+  positionOptions,
+  selectedPosition,
+  onSelectPosition,
+  showPositionPanel,
+  setShowPositionPanel,
+  minGames,
+  onChangeMinGames,
+  maxGames,
+  gamesComparator,
+  onChangeComparator,
+  showGamesPanel,
+  setShowGamesPanel,
+}) => {
+  return (
+    <View style={topStyles.filtersWrap}>
+      <View style={topStyles.filtersBtnRow}>
+        <TouchableOpacity
+          style={[
+            topStyles.filterMainBtn,
+            {
+              borderColor: teamColor,
+              backgroundColor: showPositionPanel
+                ? teamColor + "22"
+                : "transparent",
+            },
+          ]}
+          onPress={() => setShowPositionPanel((v) => !v)}
+        >
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>
+            Position
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            topStyles.filterMainBtn,
+            {
+              borderColor: teamColor,
+              backgroundColor: showGamesPanel
+                ? teamColor + "22"
+                : "transparent",
+            },
+          ]}
+          onPress={() => setShowGamesPanel((v) => !v)}
+        >
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>
+            Min Games Played
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {showPositionPanel && (
+        <View style={topStyles.filterPanel}>
+          <View style={topStyles.pillsWrap}>
+            {positionOptions.map((pos) => {
+              const active = selectedPosition === pos;
+              return (
+                <TouchableOpacity
+                  key={pos}
+                  onPress={() => onSelectPosition(pos)}
+                  style={[
+                    topStyles.pill,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: active ? teamColor : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      topStyles.pillText,
+                      {
+                        color: active ? getTextOnColor(teamColor) : theme.text,
+                      },
+                    ]}
+                  >
+                    {pos}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {showGamesPanel && (
+        <View style={topStyles.filterPanel}>
+          <View style={topStyles.compRow}>
+            {[">=", "<="].map((op) => {
+              const active = gamesComparator === op;
+              return (
+                <TouchableOpacity
+                  key={op}
+                  onPress={() => onChangeComparator(op)}
+                  style={[
+                    topStyles.compBtn,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: active ? teamColor : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      topStyles.compBtnText,
+                      {
+                        color: active ? getTextOnColor(teamColor) : theme.text,
+                      },
+                    ]}
+                  >
+                    {op}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <MinGamesSlider
+            value={minGames}
+            min={0}
+            max={Math.max(0, maxGames)}
+            onChange={onChangeMinGames}
+            theme={theme}
+            teamColor={teamColor}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
+const TopThreeCard = ({ card, theme, teamColor }) => {
+  const [headshotError, setHeadshotError] = useState(false);
+  const first = card?.leaders?.[0] || null;
+  const firstLabelFirst = String(first?.firstName || "").trim() || "Unknown";
+  const firstLabelLast =
+    String(first?.lastName || "").trim() ||
+    String(first?.fullName || "")
+      .trim()
+      .split(/\s+/)
+      .slice(1)
+      .join(" ") ||
+    "Player";
+
+  return (
+    <View style={[topStyles.card, { backgroundColor: theme.surface }]}>
+      <Text
+        allowFontScaling={false}
+        style={[topStyles.cardLabel, { color: theme.text }]}
+        numberOfLines={1}
+      >
+        {card?.label || "Stat"}
+      </Text>
+
+      {first ? (
+        <View style={topStyles.firstCol}>
+          <View style={topStyles.firstHeadshotWrap}>
+            {first.headshot && !headshotError ? (
+              <Image
+                cachePolicy="memory-disk"
+                source={{ uri: first.headshot }}
+                style={[
+                  topStyles.firstHeadshot,
+                  {
+                    backgroundColor: teamColor + "33",
+                    borderColor: teamColor,
+                  },
+                ]}
+                onError={() => setHeadshotError(true)}
+              />
+            ) : (
+              <View
+                style={[
+                  topStyles.firstHeadshot,
+                  topStyles.firstHeadshotFallback,
+                  { backgroundColor: teamColor + "22", borderColor: teamColor },
+                ]}
+              >
+                <Text style={[topStyles.firstInitial, { color: teamColor }]}>
+                  {firstLabelLast.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            {!!first.positionCode && (
+              <View
+                style={[
+                  topStyles.positionBadge,
+                  { backgroundColor: teamColor, borderColor: theme.surface },
+                ]}
+              >
+                <Text
+                  style={[
+                    topStyles.positionBadgeText,
+                    { color: getTextOnColor(teamColor) },
+                  ]}
+                >
+                  {first.positionCode}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.firstName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {firstLabelFirst}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.lastName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {firstLabelLast}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.firstValue, { color: teamColor }]}
+            numberOfLines={1}
+          >
+            {first.value}
+          </Text>
+        </View>
+      ) : null}
+
+      {[1, 2].map((rankIdx) => {
+        const p = card?.leaders?.[rankIdx];
+        if (!p) return null;
+        return (
+          <View key={`${card.key}-${rankIdx}`}>
+            <View
+              style={[topStyles.divider, { backgroundColor: theme.border }]}
+            />
+            <View style={topStyles.rankRow}>
+              <Text
+                allowFontScaling={false}
+                style={[topStyles.rankName, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {formatTopRankName(p)}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[topStyles.rankValue, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {p.value}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const TopThreeSection = ({
+  title,
+  cards,
+  theme,
+  teamColor,
+  expanded,
+  onToggle,
+}) => {
+  if (!cards.length) return null;
+  return (
+    <View style={topStyles.sectionWrap}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={onToggle}
+        style={topStyles.sectionHeaderBtn}
+      >
+        <View style={[topStyles.sectionLine, { backgroundColor: teamColor }]} />
+        <Text
+          allowFontScaling={false}
+          style={[topStyles.sectionTitle, { color: teamColor }]}
+        >
+          {title}
+        </Text>
+        <View style={[topStyles.sectionLine, { backgroundColor: teamColor }]} />
+        <Text style={[topStyles.sectionChevron, { color: theme.text }]}>
+          {expanded ? "▲" : "▼"}
+        </Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={topStyles.grid}>
+          {cards.map((card) => (
+            <TopThreeCard
+              key={card.key}
+              card={card}
+              theme={theme}
+              teamColor={teamColor}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const topStyles = StyleSheet.create({
+  filtersWrap: {
+    marginBottom: 2,
+    gap: 8,
+  },
+  filtersBtnRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterMainBtn: {
+    flex: 1,
+    height: FILTER_PANEL_H,
+    borderWidth: 1,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterMainBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filterPanel: {
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(128,128,128,0.3)",
+  },
+  pillsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  pillText: { fontSize: 11, fontWeight: "700" },
+  compRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  compBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  compBtnText: { fontSize: 11, fontWeight: "700" },
+  sliderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sliderTrackWrap: {
+    flex: 1,
+    height: 22,
+    justifyContent: "center",
+  },
+  sliderTrack: {
+    height: 4,
+    borderRadius: 3,
+  },
+  sliderFill: {
+    position: "absolute",
+    left: 0,
+    height: 4,
+    borderRadius: 3,
+  },
+  sliderKnob: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
+  sliderValue: {
+    width: 40,
+    textAlign: "right",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sectionWrap: {
+    gap: 10,
+  },
+  sectionHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 2,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 2,
+    borderRadius: 2,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    minWidth: 74,
+    textAlign: "center",
+  },
+  sectionChevron: {
+    fontSize: 14,
+    fontWeight: "700",
+    width: 14,
+    textAlign: "center",
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: TOP3_CARD_GAP,
+  },
+  card: {
+    width: TOP3_CARD_W,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 196,
+  },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  firstCol: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  firstHeadshotWrap: { position: "relative", marginBottom: 8 },
+  firstHeadshot: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+  },
+  firstHeadshotFallback: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  positionBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  positionBadgeText: {
+    fontSize: 8,
+    fontWeight: "800",
+    lineHeight: 10,
+  },
+  firstInitial: { fontSize: 16, fontWeight: "800" },
+  firstName: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 14,
+    textAlign: "center",
+  },
+  lastName: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  firstValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 5,
+    textAlign: "center",
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 4,
+    marginTop: 10,
+  },
+  rankRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 8,
+  },
+  rankName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    paddingRight: 8,
+  },
+  rankValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+    minWidth: 28,
+  },
+});
+
 const TeamTab = ({ teamData, teamColor, theme }) => {
-  const summary = teamData?.summary || {};
-  const leaders = teamData?.leaders || [];
+  const standings =
+    teamData?.standings && typeof teamData.standings === "object"
+      ? teamData.standings
+      : null;
+  const standingsRecords = standings
+    ? [
+        {
+          division: { name: standings?.divisionName || "Standings" },
+          teamRecords: [
+            {
+              team: {
+                id: standings?.teamAbbrev || teamData?.team?.id,
+                name: standings?.teamCommonName || teamData?.team?.name || "",
+              },
+              wins: standings?.wins,
+              losses: standings?.losses,
+              otLosses: standings?.otLosses,
+              divisionRank: standings?.divisionSequence,
+              homeWins: standings?.homeWins,
+              homeLosses: standings?.homeLosses,
+              homeOtLosses: standings?.homeOtLosses,
+              roadWins: standings?.roadWins,
+              roadLosses: standings?.roadLosses,
+              roadOtLosses: standings?.roadOtLosses,
+              streakCode: standings?.streakCode,
+              streakCount: standings?.streakCount,
+              goalDifferential: standings?.goalDifferential,
+              points: standings?.points,
+            },
+          ],
+        },
+      ]
+    : [];
+
+  const toPct = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(1, n));
+  };
+
+  const fmtPct = (v) => `${(toPct(v) * 100).toFixed(1)}%`;
+  const fmtNum = (v, fallback = "-") => {
+    const n = Number(v);
+    return Number.isFinite(n) ? String(n) : fallback;
+  };
+
+  const splitRates = [
+    {
+      key: "Home",
+      value:
+        Number(standings?.homePoints) /
+        Math.max(1, Number(standings?.homeGamesPlayed) * 2),
+      label: `${fmtNum(standings?.homeWins)}-${fmtNum(standings?.homeLosses)}-${fmtNum(standings?.homeOtLosses)}`,
+    },
+    {
+      key: "Road",
+      value:
+        Number(standings?.roadPoints) /
+        Math.max(1, Number(standings?.roadGamesPlayed) * 2),
+      label: `${fmtNum(standings?.roadWins)}-${fmtNum(standings?.roadLosses)}-${fmtNum(standings?.roadOtLosses)}`,
+    },
+    {
+      key: "L10",
+      value:
+        Number(standings?.l10Points) /
+        Math.max(1, Number(standings?.l10GamesPlayed) * 2),
+      label: `${fmtNum(standings?.l10Wins)}-${fmtNum(standings?.l10Losses)}-${fmtNum(standings?.l10OtLosses)}`,
+    },
+  ].map((row) => ({
+    ...row,
+    value: toPct(row.value),
+  }));
+
+  const comparisonRows = [
+    {
+      key: "PTS%",
+      value: toPct(standings?.pointPctg),
+      display: fmtPct(standings?.pointPctg),
+    },
+    {
+      key: "Reg Win %",
+      value: toPct(standings?.regulationWinPctg),
+      display: fmtPct(standings?.regulationWinPctg),
+    },
+    {
+      key: "Reg+OT Win %",
+      value: toPct(standings?.regulationPlusOtWinPctg),
+      display: fmtPct(standings?.regulationPlusOtWinPctg),
+    },
+    {
+      key: "Goals / Game",
+      value: Math.max(0, Math.min(1, Number(standings?.goalsForPctg || 0) / 5)),
+      display: Number.isFinite(Number(standings?.goalsForPctg))
+        ? Number(standings?.goalsForPctg).toFixed(2)
+        : "-",
+    },
+  ];
+
+  const streakCode = String(standings?.streakCode || "").toUpperCase();
+  const streakCount = Number(standings?.streakCount);
+  const streakValue =
+    streakCode && Number.isFinite(streakCount)
+      ? `${streakCode}${streakCount}`
+      : streakCode || "-";
+  const goalDiff = Number(standings?.goalDifferential);
+  const goalDiffValue = Number.isFinite(goalDiff)
+    ? goalDiff > 0
+      ? `+${goalDiff}`
+      : String(goalDiff)
+    : "-";
+
+  const snapshotItems = [
+    { label: "Points", value: fmtNum(standings?.points) },
+    {
+      label: "Record",
+      value: `${fmtNum(standings?.wins)}-${fmtNum(standings?.losses)}-${fmtNum(standings?.otLosses)}`,
+    },
+    { label: "PTS%", value: fmtPct(standings?.pointPctg) },
+    { label: "Division Rank", value: fmtNum(standings?.divisionSequence) },
+    {
+      label: "Conference Rank",
+      value: fmtNum(standings?.conferenceSequence),
+    },
+    { label: "League Rank", value: fmtNum(standings?.leagueSequence) },
+    { label: "Goal Diff", value: goalDiffValue },
+    { label: "Streak", value: streakValue },
+  ];
+
+  if (String(standings?.clinchIndicator || "").trim()) {
+    snapshotItems.push({
+      label: "Clinch",
+      value: String(standings?.clinchIndicator || "").toUpperCase(),
+    });
+  }
 
   return (
     <View
@@ -580,101 +1439,348 @@ const TeamTab = ({ teamData, teamColor, theme }) => {
         gap: 12,
       }}
     >
-      <View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[ttStyles.sectionTitle, { color: teamColor }]}
-        >
-          Team Overview
-        </Text>
-
-        {[
-          ["Season", summary.currentSeason || "--"],
-          ["Record", summary.record || "--"],
-          [
-            "Games",
-            summary.gamesPlayed != null ? String(summary.gamesPlayed) : "--",
-          ],
-          [
-            "Goals For",
-            summary.goalsFor != null ? String(summary.goalsFor) : "--",
-          ],
-          [
-            "Goals Against",
-            summary.goalsAgainst != null ? String(summary.goalsAgainst) : "--",
-          ],
-          [
-            "Goal Diff",
-            summary.goalDiff != null ? String(summary.goalDiff) : "--",
-          ],
-        ].map(([label, value], idx, arr) => (
+      {standingsRecords.map((record, rIdx) => {
+        const rows = record.teamRecords ?? [];
+        const divName = record.division?.name ?? "Standings";
+        return (
           <View
-            key={label}
-            style={[
-              ttStyles.coachRow,
-              idx < arr.length - 1
-                ? {
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: theme.border,
-                  }
-                : null,
-            ]}
+            key={`standing-${rIdx}`}
+            style={[ttStyles.bubble, { backgroundColor: theme.surface }]}
           >
-            <Text style={[ttStyles.coachName, { color: theme.textSecondary }]}>
-              {label}
+            <Text
+              allowFontScaling={false}
+              style={[ttStyles.sectionTitle, { color: teamColor }]}
+            >
+              {divName} Division
             </Text>
-            <Text style={[ttStyles.coachJersey, { color: theme.text }]}>
-              {value}
-            </Text>
-          </View>
-        ))}
-      </View>
 
-      {leaders.length > 0 && (
+            <View style={ttStyles.standingHeaderRow}>
+              <Text
+                style={[
+                  ttStyles.colTeam,
+                  ttStyles.colHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Team
+              </Text>
+              <Text
+                style={[
+                  ttStyles.colStat,
+                  ttStyles.colHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                W
+              </Text>
+              <Text
+                style={[
+                  ttStyles.colStat,
+                  ttStyles.colHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                L
+              </Text>
+              <Text
+                style={[
+                  ttStyles.colStat,
+                  ttStyles.colHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                OTL
+              </Text>
+              <Text
+                style={[
+                  ttStyles.colStat,
+                  ttStyles.colHeader,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Rank
+              </Text>
+            </View>
+
+            {rows.map((tr, i) => {
+              const isThis = true;
+              const homeStr = [tr.homeWins, tr.homeLosses, tr.homeOtLosses]
+                .filter((v) => v != null)
+                .join("-");
+              const awayStr = [tr.roadWins, tr.roadLosses, tr.roadOtLosses]
+                .filter((v) => v != null)
+                .join("-");
+              const streakCode = String(tr.streakCode || "").toUpperCase();
+              const streakCount = Number(tr.streakCount);
+              const streakValue =
+                streakCode && Number.isFinite(streakCount)
+                  ? `${streakCode}${streakCount}`
+                  : streakCode || "-";
+              const goalDiff = Number(tr.goalDifferential);
+              const goalDiffStr = Number.isFinite(goalDiff)
+                ? goalDiff > 0
+                  ? `+${goalDiff}`
+                  : String(goalDiff)
+                : "-";
+              const streakColor = streakCode.startsWith("W")
+                ? theme.success || "#4CAF50"
+                : streakCode.startsWith("L") || streakCode.startsWith("OT")
+                  ? theme.error || "#E53935"
+                  : theme.textSecondary;
+              const diffColor = Number.isFinite(goalDiff)
+                ? goalDiff > 0
+                  ? theme.success || "#4CAF50"
+                  : goalDiff < 0
+                    ? theme.error || "#E53935"
+                    : theme.textSecondary
+                : theme.textSecondary;
+              const rowColor = isThis ? teamColor : theme.text;
+              const rowMeta = isThis ? teamColor : theme.textSecondary;
+
+              return (
+                <View
+                  key={tr.team?.id || `tr-${i}`}
+                  style={[
+                    ttStyles.standingRow,
+                    isThis && { backgroundColor: teamColor + "18" },
+                    i < rows.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View style={ttStyles.standingRowInner}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        ttStyles.colTeam,
+                        { color: rowColor, fontWeight: isThis ? "700" : "400" },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {tr.team?.name ?? ""}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        ttStyles.colStat,
+                        { color: rowColor, fontWeight: isThis ? "700" : "400" },
+                      ]}
+                    >
+                      {tr.wins ?? "-"}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        ttStyles.colStat,
+                        { color: rowColor, fontWeight: isThis ? "700" : "400" },
+                      ]}
+                    >
+                      {tr.losses ?? "-"}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        ttStyles.colStat,
+                        { color: rowColor, fontWeight: isThis ? "700" : "400" },
+                      ]}
+                    >
+                      {tr.otLosses ?? "-"}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[ttStyles.colStat, { color: rowMeta }]}
+                    >
+                      {tr.divisionRank ?? "-"}
+                    </Text>
+                  </View>
+
+                  <View style={ttStyles.secRow}>
+                    {[
+                      { label: "Home", value: homeStr || "-", color: rowMeta },
+                      { label: "Away", value: awayStr || "-", color: rowMeta },
+                      {
+                        label: "Streak",
+                        value: streakValue,
+                        color: streakColor,
+                      },
+                      { label: "Diff", value: goalDiffStr, color: diffColor },
+                      {
+                        label: "PTS",
+                        value:
+                          tr.points != null &&
+                          Number.isFinite(Number(tr.points))
+                            ? String(tr.points)
+                            : "-",
+                        color: rowMeta,
+                      },
+                    ].map(({ label, value, color }) => (
+                      <View key={label} style={ttStyles.secChip}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[ttStyles.secValue, { color }]}
+                        >
+                          {value}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            ttStyles.secLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        );
+      })}
+
+      {!!standings && (
         <View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
           <Text
             allowFontScaling={false}
             style={[ttStyles.sectionTitle, { color: teamColor }]}
           >
-            Team Leaders
+            Standings Snapshot
           </Text>
-          {leaders.map((leader, i) => (
-            <View
-              key={`${leader.label}-${i}`}
-              style={[
-                ttStyles.coachRow,
-                i < leaders.length - 1
-                  ? {
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: theme.border,
-                    }
-                  : null,
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text
-                  allowFontScaling={false}
-                  style={[ttStyles.coachName, { color: theme.text }]}
-                  numberOfLines={1}
-                >
-                  {leader.player}
+          <View style={ttStyles.snapshotGrid}>
+            {snapshotItems.map((item) => (
+              <View
+                key={item.label}
+                style={[
+                  ttStyles.snapshotChip,
+                  { backgroundColor: theme.background },
+                ]}
+              >
+                <Text style={[ttStyles.snapshotValue, { color: theme.text }]}>
+                  {item.value}
                 </Text>
                 <Text
-                  allowFontScaling={false}
-                  style={[ttStyles.coachJob, { color: theme.textSecondary }]}
-                  numberOfLines={1}
+                  style={[
+                    ttStyles.snapshotLabel,
+                    { color: theme.textSecondary },
+                  ]}
                 >
-                  {leader.label}
+                  {item.label}
                 </Text>
               </View>
-              <Text
-                allowFontScaling={false}
-                style={[ttStyles.coachJersey, { color: teamColor }]}
+            ))}
+          </View>
+        </View>
+      )}
+
+      {!!standings && (
+        <View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text
+            allowFontScaling={false}
+            style={[ttStyles.sectionTitle, { color: teamColor }]}
+          >
+            Bar Comparisons
+          </Text>
+
+          {comparisonRows.map((row, idx) => (
+            <View
+              key={row.key}
+              style={[
+                ttStyles.compRow,
+                idx < comparisonRows.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
+              <View style={ttStyles.compHeaderRow}>
+                <Text
+                  style={[ttStyles.compLabel, { color: theme.textSecondary }]}
+                >
+                  {row.key}
+                </Text>
+                <Text style={[ttStyles.compValue, { color: theme.text }]}>
+                  {row.display}
+                </Text>
+              </View>
+              <View
+                style={[ttStyles.compTrack, { backgroundColor: theme.border }]}
               >
-                {leader.value}
+                <View
+                  style={[
+                    ttStyles.compFill,
+                    {
+                      width: `${Math.round(row.value * 100)}%`,
+                      backgroundColor: teamColor,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {!!standings && (
+        <View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text
+            allowFontScaling={false}
+            style={[ttStyles.sectionTitle, { color: teamColor }]}
+          >
+            Split Performance
+          </Text>
+
+          {splitRates.map((row, idx) => (
+            <View
+              key={row.key}
+              style={[
+                ttStyles.compRow,
+                idx < splitRates.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
+              <View style={ttStyles.compHeaderRow}>
+                <Text
+                  style={[ttStyles.compLabel, { color: theme.textSecondary }]}
+                >
+                  {row.key}
+                </Text>
+                <Text style={[ttStyles.compValue, { color: theme.text }]}>
+                  {fmtPct(row.value)}
+                </Text>
+              </View>
+              <View
+                style={[ttStyles.compTrack, { backgroundColor: theme.border }]}
+              >
+                <View
+                  style={[
+                    ttStyles.compFill,
+                    {
+                      width: `${Math.round(row.value * 100)}%`,
+                      backgroundColor: teamColor,
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[ttStyles.compSubText, { color: theme.textSecondary }]}
+              >
+                {row.label}
               </Text>
             </View>
           ))}
+        </View>
+      )}
+
+      {standingsRecords.length === 0 && !standings && (
+        <View style={{ alignItems: "center", paddingVertical: 56 }}>
+          <Text style={{ fontSize: 15, color: theme.textSecondary }}>
+            No team info available
+          </Text>
         </View>
       )}
     </View>
@@ -693,6 +1799,110 @@ const ttStyles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 10,
+  },
+  standingHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(128,128,128,0.2)",
+  },
+  standingRow: {
+    flexDirection: "column",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  standingRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  secRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+    paddingBottom: 2,
+  },
+  secChip: {
+    alignItems: "center",
+    minWidth: 44,
+  },
+  secValue: { fontSize: 12, fontWeight: "700" },
+  secLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 1,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  colHeader: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  colTeam: { flex: 1, fontSize: 13, paddingRight: 6 },
+  colStat: { width: 42, textAlign: "center", fontSize: 13 },
+  snapshotGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  snapshotChip: {
+    width: "31%",
+    minWidth: 96,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  snapshotValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  snapshotLabel: {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    textAlign: "center",
+  },
+  compRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  compHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  compLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  compValue: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  compTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  compFill: {
+    height: "100%",
+    borderRadius: 5,
+    minWidth: 2,
+  },
+  compSubText: {
+    fontSize: 11,
+    marginTop: 6,
   },
   coachRow: {
     flexDirection: "row",
@@ -733,13 +1943,27 @@ const MatchCard = ({
   const isScheduled = ["S", "P"].includes(state);
   const isFinished = !isLive && !isScheduled && !!state;
 
-  const awayLogo = getLogo(away.abbreviation || away.id, isDarkMode);
-  const homeLogo = getLogo(home.abbreviation || home.id, isDarkMode);
+  const awayLogo = isDarkMode
+    ? away.darkLogo || away.logo || getLogo(away.abbreviation || away.id, true)
+    : away.logo ||
+      away.darkLogo ||
+      getLogo(away.abbreviation || away.id, false);
+  const homeLogo = isDarkMode
+    ? home.darkLogo || home.logo || getLogo(home.abbreviation || home.id, true)
+    : home.logo ||
+      home.darkLogo ||
+      getLogo(home.abbreviation || home.id, false);
   const awayColor = NHLService.getTeamColor(away.abbreviation, colors.primary);
   const homeColor = NHLService.getTeamColor(
     home.abbreviation,
     colors.secondary,
   );
+  const awayDisplayName = away.commonName
+    ? `${away.abbreviation || ""} · ${away.commonName}`
+    : away.name || away.abbreviation || "Away";
+  const homeDisplayName = home.commonName
+    ? `${home.abbreviation || ""} · ${home.commonName}`
+    : home.name || home.abbreviation || "Home";
 
   const awayWinner =
     isFinished &&
@@ -868,7 +2092,7 @@ const MatchCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {away.name || away.abbreviation || "Away"}
+                {awayDisplayName}
               </Text>
 
               {awayScore != null && (
@@ -928,7 +2152,7 @@ const MatchCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {home.name || home.abbreviation || "Home"}
+                {homeDisplayName}
               </Text>
 
               {homeScore != null && (
@@ -1080,9 +2304,14 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("Team");
-  const [skaterExpanded, setSkaterExpanded] = useState(false);
-  const [goalieExpanded, setGoalieExpanded] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(180);
+  const [skatersExpanded, setSkatersExpanded] = useState(true);
+  const [goaliesExpanded, setGoaliesExpanded] = useState(false);
+  const [showPositionPanel, setShowPositionPanel] = useState(false);
+  const [showGamesPanel, setShowGamesPanel] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState("ALL");
+  const [gamesComparator, setGamesComparator] = useState(">=");
+  const [minGamesPlayed, setMinGamesPlayed] = useState(0);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -1188,13 +2417,17 @@ const TeamPageScreen = ({ route, navigation }) => {
           (Array.isArray(arr) ? arr : []).map((p) => {
             const pid = String(p?.playerId || p?.id || "");
             const statSource = skaterMap[pid] || goalieMap[pid] || null;
-            const fullName = [p?.firstName?.default, p?.lastName?.default]
-              .filter(Boolean)
-              .join(" ");
+            const firstName =
+              String(p?.firstName?.default || p?.firstName || "").trim() || "";
+            const lastName =
+              String(p?.lastName?.default || p?.lastName || "").trim() || "";
+            const fullName = `${firstName} ${lastName}`.trim();
 
             return {
               person: {
                 id: pid,
+                firstName,
+                lastName,
                 fullName: fullName || p?.name?.default || `#${pid}`,
               },
               position: {
@@ -1204,21 +2437,24 @@ const TeamPageScreen = ({ route, navigation }) => {
               jerseyNumber:
                 p?.sweaterNumber != null ? String(p.sweaterNumber) : "",
               status: { description: "Active" },
-              headshot: pid
-                ? `https://assets.nhle.com/mugs/nhl/20252026/${pid}.png`
-                : null,
+              headshot: String(p?.headshot || "").trim() || null,
               stats: statSource
                 ? Object.fromEntries(
                     Object.entries(statSource)
-                      .filter(([, v]) => Number.isFinite(Number(v)))
-                      .slice(0, 9)
+                      .filter(
+                        ([k, v]) =>
+                          k !== "playerId" &&
+                          k !== "positionCode" &&
+                          v != null &&
+                          Number.isFinite(Number(v)),
+                      )
                       .map(([k, v]) => [
                         k,
                         {
-                          value:
-                            Number(v) % 1 === 0
-                              ? String(Number(v))
-                              : Number(v).toFixed(3).replace(/\.0+$/, ""),
+                          rawKey: k,
+                          numericValue: Number(v),
+                          label: toTitleWords(k),
+                          value: formatRosterStatValue(k, v),
                         },
                       ]),
                   )
@@ -1267,7 +2503,14 @@ const TeamPageScreen = ({ route, navigation }) => {
                 team: {
                   id: awayAbbr,
                   abbreviation: awayAbbr,
+                  commonName:
+                    g?.awayTeam?.commonName?.default ||
+                    g?.awayTeam?.commonName ||
+                    g?.awayTeam?.name?.default ||
+                    awayAbbr,
                   name: g?.awayTeam?.name?.default || awayAbbr,
+                  logo: g?.awayTeam?.logo || null,
+                  darkLogo: g?.awayTeam?.darkLogo || null,
                 },
               },
               home: {
@@ -1275,7 +2518,14 @@ const TeamPageScreen = ({ route, navigation }) => {
                 team: {
                   id: homeAbbr,
                   abbreviation: homeAbbr,
+                  commonName:
+                    g?.homeTeam?.commonName?.default ||
+                    g?.homeTeam?.commonName ||
+                    g?.homeTeam?.name?.default ||
+                    homeAbbr,
                   name: g?.homeTeam?.name?.default || homeAbbr,
+                  logo: g?.homeTeam?.logo || null,
+                  darkLogo: g?.homeTeam?.darkLogo || null,
                 },
               },
             },
@@ -1286,16 +2536,26 @@ const TeamPageScreen = ({ route, navigation }) => {
           team: {
             id: teamInput.id || payload?.id || teamInput.endpointId,
             abbreviation: normalizeAbbr(
-              payload?.id || teamInput.abbreviation || teamInput.endpointId,
+              payload?.standings?.teamAbbrev ||
+                payload?.id ||
+                teamInput.abbreviation ||
+                teamInput.endpointId,
             ),
             name:
+              payload?.standings?.teamCommonName ||
               teamInput.displayName ||
               route.params?.team?.displayName ||
               normalizeAbbr(payload?.id || teamInput.endpointId) ||
               "NHL Team",
             league: { name: "National Hockey League" },
-            division: { name: "" },
+            division: {
+              name: payload?.standings?.divisionName || "",
+            },
           },
+          standings:
+            payload?.standings && typeof payload.standings === "object"
+              ? payload.standings
+              : null,
           summary: {
             currentSeason: payload?.schedule?.currentSeason || "--",
             gamesPlayed: scheduleGames.length,
@@ -1325,98 +2585,176 @@ const TeamPageScreen = ({ route, navigation }) => {
   }, [loadTeam]);
 
   const team = teamData?.team || null;
+  const standings =
+    teamData?.standings && typeof teamData.standings === "object"
+      ? teamData.standings
+      : null;
   const resolvedAbbr = normalizeAbbr(
     team?.abbreviation || teamInput.abbreviation || teamInput.endpointId,
   );
   const teamColor = NHLService.getTeamColor(resolvedAbbr, colors.primary);
-  const teamLogo = getLogo(resolvedAbbr, isDarkMode);
+  const standingsLogo = (() => {
+    const raw = String(standings?.teamLogo || "").trim();
+    if (!raw) return null;
+    if (isDarkMode) return raw.replace(/_light(\.svg)?$/i, "_dark$1");
+    return raw;
+  })();
+  const teamLogo = standingsLogo || getLogo(resolvedAbbr, isDarkMode);
+  const conferenceLabel =
+    String(standings?.conferenceAbbrev || "").toUpperCase() === "E"
+      ? "Eastern Conference"
+      : String(standings?.conferenceAbbrev || "").toUpperCase() === "W"
+        ? "Western Conference"
+        : team?.league?.name || "National Hockey League";
+  const divisionLabel = standings?.divisionName
+    ? `${standings.divisionName} Division`
+    : team?.division?.name
+      ? `${team.division.name} Division`
+      : "";
+  const clinchIndicator = String(standings?.clinchIndicator || "")
+    .trim()
+    .toUpperCase();
 
   const skaters = teamData?.stats?.skaters || [];
   const goalies = teamData?.stats?.goalies || [];
 
-  const skaterRows = useMemo(
-    () =>
-      buildMetricRows(skaters, [
-        { key: "goals", label: "Goals", type: "sum" },
-        { key: "assists", label: "Assists", type: "sum" },
-        { key: "points", label: "Points", type: "sum" },
-        { key: "shots", label: "Shots", type: "sum" },
-        {
-          key: "faceoffWinPctg",
-          label: "Faceoff %",
-          type: "avg",
-          format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
-        },
-        {
-          key: "avgTimeOnIcePerGame",
-          label: "Avg TOI",
-          type: "avg",
-          format: (v) => `${Math.round(Number(v) / 60)}m`,
-        },
-      ]),
-    [skaters],
+  const rosterIndex = useMemo(() => {
+    const index = {};
+    for (const player of Array.isArray(teamData?.roster)
+      ? teamData.roster
+      : []) {
+      const pid = String(player?.person?.id || "");
+      if (!pid) continue;
+      index[pid] = {
+        firstName: String(player?.person?.firstName || "").trim(),
+        lastName: String(player?.person?.lastName || "").trim(),
+        fullName: String(player?.person?.fullName || "").trim(),
+        headshot: player?.headshot || null,
+        positionCode: String(
+          player?.position?.abbreviation || "",
+        ).toUpperCase(),
+      };
+    }
+    return index;
+  }, [teamData?.roster]);
+
+  const allStatPlayers = useMemo(
+    () => [...skaters, ...goalies],
+    [skaters, goalies],
   );
 
-  const goalieRows = useMemo(
+  const positionOptions = useMemo(() => {
+    const set = new Set(["ALL"]);
+    for (const p of allStatPlayers) {
+      const pid = String(p?.playerId || "");
+      if (!pid || !rosterIndex[pid]) continue;
+      const pos = String(
+        p?.positionCode || rosterIndex[pid]?.positionCode || "",
+      ).toUpperCase();
+      if (pos) set.add(pos);
+    }
+    return [...set];
+  }, [allStatPlayers, rosterIndex]);
+
+  const maxGamesPlayed = useMemo(() => {
+    let maxGp = 0;
+    for (const p of allStatPlayers) {
+      const pid = String(p?.playerId || "");
+      if (!pid || !rosterIndex[pid]) continue;
+      const gp = Number(p?.gamesPlayed);
+      if (Number.isFinite(gp) && gp > maxGp) maxGp = gp;
+    }
+    return Math.max(0, Math.round(maxGp));
+  }, [allStatPlayers, rosterIndex]);
+
+  useEffect(() => {
+    setMinGamesPlayed((v) => Math.min(v, maxGamesPlayed));
+  }, [maxGamesPlayed]);
+
+  const skaterTopCards = useMemo(
     () =>
-      buildMetricRows(goalies, [
-        { key: "wins", label: "Wins", type: "sum" },
-        { key: "shutouts", label: "Shutouts", type: "sum" },
-        {
-          key: "savePercentage",
-          label: "Save %",
-          type: "avg",
-          format: (v) => Number(v).toFixed(3),
-        },
-        {
-          key: "goalsAgainstAverage",
-          label: "GAA",
-          type: "avg",
-          format: (v) => Number(v).toFixed(2),
-        },
-        { key: "saves", label: "Saves", type: "sum" },
-      ]),
-    [goalies],
+      buildTopThreeCards(skaters, rosterIndex, {
+        position: selectedPosition,
+        minGames: minGamesPlayed,
+        gamesComparator,
+      }),
+    [skaters, rosterIndex, selectedPosition, minGamesPlayed, gamesComparator],
   );
 
-  const statsContent =
-    skaterRows.length === 0 && goalieRows.length === 0 ? (
-      <View style={styles.emptyContainer}>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-          No stats available
-        </Text>
-      </View>
-    ) : (
-      <View
-        style={{
-          paddingHorizontal: 12,
-          paddingTop: 8,
-          paddingBottom: 24,
-          gap: 12,
-        }}
-      >
-        {skaterRows.length > 0 && (
-          <StatBubble
-            title="Skaters"
-            rows={skaterRows}
-            expanded={skaterExpanded}
-            onToggle={() => setSkaterExpanded((v) => !v)}
-            teamColor={teamColor}
-            theme={theme}
-          />
-        )}
-        {goalieRows.length > 0 && (
-          <StatBubble
-            title="Goalies"
-            rows={goalieRows}
-            expanded={goalieExpanded}
-            onToggle={() => setGoalieExpanded((v) => !v)}
-            teamColor={teamColor}
-            theme={theme}
-          />
-        )}
-      </View>
-    );
+  const goalieTopCards = useMemo(
+    () =>
+      buildTopThreeCards(goalies, rosterIndex, {
+        position: selectedPosition,
+        minGames: minGamesPlayed,
+        gamesComparator,
+      }),
+    [goalies, rosterIndex, selectedPosition, minGamesPlayed, gamesComparator],
+  );
+
+  const hasBaseStats = skaters.length > 0 || goalies.length > 0;
+
+  const statsContent = !hasBaseStats ? (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+        No stats available
+      </Text>
+    </View>
+  ) : (
+    <View
+      style={{
+        paddingHorizontal: 12,
+        paddingTop: 8,
+        paddingBottom: 24,
+        gap: 12,
+      }}
+    >
+      <TopFilters
+        theme={theme}
+        teamColor={teamColor}
+        positionOptions={positionOptions}
+        selectedPosition={selectedPosition}
+        onSelectPosition={setSelectedPosition}
+        showPositionPanel={showPositionPanel}
+        setShowPositionPanel={setShowPositionPanel}
+        minGames={minGamesPlayed}
+        onChangeMinGames={setMinGamesPlayed}
+        maxGames={maxGamesPlayed}
+        gamesComparator={gamesComparator}
+        onChangeComparator={setGamesComparator}
+        showGamesPanel={showGamesPanel}
+        setShowGamesPanel={setShowGamesPanel}
+      />
+
+      {skaterTopCards.length > 0 && (
+        <TopThreeSection
+          title="Skaters"
+          cards={skaterTopCards}
+          theme={theme}
+          teamColor={teamColor}
+          expanded={skatersExpanded}
+          onToggle={() => setSkatersExpanded((v) => !v)}
+        />
+      )}
+      {goalieTopCards.length > 0 && (
+        <TopThreeSection
+          title="Goalies"
+          cards={goalieTopCards}
+          theme={theme}
+          teamColor={teamColor}
+          expanded={goaliesExpanded}
+          onToggle={() => setGoaliesExpanded((v) => !v)}
+        />
+      )}
+
+      {skaterTopCards.length === 0 && goalieTopCards.length === 0 && (
+        <View style={{ alignItems: "center", paddingVertical: 28 }}>
+          <Text style={{ fontSize: 14, color: theme.textSecondary }}>
+            No players match current filters
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   const todayStr = getTodayDateStr();
   const allGamesList = (teamData?.schedule?.dates || []).flatMap(
@@ -1509,27 +2847,44 @@ const TeamPageScreen = ({ route, navigation }) => {
             )}
 
             <View style={styles.headerTextBlock}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.headerName, { color: teamColor }]}
-                numberOfLines={1}
-              >
-                {team?.name || "NHL Team"}
-              </Text>
+              <View style={styles.headerNameRow}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.headerName, { color: teamColor }]}
+                  numberOfLines={1}
+                >
+                  {team?.name || "NHL Team"}
+                </Text>
+                {!!clinchIndicator && (
+                  <View
+                    style={[
+                      styles.clinchBadge,
+                      {
+                        backgroundColor: teamColor + "22",
+                        borderColor: teamColor + "66",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.clinchText, { color: teamColor }]}>
+                      {clinchIndicator}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 allowFontScaling={false}
                 style={[styles.headerLeague, { color: teamColor + "BB" }]}
                 numberOfLines={1}
               >
-                {team?.league?.name || "National Hockey League"}
+                {conferenceLabel}
               </Text>
-              {!!team?.division?.name && (
+              {!!divisionLabel && (
                 <Text
                   allowFontScaling={false}
                   style={[styles.headerDivision, { color: teamColor + "99" }]}
                   numberOfLines={1}
                 >
-                  {team.division.name}
+                  {divisionLabel}
                 </Text>
               )}
             </View>
@@ -1603,7 +2958,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                   ]}
                   numberOfLines={1}
                 >
-                  National Hockey League
+                  {conferenceLabel}
                 </Text>
               </View>
             </View>
@@ -1799,7 +3154,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   headerLogo: {
-    width: 68,
+    width: 88,
     height: 68,
     marginRight: 14,
   },
@@ -1813,7 +3168,16 @@ const styles = StyleSheet.create({
   },
   headerLogoFallbackText: { fontSize: 28, fontWeight: "800" },
   headerTextBlock: { flex: 1 },
+  headerNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
+  clinchBadge: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 3,
+  },
+  clinchText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.3 },
   headerLeague: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
   headerDivision: { fontSize: 12 },
   stickyMiniContent: {
@@ -1827,7 +3191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
-  stickyMiniLogo: { width: 32, height: 32, marginRight: 10 },
+  stickyMiniLogo: { width: 50, height: 32, marginRight: 10 },
   stickyMiniName: { fontSize: 15, fontWeight: "700" },
   stickyMiniLeague: { fontSize: 11, fontWeight: "500", marginTop: 1 },
   tabBar: {
@@ -1905,7 +3269,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  matchTeamLogo: { width: 24, height: 24 },
+  matchTeamLogo: { width: 40, height: 24 },
   matchTeamLogoFallback: {
     width: 24,
     height: 24,

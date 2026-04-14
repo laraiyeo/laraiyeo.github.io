@@ -21,7 +21,8 @@ const URLS = {
   player: {
     gameLog: "https://api-web.nhle.com/v1/player/:id/game-log/now",
     landing: "https://api-web.nhle.com/v1/player/:id/landing",
-    edge: "https://api-web.nhle.com/v1/edge/skater-detail/:id/now",
+    edgeSkater: "https://api-web.nhle.com/v1/edge/skater-detail/:id/now",
+    edgeGoalie: "https://api-web.nhle.com/v1/edge/goalie-detail/:id/now",
   },
   team: {
     stats: "https://api-web.nhle.com/v1/club-stats/:id/20252026/2",
@@ -1168,28 +1169,57 @@ app.get("/nhl/player/:id", async (req, res) => {
   const urls = {
     landing: expandUrl(URLS.player.landing, { id }),
     gameLog: expandUrl(URLS.player.gameLog, { id }),
-    edge: expandUrl(URLS.player.edge, { id }),
+    edgeSkater: expandUrl(URLS.player.edgeSkater, { id }),
+    edgeGoalie: expandUrl(URLS.player.edgeGoalie, { id }),
   };
 
   try {
-    const [landing, gameLog, edge] = await Promise.all([
+    const [landing, gameLog] = await Promise.all([
       getCachedJsonWithTtl(`player:landing:${id}`, urls.landing, PLAYER_TTL_MS),
       getCachedJsonWithTtl(`player:gameLog:${id}`, urls.gameLog, PLAYER_TTL_MS),
-      getCachedJsonWithTtl(`player:edge:${id}`, urls.edge, PLAYER_TTL_MS),
     ]);
+
+    let edge = null;
+    try {
+      edge = await getCachedJsonWithTtl(
+        `player:edge:skater:${id}`,
+        urls.edgeSkater,
+        PLAYER_TTL_MS,
+      );
+    } catch (skaterErr) {
+      try {
+        edge = await getCachedJsonWithTtl(
+          `player:edge:goalie:${id}`,
+          urls.edgeGoalie,
+          PLAYER_TTL_MS,
+        );
+      } catch (goalieErr) {
+        console.warn(
+          `edge unavailable for player ${id}; omitting edge stats`,
+          {
+            skater: skaterErr?.message || String(skaterErr),
+            goalie: goalieErr?.message || String(goalieErr),
+          },
+        );
+      }
+    }
+
+    const data = {
+      info: transformPlayerInfoPayload(landing.data),
+      gameLog: transformPlayerGameLogPayload(gameLog.data),
+    };
+    if (edge?.data) {
+      data.stats = transformPlayerEdgeStatsPayload(edge.data);
+    }
 
     setCachingHeaders(res, PLAYER_TTL_MS);
     res.json({
       source:
-        landing.fromCache && gameLog.fromCache && edge.fromCache
+        landing.fromCache && gameLog.fromCache && (edge ? edge.fromCache : true)
           ? "cache"
           : "origin",
       id,
-      data: {
-        info: transformPlayerInfoPayload(landing.data),
-        gameLog: transformPlayerGameLogPayload(gameLog.data),
-        stats: transformPlayerEdgeStatsPayload(edge.data),
-      },
+      data,
     });
   } catch (err) {
     res

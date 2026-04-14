@@ -111,6 +111,41 @@ export class NHLService extends BaseCacheService {
   static TEAMS_API_URL =
     "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams";
   static NHL_API_BASE = "https://api-web.nhle.com/v1";
+  static TEAM_ABBREV_ALIASES = {
+    ANA: ["ANA", "Anaheim", "Ducks", "Anaheim Ducks"],
+    BOS: ["BOS", "Boston", "Bruins", "Boston Bruins"],
+    BUF: ["BUF", "Buffalo", "Sabres", "Buffalo Sabres"],
+    CAR: ["CAR", "Carolina", "Hurricanes", "Carolina Hurricanes"],
+    CBJ: ["CBJ", "Columbus", "Blue Jackets", "Columbus Blue Jackets"],
+    CGY: ["CGY", "Calgary", "Flames", "Calgary Flames"],
+    CHI: ["CHI", "Chicago", "Blackhawks", "Chicago Blackhawks"],
+    COL: ["COL", "Colorado", "Avalanche", "Colorado Avalanche"],
+    DAL: ["DAL", "Dallas", "Stars", "Dallas Stars"],
+    DET: ["DET", "Detroit", "Red Wings", "Detroit Red Wings"],
+    EDM: ["EDM", "Edmonton", "Oilers", "Edmonton Oilers"],
+    FLA: ["FLA", "Florida", "Panthers", "Florida Panthers"],
+    LAK: ["LAK", "Los Angeles", "Kings", "Los Angeles Kings"],
+    MIN: ["MIN", "Minnesota", "Wild", "Minnesota Wild"],
+    MTL: ["MTL", "Montreal", "Canadiens", "Montreal Canadiens"],
+    NJD: ["NJD", "New Jersey", "Devils", "New Jersey Devils"],
+    NSH: ["NSH", "Nashville", "Predators", "Nashville Predators"],
+    NYI: ["NYI", "New York Islanders", "Islanders"],
+    NYR: ["NYR", "New York Rangers", "Rangers"],
+    OTT: ["OTT", "Ottawa", "Senators", "Ottawa Senators"],
+    PHI: ["PHI", "Philadelphia", "Flyers", "Philadelphia Flyers"],
+    PIT: ["PIT", "Pittsburgh", "Penguins", "Pittsburgh Penguins"],
+    SEA: ["SEA", "Seattle", "Kraken", "Seattle Kraken"],
+    SJS: ["SJS", "San Jose", "Sharks", "San Jose Sharks"],
+    STL: ["STL", "St. Louis", "Saint Louis", "Blues", "St. Louis Blues"],
+    TBL: ["TBL", "Tampa Bay", "Lightning", "Tampa Bay Lightning"],
+    TOR: ["TOR", "Toronto", "Maple Leafs", "Toronto Maple Leafs"],
+    UTA: ["UTA", "Utah", "Mammoth", "Utah Hockey Club"],
+    VAN: ["VAN", "Vancouver", "Canucks", "Vancouver Canucks"],
+    VGK: ["VGK", "Vegas", "Golden Knights", "Vegas Golden Knights"],
+    WPG: ["WPG", "Winnipeg", "Jets", "Winnipeg Jets"],
+    WSH: ["WSH", "Washington", "Capitals", "Washington Capitals"],
+  };
+  static _TEAM_ALIAS_MAP = null;
 
   static getTeamColor(teamOrKey, fallback = "#888888") {
     if (!teamOrKey) return fallback;
@@ -133,6 +168,111 @@ export class NHLService extends BaseCacheService {
     }
 
     return fallback;
+  }
+
+  static normalizeTeamKey(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  static getTeamAliasMap() {
+    if (this._TEAM_ALIAS_MAP) return this._TEAM_ALIAS_MAP;
+    const map = new Map();
+    Object.entries(this.TEAM_ABBREV_ALIASES).forEach(([abbr, aliases]) => {
+      aliases.forEach((alias) => {
+        const normalized = this.normalizeTeamKey(alias);
+        if (normalized) map.set(normalized, abbr);
+      });
+    });
+    this._TEAM_ALIAS_MAP = map;
+    return map;
+  }
+
+  static levenshteinDistance(a, b) {
+    const s = String(a || "");
+    const t = String(b || "");
+    if (s === t) return 0;
+    if (!s.length) return t.length;
+    if (!t.length) return s.length;
+
+    const prev = Array(t.length + 1)
+      .fill(0)
+      .map((_, i) => i);
+
+    for (let i = 1; i <= s.length; i += 1) {
+      let next = [i];
+      for (let j = 1; j <= t.length; j += 1) {
+        const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+        next[j] = Math.min(next[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+      }
+      for (let j = 0; j <= t.length; j += 1) prev[j] = next[j];
+    }
+
+    return prev[t.length];
+  }
+
+  static resolveTeamAbbrevFuzzy(teamOrName) {
+    const raw =
+      typeof teamOrName === "string"
+        ? teamOrName
+        : teamOrName?.teamAbbrev ||
+          teamOrName?.abbrev ||
+          teamOrName?.name ||
+          teamOrName?.teamName ||
+          teamOrName?.displayName ||
+          teamOrName?.fullName ||
+          "";
+
+    if (!raw) return null;
+
+    const direct = String(raw).trim().toUpperCase();
+    if (this.TEAM_ABBREV_ALIASES[direct]) return direct;
+
+    const normalizedQuery = this.normalizeTeamKey(raw);
+    if (!normalizedQuery) return null;
+
+    const aliasMap = this.getTeamAliasMap();
+    if (aliasMap.has(normalizedQuery)) return aliasMap.get(normalizedQuery);
+
+    let bestAbbrev = null;
+    let bestDistance = Infinity;
+    let bestLengthDiff = Infinity;
+
+    aliasMap.forEach((abbr, alias) => {
+      if (!alias) return;
+
+      if (alias.includes(normalizedQuery) || normalizedQuery.includes(alias)) {
+        const lenDiff = Math.abs(alias.length - normalizedQuery.length);
+        if (0 < bestDistance || lenDiff < bestLengthDiff) {
+          bestAbbrev = abbr;
+          bestDistance = 0;
+          bestLengthDiff = lenDiff;
+        }
+        return;
+      }
+
+      const distance = this.levenshteinDistance(normalizedQuery, alias);
+      const threshold = Math.max(
+        2,
+        Math.floor(Math.max(normalizedQuery.length, alias.length) * 0.34),
+      );
+      if (distance > threshold) return;
+
+      const lenDiff = Math.abs(alias.length - normalizedQuery.length);
+      if (
+        distance < bestDistance ||
+        (distance === bestDistance && lenDiff < bestLengthDiff)
+      ) {
+        bestAbbrev = abbr;
+        bestDistance = distance;
+        bestLengthDiff = lenDiff;
+      }
+    });
+
+    return bestAbbrev;
   }
 
   // Smart live game detection for NHL

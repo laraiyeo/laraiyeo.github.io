@@ -255,7 +255,7 @@ const TeamRow = ({
                     {
                       color: team.streakCode.startsWith("W")
                         ? theme.success
-                        : team.streakCode.startsWith("L")
+                        : team.streakCode.startsWith("L") || team.streakCode.startsWith("OT")
                           ? theme.error
                           : theme.textSecondary,
                     },
