@@ -1194,13 +1194,10 @@ app.get("/nhl/player/:id", async (req, res) => {
           PLAYER_TTL_MS,
         );
       } catch (goalieErr) {
-        console.warn(
-          `edge unavailable for player ${id}; omitting edge stats`,
-          {
-            skater: skaterErr?.message || String(skaterErr),
-            goalie: goalieErr?.message || String(goalieErr),
-          },
-        );
+        console.warn(`edge unavailable for player ${id}; omitting edge stats`, {
+          skater: skaterErr?.message || String(skaterErr),
+          goalie: goalieErr?.message || String(goalieErr),
+        });
       }
     }
 
