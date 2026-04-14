@@ -110,7 +110,7 @@ const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
   }
   const isCompletedFlag =
     !!(status && status.isCompleted) ||
-    /final|post|completed|over/i.test(statusStr);
+    /final|post|completed|over|off/i.test(statusStr);
 
   // If game is completed/finished, prefer showing peak (if present)
   const hasPeak = peak && peak.count;

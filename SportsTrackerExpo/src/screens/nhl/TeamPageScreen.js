@@ -1,3188 +1,1802 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  ScrollView,
+	View,
+	Text,
+	StyleSheet,
+	TouchableOpacity,
+	ActivityIndicator,
+	Animated,
+	RefreshControl,
+	Dimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import Svg, {
+	Defs,
+	LinearGradient as SvgLinearGradient,
+	Stop,
+	Rect,
+} from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
-import { useFavorites } from "../../context/FavoritesContext";
-import { useFocusEffect } from "@react-navigation/native";
 import { NHLService } from "../../services/NHLService";
 
-// NHL-specific year logic: September-December uses next year, otherwise current year
-const getNHLYear = () => {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
+const { width } = Dimensions.get("window");
+const STAT_CHIP_COLS = 3;
+const STAT_CHIP_GAP = 8;
+const STAT_CHIP_W =
+	(width - 2 * 12 - 2 * 14 - STAT_CHIP_GAP * (STAT_CHIP_COLS - 1)) /
+	STAT_CHIP_COLS;
 
-  // If current month is September (8) to December (11), use next year
-  if (month >= 8) {
-    // September to December
-    return currentYear + 1;
-  }
+const TABS = ["Team", "Matches", "Stats", "Roster"];
 
-  return currentYear;
+const TEAM_ID_TO_ABBR = {
+	"1": "BOS",
+	"2": "BUF",
+	"3": "CGY",
+	"4": "CHI",
+	"5": "DET",
+	"6": "EDM",
+	"7": "CAR",
+	"8": "LAK",
+	"9": "DAL",
+	"10": "MTL",
+	"11": "NJD",
+	"12": "NYI",
+	"13": "NYR",
+	"14": "OTT",
+	"15": "PHI",
+	"16": "PIT",
+	"17": "COL",
+	"18": "SJS",
+	"19": "STL",
+	"20": "TBL",
+	"21": "TOR",
+	"22": "VAN",
+	"23": "WSH",
+	"25": "ANA",
+	"26": "FLA",
+	"27": "NSH",
+	"28": "WPG",
+	"29": "CBJ",
+	"30": "MIN",
+	"37": "VGK",
+	"124292": "SEA",
+	"129764": "UTA",
 };
 
-// Normalize abbreviations for logo lookup consistency
-const normalizeAbbreviation = (abbrev) => {
-  if (!abbrev) return abbrev;
-  const lowerAbbrev = String(abbrev).toLowerCase();
-  const normalizationMap = {
-    lak: "la", // Los Angeles Kings
-    sjs: "sj", // San Jose Sharks
-    tbl: "tb", // Tampa Bay Lightning
-  };
-  return normalizationMap[lowerAbbrev] || lowerAbbrev;
+const normalizeAbbr = (abbr) => {
+	if (!abbr) return null;
+	const v = String(abbr).toUpperCase();
+	if (v === "LA") return "LAK";
+	if (v === "SJ") return "SJS";
+	if (v === "TB") return "TBL";
+	return v;
 };
 
-// Temporary abbreviation -> id map for cases where callers provide only an
-// abbreviation (e.g. { abbreviation: 'TOR' }) without a numeric id. Add more
-// entries here as needed; this avoids undefined teamId navigation errors.
-const abbrToIdMap = {
-  tor: "21",
-  mtl: "10",
-  cgy: "3",
-  edm: "6",
-  van: "22",
-  wpg: "28",
-  bos: "1",
-  nyr: "13",
-  phi: "15",
-  pit: "16",
-  tbl: "20",
-  car: "7",
-  chi: "4",
-  det: "5",
-  nsh: "27",
-  stl: "19",
-  wsh: "23",
-  ana: "25",
-  lak: "8",
-  sjs: "18",
-  cbj: "29",
-  min: "30",
-  ott: "14",
-  fla: "26",
-  buf: "2",
-  njd: "11",
-  nyi: "12",
-  dal: "9",
-  col: "17",
-  uta: "129764",
-  sea: "124292",
-  vgk: "37",
+const resolveTeamInput = (params) => {
+	const raw = params?.teamId ?? params?.team ?? null;
+	const teamObj = params?.team && typeof params.team === "object" ? params.team : null;
+
+	let id = null;
+	let abbreviation = null;
+	let displayName = null;
+
+	if (teamObj) {
+		id = teamObj.id != null ? String(teamObj.id) : null;
+		abbreviation = teamObj.abbreviation ? normalizeAbbr(teamObj.abbreviation) : null;
+		displayName = teamObj.displayName || teamObj.name || null;
+	}
+
+	if (raw != null && typeof raw === "object") {
+		id = id || (raw.id != null ? String(raw.id) : null);
+		abbreviation = abbreviation || (raw.abbreviation ? normalizeAbbr(raw.abbreviation) : null);
+		displayName = displayName || raw.displayName || raw.name || null;
+	} else if (raw != null) {
+		const token = String(raw);
+		if (/^\d+$/.test(token)) {
+			id = id || token;
+			abbreviation = abbreviation || TEAM_ID_TO_ABBR[token] || null;
+		} else {
+			abbreviation = abbreviation || normalizeAbbr(token);
+		}
+	}
+
+	return {
+		id,
+		abbreviation,
+		displayName,
+		endpointId: abbreviation || id,
+	};
 };
 
-const mapAbbrToId = (abbr) => {
-  if (!abbr) return null;
-  return abbrToIdMap[String(abbr).toLowerCase()] || null;
+const getTextOnColor = (hex) => {
+	if (!hex) return "#FFFFFF";
+	const c = String(hex).replace("#", "");
+	if (c.length < 6) return "#FFFFFF";
+	const r = parseInt(c.substring(0, 2), 16);
+	const g = parseInt(c.substring(2, 4), 16);
+	const b = parseInt(c.substring(4, 6), 16);
+	const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+	return lum > 0.5 ? "#000000" : "#FFFFFF";
 };
+
+const formatDate = (dateStr) => {
+	if (!dateStr) return "";
+	try {
+		return new Date(dateStr).toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+		});
+	} catch {
+		return String(dateStr);
+	}
+};
+
+const formatTime = (dateStr) => {
+	if (!dateStr) return "";
+	try {
+		return new Date(dateStr).toLocaleTimeString("en-US", {
+			hour: "numeric",
+			minute: "2-digit",
+			hour12: true,
+		});
+	} catch {
+		return "";
+	}
+};
+
+const getTodayDateStr = () => {
+	try {
+		const now = new Date();
+		const localToday = now.toLocaleDateString("en-CA");
+		if (now.getHours() < 2) {
+			const prev = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+			return prev.toLocaleDateString("en-CA");
+		}
+		return localToday;
+	} catch {
+		return new Date().toISOString().slice(0, 10);
+	}
+};
+
+const gameToLocalDateStr = (gameDate) => {
+	if (!gameDate) return "";
+	try {
+		return new Date(gameDate).toLocaleDateString("en-CA");
+	} catch {
+		return String(gameDate).slice(0, 10);
+	}
+};
+
+const getGameLabel = (game) => {
+	const type = Number(game?.gameType || 2);
+	if (type === 1) return "Preseason";
+	if (type === 3) return "Playoffs";
+	return null;
+};
+
+const toFinite = (v, fallback = 0) => {
+	const n = Number(v);
+	return Number.isFinite(n) ? n : fallback;
+};
+
+const average = (arr, key) => {
+	if (!Array.isArray(arr) || arr.length === 0) return 0;
+	let total = 0;
+	let count = 0;
+	for (const row of arr) {
+		const val = Number(row?.[key]);
+		if (Number.isFinite(val)) {
+			total += val;
+			count += 1;
+		}
+	}
+	return count > 0 ? total / count : 0;
+};
+
+const sum = (arr, key) => {
+	if (!Array.isArray(arr) || arr.length === 0) return 0;
+	return arr.reduce((acc, row) => {
+		const val = Number(row?.[key]);
+		return Number.isFinite(val) ? acc + val : acc;
+	}, 0);
+};
+
+const buildMetricRows = (players, metrics) => {
+	return metrics
+		.map((m) => {
+			const values = (players || [])
+				.map((p) => Number(p?.[m.key]))
+				.filter((v) => Number.isFinite(v));
+			if (!values.length) return null;
+
+			const minVal = Math.min(...values);
+			const maxVal = Math.max(...values);
+			const teamVal = m.type === "sum" ? sum(players, m.key) : average(players, m.key);
+
+			let pct = 0;
+			if (maxVal !== minVal) {
+				pct = (teamVal - minVal) / (maxVal - minVal);
+				pct = Math.max(0, Math.min(1, pct));
+			}
+
+			return {
+				key: m.key,
+				label: m.label,
+				value: m.format ? m.format(teamVal) : String(Math.round(teamVal)),
+				pct,
+			};
+		})
+		.filter(Boolean);
+};
+
+const StatBubble = ({ title, rows, expanded, onToggle, teamColor, theme }) => {
+	const visibleRows = expanded ? rows : rows.slice(0, 5);
+	return (
+		<TouchableOpacity
+			style={[sbStyles.bubble, { backgroundColor: theme.surface }]}
+			onPress={onToggle}
+			activeOpacity={0.85}
+		>
+			<View style={sbStyles.bubbleHeader}>
+				<Text
+					allowFontScaling={false}
+					style={[sbStyles.bubbleTitle, { color: theme.text }]}
+				>
+					{title}
+				</Text>
+				<View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
+					<Text style={[sbStyles.bubbleChevron, { color: theme.text }]}>›</Text>
+				</View>
+			</View>
+			<View>
+				{visibleRows.map(({ key, label, value, pct }) => (
+					<View key={key} style={sbStyles.statRow}>
+						<Text
+							allowFontScaling={false}
+							style={[sbStyles.statRowLabel, { color: theme.textSecondary }]}
+							numberOfLines={1}
+						>
+							{label}
+						</Text>
+						<View style={sbStyles.statRowRight}>
+							<Text
+								allowFontScaling={false}
+								style={[sbStyles.statRowValue, { color: theme.text }]}
+							>
+								{value}
+							</Text>
+							<View
+								style={[
+									sbStyles.statBarTrack,
+									{ backgroundColor: theme.border },
+								]}
+							>
+								<View
+									style={[
+										sbStyles.statBarFill,
+										{
+											width: `${Math.round(pct * 100)}%`,
+											backgroundColor: teamColor,
+										},
+									]}
+								/>
+							</View>
+						</View>
+					</View>
+				))}
+				{!expanded && rows.length > 5 && (
+					<Text
+						allowFontScaling={false}
+						style={[sbStyles.showMore, { color: theme.textSecondary }]}
+					>
+						+{rows.length - 5} more ›
+					</Text>
+				)}
+			</View>
+		</TouchableOpacity>
+	);
+};
+
+const sbStyles = StyleSheet.create({
+	bubble: {
+		borderRadius: 14,
+		padding: 14,
+		marginBottom: 0,
+	},
+	bubbleHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 10,
+	},
+	bubbleTitle: { fontSize: 14, fontWeight: "800", letterSpacing: 0.3 },
+	bubbleChevron: { fontSize: 20, lineHeight: 22 },
+	statRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 10,
+	},
+	statRowLabel: { flex: 1, fontSize: 12, fontWeight: "500", paddingRight: 8 },
+	statRowRight: { alignItems: "flex-end", gap: 4 },
+	statRowValue: {
+		fontSize: 12,
+		fontWeight: "700",
+		textAlign: "right",
+		minWidth: 40,
+	},
+	statBarTrack: { width: 64, height: 3, borderRadius: 2, overflow: "hidden" },
+	statBarFill: { height: "100%", borderRadius: 2, minWidth: 2 },
+	showMore: {
+		fontSize: 12,
+		fontWeight: "600",
+		textAlign: "right",
+		marginTop: 2,
+	},
+});
+
+const RosterPlayerRow = ({ player, teamColor, theme }) => {
+	const [expanded, setExpanded] = useState(false);
+	const [headshotError, setHeadshotError] = useState(false);
+	const personId = player.person?.id;
+	const headshotUrl =
+		player.headshot ||
+		(personId ? `https://assets.nhle.com/mugs/nhl/20252026/${personId}.png` : null);
+
+	const statEntries = Object.entries(player.stats || {}).filter(
+		([, v]) => v?.value != null,
+	);
+
+	const rankTextColor = getTextOnColor(teamColor);
+	const statusColor =
+		player.status?.description === "Active" ? theme.success : theme.error;
+
+	return (
+		<View style={[rStyles.playerBubble, { backgroundColor: theme.surface }]}>
+			<TouchableOpacity
+				style={rStyles.playerRow}
+				onPress={() => setExpanded((v) => !v)}
+				activeOpacity={0.75}
+			>
+				{headshotUrl && !headshotError ? (
+					<Image
+						cachePolicy="memory-disk"
+						source={{ uri: headshotUrl }}
+						style={rStyles.headshot}
+						onError={() => setHeadshotError(true)}
+					/>
+				) : (
+					<View
+						style={[
+							rStyles.headshot,
+							rStyles.headshotPlaceholder,
+							{ backgroundColor: teamColor + "33" },
+						]}
+					/>
+				)}
+
+				<View style={rStyles.nameBlock}>
+					<Text
+						allowFontScaling={false}
+						style={[rStyles.playerName, { color: theme.text }]}
+						numberOfLines={1}
+					>
+						{player.person?.fullName || ""}
+					</Text>
+					<Text
+						allowFontScaling={false}
+						style={[rStyles.playerMeta, { color: theme.textSecondary }]}
+						numberOfLines={1}
+					>
+						{player.position?.name || ""} • #{player.jerseyNumber || ""}
+					</Text>
+				</View>
+
+				<Text
+					allowFontScaling={false}
+					style={[rStyles.statusText, { color: statusColor }]}
+					numberOfLines={2}
+				>
+					{player.status?.description || ""}
+				</Text>
+
+				<View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
+					<Text style={[rStyles.chevron, { color: theme.textSecondary }]}>›</Text>
+				</View>
+			</TouchableOpacity>
+
+			{expanded &&
+				(statEntries.length === 0 ? (
+					<View style={rStyles.noStats}>
+						<Text style={[rStyles.noStatsText, { color: theme.textSecondary }]}>
+							No stats available
+						</Text>
+					</View>
+				) : (
+					<View style={rStyles.statsDropdown}>
+						<View style={rStyles.statsGrid}>
+							{statEntries.map(([label, info]) => (
+								<View
+									key={label}
+									style={[
+										rStyles.statChip,
+										{ backgroundColor: theme.background },
+									]}
+								>
+									{info.rank != null && (
+										<View
+											style={[
+												rStyles.rankBadge,
+												{ backgroundColor: teamColor },
+											]}
+										>
+											<Text
+												allowFontScaling={false}
+												style={[rStyles.rankText, { color: rankTextColor }]}
+											>
+												#{info.rank}
+											</Text>
+										</View>
+									)}
+									<Text
+										allowFontScaling={false}
+										style={[rStyles.chipValue, { color: theme.text }]}
+									>
+										{info.value}
+									</Text>
+									<Text
+										allowFontScaling={false}
+										style={[rStyles.chipLabel, { color: theme.textSecondary }]}
+										numberOfLines={2}
+									>
+										{label}
+									</Text>
+								</View>
+							))}
+						</View>
+					</View>
+				))}
+		</View>
+	);
+};
+
+const rStyles = StyleSheet.create({
+	playerBubble: {
+		marginHorizontal: 12,
+		marginTop: 10,
+		borderRadius: 14,
+		overflow: "visible",
+	},
+	playerRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		gap: 12,
+	},
+	headshot: {
+		width: 46,
+		height: 46,
+		borderRadius: 23,
+		backgroundColor: "rgba(128,128,128,0.1)",
+	},
+	headshotPlaceholder: { borderRadius: 23 },
+	nameBlock: { flex: 1 },
+	playerName: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
+	playerMeta: { fontSize: 12 },
+	statusText: { fontSize: 12, textAlign: "right", maxWidth: 80 },
+	chevron: { fontSize: 22, lineHeight: 26, paddingLeft: 4 },
+	statsDropdown: {
+		paddingHorizontal: 12,
+		paddingBottom: 14,
+		paddingTop: 4,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		borderTopColor: "rgba(128,128,128,0.2)",
+	},
+	statsGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+		paddingTop: 6,
+	},
+	statChip: {
+		width: STAT_CHIP_W,
+		borderRadius: 10,
+		paddingVertical: 10,
+		paddingHorizontal: 8,
+		alignItems: "center",
+		position: "relative",
+		overflow: "visible",
+		marginBottom: 8,
+	},
+	rankBadge: {
+		position: "absolute",
+		top: -8,
+		right: -8,
+		minWidth: 22,
+		height: 22,
+		borderRadius: 11,
+		paddingHorizontal: 4,
+		justifyContent: "center",
+		alignItems: "center",
+		zIndex: 1,
+	},
+	rankText: { fontSize: 9, fontWeight: "700" },
+	chipValue: { fontSize: 15, fontWeight: "800", marginBottom: 4 },
+	chipLabel: { fontSize: 10, fontWeight: "500", textAlign: "center" },
+	noStats: { paddingHorizontal: 16, paddingBottom: 14, paddingTop: 6 },
+	noStatsText: { fontSize: 13 },
+	posSection: {},
+	posSectionHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginHorizontal: 12,
+		marginTop: 14,
+		marginBottom: 2,
+		borderRadius: 10,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+	},
+	posSectionTitle: {
+		fontSize: 12,
+		fontWeight: "800",
+		letterSpacing: 0.5,
+		textTransform: "uppercase",
+	},
+	posSectionCount: {
+		fontSize: 12,
+		fontWeight: "800",
+	},
+});
+
+const TeamTab = ({ teamData, teamColor, theme }) => {
+	const summary = teamData?.summary || {};
+	const leaders = teamData?.leaders || [];
+
+	return (
+		<View
+			style={{
+				paddingHorizontal: 12,
+				paddingTop: 8,
+				paddingBottom: 24,
+				gap: 12,
+			}}
+		>
+			<View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
+				<Text
+					allowFontScaling={false}
+					style={[ttStyles.sectionTitle, { color: teamColor }]}
+				>
+					Team Overview
+				</Text>
+
+				{[
+					["Season", summary.currentSeason || "--"],
+					["Record", summary.record || "--"],
+					["Games", summary.gamesPlayed != null ? String(summary.gamesPlayed) : "--"],
+					["Goals For", summary.goalsFor != null ? String(summary.goalsFor) : "--"],
+					["Goals Against", summary.goalsAgainst != null ? String(summary.goalsAgainst) : "--"],
+					["Goal Diff", summary.goalDiff != null ? String(summary.goalDiff) : "--"],
+				].map(([label, value], idx, arr) => (
+					<View
+						key={label}
+						style={[
+							ttStyles.coachRow,
+							idx < arr.length - 1
+								? {
+										borderBottomWidth: StyleSheet.hairlineWidth,
+										borderBottomColor: theme.border,
+									}
+								: null,
+						]}
+					>
+						<Text style={[ttStyles.coachName, { color: theme.textSecondary }]}>
+							{label}
+						</Text>
+						<Text style={[ttStyles.coachJersey, { color: theme.text }]}>{value}</Text>
+					</View>
+				))}
+			</View>
+
+			{leaders.length > 0 && (
+				<View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
+					<Text
+						allowFontScaling={false}
+						style={[ttStyles.sectionTitle, { color: teamColor }]}
+					>
+						Team Leaders
+					</Text>
+					{leaders.map((leader, i) => (
+						<View
+							key={`${leader.label}-${i}`}
+							style={[
+								ttStyles.coachRow,
+								i < leaders.length - 1
+									? {
+											borderBottomWidth: StyleSheet.hairlineWidth,
+											borderBottomColor: theme.border,
+										}
+									: null,
+							]}
+						>
+							<View style={{ flex: 1 }}>
+								<Text
+									allowFontScaling={false}
+									style={[ttStyles.coachName, { color: theme.text }]}
+									numberOfLines={1}
+								>
+									{leader.player}
+								</Text>
+								<Text
+									allowFontScaling={false}
+									style={[ttStyles.coachJob, { color: theme.textSecondary }]}
+									numberOfLines={1}
+								>
+									{leader.label}
+								</Text>
+							</View>
+							<Text
+								allowFontScaling={false}
+								style={[ttStyles.coachJersey, { color: teamColor }]}
+							>
+								{leader.value}
+							</Text>
+						</View>
+					))}
+				</View>
+			)}
+		</View>
+	);
+};
+
+const ttStyles = StyleSheet.create({
+	bubble: {
+		borderRadius: 14,
+		overflow: "hidden",
+	},
+	sectionTitle: {
+		fontSize: 13,
+		fontWeight: "800",
+		letterSpacing: 0.3,
+		paddingHorizontal: 14,
+		paddingTop: 14,
+		paddingBottom: 10,
+	},
+	coachRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		gap: 12,
+	},
+	coachName: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+	coachJob: { fontSize: 12 },
+	coachJersey: {
+		fontSize: 15,
+		fontWeight: "700",
+		minWidth: 36,
+		textAlign: "right",
+	},
+});
+
+const MatchCard = ({
+	game,
+	idx,
+	navigation,
+	sport,
+	isDarkMode,
+	theme,
+	colors,
+	teamColor,
+	getLogo,
+}) => {
+	const label = getGameLabel(game);
+	const away = game.teams?.away?.team || {};
+	const home = game.teams?.home?.team || {};
+	const awayScore = game.teams?.away?.score;
+	const homeScore = game.teams?.home?.score;
+
+	const state = String(game.status?.codedGameState || "").toUpperCase();
+	const isLive = ["I", "MA", "MC"].includes(state);
+	const isScheduled = ["S", "P"].includes(state);
+	const isFinished = !isLive && !isScheduled && !!state;
+
+	const awayLogo = getLogo(away.abbreviation || away.id, isDarkMode);
+	const homeLogo = getLogo(home.abbreviation || home.id, isDarkMode);
+	const awayColor = NHLService.getTeamColor(away.abbreviation, colors.primary);
+	const homeColor = NHLService.getTeamColor(home.abbreviation, colors.secondary);
+
+	const awayWinner =
+		isFinished &&
+		awayScore != null &&
+		homeScore != null &&
+		Number(awayScore) > Number(homeScore);
+	const homeWinner =
+		isFinished &&
+		homeScore != null &&
+		awayScore != null &&
+		Number(homeScore) > Number(awayScore);
+
+	const statusLabel = isScheduled
+		? formatTime(game.gameDate)
+		: isLive
+			? "LIVE"
+			: game.status?.detailedState?.includes("Final")
+				? "Final"
+				: (game.status?.detailedState || "").slice(0, 8);
+
+	const gradId = `nhl_match_${idx}_${game.gamePk || "x"}`;
+
+	return (
+		<View style={styles.matchCardWrap}>
+			{label ? (
+				<View
+					style={[
+						styles.matchGameBadge,
+						{
+							backgroundColor: teamColor + "80",
+							borderColor: teamColor,
+						},
+					]}
+				>
+					<Text
+						allowFontScaling={false}
+						style={[styles.matchGameBadgeText, { color: theme.textSecondary }]}
+					>
+						{label}
+					</Text>
+				</View>
+			) : null}
+
+			<TouchableOpacity
+				style={[styles.matchCard, { backgroundColor: theme.surface }]}
+				onPress={() =>
+					navigation.navigate("GameDetails", {
+						sport: sport || "nhl",
+						gameId: game.gamePk,
+					})
+				}
+				activeOpacity={0.75}
+			>
+				<Svg
+					style={StyleSheet.absoluteFill}
+					width="100%"
+					height="100%"
+					pointerEvents="none"
+				>
+					<Defs>
+						<SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+							<Stop offset="0%" stopColor={awayColor} stopOpacity="0.08" />
+							<Stop offset="40%" stopColor={theme.surface} stopOpacity="0" />
+							<Stop offset="60%" stopColor={theme.surface} stopOpacity="0" />
+							<Stop offset="100%" stopColor={homeColor} stopOpacity="0.08" />
+						</SvgLinearGradient>
+					</Defs>
+					<Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+				</Svg>
+
+				<View style={styles.matchCardInner}>
+					<View style={styles.matchStatusCol}>
+						<Text
+							allowFontScaling={false}
+							style={[styles.matchDateText, { color: theme.textSecondary }]}
+							numberOfLines={2}
+						>
+							{formatDate(game.gameDate)}
+						</Text>
+						<Text
+							allowFontScaling={false}
+							style={[
+								styles.matchStatusText,
+								isLive
+									? { color: "#E53935", fontWeight: "700" }
+									: { color: theme.textTertiary || theme.textSecondary },
+							]}
+							numberOfLines={1}
+						>
+							{statusLabel}
+						</Text>
+					</View>
+
+					<View style={styles.matchTeamsList}>
+						<View style={styles.matchTeamRow}>
+							<View style={styles.matchLogoWrap}>
+								{awayLogo ? (
+									<Image
+										cachePolicy="memory-disk"
+										source={{ uri: awayLogo }}
+										style={styles.matchTeamLogo}
+										resizeMode="contain"
+									/>
+								) : (
+									<View
+										style={[
+											styles.matchTeamLogoFallback,
+											{ backgroundColor: awayColor },
+										]}
+									>
+										<Text style={styles.matchLogoFallbackText}>
+											{(away.abbreviation || away.name || "A").charAt(0)}
+										</Text>
+									</View>
+								)}
+							</View>
+
+							<Text
+								allowFontScaling={false}
+								style={[
+									styles.matchTeamName,
+									{
+										color: awayWinner ? theme.text : theme.textSecondary,
+										fontWeight: awayWinner ? "800" : "400",
+									},
+								]}
+								numberOfLines={1}
+							>
+								{away.name || away.abbreviation || "Away"}
+							</Text>
+
+							{awayScore != null && (
+								<Text
+									allowFontScaling={false}
+									style={[
+										styles.matchScoreText,
+										{
+											color: awayWinner ? theme.text : theme.textSecondary,
+											fontWeight: awayWinner ? "800" : "400",
+										},
+									]}
+								>
+									{awayScore}
+								</Text>
+							)}
+						</View>
+
+						<View
+							style={[
+								styles.matchTeamDivider,
+								{ backgroundColor: theme.border },
+							]}
+						/>
+
+						<View style={styles.matchTeamRow}>
+							<View style={styles.matchLogoWrap}>
+								{homeLogo ? (
+									<Image
+										cachePolicy="memory-disk"
+										source={{ uri: homeLogo }}
+										style={styles.matchTeamLogo}
+										resizeMode="contain"
+									/>
+								) : (
+									<View
+										style={[
+											styles.matchTeamLogoFallback,
+											{ backgroundColor: homeColor },
+										]}
+									>
+										<Text style={styles.matchLogoFallbackText}>
+											{(home.abbreviation || home.name || "H").charAt(0)}
+										</Text>
+									</View>
+								)}
+							</View>
+
+							<Text
+								allowFontScaling={false}
+								style={[
+									styles.matchTeamName,
+									{
+										color: homeWinner ? theme.text : theme.textSecondary,
+										fontWeight: homeWinner ? "800" : "400",
+									},
+								]}
+								numberOfLines={1}
+							>
+								{home.name || home.abbreviation || "Home"}
+							</Text>
+
+							{homeScore != null && (
+								<Text
+									allowFontScaling={false}
+									style={[
+										styles.matchScoreText,
+										{
+											color: homeWinner ? theme.text : theme.textSecondary,
+											fontWeight: homeWinner ? "800" : "400",
+										},
+									]}
+								>
+									{homeScore}
+								</Text>
+							)}
+						</View>
+					</View>
+
+					<Text
+						style={[
+							styles.matchChevron,
+							{ color: theme.textTertiary || theme.textSecondary },
+						]}
+					>
+						›
+					</Text>
+				</View>
+			</TouchableOpacity>
+		</View>
+	);
+};
+
+const MatchesSection = ({
+	title,
+	games,
+	collapsible,
+	navigation,
+	sport,
+	isDarkMode,
+	theme,
+	colors,
+	teamColor,
+	getLogo,
+}) => {
+	const [expanded, setExpanded] = useState(false);
+	if (!games.length) return null;
+
+	const visibleGames = collapsible && !expanded ? games.slice(0, 1) : games;
+
+	return (
+		<View style={{ marginBottom: 6 }}>
+			<TouchableOpacity
+				style={[mStyles.sectionHeader, { backgroundColor: theme.surface }]}
+				onPress={collapsible ? () => setExpanded((v) => !v) : undefined}
+				activeOpacity={collapsible ? 0.7 : 1}
+				disabled={!collapsible}
+			>
+				<Text
+					allowFontScaling={false}
+					style={[mStyles.sectionTitle, { color: teamColor }]}
+				>
+					{title}
+				</Text>
+
+				{collapsible && !expanded && games.length > 1 && (
+					<View
+						style={[mStyles.countBadge, { backgroundColor: teamColor + "22" }]}
+					>
+						<Text
+							allowFontScaling={false}
+							style={[mStyles.countText, { color: theme.textTertiary }]}
+						>
+							+{games.length - 1}
+						</Text>
+					</View>
+				)}
+
+				{collapsible && (
+					<View
+						style={{
+							transform: [{ rotate: expanded ? "90deg" : "0deg" }],
+							marginLeft: 4,
+						}}
+					>
+						<Text style={[mStyles.sectionChevron, { color: theme.textSecondary }]}>›</Text>
+					</View>
+				)}
+			</TouchableOpacity>
+
+			{visibleGames.map((game, idx) => (
+				<MatchCard
+					key={game.gamePk || idx}
+					game={game}
+					idx={idx}
+					navigation={navigation}
+					sport={sport}
+					isDarkMode={isDarkMode}
+					theme={theme}
+					colors={colors}
+					teamColor={teamColor}
+					getLogo={getLogo}
+				/>
+			))}
+		</View>
+	);
+};
+
+const mStyles = StyleSheet.create({
+	sectionHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginHorizontal: 12,
+		marginTop: 14,
+		marginBottom: 2,
+		borderRadius: 10,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		gap: 8,
+	},
+	sectionTitle: {
+		flex: 1,
+		fontSize: 13,
+		fontWeight: "800",
+		letterSpacing: 0.3,
+		textTransform: "uppercase",
+	},
+	countBadge: {
+		borderRadius: 12,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+	},
+	countText: { fontSize: 11, fontWeight: "700" },
+	sectionChevron: { fontSize: 22, lineHeight: 26 },
+});
 
 const TeamPageScreen = ({ route, navigation }) => {
-  const { teamId: rawTeamId, sport = "nhl" } = route.params || {};
-  // Some callers pass the full team object as `team`, others pass `teamId`.
-  // Prefer the explicit teamId param, then the `team` object, then the whole params
-  // object as a last resort. This makes navigation resilient to different
-  // shapes coming from various standings implementations.
-  const incomingParam = rawTeamId ?? route.params?.team ?? route.params ?? null;
-  // Debug log to help trace navigation shapes when something still goes wrong
-  // (will appear in console when navigating to the Team page).
-  // Example: TeamPage navigation - sport: nhl params: {teamId: undefined, team: {...}, sport: 'nhl'}
-  // Keep this log lightweight; remove or gate by env/dev later if noisy.
-  // eslint-disable-next-line no-console
-  console.log(
-    "NHL TeamPage navigation - sport:",
-    sport,
-    "params:",
-    route.params
-  );
-  // Resolve incoming team identifier which may be:
-  // - a plain ESPN-style id (string/number)
-  // - an object containing { id, teamId, team: { id }, abbreviation }
-  // - an abbreviation string like 'NYR' or 'nyr'
-  const resolveTeamParam = (input) => {
-    if (input == null) return { id: null, abbreviation: null };
-    if (typeof input === "object") {
-      const id =
-        input.teamId ??
-        input.id ??
-        input.team?.id ??
-        input.team?.teamId ??
-        null;
-      const abbreviation =
-        input.abbreviation ??
-        input.tricode ??
-        input.team?.abbreviation ??
-        input.team?.abbrev ??
-        null;
-      return {
-        id: id != null ? String(id) : null,
-        abbreviation: abbreviation != null ? String(abbreviation) : null,
-      };
-    }
-    // primitive
-    const s = String(input);
-    // if looks like a number, prefer id
-    if (/^\d+$/.test(s)) return { id: s, abbreviation: null };
-    // otherwise treat as abbreviation
-    return { id: null, abbreviation: s };
-  };
-  const resolvedParam = resolveTeamParam(incomingParam);
-  const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
-
-  const [activeTab, setActiveTab] = useState("Games");
-  const [loading, setLoading] = useState(true);
-  const [teamData, setTeamData] = useState(null);
-
-  // Derive a stable numeric teamId when available. Prefer the resolved param id,
-  // otherwise fall back to any already-loaded teamData id. This ensures any
-  // references to `teamId` below are defined during render.
-  const teamId =
-    resolvedParam.id ?? (teamData?.id ? String(teamData.id) : null);
-  const [teamRecord, setTeamRecord] = useState(null);
-  const [currentGame, setCurrentGame] = useState(null);
-  const [lastMatches, setLastMatches] = useState([]);
-  const [nextMatches, setNextMatches] = useState([]);
-  const [lastMatchesCollapsed, setLastMatchesCollapsed] = useState(true);
-  const [nextMatchesCollapsed, setNextMatchesCollapsed] = useState(true);
-  const [roster, setRoster] = useState(null);
-  const [loadingRoster, setLoadingRoster] = useState(false);
-  const [collapsedRosterSections, setCollapsedRosterSections] = useState({
-    forwards: true,
-    defensemen: true,
-    goalies: true,
-    others: true,
-  });
-  const [teamStats, setTeamStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
-
-  // Configuration for which stats to show for each category
-  // You can customize this object to show different stats for each category
-  const statsConfiguration = {
-    // Default configuration - show first 6 stats for any category not specified
-    default: { limit: 6, statNames: null }, // null means show first N stats
-
-    // Example category-specific configurations
-    // You can add specific categories here with custom stat selections
-    Offensive: {
-      limit: 6,
-      statNames: [
-        "goals",
-        "assists",
-        "avgShots",
-        "pointsPerGame",
-        "powerPlayOpportunities",
-        "faceoffPercent",
-      ],
-    },
-    Defensive: {
-      limit: 6,
-      statNames: [
-        "avgGoalsAgainst",
-        "avgShotsAgainst",
-        "powerPlayGoalsAgainst",
-        "shutouts",
-        "saves",
-        "hits",
-      ],
-    },
-    General: {
-      limit: 6,
-      statNames: [
-        "games",
-        "timeOnIcePerGame",
-        "shiftsPerGame",
-        "shotDifferential",
-        "goalDifferential",
-        "PIMDifferential",
-      ],
-    },
-    Penalties: {
-      limit: 6,
-      statNames: [
-        "penalties",
-        "penaltyMinutes",
-        "majorPenalties",
-        "minorPenalties",
-        "avgFights",
-        "holdingPenalties",
-      ],
-    },
-  };
-
-  const liveUpdateInterval = useRef(null);
-  // Simple in-memory cache for this screen instance
-  const cachedStandings = useRef(null);
-  const cachedEvents = useRef(null);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchTeamData();
-
-      // Cleanup interval on unmount
-      return () => {
-        if (liveUpdateInterval.current) {
-          clearInterval(liveUpdateInterval.current);
-        }
-      };
-    }, [teamId])
-  );
-
-  // Convert HTTP to HTTPS helper (from NFL)
-  const convertToHttps = (url) => {
-    if (url && url.startsWith("http://"))
-      return url.replace("http://", "https://");
-    return url;
-  };
-
-  // Derive sanitized header stats preferring values from teamData (/teams) then falling back to computed teamRecord
-  const deriveHeaderStats = () => {
-    // Extract stats from /teams payload record.items array (where all the numeric data lives)
-    const totalRecord = teamData?.record?.items?.find(
-      (item) => item.type === "total" || item.description?.includes("Overall")
-    );
-
-    // Helper to find stat by name from the stats array
-    const getStat = (name) => {
-      if (!totalRecord?.stats) return null;
-      const stat = totalRecord.stats.find((s) => s.name === name);
-      return stat?.value ?? null;
-    };
-
-    // Get record display - prefer the summary from total record, then fallback to constructed
-    let recordDisplay = totalRecord?.summary;
-    if (!recordDisplay) {
-      recordDisplay =
-        teamData?.recordSummary ||
-        teamData?.record?.displayValue ||
-        teamData?.record?.display;
-    }
-    if (!recordDisplay && teamRecord) {
-      recordDisplay = `${teamRecord.wins}-${teamRecord.losses}-${
-        teamRecord.otLosses || 0
-      }`;
-    }
-
-    // Get points - prefer from /teams stats, then fallback to teamRecord
-    let points = getStat("points");
-    if (points === null && teamData?.points !== undefined)
-      points = teamData.points;
-    if (points === null && teamData?.team?.points !== undefined)
-      points = teamData.team.points;
-    if (points === null && teamRecord?.points !== undefined)
-      points = teamRecord.points;
-
-    // Get streak - prefer from /teams stats, then other locations
-    let rawStreak = getStat("streak");
-    if (rawStreak === null)
-      rawStreak = teamData?.streak ?? teamData?.streak?.displayValue ?? null;
-    if (rawStreak === null && teamData?.team?.streak)
-      rawStreak = teamData.team.streak;
-
-    let streakDisplay = "--";
-    let streakKind = null;
-    if (rawStreak !== null && rawStreak !== undefined) {
-      const s = String(rawStreak).trim();
-      if (s === "") {
-        streakDisplay = "--";
-      } else {
-        const first = s.charAt(0);
-        if (first === "-") {
-          streakDisplay = "L" + s.substring(1);
-          streakKind = "L";
-        } else if (first === "+") {
-          streakDisplay = "W" + s.substring(1);
-          streakKind = "W";
-        } else if (!isNaN(Number(s))) {
-          streakDisplay = "W" + s;
-          streakKind = "W";
-        } else {
-          streakDisplay = s;
-        }
-      }
-    }
-
-    const standingSummary =
-      teamData?.standingSummary ||
-      teamData?.standing?.summary ||
-      teamData?.team?.standingSummary ||
-      null;
-
-    // Debug: log the exact values extracted for header
-    console.log("NHL deriveHeaderStats extracted:", {
-      recordDisplay,
-      points,
-      streakDisplay,
-      streakKind,
-      standingSummary,
-      totalRecordFound: !!totalRecord,
-      totalRecordSummary: totalRecord?.summary,
-      extractedStats: {
-        points: getStat("points"),
-        wins: getStat("wins"),
-        losses: getStat("losses"),
-        otLosses: getStat("otLosses"),
-        streak: getStat("streak"),
-      },
-    });
-
-    return {
-      recordDisplay,
-      points,
-      streakDisplay,
-      streakKind,
-      standingSummary,
-    };
-  };
-
-  // Debug: log the exact teams link and the header stats used for display whenever relevant data changes
-  useEffect(() => {
-    try {
-      const teamsUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}`;
-      const headerStats =
-        typeof deriveHeaderStats === "function" ? deriveHeaderStats() : null;
-      console.log("NHL TeamHeader debug:", {
-        teamsUrl,
-        headerStats,
-        teamDataLoaded: !!teamData,
-        teamRecordLoaded: !!teamRecord,
-      });
-      console.log("NHL TeamHeader teamData record structure:", {
-        hasRecord: !!teamData?.record,
-        recordItems: teamData?.record?.items?.length || 0,
-        firstItemSummary: teamData?.record?.items?.[0]?.summary,
-        firstItemStatsCount: teamData?.record?.items?.[0]?.stats?.length || 0,
-      });
-      console.log("NHL TeamHeader teamRecord fallback:", teamRecord);
-    } catch (e) {
-      console.warn("NHL TeamHeader debug log failed", e);
-    }
-  }, [teamData, teamRecord, teamId]);
-
-  // Normalize an ESPN event into the UI-friendly shape expected by render code
-  const normalizeEventForUI = (ev) => {
-    if (!ev) return ev;
-    const comp =
-      Array.isArray(ev.competitions) && ev.competitions.length > 0
-        ? ev.competitions[0]
-        : null;
-    const status = ev.status || comp?.status || {};
-    const competitors = comp?.competitors || ev.competitors || [];
-
-    const parseScore = (raw) => {
-      if (raw == null) return null;
-      // If it's an object like { value, displayValue, shootoutScore }
-      if (typeof raw === "object") {
-        if (raw.value !== undefined && raw.value !== null) {
-          const n = Number(raw.value);
-          return Number.isFinite(n) ? n : null;
-        }
-        if (raw.displayValue !== undefined && raw.displayValue !== null) {
-          const n = Number(String(raw.displayValue).replace(/[^0-9-]/g, ""));
-          return Number.isFinite(n) ? n : String(raw.displayValue);
-        }
-        // shootoutScore may be present
-        if (raw.shootoutScore !== undefined && raw.shootoutScore !== null) {
-          const n = Number(raw.shootoutScore);
-          return Number.isFinite(n) ? n : null;
-        }
-        return null;
-      }
-
-      // primitive (string/number)
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : String(raw);
-    };
-
-    const findTeam = (home) => {
-      const c = competitors.find(
-        (x) =>
-          x.homeAway === (home ? "home" : "away") ||
-          (x.team && x.team.homeAway === (home ? "home" : "away"))
-      );
-      if (!c)
-        return {
-          id: null,
-          abbreviation: "TBD",
-          score: null,
-          record: null,
-          team: null,
-        };
-      return {
-        id: c.team?.id ?? c.id ?? null,
-        abbreviation:
-          c.team?.abbreviation ||
-          c.team?.abbrev ||
-          c.team?.shortDisplayName ||
-          c.team?.displayName ||
-          c.abbreviation ||
-          c.team?.tricode ||
-          "UNK",
-        // parse score robustly (handle object or primitive shapes); keep null when missing
-        score: parseScore(
-          c.score != null
-            ? c.score
-            : c.curatedScore != null
-            ? c.curatedScore
-            : null
-        ),
-        record: c.team?.record?.displayValue || c.team?.record || null,
-        team: c.team || c,
-      };
-    };
-
-    const homeTeam = findTeam(true);
-    const awayTeam = findTeam(false);
-
-    return {
-      ...ev,
-      status,
-      date: ev.date,
-      isCompleted:
-        status?.type?.state === "post" ||
-        status?.type?.state === "final" ||
-        status?.type?.completed === true,
-      displayClock:
-        status?.displayClock ||
-        status?.type?.shortDetail ||
-        status?.type?.summary ||
-        null,
-      venue:
-        comp?.venue?.fullName ||
-        comp?.venue?.name ||
-        ev.venue ||
-        ev.location ||
-        null,
-      homeTeam,
-      awayTeam,
-    };
-  };
-
-  const fetchTeamData = async () => {
-    try {
-      // Use ESPN core API for NHL team info
-      const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}`;
-      console.log("Fetching NHL team data from:", espnUrl);
-      const res = await fetch(espnUrl);
-      const data = await res.json();
-      // Debug: print the exact places we look for header numbers so we can trace where
-      // values like points, record, and streak are coming from in the teams payload.
-      try {
-        console.log("NHL /teams payload debug:", {
-          raw: data,
-          teamTopLevel: data?.team,
-          points_direct: data?.team?.points,
-          recordSummary: data?.team?.recordSummary,
-          record_obj: data?.team?.record,
-          nested_team_obj: data?.team?.team,
-          standingSummary: data?.team?.standingSummary,
-          standing_obj: data?.team?.standing,
-          streak: data?.team?.streak,
-        });
-      } catch (e) {
-        /* ignore stringify issues */
-      }
-      if (data && data.team) {
-        setTeamData(data.team);
-        // try to fetch standings/record and season schedules (seasontype 1,2,3)
-        const recordPromise = fetchTeamRecord(data.team.id);
-
-        // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
-        const typeList = [1, 2, 3];
-        const schedulePromises = typeList.map((type) => {
-          const scheduleUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}/schedule?seasontype=${type}`;
-          return fetch(scheduleUrl)
-            .then((r) => r.json())
-            .then((j) => {
-              const events = j?.events || j?.schedule || [];
-              try {
-                // Log a small sample for debugging (first 3 events)
-                console.log("NHL TeamPage: schedule response", {
-                  type,
-                  scheduleUrl,
-                  eventsCount: Array.isArray(events) ? events.length : 0,
-                  sample: Array.isArray(events) ? events.slice(0, 3) : events,
-                });
-              } catch (e) {
-                /* ignore stringify issues */
-              }
-              return { type, events };
-            })
-            .catch((err) => {
-              console.log(
-                "NHL TeamPage: schedule fetch failed for type",
-                type,
-                "url",
-                scheduleUrl,
-                err
-              );
-              return { type, events: [] };
-            });
-        });
-
-        const [, ...typeResults] = await Promise.all([
-          recordPromise,
-          ...schedulePromises,
-        ]);
-
-        // Determine the last non-empty type (highest type number with events)
-        let chosenType = null;
-        let chosenEvents = [];
-        for (let i = typeResults.length - 1; i >= 0; i--) {
-          const res = typeResults[i];
-          if (res && Array.isArray(res.events) && res.events.length > 0) {
-            chosenType = res.type;
-            chosenEvents = res.events;
-            break;
-          }
-        }
-        // If all empty, fallback to type 1 combined results
-        if (!chosenType) {
-          chosenType = 1;
-          chosenEvents = typeResults[0]?.events || [];
-        }
-
-        // cache the chosen events and the season type to use for future updates
-        const normalizedEvents = Array.isArray(chosenEvents)
-          ? chosenEvents.map(normalizeEventForUI)
-          : [];
-        cachedEvents.current = normalizedEvents;
-        cachedEvents.selectedSeasonType = chosenType;
-        // also cache per-type results so we can build unified lists later
-        const byType = {};
-        typeResults.forEach((r) => {
-          try {
-            byType[r.type] = Array.isArray(r.events) ? r.events : [];
-          } catch (e) {
-            byType[r.type] = [];
-          }
-        });
-        cachedEvents.byType = byType;
-
-        // debug: show chosen type/events sample before processing
-        try {
-          console.log("NHL TeamPage: chosen season type and events", {
-            chosenType,
-            chosenEventsCount: Array.isArray(normalizedEvents)
-              ? normalizedEvents.length
-              : 0,
-            sample: Array.isArray(normalizedEvents)
-              ? normalizedEvents.slice(0, 3)
-              : normalizedEvents,
-          });
-        } catch (e) {}
-
-        // Process current game using ALL season types (not just chosen type) to find live games
-        // but use chosen events for matches display
-        const allEvents = [];
-        Object.values(byType).forEach((arr) => {
-          if (Array.isArray(arr)) allEvents.push(...arr);
-        });
-        const allNormalizedEvents = allEvents.map(normalizeEventForUI);
-
-        // Ensure currentGame is determined first so fetchAllMatches can reliably
-        // filter it out of the upcoming list. Running sequentially here is cheap
-        // compared to the UI correctness benefit.
-        await fetchCurrentGame(allNormalizedEvents);
-        await fetchAllMatches(normalizedEvents);
-      }
-    } catch (error) {
-      console.error("Error fetching NHL team data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCurrentGame = async (eventsParam) => {
-    try {
-      // Use ESPN scoreboard API to find today's game for team
-      // Accept pre-fetched events to avoid duplicate network requests
-      let events = eventsParam || cachedEvents.current;
-      if (!events) {
-        // Use the previously selected season type if available, otherwise default to type=1
-        const chosenType = cachedEvents.selectedSeasonType || 1;
-        const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}/schedule?seasontype=${chosenType}`;
-        const res = await fetch(scoreboardUrl);
-        const json = await res.json();
-        events = json?.events || json?.schedule || [];
-        cachedEvents.current = events;
-      }
-      if (events && events.length > 0) {
-        // Determine current-window: today (local) through 2:00 AM next day
-        const nowLocal = new Date();
-        const startOfTodayLocal = new Date(
-          nowLocal.getFullYear(),
-          nowLocal.getMonth(),
-          nowLocal.getDate(),
-          0,
-          0,
-          0,
-          0
-        );
-        const endOfWindowLocal = new Date(
-          nowLocal.getFullYear(),
-          nowLocal.getMonth(),
-          nowLocal.getDate() + 1,
-          2,
-          0,
-          0,
-          0
-        ); // next day 2:00 AM
-
-        // prefer live if present
-        const liveEvent = events.find((ev) => {
-          const state = ev.status?.type?.state;
-          return state === "in" || state === "live";
-        });
-        if (liveEvent) {
-          console.log("NHL fetchCurrentGame: selected live game as current:", {
-            gameId: liveEvent.id,
-            gameDate: liveEvent.date,
-            gameStatus: liveEvent.status?.type?.state,
-            reason: "live game found",
-          });
-          // Normalize the live event to ensure scores are parsed properly
-          const normalizedLive = liveEvent.homeTeam
-            ? liveEvent
-            : normalizeEventForUI(liveEvent);
-          setCurrentGame(normalizedLive);
-          if (isFavorite(teamId, "nhl")) {
-            try {
-              await updateTeamCurrentGame(teamId, {
-                eventId: liveEvent.id,
-                eventLink: liveEvent.links?.website?.href || liveEvent.link,
-                gameDate: liveEvent.date,
-                competition: "nhl",
-                updatedAt: new Date().toISOString(),
-              });
-            } catch (e) {}
-          }
-          return;
-        }
-
-        // Next, prefer any event that falls within today's current window (today through 2AM next day).
-        const inWindowEvent = events.find((ev) => {
-          try {
-            const evDate = new Date(ev.date);
-            return evDate >= startOfTodayLocal && evDate <= endOfWindowLocal;
-          } catch (e) {
-            return false;
-          }
-        });
-        if (inWindowEvent) {
-          console.log(
-            "NHL fetchCurrentGame: selected in-window game as current:",
-            {
-              gameId: inWindowEvent.id,
-              gameDate: inWindowEvent.date,
-              gameStatus: inWindowEvent.status?.type?.state,
-              todayWindow: {
-                start: startOfTodayLocal.toISOString(),
-                end: endOfWindowLocal.toISOString(),
-              },
-              reason: "game falls within today window",
-            }
-          );
-          const normalizedInWindow = inWindowEvent.homeTeam
-            ? inWindowEvent
-            : normalizeEventForUI(inWindowEvent);
-          setCurrentGame(normalizedInWindow);
-          if (isFavorite(teamId, "nhl")) {
-            try {
-              await updateTeamCurrentGame(teamId, {
-                eventId: inWindowEvent.id,
-                eventLink:
-                  inWindowEvent.links?.website?.href || inWindowEvent.link,
-                gameDate: inWindowEvent.date,
-                competition: "nhl",
-                updatedAt: new Date().toISOString(),
-              });
-            } catch (e) {}
-          }
-          return;
-        }
-
-        // If none live or in-window, do NOT fallback to upcoming scheduled games as 'current'
-        // Upcoming scheduled games will be shown in the Upcoming section instead.
-      }
-    } catch (error) {
-      console.error("Error fetching current NHL game:", error);
-    }
-  };
-
-  const fetchAllMatches = async (eventsParam) => {
-    try {
-      // Fetch season schedule via ESPN site API
-      // Accept pre-fetched events to avoid duplicate network requests
-      let events = eventsParam || cachedEvents.current;
-      console.log(
-        "NHL fetchAllMatches: eventsParam length:",
-        Array.isArray(eventsParam) ? eventsParam.length : "not array",
-        "cachedEvents.current length:",
-        Array.isArray(cachedEvents.current)
-          ? cachedEvents.current.length
-          : "not array"
-      );
-
-      // If we have cached per-type results, combine them so Last Matches shows games from all types
-      if (cachedEvents.byType) {
-        try {
-          const allEventsArr = [];
-          Object.values(cachedEvents.byType).forEach((arr) => {
-            if (Array.isArray(arr)) allEventsArr.push(...arr);
-          });
-          // Deduplicate by event id, prefer first occurrence
-          const map = new Map();
-          for (const ev of allEventsArr) {
-            if (ev && ev.id) {
-              if (!map.has(ev.id)) map.set(ev.id, ev);
-            }
-          }
-          events = Array.from(map.values());
-          cachedEvents.current = events;
-          console.log(
-            "NHL fetchAllMatches: combined events from byType, total:",
-            events.length
-          );
-        } catch (e) {
-          // Fallback to fetching chosen type if combining fails
-          const chosenType = cachedEvents.selectedSeasonType || 1;
-          const url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}/schedule?seasontype=${chosenType}`;
-          const res = await fetch(url);
-          const json = await res.json();
-          events = json?.events || [];
-          cachedEvents.current = events;
-          console.log(
-            "NHL fetchAllMatches: fallback fetch for type",
-            chosenType,
-            "events:",
-            events.length
-          );
-        }
-      } else if (!events) {
-        // Use the previously selected season type if available, otherwise default to type=1
-        const chosenType = cachedEvents.selectedSeasonType || 1;
-        const url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}/schedule?seasontype=${chosenType}`;
-        const res = await fetch(url);
-        const json = await res.json();
-        events = json?.events || [];
-        cachedEvents.current = events;
-        console.log(
-          "NHL fetchAllMatches: fresh fetch for type",
-          chosenType,
-          "events:",
-          events.length
-        );
-      }
-      // Determine today's window: today local midnight -> next day 2:00 AM
-      const nowLocal = new Date();
-      const startOfTodayLocal = new Date(
-        nowLocal.getFullYear(),
-        nowLocal.getMonth(),
-        nowLocal.getDate(),
-        0,
-        0,
-        0,
-        0
-      );
-      const endOfWindowLocal = new Date(
-        nowLocal.getFullYear(),
-        nowLocal.getMonth(),
-        nowLocal.getDate() + 1,
-        2,
-        0,
-        0,
-        0
-      );
-
-      const past = [];
-      const future = [];
-
-      // Ensure events are normalized into UI-friendly shape (homeTeam/awayTeam)
-      try {
-        if (Array.isArray(events) && events.length > 0 && !events[0].homeTeam) {
-          events = events.map((ev) => normalizeEventForUI(ev));
-          cachedEvents.current = events;
-          console.log(
-            "NHL fetchAllMatches: normalized events for rendering, total:",
-            events.length
-          );
-        }
-      } catch (e) {
-        console.log("NHL fetchAllMatches: error normalizing events", e);
-      }
-
-      console.log(
-        "NHL fetchAllMatches: processing",
-        events.length,
-        "events for past/future classification"
-      );
-      console.log("NHL fetchAllMatches: today window", {
-        startOfTodayLocal,
-        endOfWindowLocal,
-      });
-
-      for (const ev of events) {
-        // parse event date
-        let evDate;
-        try {
-          evDate = new Date(ev.date);
-        } catch (e) {
-          evDate = null;
-        }
-
-        // If event falls within today's window, skip it here (it's handled by currentGame)
-        if (
-          evDate &&
-          evDate >= startOfTodayLocal &&
-          evDate <= endOfWindowLocal
-        ) {
-          console.log("NHL fetchAllMatches: skipping event in today window:", {
-            id: ev.id,
-            date: ev.date,
-            evDate,
-          });
-          continue;
-        }
-
-        // Additionally, if we already selected a currentGame, don't include that same
-        // event in the Upcoming/future list so it doesn't appear twice.
-        if (
-          currentGame &&
-          currentGame.id &&
-          ev &&
-          ev.id &&
-          String(ev.id) === String(currentGame.id)
-        ) {
-          console.log(
-            "NHL fetchAllMatches: filtering out currentGame from future list:",
-            ev.id
-          );
-          continue;
-        }
-
-        const state = ev.status?.type?.state;
-        const desc = (
-          ev.status?.type?.description ||
-          ev.status?.type?.shortDetail ||
-          ev.status?.description ||
-          ""
-        ).toLowerCase();
-
-        // Classify by date instead of relying on status state (which is often undefined)
-        if (evDate && evDate < nowLocal) {
-          // Game is in the past
-          past.push(ev);
-        } else if (evDate && evDate >= nowLocal) {
-          // Game is in the future
-          future.push(ev);
-        } else {
-        }
-      }
-
-      // Sort by date
-      past.sort((a, b) => new Date(b.date) - new Date(a.date));
-      future.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      console.log(
-        "NHL fetchAllMatches: final results - past:",
-        past.length,
-        "future:",
-        future.length
-      );
-      console.log("NHL fetchAllMatches: past sample:", past.slice(0, 2));
-      console.log("NHL fetchAllMatches: future sample:", future.slice(0, 2));
-
-      setLastMatches(past);
-      setNextMatches(future);
-    } catch (e) {
-      console.error("Error fetching NHL matches:", e);
-    }
-  };
-
-  const fetchTeamRecord = async () => {
-    try {
-      const standingsData = await NHLService.getStandings();
-
-      if (standingsData?.standings || standingsData?.conferences) {
-        let teamRecord = null;
-
-        // Handle different standings data formats
-        const teams =
-          standingsData.standings ||
-          (standingsData.conferences &&
-            standingsData.conferences.flatMap((conf) =>
-              conf.divisions
-                ? conf.divisions.flatMap((div) => div.teams || [])
-                : []
-            ));
-
-        if (teams) {
-          teamRecord = teams.find(
-            (team) =>
-              String(team.id) === String(teamId) ||
-              String(team.team?.id) === String(teamId) ||
-              normalizeAbbreviation(team.abbreviation) ===
-                normalizeAbbreviation(teamData?.abbreviation)
-          );
-        }
-
-        if (teamRecord) {
-          setTeamRecord({
-            wins:
-              teamRecord.wins ||
-              teamRecord.gamesPlayed -
-                teamRecord.losses -
-                teamRecord.otLosses ||
-              0,
-            losses: teamRecord.losses || 0,
-            otLosses: teamRecord.otLosses || 0,
-            points: teamRecord.points || 0,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching team record:", error);
-    }
-  };
-
-  const fetchRoster = async () => {
-    if (roster || loadingRoster) return;
-
-    setLoadingRoster(true);
-    try {
-      const currentTeamId = teamData?.id || resolvedParam.id;
-      if (!currentTeamId) {
-        console.log("NHL TeamPage: no team id available for roster fetch");
-        setRoster([]);
-        return;
-      }
-
-      console.log("NHL TeamPage: fetching roster for team id:", currentTeamId);
-      const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}/roster`;
-      const response = await fetch(rosterUrl);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("NHL TeamPage: roster API response:", data);
-
-        if (data.athletes) {
-          const players = data.athletes.flatMap((group) =>
-            (group.items || []).map((athlete) => ({
-              id: athlete.id,
-              name: athlete.displayName || athlete.fullName || "Unknown Player",
-              position: athlete.position?.abbreviation || "N/A",
-              number: athlete.jersey || "N/A",
-              headshot: athlete.headshot?.href,
-            }))
-          );
-          console.log(
-            "NHL TeamPage: processed roster players:",
-            players.length
-          );
-          setRoster(players);
-        } else {
-          console.log("NHL TeamPage: no athletes in roster response");
-          setRoster([]);
-        }
-      } else {
-        console.log(
-          "NHL TeamPage: roster API failed, status:",
-          response.status
-        );
-        setRoster([]);
-      }
-    } catch (error) {
-      console.error("Error fetching roster:", error);
-      setRoster([]);
-    } finally {
-      setLoadingRoster(false);
-    }
-  };
-
-  const fetchTeamStats = async () => {
-    if (teamStats || loadingStats) return;
-
-    setLoadingStats(true);
-    try {
-      const currentTeamId = teamData?.id || resolvedParam.id;
-      if (!currentTeamId) {
-        console.log("NHL TeamPage: no team id available for stats fetch");
-        setTeamStats({});
-        return;
-      }
-      console.log(
-        "NHL TeamPage: fetching stats for team id (v2):",
-        currentTeamId
-      );
-      console.log("NHL TeamPage: teamData:", teamData);
-      console.log("NHL TeamPage: resolvedParam:", resolvedParam);
-
-      // Try types 3, then 2, then 1 with NHL year logic
-      const typesToTry = [2];
-      const nhlYear = getNHLYear();
-      const yearsToTry = [nhlYear]; // Try current NHL year, then previous, then next
-      let v2data = null;
-
-      outerLoop: for (const t of typesToTry) {
-        for (const year of yearsToTry) {
-          try {
-            const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
-            console.log(
-              "NHL TeamPage: trying stats type",
-              t,
-              "year",
-              year,
-              statsUrl
-            );
-            const resp = await fetch(statsUrl);
-            const statsData = await resp.json();
-
-            console.log("NHL TeamPage: received stats data structure:", {
-              hasError: !!statsData.error,
-              hasGroups: !!(
-                statsData.groups &&
-                Array.isArray(statsData.groups) &&
-                statsData.groups.length > 0
-              ),
-              hasSplits: !!statsData.splits,
-              hasSplitsCategories: !!(
-                statsData.splits &&
-                statsData.splits.categories &&
-                Array.isArray(statsData.splits.categories) &&
-                statsData.splits.categories.length > 0
-              ),
-              hasRef: !!statsData.$ref,
-            });
-
-            // Validate that we have relevant data - check for either groups or splits.categories structure
-            const hasValidGroups =
-              statsData &&
-              !statsData.error &&
-              Array.isArray(statsData.groups) &&
-              statsData.groups.length > 0;
-            const hasValidSplits =
-              statsData &&
-              !statsData.error &&
-              statsData.splits &&
-              statsData.splits.categories &&
-              Array.isArray(statsData.splits.categories) &&
-              statsData.splits.categories.length > 0;
-
-            if (hasValidGroups || hasValidSplits) {
-              v2data = statsData;
-              console.log(
-                "NHL TeamPage: stats v2 success for type",
-                t,
-                "year",
-                year,
-                hasValidGroups ? "via groups" : "via splits"
-              );
-              break outerLoop;
-            } else {
-              console.log(
-                "NHL TeamPage: stats data invalid for type",
-                t,
-                "year",
-                year,
-                "- no valid groups or splits.categories"
-              );
-            }
-          } catch (e) {
-            // don't fail fast; try next year/type
-            // eslint-disable-next-line no-console
-            console.log(
-              "NHL TeamPage: error fetching v2 stats for type",
-              t,
-              "year",
-              year,
-              e
-            );
-          }
-        }
-      }
-
-      if (v2data) {
-        // Normalize possible shapes into teamStats.categories where each category has displayName and stats array
-        const categories = [];
-
-        // v2: may have groups -> categories -> stats/items
-        if (Array.isArray(v2data.groups) && v2data.groups.length) {
-          v2data.groups.forEach((g) => {
-            if (Array.isArray(g.categories)) {
-              g.categories.forEach((c) => {
-                const items =
-                  c.statistics || c.stats || c.values || c.items || [];
-                categories.push({
-                  displayName:
-                    c.displayName ||
-                    c.name ||
-                    g.displayName ||
-                    g.name ||
-                    "Category",
-                  stats: items,
-                });
-              });
-            } else if (Array.isArray(g.statistics) || Array.isArray(g.stats)) {
-              const items = g.statistics || g.stats || [];
-              categories.push({
-                displayName: g.displayName || g.name || "Category",
-                stats: items,
-              });
-            }
-          });
-        }
-
-        // v2: may include 'splits' (object or array) that contain categories
-        // Example payload (c2.txt) uses splits: { categories: [...] }
-        if (!categories.length && v2data.splits) {
-          try {
-            const splitsArr = Array.isArray(v2data.splits)
-              ? v2data.splits
-              : [v2data.splits];
-            splitsArr.forEach((split) => {
-              if (split && Array.isArray(split.categories)) {
-                split.categories.forEach((c) => {
-                  const items =
-                    c.statistics || c.stats || c.items || c.values || [];
-                  categories.push({
-                    displayName: c.displayName || c.name || "Category",
-                    stats: items,
-                  });
-                });
-              }
-            });
-          } catch (e) {
-            // ignore and continue
-          }
-        }
-
-        // v2: may have categories at top-level
-        if (Array.isArray(v2data.categories) && v2data.categories.length) {
-          v2data.categories.forEach((c) => {
-            const items = c.statistics || c.stats || c.values || c.items || [];
-            categories.push({
-              displayName: c.displayName || c.name || "Category",
-              stats: items,
-            });
-          });
-        }
-
-        // some v2 shapes may expose statistics as an object map
-        if (
-          !categories.length &&
-          v2data.statistics &&
-          typeof v2data.statistics === "object"
-        ) {
-          // convert map into a single category
-          const items = Object.keys(v2data.statistics).map((key) => ({
-            name: key,
-            displayName: v2data.statistics[key].displayName || key,
-            value: v2data.statistics[key].value,
-            displayValue: v2data.statistics[key].displayValue,
-          }));
-          categories.push({ displayName: "Team Stats", stats: items });
-        }
-
-        // If still empty but v2data has a top-level stats array (older site api fallback)
-        if (!categories.length && Array.isArray(v2data.stats)) {
-          v2data.stats.forEach((c) => {
-            const items = c.statistics || c.stats || c.items || [];
-            categories.push({
-              displayName: c.displayName || c.name || "Category",
-              stats: items,
-            });
-          });
-        }
-
-        if (categories.length) {
-          console.log(
-            "NHL TeamPage: normalized categories count:",
-            categories.length
-          );
-          console.log(
-            "NHL TeamPage: sample categories:",
-            categories.slice(0, 2)
-          );
-          // Provide both shapes so existing render code (which checks multiple paths) finds them
-          const finalStats = {
-            categories,
-            results: { stats: { categories } },
-            groups: v2data.groups || [],
-          };
-          console.log(
-            "NHL TeamPage: setting teamStats with structure:",
-            Object.keys(finalStats)
-          );
-          setTeamStats(finalStats);
-        } else {
-          console.log(
-            "NHL TeamPage: no categories could be normalized from v2 stats response"
-          );
-          setTeamStats({});
-        }
-      } else {
-        console.log(
-          "NHL TeamPage: no v2 stats found for any type; falling back to site API (match NFL behavior)"
-        );
-        // Fallback to previous site API endpoint and set raw JSON (like NFL implementation)
-        try {
-          const statsUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}/statistics`;
-          console.log("NHL TeamPage: trying site API fallback:", statsUrl);
-          const response = await fetch(statsUrl);
-          if (response.ok) {
-            const data = await response.json();
-            console.log(
-              "NHL TeamPage: fallback stats API response (site) keys:",
-              Object.keys(data)
-            );
-            console.log(
-              "NHL TeamPage: fallback stats API response (site) structure:",
-              data
-            );
-            // Try to normalize common shapes from the site API into the categories/groups
-            // shape our renderer prefers (so UI shows stats like NFL). If we can't
-            // find any usable categories, fall back to the raw JSON (preserve
-            // existing behavior).
-            try {
-              const fallbackCategories = [];
-
-              // 1) site API may include results.stats.categories (ESPN site shape)
-              const resultsCats = data?.results?.stats?.categories;
-              if (Array.isArray(resultsCats) && resultsCats.length) {
-                resultsCats.forEach((c) => {
-                  const items =
-                    c.statistics || c.stats || c.items || c.values || [];
-                  fallbackCategories.push({
-                    displayName: c.displayName || c.name || "Category",
-                    stats: items,
-                  });
-                });
-              }
-
-              // 2) site API may include groups under results or top-level
-              const groupsArr = data?.results?.groups || data?.groups;
-              if (Array.isArray(groupsArr) && groupsArr.length) {
-                groupsArr.forEach((g) => {
-                  if (Array.isArray(g.categories)) {
-                    g.categories.forEach((c) => {
-                      const items =
-                        c.statistics || c.stats || c.items || c.values || [];
-                      fallbackCategories.push({
-                        displayName:
-                          c.displayName ||
-                          c.name ||
-                          g.displayName ||
-                          g.name ||
-                          "Category",
-                        stats: items,
-                      });
-                    });
-                  } else if (
-                    Array.isArray(g.statistics) ||
-                    Array.isArray(g.stats)
-                  ) {
-                    const items = g.statistics || g.stats || [];
-                    fallbackCategories.push({
-                      displayName: g.displayName || g.name || "Category",
-                      stats: items,
-                    });
-                  }
-                });
-              }
-
-              // 3) some payloads may include a top-level categories array
-              if (Array.isArray(data?.categories) && data.categories.length) {
-                data.categories.forEach((c) => {
-                  const items =
-                    c.statistics || c.stats || c.items || c.values || [];
-                  fallbackCategories.push({
-                    displayName: c.displayName || c.name || "Category",
-                    stats: items,
-                  });
-                });
-              }
-
-              // 4) some shapes expose a statistics map
-              if (
-                !fallbackCategories.length &&
-                data?.statistics &&
-                typeof data.statistics === "object"
-              ) {
-                const items = Object.keys(data.statistics).map((key) => ({
-                  name: key,
-                  displayName: data.statistics[key].displayName || key,
-                  value: data.statistics[key].value,
-                  displayValue: data.statistics[key].displayValue,
-                }));
-                fallbackCategories.push({
-                  displayName: "Team Stats",
-                  stats: items,
-                });
-              }
-
-              if (fallbackCategories.length) {
-                const finalStats = {
-                  categories: fallbackCategories,
-                  results: { stats: { categories: fallbackCategories } },
-                  groups: data?.results?.groups || data?.groups || [],
-                };
-                console.log(
-                  "NHL TeamPage: normalized fallback categories count:",
-                  fallbackCategories.length
-                );
-                setTeamStats(finalStats);
-              } else {
-                // couldn't normalize; keep the raw shape so existing callers can
-                // still inspect other fields if needed
-                console.log(
-                  "NHL TeamPage: could not normalize fallback stats; using raw site response"
-                );
-                setTeamStats(data);
-              }
-            } catch (e) {
-              console.log(
-                "NHL TeamPage: error normalizing fallback stats response",
-                e
-              );
-              setTeamStats(data);
-            }
-          } else {
-            console.log(
-              "NHL TeamPage: fallback stats API failed, status:",
-              response.status
-            );
-            setTeamStats({});
-          }
-        } catch (e) {
-          console.log("NHL TeamPage: fallback stats fetch error", e);
-          setTeamStats({});
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching team stats:", error);
-      setTeamStats({});
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
-  // Handle game click navigation
-  const handleGamePress = (game) => {
-    navigation.navigate("GameDetails", { gameId: game.id, sport: "nhl" });
-  };
-
-  const isGameLive = (game) => {
-    if (!game || !game.status) return false;
-    const state = game.status.type?.state;
-    return (
-      state === "in" ||
-      state === "live" ||
-      (state === "post" && !!game.status?.type?.completed === false)
-    );
-  };
-
-  // Safe status text renderer - ESPN uses nested status objects; UI expects a string
-  const getStatusText = (game) => {
-    if (!game) return "";
-    const s = game.status;
-    if (!s) return "";
-    if (typeof s === "string") return s;
-    // prefer displayClock if provided
-    if (
-      s.displayClock &&
-      typeof s.displayClock === "string" &&
-      s.displayClock === "0:00"
-    )
-      return "INT";
-    if (s.displayClock && typeof s.displayClock === "string")
-      return s.displayClock;
-    // fallback to type.shortDetail / description / state
-    if (s.type) {
-      return s.type.shortDetail || s.type.description || s.type.state || "";
-    }
-    // other simple fields
-    if (s.clock) return String(s.clock);
-    if (s.summary) return String(s.summary);
-    return "";
-  };
-
-  // Effect to load roster when Roster tab is selected
-  useEffect(() => {
-    if (activeTab === "Roster") {
-      fetchRoster();
-    }
-  }, [activeTab]);
-
-  // Effect to load stats when Stats tab is selected
-  useEffect(() => {
-    if (activeTab === "Stats") {
-      fetchTeamStats();
-    }
-  }, [activeTab]);
-
-  // Helper to build a safe player headshot URL with placeholders
-  const getPlayerHeadshotUrl = (player) => {
-    if (!player) return "https://via.placeholder.com/88x88?text=Player";
-    if (player.headshot) return player.headshot;
-    if (player.athlete && player.athlete.headshot)
-      return player.athlete.headshot;
-    const id = player.id || player.athlete?.id;
-    if (id)
-      return `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/${id}.png&w=88&h=88`;
-    return "https://via.placeholder.com/88x88?text=Player";
-  };
-
-  // TeamLogoImage component with dark mode and fallback support (improved to avoid flicker)
-  const TeamLogoImage = ({ team, teamId, style }) => {
-    // Accept either a team object (with logos) or a simple id/abbr via teamId
-    const resolveCandidate = () => {
-      if (team) return team;
-      if (teamId) return teamId;
-      return null;
-    };
-
-    // Compute initial logo synchronously so re-mounts/re-renders don't show the placeholder briefly
-    const computeInitialLogo = () => {
-      const cand = resolveCandidate();
-      if (!cand) return null;
-
-      if (team && Array.isArray(team.logos) && team.logos.length > 0) {
-        const preferredIndex = isDarkMode ? 1 : 0;
-        const fallbackIndex = isDarkMode ? 0 : 1;
-        const logoUrl =
-          team.logos[preferredIndex]?.href ||
-          team.logos[fallbackIndex]?.href ||
-          team.logos[0]?.href;
-        if (logoUrl) return { uri: logoUrl };
-      }
-
-      const { primaryUrl } = getTeamLogoUrls(cand, isDarkMode);
-      if (primaryUrl) return { uri: primaryUrl };
-      return null;
-    };
-
-    const [logoSource, setLogoSource] = useState(() => computeInitialLogo());
-    const [retryCount, setRetryCount] = useState(0);
-
-    useEffect(() => {
-      const cand = resolveCandidate();
-      if (!cand) return;
-
-      // Recompute and update only if different to avoid unnecessary state churn
-      let newUrl = null;
-      if (team && Array.isArray(team.logos) && team.logos.length > 0) {
-        const preferredIndex = isDarkMode ? 1 : 0;
-        const fallbackIndex = isDarkMode ? 0 : 1;
-        newUrl =
-          team.logos[preferredIndex]?.href ||
-          team.logos[fallbackIndex]?.href ||
-          team.logos[0]?.href;
-      }
-      if (!newUrl) {
-        newUrl = getTeamLogoUrls(cand, isDarkMode).primaryUrl;
-      }
-
-      if (newUrl) {
-        const candidateSource = { uri: newUrl };
-        // Only update state if the URL actually changed
-        if (!logoSource || logoSource.uri !== candidateSource.uri)
-          setLogoSource(candidateSource);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [team, teamId, isDarkMode]);
-
-    const handleError = () => {
-      if (retryCount === 0) {
-        setRetryCount(1);
-
-        // Try fallback logo from logos array first
-        if (team && Array.isArray(team.logos) && team.logos.length > 0) {
-          const fallbackIndex = isDarkMode ? 0 : 1;
-          const fallbackUrl = team.logos[fallbackIndex]?.href;
-          if (fallbackUrl) {
-            setLogoSource({ uri: fallbackUrl });
-            return;
-          }
-        }
-
-        // Then try getTeamLogoUrls fallback
-        const cand = resolveCandidate();
-        if (cand) {
-          const { fallbackUrl } = getTeamLogoUrls(cand, isDarkMode);
-          if (fallbackUrl) {
-            setLogoSource({ uri: fallbackUrl });
-            return;
-          }
-        }
-      }
-    };
-
-    const placeholder = require("../../../assets/nhl.png");
-    return (
-      <Image
-        style={style}
-        source={logoSource || placeholder}
-        onError={handleError}
-        resizeMode="contain"
-      />
-    );
-  };
-
-  // Enhanced logo function with dark mode support and fallbacks
-  const pickLogoFromLogos = (logos, preferDark) => {
-    if (!Array.isArray(logos) || logos.length === 0) return null;
-
-    // Normalize: map to objects with href and lowercased rel array
-    const relSets = logos.map((l) => ({
-      href: l.href || l.url || l.href || l.href,
-      rel: (l.rel || []).map((r) => String(r).toLowerCase()),
-    }));
-
-    const findByAll = (want) =>
-      relSets.find((r) => want.every((w) => r.rel.includes(w)));
-    const findByAny = (want) =>
-      relSets.find((r) => r.rel.some((x) => want.includes(x)));
-
-    if (preferDark) {
-      // prefer dark+full, then full+default, then full, then default, then first
-      return (
-        findByAll(["dark", "full"])?.href ||
-        findByAll(["full", "default"])?.href ||
-        findByAny(["full"])?.href ||
-        findByAny(["default"])?.href ||
-        relSets[0].href
-      );
-    }
-
-    // light mode: prefer full+default, then full, then dark+full, then default, then first
-    return (
-      findByAll(["full", "default"])?.href ||
-      findByAny(["full"])?.href ||
-      findByAll(["dark", "full"])?.href ||
-      findByAny(["default"])?.href ||
-      relSets[0].href
-    );
-  };
-
-  const getTeamLogoUrls = (teamParam, isDarkMode) => {
-    // teamParam may be an object (with logos), abbreviation, or id. Prefer schedule-provided logos when available.
-    // If teamParam is an object with a `logos` array, use that array to select hrefs honoring rels.
-    if (
-      teamParam &&
-      typeof teamParam === "object" &&
-      Array.isArray(teamParam.logos) &&
-      teamParam.logos.length > 0
-    ) {
-      // Prefer the index-based hrefs: logos[1] for dark mode, logos[0] for light mode.
-      const logosArr = teamParam.logos;
-      const primaryIndex = isDarkMode ? 1 : 0;
-      const altIndex = isDarkMode ? 0 : 1;
-      const primary =
-        logosArr[primaryIndex]?.href ||
-        logosArr[altIndex]?.href ||
-        pickLogoFromLogos(logosArr, isDarkMode);
-      const fallback =
-        logosArr[altIndex]?.href ||
-        pickLogoFromLogos(logosArr, !isDarkMode) ||
-        primary;
-      if (primary) return { primaryUrl: primary, fallbackUrl: fallback };
-    }
-
-    // If caller passed an object with nested `team.logos` (e.g., competitor object), try that too
-    if (
-      teamParam &&
-      typeof teamParam === "object" &&
-      teamParam.team &&
-      Array.isArray(teamParam.team.logos) &&
-      teamParam.team.logos.length > 0
-    ) {
-      const logosArr = teamParam.team.logos;
-      const primaryIndex = isDarkMode ? 1 : 0;
-      const altIndex = isDarkMode ? 0 : 1;
-      const primary =
-        logosArr[primaryIndex]?.href ||
-        logosArr[altIndex]?.href ||
-        pickLogoFromLogos(logosArr, isDarkMode);
-      const fallback =
-        logosArr[altIndex]?.href ||
-        pickLogoFromLogos(logosArr, !isDarkMode) ||
-        primary;
-      if (primary) return { primaryUrl: primary, fallbackUrl: fallback };
-    }
-
-    // Fallback to CDN style URLs based on abbreviation or id
-    const idRaw =
-      teamParam && typeof teamParam === "object"
-        ? teamParam.abbreviation ||
-          teamParam.id ||
-          (teamParam.team && (teamParam.team.abbreviation || teamParam.team.id))
-        : teamParam;
-    const normalized = String(idRaw || "").toLowerCase();
-    const primaryUrl = isDarkMode
-      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${normalized}.png&w=200&h=200`
-      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${normalized}.png&w=200&h=200`;
-
-    const fallbackUrl = isDarkMode
-      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${normalized}.png&w=200&h=200`
-      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${normalized}.png&w=200&h=200`;
-
-    return { primaryUrl, fallbackUrl };
-  };
-
-  const getCompetitionName = (leagueCode) => {
-    if (!leagueCode) return null;
-    // Minimal mapping; expand if needed
-    const code = String(leagueCode).toLowerCase();
-    switch (code) {
-      case "nhl":
-        return "NHL";
-      default:
-        return leagueCode;
-    }
-  };
-
-  const getTeamLogoUrl_NHL = (abbreviation) => {
-    return getTeamLogoUrl("nhl", normalizeAbbreviation(abbreviation));
-  };
-
-  const getThemeTeamLogoUrlHelper = (abbrOrId) => {
-    if (!abbrOrId) return null;
-    return getTeamLogoUrl("nhl", String(abbrOrId));
-  };
-
-  const getTeamColor = (team) => {
-    // Simple fallback to primary color from theme
-    return colors.primary;
-  };
-
-  // Helper functions for determining losing team styles (from MLB implementation)
-  const getTeamScoreStyle = (game, isAwayTeam) => {
-    const isCompleted =
-      game?.isCompleted || game?.status?.type?.state === "post";
-    if (!isCompleted) return styles.gameTeamScore;
-
-    const isLosing = isAwayTeam
-      ? game.awayTeam.score < game.homeTeam.score
-      : game.homeTeam.score < game.awayTeam.score;
-
-    return isLosing
-      ? [styles.gameTeamScore, styles.losingTeamScore]
-      : styles.gameTeamScore;
-  };
-
-  // Helper function to get NHL team ID for favorites checking
-  const getNHLTeamId = (team) => {
-    console.log("TeamPageScreen getNHLTeamId called with:", team);
-    if (!team) return null;
-
-    // Try direct id first
-    if (team.id) return String(team.id);
-
-    // Try team.team.id (nested structure)
-    if (team.team?.id) return String(team.team.id);
-
-    // Try abbreviation to ID mapping as fallback
-    if (team.abbreviation) {
-      const mappedId = mapAbbrToId(team.abbreviation);
-      if (mappedId) return mappedId;
-    }
-
-    console.log("TeamPageScreen getNHLTeamId returning null for:", team);
-    return null;
-  };
-
-  // Safe display for score values: return empty string when null/undefined to avoid showing 0 for missing scores
-  const displayScore = (s) => {
-    if (s === null || s === undefined) return "";
-    return String(s);
-  };
-
-  // Format period display for live games (e.g., "1st Period", "2nd Period", "3rd Period", "OT")
-  const formatPeriodDisplay = (game) => {
-    if (!game || !game.status) return "";
-
-    const status = game.status;
-    const period = status.period;
-    const clock = status.displayClock || status.clock || getStatusText(game);
-
-    if (!period && !clock) return "In Progress";
-
-    // Handle overtime periods
-    if (period > 3) {
-      return period === 4 ? "OT" : `${period - 3}OT`;
-    }
-
-    // Handle regular periods with ordinal suffix
-    const ordinals = ["", "1st", "2nd", "3rd"];
-    const periodText = ordinals[period] || `${period}th`;
-
-    return periodText ? `${periodText} Period` : clock || "In Progress";
-  };
-
-  const getTeamNameStyle = (game, isAwayTeam) => {
-    const isCompleted =
-      game?.isCompleted || game?.status?.type?.state === "post";
-    if (!isCompleted) return styles.gameTeamName;
-
-    const isLosing = isAwayTeam
-      ? game.awayTeam.score < game.homeTeam.score
-      : game.homeTeam.score < game.awayTeam.score;
-
-    return isLosing
-      ? [styles.gameTeamName, styles.losingTeamName]
-      : styles.gameTeamName;
-  };
-
-  const getTeamLogoStyle = (game, isAwayTeam) => {
-    const isCompleted =
-      game?.isCompleted || game?.status?.type?.state === "post";
-    if (!isCompleted) return styles.gameTeamLogo;
-
-    const isLosing = isAwayTeam
-      ? game.awayTeam.score < game.homeTeam.score
-      : game.homeTeam.score < game.awayTeam.score;
-
-    return isLosing
-      ? [styles.gameTeamLogo, styles.losingTeamLogo]
-      : styles.gameTeamLogo;
-  };
-
-  const renderTeamHeader = () => {
-    const headerStats = deriveHeaderStats();
-
-    return (
-      <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
-        <Image
-          source={{ uri: getTeamLogoUrl_NHL(teamData?.abbreviation) }}
-          style={styles.headTeamLogo}
-          onError={() => console.log("Failed to load team logo")}
-        />
-        <View style={styles.teamInfo}>
-          <Text
-            style={[
-              styles.teamName,
-              { color: teamData?.color ? `#${teamData.color}` : theme.text,
-                textShadowColor: isDarkMode ? '#ffffff88' : '#00000088',
-                textShadowOffset: { width: 1, height: 0 },
-                textShadowRadius: 3},
-            ]}
-          >
-            {teamData?.displayName || "NHL Team"}
-          </Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
-            {headerStats.standingSummary || "Loading record..."}
-          </Text>
-          {/* Header summary row: record, points, streak */}
-          {(headerStats.recordDisplay ||
-            headerStats.points ||
-            headerStats.streakDisplay !== "--") && (
-            <View style={styles.recordContainer}>
-              <View style={styles.recordRow}>
-                <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.recordDisplay || "--"}
-                </Text>
-                <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.points || "--"}
-                </Text>
-                <Text
-                  style={[
-                    styles.recordValue,
-                    {
-                      color: (() => {
-                        if (headerStats.streakKind === "L") return theme.error;
-                        if (headerStats.streakKind === "W")
-                          return theme.success;
-                        return theme.text;
-                      })(),
-                    },
-                  ]}
-                >
-                  {headerStats.streakDisplay}
-                </Text>
-              </View>
-              <View style={styles.recordRow}>
-                <Text
-                  style={[styles.recordLabel, { color: theme.textSecondary }]}
-                >
-                  Record
-                </Text>
-                <Text
-                  style={[styles.recordLabel, { color: theme.textSecondary }]}
-                >
-                  Points
-                </Text>
-                <Text
-                  style={[styles.recordLabel, { color: theme.textSecondary }]}
-                >
-                  Streak
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={async () => {
-            try {
-              await toggleFavorite(
-                {
-                  teamId: teamId,
-                  displayName: teamData?.displayName || teamData?.abbreviation,
-                  abbreviation: teamData?.abbreviation,
-                  sport,
-                },
-                currentGame
-                  ? {
-                      eventId: currentGame.id,
-                      eventLink: `/nhl/game/${currentGame.id}`,
-                      gameDate:
-                        currentGame.date instanceof Date
-                          ? currentGame.date.toISOString()
-                          : new Date(currentGame.date).toISOString(),
-                      competition: "nhl",
-                    }
-                  : null
-              );
-            } catch (error) {
-              console.error("Error toggling favorite:", error);
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name={isFavorite(teamId, sport) ? "star" : "star-outline"}
-            size={24}
-            color={
-              isFavorite(teamId, sport) ? colors.primary : theme.textSecondary
-            }
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderCurrentGame = () => {
-    if (!currentGame) {
-      return (
-        <View
-          style={[
-            styles.gameSectionCard,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-            No current or upcoming games found
-          </Text>
-        </View>
-      );
-    }
-
-    return renderMatchCard(currentGame);
-  };
-
-  const renderTabButtons = () => (
-    <View
-      style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}
-    >
-      {["Games", "Stats", "Roster"].map((tab) => (
-        <TouchableOpacity
-          key={tab}
-          style={[
-            styles.tabButton,
-            activeTab === tab && [
-              styles.activeTabButton,
-              { borderBottomColor: colors.primary },
-            ],
-          ]}
-          onPress={() => setActiveTab(tab)}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: activeTab === tab ? colors.primary : theme.textSecondary,
-              },
-              activeTab === tab && styles.activeTabText,
-            ]}
-          >
-            {tab}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-  const renderMatchCard = (game) => {
-    const competition =
-      getCompetitionName(game.competition?.id || "nhl") || "NHL";
-    const gameDate = new Date(game.date);
-
-    // Debug: log raw date and parsed values to troubleshoot date display (e.g., Oct 8, 2025)
-    console.log("renderMatchCard date debug:", {
-      gameId: game.id,
-      rawDate: game.date,
-      parsedGameDate: gameDate.toISOString(),
-      localDateString: gameDate.toLocaleDateString(),
-      currentDate: new Date().toISOString(),
-      timezoneOffset: gameDate.getTimezoneOffset(),
-    });
-
-    const formattedDate = gameDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const formattedTime = gameDate.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-
-    const awayTeam = game.awayTeam || {};
-    const homeTeam = game.homeTeam || {};
-    const isCompleted = game.isCompleted || game.status?.type?.state === "post";
-    const isLive = isGameLive(game);
-    const header =
-      game.competitions[0]?.notes[0]?.headline ||
-      `NHL - ${game.seasonType.name}` ||
-      "NHL";
-
-    // Debug: log score values for live games to troubleshoot missing scores
-    if (isLive) {
-      console.log("Live game scores debug:", {
-        gameId: game.id,
-        awayTeam: {
-          abbreviation: awayTeam.abbreviation,
-          score: awayTeam.score,
-          scoreType: typeof awayTeam.score,
-        },
-        homeTeam: {
-          abbreviation: homeTeam.abbreviation,
-          score: homeTeam.score,
-          scoreType: typeof homeTeam.score,
-        },
-        status: game.status,
-        isCompleted,
-        isLive,
-      });
-    }
-
-    return (
-      <TouchableOpacity
-        key={game.id}
-        style={[styles.gameCard, { backgroundColor: theme.surface }]}
-        onPress={() => handleGamePress(game)}
-      >
-        {/* League Header */}
-        <View
-          style={[
-            styles.leagueHeader,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
-        >
-          <Text style={[styles.leagueText, { color: colors.secondary }]}>
-            {header}
-          </Text>
-        </View>
-
-        {/* Match Content */}
-        <View style={styles.matchContent}>
-          {/* Away Team */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamLogoRow}>
-              <TeamLogoImage
-                team={awayTeam.team}
-                teamId={awayTeam.abbreviation || awayTeam.id}
-                style={[
-                  styles.teamLogo,
-                  isCompleted &&
-                    awayTeam.score < homeTeam.score &&
-                    styles.losingTeamLogo,
-                ]}
-              />
-              {(isCompleted || isLive) && (
-                <View style={styles.scoreContainer}>
-                  <Text
-                    style={[
-                      styles.teamScore,
-                      {
-                        color:
-                          awayTeam.score !== null &&
-                          homeTeam.score !== null &&
-                          awayTeam.score >= homeTeam.score
-                            ? colors.primary
-                            : theme.textSecondary,
-                      },
-                    ]}
-                  >
-                    {displayScore(awayTeam.score)}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.teamNameContainer}>
-              {isFavorite(getNHLTeamId(awayTeam), "nhl") && (
-                <Ionicons
-                  name="star"
-                  size={12}
-                  color={colors.primary}
-                  style={styles.favoriteIcon}
-                />
-              )}
-              <Text
-                style={[
-                  styles.teamAbbreviation,
-                  {
-                    color: isFavorite(getNHLTeamId(awayTeam), "nhl")
-                      ? colors.primary
-                      : isCompleted && awayTeam.score < homeTeam.score
-                      ? theme.textSecondary
-                      : theme.text,
-                  },
-                ]}
-              >
-                {awayTeam.abbreviation || "TBD"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Status Section */}
-          <View style={styles.statusSection}>
-            {isCompleted ? (
-              <>
-                <Text style={[styles.gameStatus, { color: colors.accent }]}>
-                  Final
-                </Text>
-                <Text
-                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
-                >
-                  {formattedDate}
-                </Text>
-              </>
-            ) : isLive ? (
-              <>
-                <Text style={[styles.gameStatus, { color: colors.accent }]}>
-                  {getStatusText(game) || "LIVE"}
-                </Text>
-                <Text
-                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
-                >
-                  {formatPeriodDisplay(game)}
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.gameStatus, { color: colors.accent }]}>
-                  {formattedTime}
-                </Text>
-                <Text
-                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
-                >
-                  {formattedDate}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {/* Home Team */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamLogoRow}>
-              {(isCompleted || isLive) && (
-                <View style={styles.scoreContainer}>
-                  <Text
-                    style={[
-                      styles.teamScore,
-                      {
-                        color:
-                          homeTeam.score !== null &&
-                          awayTeam.score !== null &&
-                          homeTeam.score >= awayTeam.score
-                            ? colors.primary
-                            : theme.textSecondary,
-                      },
-                    ]}
-                  >
-                    {displayScore(homeTeam.score)}
-                  </Text>
-                </View>
-              )}
-              <TeamLogoImage
-                team={homeTeam.team}
-                teamId={homeTeam.abbreviation || homeTeam.id}
-                style={[
-                  styles.teamLogo,
-                  isCompleted &&
-                    homeTeam.score < awayTeam.score &&
-                    styles.losingTeamLogo,
-                ]}
-              />
-            </View>
-            <View style={styles.teamNameContainer}>
-              {isFavorite(getNHLTeamId(homeTeam), "nhl") && (
-                <Ionicons
-                  name="star"
-                  size={12}
-                  color={colors.primary}
-                  style={styles.favoriteIcon}
-                />
-              )}
-              <Text
-                style={[
-                  styles.teamAbbreviation,
-                  {
-                    color: isFavorite(getNHLTeamId(homeTeam), "nhl")
-                      ? colors.primary
-                      : isCompleted && homeTeam.score < awayTeam.score
-                      ? theme.textSecondary
-                      : theme.text,
-                  },
-                ]}
-              >
-                {homeTeam.abbreviation || "TBD"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Venue Section */}
-        {game.venue && (
-          <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
-            <Text style={[styles.venueText, { color: theme.textTertiary }]}>
-              {game.venue}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderGamesTab = () => (
-    <ScrollView style={styles.gamesContainer}>
-      <View style={styles.gameSection}>
-        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
-          Current Game
-        </Text>
-        {renderCurrentGame()}
-      </View>
-
-      <View style={styles.gameSection}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => setLastMatchesCollapsed(!lastMatchesCollapsed)}
-        >
-          <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
-            Recent Games
-          </Text>
-          <Text style={[styles.collapseArrow, { color: colors.primary }]}>
-            {lastMatchesCollapsed ? "▶" : "▼"}
-          </Text>
-        </TouchableOpacity>
-
-        <View>
-          {lastMatches.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-              No recent games
-            </Text>
-          ) : (
-            (lastMatchesCollapsed ? lastMatches.slice(0, 1) : lastMatches).map(
-              (game) => renderMatchCard(game)
-            )
-          )}
-        </View>
-      </View>
-
-      <View style={styles.gameSection}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => setNextMatchesCollapsed(!nextMatchesCollapsed)}
-        >
-          <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
-            Upcoming Games
-          </Text>
-          <Text style={[styles.collapseArrow, { color: colors.primary }]}>
-            {nextMatchesCollapsed ? "▶" : "▼"}
-          </Text>
-        </TouchableOpacity>
-
-        <View>
-          {nextMatches.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-              No upcoming games
-            </Text>
-          ) : (
-            (nextMatchesCollapsed ? nextMatches.slice(0, 1) : nextMatches).map(
-              (game) => renderMatchCard(game)
-            )
-          )}
-        </View>
-      </View>
-    </ScrollView>
-  );
-
-  // Group NHL roster into MLB-like sections: Forwards, Defensemen, Goalies, Others
-
-  const renderRosterSection = (title, players, sectionKey) => {
-    if (players.length === 0) return null;
-
-    const isCollapsed = collapsedRosterSections[sectionKey];
-
-    const toggleSection = () => {
-      setCollapsedRosterSections((prev) => ({
-        ...prev,
-        [sectionKey]: !prev[sectionKey],
-      }));
-    };
-
-    return (
-      <View style={styles.rosterSection}>
-        <TouchableOpacity
-          style={styles.rosterSectionHeader}
-          onPress={toggleSection}
-          activeOpacity={0.7}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.rosterSectionTitle, { color: theme.text }]}
-          >
-            {title} ({players.length})
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.rosterSectionArrow, { color: theme.text }]}
-          >
-            {isCollapsed ? "▶" : "▼"}
-          </Text>
-        </TouchableOpacity>
-        {!isCollapsed && (
-          <View style={styles.rosterTableContainer}>
-            <View
-              style={[
-                styles.rosterTableHeader,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}
-              >
-                Player
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.rosterTableHeaderStatus, { color: theme.text }]}
-              >
-                Status
-              </Text>
-            </View>
-            {players.map((player) => (
-              <TouchableOpacity
-                key={player.id || player.name}
-                style={[
-                  styles.rosterTableRow,
-                  {
-                    borderBottomColor: theme.border,
-                    backgroundColor: theme.surfaceSecondary,
-                  },
-                ]}
-                onPress={() => {
-                  console.log(
-                    "Navigating to player page:",
-                    player.id,
-                    player.name
-                  );
-                  try {
-                    navigation.navigate("PlayerPage", {
-                      playerId: player.id,
-                      playerName: player.name,
-                      teamId: teamId,
-                      sport: "nhl",
-                    });
-                  } catch (e) {
-                    console.warn("Navigation to PlayerPage failed", e);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rosterTablePlayerCell}>
-                  <View style={styles.rosterPlayerRow}>
-                    <Image
-                      source={{
-                        uri:
-                          player.headshot ||
-                          "https://via.placeholder.com/40x40?text=NHL",
-                      }}
-                      style={styles.playerHeadshot}
-                      defaultSource={{
-                        uri: "https://via.placeholder.com/40x40?text=NHL",
-                      }}
-                    />
-                    <View style={styles.rosterPlayerInfo}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.rosterTablePlayerName,
-                          { color: theme.text },
-                        ]}
-                      >
-                        {player.name}
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.rosterTablePlayerDetails,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.rosterTablePlayerNumber,
-                            { color: theme.textTertiary },
-                          ]}
-                        >
-                          #{player.number || "--"}
-                        </Text>
-                        {" • "}
-                        {player.position || "N/A"}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.rosterTableStatusCell}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.rosterTableStatusText,
-                      styles.activeStatus, // For now, all NHL players are active
-                    ]}
-                  >
-                    Active
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderRosterTab = () => {
-    if (loadingRoster) {
-      return (
-        <View style={styles.matchesSection}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading roster...
-          </Text>
-        </View>
-      );
-    }
-
-    if (!roster || roster.length === 0) {
-      return (
-        <View style={styles.matchesSection}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Roster data not available
-          </Text>
-        </View>
-      );
-    }
-
-    // Group players by position
-    const forwards = roster.filter((player) => {
-      const pos = (player.position || "").toString().toUpperCase();
-      return (
-        pos.includes("C") ||
-        pos.includes("LW") ||
-        pos.includes("RW") ||
-        pos.includes("FORWARD") ||
-        pos.includes("WING") ||
-        pos.includes("CENTER")
-      );
-    });
-    const defensemen = roster.filter((player) => {
-      const pos = (player.position || "").toString().toUpperCase();
-      return (
-        pos.includes("D") && !pos.includes("FORWARD") && !pos.includes("WING")
-      );
-    });
-    const goalies = roster.filter((player) => {
-      const pos = (player.position || "").toString().toUpperCase();
-      return (
-        pos.includes("G") ||
-        pos.includes("GOALIE") ||
-        pos.includes("GOALTENDER")
-      );
-    });
-    const others = roster.filter((player) => {
-      const pos = (player.position || "").toString().toUpperCase();
-      return (
-        !forwards.includes(player) &&
-        !defensemen.includes(player) &&
-        !goalies.includes(player)
-      );
-    });
-
-    return (
-      <ScrollView
-        style={[styles.rosterContainer, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderRosterSection("Forwards", forwards, "forwards")}
-        {renderRosterSection("Defensemen", defensemen, "defensemen")}
-        {renderRosterSection("Goalies", goalies, "goalies")}
-        {others.length > 0 && renderRosterSection("Others", others, "others")}
-      </ScrollView>
-    );
-  };
-
-  const renderStatsContent = () => {
-    if (loadingStats)
-      return (
-        <View style={styles.statsLoadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading team statistics...
-          </Text>
-        </View>
-      );
-
-    if (!teamStats)
-      return (
-        <View style={styles.statsLoadingContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Team statistics not available
-          </Text>
-        </View>
-      );
-
-    // We'll render every category but only the top 6 stats per category (by presence order)
-    const categories =
-      teamStats?.results?.stats?.categories ||
-      teamStats?.categories ||
-      teamStats?.groups ||
-      [];
-
-    const pickTopStats = (statsArr, categoryName = "") => {
-      if (!Array.isArray(statsArr)) return [];
-
-      // Get configuration for this category, fallback to default
-      const config =
-        statsConfiguration[categoryName] || statsConfiguration.default;
-      const { limit, statNames } = config;
-
-      // Filter out stats without values
-      const filtered = statsArr.filter(
-        (s) => s && (s.value !== undefined || s.displayValue !== undefined)
-      );
-
-      // If specific stat names are configured, try to find them
-      if (statNames && Array.isArray(statNames)) {
-        const selectedStats = [];
-
-        // First, try to find stats by the configured names
-        statNames.forEach((statName) => {
-          const foundStat = filtered.find(
-            (s) =>
-              s.name === statName ||
-              s.displayName === statName ||
-              s.abbreviation === statName ||
-              s.name?.toLowerCase() === statName.toLowerCase() ||
-              s.displayName?.toLowerCase() === statName.toLowerCase()
-          );
-          if (foundStat && !selectedStats.includes(foundStat)) {
-            selectedStats.push(foundStat);
-          }
-        });
-
-        // If we found fewer stats than requested, fill with remaining stats
-        if (selectedStats.length < limit) {
-          const remaining = filtered.filter((s) => !selectedStats.includes(s));
-          const needed = limit - selectedStats.length;
-          selectedStats.push(...remaining.slice(0, needed));
-        }
-
-        return selectedStats.slice(0, limit);
-      }
-
-      // If no specific stat names configured, just take first N stats
-      return filtered.slice(0, limit);
-    };
-
-    // Small card renderer for a stat (MLB style)
-    const StatCard = ({ stat }) => {
-      const label = stat.displayName || stat.name || stat.abbreviation || "";
-      const value =
-        stat.displayValue !== undefined && stat.displayValue !== null
-          ? String(stat.displayValue)
-          : stat.value !== undefined
-          ? String(stat.value)
-          : "--";
-      const rank = stat.rankDisplayValue || stat.rank?.displayValue || null;
-      return (
-        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxValue, { color: colors.primary }]}
-            numberOfLines={1}
-          >
-            {value}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-            numberOfLines={2}
-          >
-            {label}
-          </Text>
-          {rank ? (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.statBoxLabel,
-                { color: theme.textTertiary, marginTop: 6 },
-              ]}
-              numberOfLines={1}
-            >
-              {rank}
-            </Text>
-          ) : null}
-        </View>
-      );
-    };
-
-    const renderStatRows = (statCards) => {
-      const rows = [];
-      for (let i = 0; i < statCards.length; i += 3) {
-        rows.push(statCards.slice(i, i + 3));
-      }
-      return rows.map((row, idx) => (
-        <View key={`row-${idx}`} style={styles.statsRow}>
-          {row}
-        </View>
-      ));
-    };
-
-    return (
-      <ScrollView
-        style={[styles.statsContainer, { backgroundColor: theme.background }]}
-        contentContainerStyle={styles.statsContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.statsSectionTitle, { color: theme.text }]}
-        >
-          Team Statistics
-        </Text>
-        {/* Render each category */}
-        {categories.map((cat, idx) => {
-          const categoryName = cat.displayName || cat.name || "";
-          const statsArr = cat.stats || cat.items || cat.values || [];
-          const top = pickTopStats(statsArr, categoryName);
-          const statCards = top.map((s, si) => (
-            <StatCard key={`${s.name || s.displayName || si}`} stat={s} />
-          ));
-          return (
-            <View
-              key={`${cat.name || cat.displayName || idx}`}
-              style={styles.statsSection}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.statsSectionTitle, { color: theme.text }]}
-              >
-                {cat.displayName || cat.name || `Category ${idx + 1}`}
-              </Text>
-              {statCards.length === 0 ? (
-                <View
-                  style={[styles.statBox, { backgroundColor: theme.surface }]}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.statBoxLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    No stats
-                  </Text>
-                </View>
-              ) : (
-                renderStatRows(statCards)
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
-    );
-  };
-
-  const renderStatsTab = () => renderStatsContent();
-
-  if (loading) {
-    return (
-      <View
-        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
-          Loading team data...
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {renderTeamHeader()}
-      {renderTabButtons()}
-      <ScrollView
-        style={[
-          styles.contentScrollView,
-          { backgroundColor: theme.background },
-        ]}
-      >
-        <View style={styles.matchesSection}>
-          {activeTab === "Games" && renderGamesTab()}
-          {activeTab === "Roster" && renderRosterTab()}
-          {activeTab === "Stats" && renderStatsTab()}
-        </View>
-      </ScrollView>
-    </View>
-  );
+	const params = route.params || {};
+	const { sport = "nhl" } = params;
+	const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
+
+	const teamInput = useMemo(() => resolveTeamInput(params), [params]);
+
+	const [teamData, setTeamData] = useState(null);
+	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
+	const [activeTab, setActiveTab] = useState("Team");
+	const [skaterExpanded, setSkaterExpanded] = useState(false);
+	const [goalieExpanded, setGoalieExpanded] = useState(false);
+	const [headerHeight, setHeaderHeight] = useState(180);
+
+	const scrollY = useRef(new Animated.Value(0)).current;
+
+	const getLogo = useCallback(
+		(abbrOrId, dark) => {
+			const abbr = normalizeAbbr(abbrOrId) || TEAM_ID_TO_ABBR[String(abbrOrId)] || null;
+			if (!abbr) return null;
+			return getTeamLogoUrl ? getTeamLogoUrl("nhl", abbr, dark) : null;
+		},
+		[getTeamLogoUrl],
+	);
+
+	const loadTeam = useCallback(
+		async (isRefresh = false) => {
+			if (!teamInput.endpointId) {
+				setLoading(false);
+				return;
+			}
+
+			if (isRefresh) setRefreshing(true);
+			else setLoading(true);
+
+			try {
+				const url = `${NHLService.BACKEND_URL}/nhl/team/${encodeURIComponent(teamInput.endpointId)}`;
+				const response = await fetch(url, { headers: NHLService.getBrowserHeaders?.() || undefined });
+				if (!response.ok) {
+					throw new Error(`Failed to fetch NHL team: ${response.status}`);
+				}
+				const json = await response.json();
+				const payload = json?.data || json || null;
+
+				const skaters = Array.isArray(payload?.stats?.skaters) ? payload.stats.skaters : [];
+				const goalies = Array.isArray(payload?.stats?.goalies) ? payload.stats.goalies : [];
+				const scheduleGames = Array.isArray(payload?.schedule?.games) ? payload.schedule.games : [];
+
+				const wins = scheduleGames.filter((g) => {
+					const homeScore = toFinite(g?.homeTeam?.score, NaN);
+					const awayScore = toFinite(g?.awayTeam?.score, NaN);
+					const isHome = normalizeAbbr(g?.homeTeam?.abbrev) === normalizeAbbr(payload?.id || teamInput.abbreviation);
+					if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return false;
+					return isHome ? homeScore > awayScore : awayScore > homeScore;
+				}).length;
+
+				const losses = scheduleGames.filter((g) => {
+					const homeScore = toFinite(g?.homeTeam?.score, NaN);
+					const awayScore = toFinite(g?.awayTeam?.score, NaN);
+					const isHome = normalizeAbbr(g?.homeTeam?.abbrev) === normalizeAbbr(payload?.id || teamInput.abbreviation);
+					if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return false;
+					return isHome ? homeScore < awayScore : awayScore < homeScore;
+				}).length;
+
+				const gf = scheduleGames.reduce((acc, g) => {
+					const isHome = normalizeAbbr(g?.homeTeam?.abbrev) === normalizeAbbr(payload?.id || teamInput.abbreviation);
+					return acc + toFinite(isHome ? g?.homeTeam?.score : g?.awayTeam?.score, 0);
+				}, 0);
+
+				const ga = scheduleGames.reduce((acc, g) => {
+					const isHome = normalizeAbbr(g?.homeTeam?.abbrev) === normalizeAbbr(payload?.id || teamInput.abbreviation);
+					return acc + toFinite(isHome ? g?.awayTeam?.score : g?.homeTeam?.score, 0);
+				}, 0);
+
+				const leaderPoints = [...skaters]
+					.sort((a, b) => toFinite(b?.points) - toFinite(a?.points))
+					.slice(0, 3)
+					.map((p) => ({
+						label: "PTS",
+						value: String(toFinite(p?.points)),
+						player: `#${p?.playerId || ""}`,
+					}));
+
+				const rosterRaw = payload?.roster || {};
+				const skaterMap = Object.fromEntries(
+					skaters.map((p) => [String(p?.playerId), p]),
+				);
+				const goalieMap = Object.fromEntries(
+					goalies.map((p) => [String(p?.playerId), p]),
+				);
+
+				const normalizeRosterGroup = (arr, positionName) =>
+					(Array.isArray(arr) ? arr : []).map((p) => {
+						const pid = String(p?.playerId || p?.id || "");
+						const statSource = skaterMap[pid] || goalieMap[pid] || null;
+						const fullName = [p?.firstName?.default, p?.lastName?.default]
+							.filter(Boolean)
+							.join(" ");
+
+						return {
+							person: {
+								id: pid,
+								fullName: fullName || p?.name?.default || `#${pid}`,
+							},
+							position: {
+								name: positionName,
+								abbreviation: p?.positionCode || positionName,
+							},
+							jerseyNumber: p?.sweaterNumber != null ? String(p.sweaterNumber) : "",
+							status: { description: "Active" },
+							headshot: pid ? `https://assets.nhle.com/mugs/nhl/20252026/${pid}.png` : null,
+							stats: statSource
+								? Object.fromEntries(
+										Object.entries(statSource)
+											.filter(([, v]) => Number.isFinite(Number(v)))
+											.slice(0, 9)
+											.map(([k, v]) => [
+												k,
+												{
+													value: Number(v) % 1 === 0 ? String(Number(v)) : Number(v).toFixed(3).replace(/\.0+$/, ""),
+												},
+											]),
+									)
+								: {},
+						};
+					});
+
+				const roster = [
+					...normalizeRosterGroup(rosterRaw?.forwards, "Forward"),
+					...normalizeRosterGroup(rosterRaw?.defensemen, "Defenseman"),
+					...normalizeRosterGroup(rosterRaw?.goalies, "Goalie"),
+				];
+
+				const normalizedGames = scheduleGames.map((g) => {
+					const awayAbbr = normalizeAbbr(g?.awayTeam?.abbrev || g?.awayTeam?.abbreviation || "AWY");
+					const homeAbbr = normalizeAbbr(g?.homeTeam?.abbrev || g?.homeTeam?.abbreviation || "HME");
+					const state = String(g?.gameState || "").toUpperCase();
+					const codedGameState =
+						state === "LIVE" || state === "CRIT"
+							? "I"
+							: state === "FUT" || state === "PRE"
+								? "S"
+								: "F";
+
+					return {
+						gamePk: g?.id,
+						gameType: g?.gameType,
+						gameDate: g?.startTimeUTC || g?.gameDate,
+						venue: g?.venue || "",
+						status: {
+							codedGameState,
+							detailedState:
+								state === "OFF" || state === "FINAL"
+									? "Final"
+									: state === "LIVE"
+										? "Live"
+										: "Scheduled",
+						},
+						teams: {
+							away: {
+								score: g?.awayTeam?.score,
+								team: {
+									id: awayAbbr,
+									abbreviation: awayAbbr,
+									name: g?.awayTeam?.name?.default || awayAbbr,
+								},
+							},
+							home: {
+								score: g?.homeTeam?.score,
+								team: {
+									id: homeAbbr,
+									abbreviation: homeAbbr,
+									name: g?.homeTeam?.name?.default || homeAbbr,
+								},
+							},
+						},
+					};
+				});
+
+				setTeamData({
+					team: {
+						id: teamInput.id || payload?.id || teamInput.endpointId,
+						abbreviation: normalizeAbbr(payload?.id || teamInput.abbreviation || teamInput.endpointId),
+						name:
+							teamInput.displayName ||
+							route.params?.team?.displayName ||
+							normalizeAbbr(payload?.id || teamInput.endpointId) ||
+							"NHL Team",
+						league: { name: "National Hockey League" },
+						division: { name: "" },
+					},
+					summary: {
+						currentSeason: payload?.schedule?.currentSeason || "--",
+						gamesPlayed: scheduleGames.length,
+						record: `${wins}-${losses}`,
+						goalsFor: gf,
+						goalsAgainst: ga,
+						goalDiff: gf - ga,
+					},
+					leaders: leaderPoints,
+					stats: { skaters, goalies },
+					schedule: { dates: [{ games: normalizedGames }] },
+					roster,
+				});
+			} catch (error) {
+				console.error("NHL TeamPage load error:", error);
+				setTeamData(null);
+			} finally {
+				setLoading(false);
+				setRefreshing(false);
+			}
+		},
+		[route.params, teamInput],
+	);
+
+	useEffect(() => {
+		loadTeam(false);
+	}, [loadTeam]);
+
+	const team = teamData?.team || null;
+	const resolvedAbbr = normalizeAbbr(team?.abbreviation || teamInput.abbreviation || teamInput.endpointId);
+	const teamColor = NHLService.getTeamColor(resolvedAbbr, colors.primary);
+	const teamLogo = getLogo(resolvedAbbr, isDarkMode);
+
+	const skaters = teamData?.stats?.skaters || [];
+	const goalies = teamData?.stats?.goalies || [];
+
+	const skaterRows = useMemo(
+		() =>
+			buildMetricRows(skaters, [
+				{ key: "goals", label: "Goals", type: "sum" },
+				{ key: "assists", label: "Assists", type: "sum" },
+				{ key: "points", label: "Points", type: "sum" },
+				{ key: "shots", label: "Shots", type: "sum" },
+				{
+					key: "faceoffWinPctg",
+					label: "Faceoff %",
+					type: "avg",
+					format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+				},
+				{
+					key: "avgTimeOnIcePerGame",
+					label: "Avg TOI",
+					type: "avg",
+					format: (v) => `${Math.round(Number(v) / 60)}m`,
+				},
+			]),
+		[skaters],
+	);
+
+	const goalieRows = useMemo(
+		() =>
+			buildMetricRows(goalies, [
+				{ key: "wins", label: "Wins", type: "sum" },
+				{ key: "shutouts", label: "Shutouts", type: "sum" },
+				{
+					key: "savePercentage",
+					label: "Save %",
+					type: "avg",
+					format: (v) => Number(v).toFixed(3),
+				},
+				{
+					key: "goalsAgainstAverage",
+					label: "GAA",
+					type: "avg",
+					format: (v) => Number(v).toFixed(2),
+				},
+				{ key: "saves", label: "Saves", type: "sum" },
+			]),
+		[goalies],
+	);
+
+	const statsContent =
+		skaterRows.length === 0 && goalieRows.length === 0 ? (
+			<View style={styles.emptyContainer}>
+				<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No stats available</Text>
+			</View>
+		) : (
+			<View
+				style={{
+					paddingHorizontal: 12,
+					paddingTop: 8,
+					paddingBottom: 24,
+					gap: 12,
+				}}
+			>
+				{skaterRows.length > 0 && (
+					<StatBubble
+						title="Skaters"
+						rows={skaterRows}
+						expanded={skaterExpanded}
+						onToggle={() => setSkaterExpanded((v) => !v)}
+						teamColor={teamColor}
+						theme={theme}
+					/>
+				)}
+				{goalieRows.length > 0 && (
+					<StatBubble
+						title="Goalies"
+						rows={goalieRows}
+						expanded={goalieExpanded}
+						onToggle={() => setGoalieExpanded((v) => !v)}
+						teamColor={teamColor}
+						theme={theme}
+					/>
+				)}
+			</View>
+		);
+
+	const todayStr = getTodayDateStr();
+	const allGamesList = (teamData?.schedule?.dates || []).flatMap((d) => d.games || []);
+	const todayGames = allGamesList.filter((g) => gameToLocalDateStr(g.gameDate) === todayStr);
+	const pastGames = allGamesList
+		.filter((g) => gameToLocalDateStr(g.gameDate) < todayStr)
+		.sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+	const upcomingGames = allGamesList
+		.filter((g) => gameToLocalDateStr(g.gameDate) > todayStr)
+		.sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+	const hasAnyGames = todayGames.length + pastGames.length + upcomingGames.length > 0;
+
+	const threshold = Math.max(headerHeight - 40, 80);
+	const stickyOpacity = scrollY.interpolate({
+		inputRange: [threshold, threshold + 40],
+		outputRange: [0, 1],
+		extrapolate: "clamp",
+	});
+	const stickyMiniHeight = scrollY.interpolate({
+		inputRange: [threshold, threshold + 40],
+		outputRange: [0, 64],
+		extrapolate: "clamp",
+	});
+
+	if (loading) {
+		return (
+			<View style={[styles.centered, { backgroundColor: theme.background }]}> 
+				<ActivityIndicator size="large" color={teamColor} />
+			</View>
+		);
+	}
+
+	return (
+		<View style={[styles.screen, { backgroundColor: theme.background }]}>
+			<Animated.ScrollView
+				showsVerticalScrollIndicator={false}
+				scrollEventThrottle={16}
+				onScroll={Animated.event(
+					[{ nativeEvent: { contentOffset: { y: scrollY } } }],
+					{ useNativeDriver: false },
+				)}
+				stickyHeaderIndices={[1]}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={() => loadTeam(true)}
+						tintColor={teamColor}
+					/>
+				}
+			>
+				<View
+					style={[
+						styles.header,
+						{
+							backgroundColor: teamColor + "22",
+							borderBottomColor: teamColor,
+						},
+					]}
+					onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+				>
+					<View style={styles.headerMain}>
+						{teamLogo ? (
+							<Image
+								cachePolicy="memory-disk"
+								source={{ uri: teamLogo }}
+								style={styles.headerLogo}
+								resizeMode="contain"
+							/>
+						) : (
+							<View
+								style={[
+									styles.headerLogoFallback,
+									{ backgroundColor: teamColor },
+								]}
+							>
+								<Text
+									style={[
+										styles.headerLogoFallbackText,
+										{ color: getTextOnColor(teamColor) },
+									]}
+								>
+									{(team?.abbreviation || "?").charAt(0)}
+								</Text>
+							</View>
+						)}
+
+						<View style={styles.headerTextBlock}>
+							<Text
+								allowFontScaling={false}
+								style={[styles.headerName, { color: teamColor }]}
+								numberOfLines={1}
+							>
+								{team?.name || "NHL Team"}
+							</Text>
+							<Text
+								allowFontScaling={false}
+								style={[styles.headerLeague, { color: teamColor + "BB" }]}
+								numberOfLines={1}
+							>
+								{team?.league?.name || "National Hockey League"}
+							</Text>
+							{!!team?.division?.name && (
+								<Text
+									allowFontScaling={false}
+									style={[styles.headerDivision, { color: teamColor + "99" }]}
+									numberOfLines={1}
+								>
+									{team.division.name}
+								</Text>
+							)}
+						</View>
+					</View>
+				</View>
+
+				<View style={{ backgroundColor: theme.surface }}>
+					<Animated.View
+						style={{
+							height: stickyMiniHeight,
+							opacity: stickyOpacity,
+							overflow: "hidden",
+						}}
+					>
+						<Svg
+							style={StyleSheet.absoluteFill}
+							width="100%"
+							height={64}
+							pointerEvents="none"
+						>
+							<Defs>
+								<SvgLinearGradient id="nhlStickyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+									<Stop offset="0%" stopColor={theme.surfaceSecondary} stopOpacity="1" />
+									<Stop offset="55%" stopColor={theme.surfaceSecondary} stopOpacity="1" />
+									<Stop offset="100%" stopColor={teamColor} stopOpacity="0.65" />
+								</SvgLinearGradient>
+							</Defs>
+							<Rect width="100%" height="100%" fill="url(#nhlStickyGrad)" />
+						</Svg>
+
+						<View style={styles.stickyMiniContent}>
+							{teamLogo ? (
+								<Image
+									cachePolicy="memory-disk"
+									source={{ uri: teamLogo }}
+									style={styles.stickyMiniLogo}
+									resizeMode="contain"
+								/>
+							) : null}
+							<View style={{ flex: 1 }}>
+								<Text
+									allowFontScaling={false}
+									style={[styles.stickyMiniName, { color: theme.text }]}
+									numberOfLines={1}
+								>
+									{team?.name || "NHL Team"}
+								</Text>
+								<Text
+									allowFontScaling={false}
+									style={[styles.stickyMiniLeague, { color: theme.textSecondary }]}
+									numberOfLines={1}
+								>
+									National Hockey League
+								</Text>
+							</View>
+						</View>
+					</Animated.View>
+
+					<View style={[styles.tabBar, { borderBottomColor: theme.border }]}> 
+						{TABS.map((tab) => (
+							<TouchableOpacity
+								key={tab}
+								onPress={() => setActiveTab(tab)}
+								style={styles.tabBarBtn}
+							>
+								<Text
+									allowFontScaling={false}
+									style={[
+										styles.tabBarText,
+										activeTab === tab
+											? { color: teamColor, fontWeight: "700" }
+											: { color: theme.textSecondary },
+									]}
+								>
+									{tab}
+								</Text>
+								{activeTab === tab && (
+									<View
+										style={[
+											styles.tabBarIndicator,
+											{ backgroundColor: teamColor },
+										]}
+									/>
+								)}
+							</TouchableOpacity>
+						))}
+					</View>
+				</View>
+
+				<View style={styles.content}>
+					{activeTab === "Matches" &&
+						(!hasAnyGames ? (
+							<View style={styles.emptyContainer}>
+								<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No matches available</Text>
+							</View>
+						) : (
+							<View style={{ paddingBottom: 8 }}>
+								<MatchesSection
+									title="Today"
+									games={todayGames}
+									collapsible={false}
+									navigation={navigation}
+									sport={sport}
+									isDarkMode={isDarkMode}
+									theme={theme}
+									colors={colors}
+									teamColor={teamColor}
+									getLogo={getLogo}
+								/>
+								<MatchesSection
+									title="Last Matches"
+									games={pastGames}
+									collapsible={true}
+									navigation={navigation}
+									sport={sport}
+									isDarkMode={isDarkMode}
+									theme={theme}
+									colors={colors}
+									teamColor={teamColor}
+									getLogo={getLogo}
+								/>
+								<MatchesSection
+									title="Upcoming"
+									games={upcomingGames}
+									collapsible={true}
+									navigation={navigation}
+									sport={sport}
+									isDarkMode={isDarkMode}
+									theme={theme}
+									colors={colors}
+									teamColor={teamColor}
+									getLogo={getLogo}
+								/>
+							</View>
+						))}
+
+					{activeTab === "Team" && (
+						<TeamTab teamData={teamData} teamColor={teamColor} theme={theme} />
+					)}
+
+					{activeTab === "Stats" && statsContent}
+
+					{activeTab === "Roster" &&
+						(() => {
+							const roster = teamData?.roster || [];
+							if (!roster.length) {
+								return (
+									<View style={styles.emptyContainer}>
+										<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No roster available</Text>
+									</View>
+								);
+							}
+
+							const getPosGroup = (abbr) => {
+								const pos = String(abbr || "").toUpperCase();
+								if (["C", "L", "LW", "R", "RW", "F"].includes(pos)) return "Forwards";
+								if (["D", "LD", "RD"].includes(pos)) return "Defensemen";
+								if (["G", "GK"].includes(pos)) return "Goalies";
+								return "Other";
+							};
+
+							const groups = {};
+							for (const player of roster) {
+								const grp = getPosGroup(player.position?.abbreviation);
+								if (!groups[grp]) groups[grp] = [];
+								groups[grp].push(player);
+							}
+
+							const ordered = ["Forwards", "Defensemen", "Goalies", "Other"].filter(
+								(k) => Array.isArray(groups[k]) && groups[k].length > 0,
+							);
+
+							return (
+								<View style={{ paddingBottom: 24 }}>
+									{ordered.map((posType) => (
+										<View key={posType} style={rStyles.posSection}>
+											<View
+												style={[
+													rStyles.posSectionHeader,
+													{ backgroundColor: teamColor + "22" },
+												]}
+											>
+												<Text
+													allowFontScaling={false}
+													style={[rStyles.posSectionTitle, { color: teamColor }]}
+												>
+													{posType}
+												</Text>
+												<Text
+													allowFontScaling={false}
+													style={[rStyles.posSectionCount, { color: teamColor }]}
+												>
+													{groups[posType].length}
+												</Text>
+											</View>
+
+											{groups[posType].map((player, idx) => (
+												<RosterPlayerRow
+													key={player.person?.id || idx}
+													player={player}
+													teamColor={teamColor}
+													theme={theme}
+												/>
+											))}
+										</View>
+									))}
+								</View>
+							);
+						})()}
+				</View>
+			</Animated.ScrollView>
+		</View>
+	);
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  teamHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  headTeamLogo: {
-    width: 80,
-    height: 80,
-    marginRight: 20,
-  },
-  teamInfo: {
-    flex: 1,
-  },
-  teamName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  teamDivision: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  recordContainer: {
-    marginTop: 4,
-    marginLeft: 0,
-  },
-  recordRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: 180,
-  },
-  recordValue: {
-    fontSize: 14,
-    fontWeight: "bold",
-    textAlign: "center",
-    flex: 1,
-  },
-  recordLabel: {
-    fontSize: 12,
-    textAlign: "center",
-    flex: 1,
-    marginTop: 2,
-  },
-  favoriteButton: {
-    position: "absolute",
-    top: 50,
-    right: 15,
-    padding: 10,
-    zIndex: 1,
-  },
-  favoriteIcon: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  tabContainer: {
-    flexDirection: "row",
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: "center",
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-  },
-  activeTabButton: {
-    borderBottomWidth: 3,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  activeTabText: {
-    fontWeight: "bold",
-  },
-  contentContainer: {
-    flex: 1,
-    padding: 15,
-  },
-  gamesContainer: {
-    flex: 1,
-    paddingTop: 5,
-  },
-  gameSection: {
-    marginBottom: 20,
-  },
-  gameSectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  gameCard: {
-    borderRadius: 8,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    overflow: "hidden",
-  },
-  gameTeams: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  teamContainer: {
-    flex: 1,
-    alignItems: "center",
-  },
-  gameTeamLogo: {
-    width: 40,
-    height: 40,
-    marginBottom: 5,
-  },
-  gameTeamName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  versus: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginTop: 5,
-  },
-  teamRecord: {
-    fontSize: 12,
-  },
-  gameInfo: {
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  gameStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  gameTime: {
-    fontSize: 12,
-  },
-  noGameContainer: {
-    borderRadius: 8,
-    padding: 20,
-    alignItems: "center",
-    borderWidth: 1,
-    borderStyle: "dashed",
-  },
-  noGameText: {
-    fontSize: 14,
-    fontStyle: "italic",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  collapseArrow: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  teamLogoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 5,
-  },
-  gameTeamScore: {
-    fontSize: 30,
-    fontWeight: "bold",
-    marginHorizontal: 8,
-  },
-  losingTeamScore: {
-    color: "#999",
-  },
-  losingTeamName: {
-    color: "#999",
-  },
-  losingTeamLogo: {
-    opacity: 0.6,
-  },
-  gameDescriptionBanner: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    marginBottom: 10,
-    marginHorizontal: -15,
-    marginTop: -15,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-  gameDescriptionText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  contentText: {
-    fontSize: 16,
-    textAlign: "center",
-    fontStyle: "italic",
-    padding: 20,
-  },
-  // Roster styles (matching MLB)
-  rosterContainer: {
-    flex: 1,
-    padding: 1,
-  },
-  matchesSection: {
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-  },
-  rosterSection: {
-    marginBottom: 20,
-  },
-  rosterSectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  rosterSectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    flex: 1,
-  },
-  rosterSectionArrow: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  rosterTableContainer: {
-    backgroundColor: "white",
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  rosterTableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#e9ecef",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  rosterTableHeaderPlayer: {
-    flex: 3,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-  },
-  rosterTableHeaderStatus: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-    textAlign: "center",
-  },
-  rosterTableRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    alignItems: "center",
-  },
-  rosterTablePlayerCell: {
-    flex: 3,
-  },
-  rosterPlayerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  playerHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  rosterPlayerInfo: {
-    flex: 1,
-  },
-  rosterTablePlayerName: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  rosterTablePlayerDetails: {
-    fontSize: 12,
-  },
-  rosterTablePlayerNumber: {
-    fontWeight: "500",
-  },
-  rosterTableStatusCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-  rosterTableStatusText: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  activeStatus: {
-    backgroundColor: "#d4edda",
-    color: "#155724",
-  },
-  inactiveStatus: {
-    backgroundColor: "#f8d7da",
-    color: "#721c24",
-  },
-  // Stats styles (matching NFL)
-  statsContainer: {
-    flex: 1,
-  },
-  statsContent: {
-    padding: 0,
-  },
-  statsLoadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  statsSection: {
-    marginBottom: 25,
-  },
-  statsSectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15,
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    padding: 15,
-    minHeight: 70,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statBoxValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  statBoxLabel: {
-    fontSize: 12,
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  // NFL-style match card styles
-  fixedTabContainer: {
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 1000,
-  },
-  contentScrollView: {
-    flex: 1,
-  },
-  matchesSection: {
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-  },
-  gameSectionCard: {
-    borderRadius: 8,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderStyle: "dashed",
-  },
-  leagueHeader: {
-    backgroundColor: "#f8f9fa",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-  leagueText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  matchContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 12,
-  },
-  teamSection: {
-    flex: 1,
-    alignItems: "center",
-  },
-  teamLogoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  teamLogo: {
-    width: 40,
-    height: 40,
-  },
-  losingTeamLogo: {
-    opacity: 0.5,
-  },
-  teamScore: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginHorizontal: 8,
-  },
-  scoreContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  teamAbbreviation: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  teamNameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  favoriteIcon: {
-    marginRight: 4,
-  },
-  statusSection: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  gameStatus: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  gameDateTime: {
-    fontSize: 11,
-    marginBottom: 2,
-  },
-  venueSection: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-  },
-  venueText: {
-    fontSize: 11,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
+	screen: { flex: 1 },
+	centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+	header: {
+		paddingTop: 20,
+		paddingHorizontal: 16,
+		paddingBottom: 16,
+		borderBottomWidth: 2,
+	},
+	headerMain: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 18,
+	},
+	headerLogo: {
+		width: 68,
+		height: 68,
+		marginRight: 14,
+	},
+	headerLogoFallback: {
+		width: 68,
+		height: 68,
+		borderRadius: 34,
+		marginRight: 14,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	headerLogoFallbackText: { fontSize: 28, fontWeight: "800" },
+	headerTextBlock: { flex: 1 },
+	headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
+	headerLeague: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
+	headerDivision: { fontSize: 12 },
+	stickyMiniContent: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		gap: 10,
+	},
+	stickyMiniLogo: { width: 32, height: 32, marginRight: 10 },
+	stickyMiniName: { fontSize: 15, fontWeight: "700" },
+	stickyMiniLeague: { fontSize: 11, fontWeight: "500", marginTop: 1 },
+	tabBar: {
+		flexDirection: "row",
+		borderBottomWidth: StyleSheet.hairlineWidth,
+	},
+	tabBarBtn: {
+		flex: 1,
+		alignItems: "center",
+		paddingVertical: 11,
+		position: "relative",
+	},
+	tabBarText: { fontSize: 13 },
+	tabBarIndicator: {
+		position: "absolute",
+		bottom: 0,
+		left: 12,
+		right: 12,
+		height: 2.5,
+		borderRadius: 2,
+	},
+	content: { paddingBottom: 40, paddingTop: 6 },
+	emptyContainer: { alignItems: "center", paddingVertical: 56 },
+	emptyText: { fontSize: 15 },
+	matchCardWrap: {
+		marginHorizontal: 12,
+		marginTop: 10,
+		position: "relative",
+		overflow: "visible",
+	},
+	matchCard: {
+		borderRadius: 12,
+		overflow: "hidden",
+	},
+	matchGameBadge: {
+		position: "absolute",
+		top: -8,
+		right: 8,
+		borderRadius: 10,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderWidth: 1,
+		zIndex: 2,
+	},
+	matchGameBadgeText: { fontSize: 10, fontWeight: "700" },
+	matchCardInner: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 12,
+		paddingHorizontal: 12,
+		gap: 10,
+	},
+	matchStatusCol: {
+		width: 72,
+		alignItems: "center",
+	},
+	matchDateText: {
+		fontSize: 11,
+		textAlign: "center",
+		marginBottom: 4,
+		lineHeight: 15,
+	},
+	matchStatusText: { fontSize: 12, textAlign: "center" },
+	matchTeamsList: { flex: 1 },
+	matchTeamRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+		paddingVertical: 4,
+	},
+	matchTeamDivider: { height: StyleSheet.hairlineWidth, marginLeft: 32 },
+	matchLogoWrap: {
+		width: 24,
+		height: 24,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	matchTeamLogo: { width: 24, height: 24 },
+	matchTeamLogoFallback: {
+		width: 24,
+		height: 24,
+		borderRadius: 12,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	matchLogoFallbackText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+	matchTeamName: { flex: 1, fontSize: 14 },
+	matchScoreText: { fontSize: 16, minWidth: 26, textAlign: "right" },
+	matchChevron: { fontSize: 24, lineHeight: 28, paddingLeft: 4 },
 });
 
 export default TeamPageScreen;

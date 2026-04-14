@@ -658,6 +658,32 @@ function transformLandingPayload(payload) {
     };
   });
 
+  const shootout = {
+    liveScore: {
+      home: summary?.shootout?.liveScore?.home ?? null,
+      away: summary?.shootout?.liveScore?.away ?? null,
+    },
+    events: Array.isArray(summary?.shootout?.events)
+      ? summary.shootout.events.map((event) => ({
+          sequence: event?.sequence ?? null,
+          playerId: event?.playerId ?? null,
+          teamAbbrev: {
+            default: pickDefaultName(event?.teamAbbrev),
+          },
+          firstName: {
+            default: pickDefaultName(event?.firstName),
+          },
+          lastName: {
+            default: pickDefaultName(event?.lastName),
+          },
+          shotType: event?.shotType ?? null,
+          result: event?.result ?? null,
+          homeScore: event?.homeScore ?? null,
+          awayScore: event?.awayScore ?? null,
+        }))
+      : [],
+  };
+
   const skaterComparisonLeaders = Array.isArray(
     matchup?.skaterComparison?.leaders,
   )
@@ -740,6 +766,7 @@ function transformLandingPayload(payload) {
       scoring,
       threeStars,
       penalties,
+      shootout,
     },
     matchup: {
       skaterComparison: {
@@ -1179,19 +1206,34 @@ app.get("/nhl/team/:id", async (req, res) => {
     stats: applyNhlSeasonSpan(expandUrl(URLS.team.stats, { id }), seasonSpan),
     schedule: expandUrl(URLS.team.schedule, { id }),
     roster: applyNhlSeasonSpan(expandUrl(URLS.team.roster, { id }), seasonSpan),
+    standings: URLS.standings,
   };
 
   try {
-    const [stats, schedule, roster] = await Promise.all([
+    const [stats, schedule, roster, standings] = await Promise.all([
       getCachedJson(`team:stats:${seasonSpan}:${id}`, urls.stats),
       getCachedJson(`team:schedule:${id}`, urls.schedule),
       getCachedJson(`team:roster:${seasonSpan}:${id}`, urls.roster),
+      getCachedJsonWithTtl(`standings:now`, urls.standings, STANDINGS_TTL_MS),
     ]);
+
+    const transformedStandings = transformStandingsPayload(standings.data);
+    const teamStanding = (Array.isArray(transformedStandings?.standings)
+      ? transformedStandings.standings
+      : []
+    ).find((entry) => {
+      const entryTeamId = String(entry?.teamId ?? "");
+      const entryAbbrev = String(entry?.teamAbbrev ?? "").toUpperCase();
+      return entryTeamId === id || entryAbbrev === id;
+    });
 
     setCachingHeaders(res, TTL_MS);
     res.json({
       source:
-        stats.fromCache && schedule.fromCache && roster.fromCache
+        stats.fromCache &&
+        schedule.fromCache &&
+        roster.fromCache &&
+        standings.fromCache
           ? "cache"
           : "origin",
       id,
@@ -1199,6 +1241,7 @@ app.get("/nhl/team/:id", async (req, res) => {
         stats: transformTeamStatsPayload(stats.data),
         schedule: transformTeamSchedulePayload(schedule.data),
         roster: transformTeamRosterPayload(roster.data),
+        standings: teamStanding || null,
       },
     });
   } catch (err) {

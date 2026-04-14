@@ -229,6 +229,7 @@ const TeamRow = ({
           numberOfLines={1}
         >
           {isFav ? "★ " : ""}
+          {team.clinch ? `${team.clinch} - ` : ""}
           {team.displayName}
         </Text>
 
@@ -472,6 +473,11 @@ const NHLStandingsScreen = () => {
         onPress={() =>
           navigation.navigate("TeamPage", {
             teamId: team.id || team.abbreviation,
+            team: {
+              id: team.id || null,
+              abbreviation: team.abbreviation || null,
+              displayName: team.displayName || null,
+            },
             sport: "nhl",
           })
         }
