@@ -3313,6 +3313,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
   },
+  
   advLegendLabel: {
     fontSize: 10,
     textAlign: "center",
