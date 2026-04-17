@@ -1081,6 +1081,14 @@ function transformScoreboardPayload(payload) {
         logoLight: g?.homeTeam?.logo ?? "",
         logoDark: getDarkLogoFromLight(g?.homeTeam?.logo),
       },
+      seriesStatus: {
+        seriesTitle: g?.seriesStatus?.seriesTitle ?? null,
+        topSeedTeamAbbrev: g?.seriesStatus?.topSeedTeamAbbrev ?? null,
+        topSeedWins: g?.seriesStatus?.topSeedWins ?? null,
+        bottomSeedTeamAbbrev: g?.seriesStatus?.bottomSeedTeamAbbrev ?? null,
+        bottomSeedWins: g?.seriesStatus?.bottomSeedWins ?? null,
+        gameNumberOfSeries: g?.seriesStatus?.gameNumberOfSeries ?? null,
+      },
       clock: {
         timeRemaining: g?.clock?.timeRemaining ?? null,
         secondsRemaining: g?.clock?.secondsRemaining ?? null,

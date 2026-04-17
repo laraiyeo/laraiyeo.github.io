@@ -206,12 +206,20 @@ const NHL_GAME_TYPE_LABELS = {
   6: "Exhibition",
 };
 
-const NHL_CAREER_STAT_COLS = [
+const NHL_CAREER_SKATER_STAT_COLS = [
   { key: "gamesPlayed", label: "GP" },
   { key: "goals", label: "G" },
   { key: "assists", label: "A" },
   { key: "points", label: "PTS" },
   { key: "plusMinus", label: "+/-" },
+];
+
+const NHL_CAREER_GOALIE_STAT_COLS = [
+  { key: "gamesPlayed", label: "GP" },
+  { key: "wins", label: "W" },
+  { key: "goalsAgainstAvg", label: "GAA" },
+  { key: "savePctg", label: "SV%" },
+  { key: "shutouts", label: "SO" },
 ];
 
 const getNhlTeamLogoUrl = (abbr, isDarkMode) => {
@@ -757,6 +765,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
   const featured = info?.featuredStats?.regularSeason?.subSeason || {};
   const careerRegular = info?.careerTotals?.regularSeason || {};
   const careerPlayoffs = info?.careerTotals?.playoffs || {};
+  const isGoalie = String(info?.position || "").toUpperCase() === "G";
 
   const headerBadge = [
     info?.position || "",
@@ -767,45 +776,107 @@ const PlayerPageScreen = ({ route, navigation }) => {
     .join(" · ");
 
   const topChips = useMemo(
-    () => [
-      { label: "GLS", value: featured?.goals },
-      { label: "AST", value: featured?.assists },
-      { label: "PTS", value: featured?.points },
-      { label: "GP", value: featured?.gamesPlayed },
-      { label: "+/-", value: fmtPlusMinus(featured?.plusMinus) },
-      { label: "SHT", value: featured?.shots },
-      { label: "SHT%", value: fmtPct(featured?.shootingPctg) },
-      { label: "AVG TOI", value: featured?.avgToi },
-    ],
-    [featured],
+    () =>
+      isGoalie
+        ? [
+            { label: "GP", value: featured?.gamesPlayed },
+            { label: "W", value: featured?.wins },
+            { label: "L", value: featured?.losses },
+            { label: "OTL", value: featured?.otLosses },
+            { label: "SV%", value: fmtPct(featured?.savePctg) },
+            { label: "GAA", value: featured?.goalsAgainstAvg?.toFixed(2) },
+            { label: "SO", value: featured?.shutouts },
+            {
+              label: "W%",
+              value: fmtPct(featured?.wins / (featured?.gamesPlayed || 1)),
+            },
+          ]
+        : [
+            { label: "GLS", value: featured?.goals },
+            { label: "AST", value: featured?.assists },
+            { label: "PTS", value: featured?.points },
+            { label: "GP", value: featured?.gamesPlayed },
+            { label: "+/-", value: fmtPlusMinus(featured?.plusMinus) },
+            { label: "SHT", value: featured?.shots },
+            { label: "SHT%", value: fmtPct(featured?.shootingPctg) },
+            { label: "PIM", value: featured?.pim },
+          ],
+    [featured, isGoalie],
   );
 
   const regularCareerChips = useMemo(
-    () => [
-      { label: "GP", value: careerRegular?.gamesPlayed },
-      { label: "GLS", value: careerRegular?.goals },
-      { label: "AST", value: careerRegular?.assists },
-      { label: "PTS", value: careerRegular?.points },
-      { label: "+/-", value: fmtPlusMinus(careerRegular?.plusMinus) },
-      { label: "SHT", value: careerRegular?.shots },
-      { label: "SHT%", value: fmtPct(careerRegular?.shootingPctg) },
-      { label: "AVG TOI", value: careerRegular?.avgToi },
-    ],
-    [careerRegular],
+    () =>
+      isGoalie
+        ? [
+            { label: "GP", value: careerRegular?.gamesPlayed },
+            { label: "W", value: careerRegular?.wins },
+            { label: "L", value: careerRegular?.losses },
+            { label: "OTL", value: careerRegular?.otLosses },
+            { label: "SV%", value: fmtPct(careerRegular?.savePctg) },
+            { label: "SA", value: careerRegular?.shotsAgainst },
+            { label: "GA", value: careerRegular?.goalsAgainst },
+            { label: "SO", value: careerRegular?.shutouts },
+          ]
+        : [
+            { label: "GP", value: careerRegular?.gamesPlayed },
+            { label: "GLS", value: careerRegular?.goals },
+            { label: "AST", value: careerRegular?.assists },
+            { label: "PTS", value: careerRegular?.points },
+            { label: "+/-", value: fmtPlusMinus(careerRegular?.plusMinus) },
+            { label: "SHT", value: careerRegular?.shots },
+            { label: "SHT%", value: fmtPct(careerRegular?.shootingPctg) },
+            { label: "AVG TOI", value: careerRegular?.avgToi },
+          ],
+    [careerRegular, isGoalie],
   );
 
   const playoffCareerChips = useMemo(
-    () => [
-      { label: "GP", value: careerPlayoffs?.gamesPlayed },
-      { label: "GLS", value: careerPlayoffs?.goals },
-      { label: "AST", value: careerPlayoffs?.assists },
-      { label: "PTS", value: careerPlayoffs?.points },
-      { label: "+/-", value: fmtPlusMinus(careerPlayoffs?.plusMinus) },
-      { label: "SHT", value: careerPlayoffs?.shots },
-      { label: "SHT%", value: fmtPct(careerPlayoffs?.shootingPctg) },
-      { label: "AVG TOI", value: careerPlayoffs?.avgToi },
-    ],
-    [careerPlayoffs],
+    () =>
+      isGoalie
+        ? [
+            { label: "GP", value: careerPlayoffs?.gamesPlayed },
+            { label: "W", value: careerPlayoffs?.wins },
+            { label: "L", value: careerPlayoffs?.losses },
+            { label: "OTL", value: careerPlayoffs?.otLosses },
+            { label: "SV%", value: fmtPct(careerPlayoffs?.savePctg) },
+            { label: "SA", value: careerPlayoffs?.shotsAgainst },
+            { label: "GA", value: careerPlayoffs?.goalsAgainst },
+            { label: "SO", value: careerPlayoffs?.shutouts },
+          ]
+        : [
+            { label: "GP", value: careerPlayoffs?.gamesPlayed },
+            { label: "GLS", value: careerPlayoffs?.goals },
+            { label: "AST", value: careerPlayoffs?.assists },
+            { label: "PTS", value: careerPlayoffs?.points },
+            { label: "+/-", value: fmtPlusMinus(careerPlayoffs?.plusMinus) },
+            { label: "SHT", value: careerPlayoffs?.shots },
+            { label: "SHT%", value: fmtPct(careerPlayoffs?.shootingPctg) },
+            { label: "AVG TOI", value: careerPlayoffs?.avgToi },
+          ],
+    [careerPlayoffs, isGoalie],
+  );
+
+  const hasChipValue = (value) => {
+    if (value == null) return false;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed !== "" && trimmed !== "-";
+    }
+    if (typeof value === "number") return Number.isFinite(value);
+    return true;
+  };
+
+  const visibleTopChips = useMemo(
+    () => topChips.filter((chip) => hasChipValue(chip?.value)),
+    [topChips],
+  );
+  const visibleRegularCareerChips = useMemo(
+    () => regularCareerChips.filter((chip) => hasChipValue(chip?.value)),
+    [regularCareerChips],
+  );
+  const visiblePlayoffCareerChips = useMemo(
+    () => playoffCareerChips.filter((chip) => hasChipValue(chip?.value)),
+    [playoffCareerChips],
   );
 
   const gameLogPages = Math.max(
@@ -859,9 +930,15 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
   const renderPlayerTab = () => (
     <View style={styles.tabWrap}>
-      {renderStatBubble("Season", topChips)}
-      {renderStatBubble("Career Regular Season", regularCareerChips)}
-      {renderStatBubble("Career Playoffs", playoffCareerChips)}
+      {visibleTopChips.length > 0
+        ? renderStatBubble("Season", visibleTopChips)
+        : null}
+      {visibleRegularCareerChips.length > 0
+        ? renderStatBubble("Career Regular Season", visibleRegularCareerChips)
+        : null}
+      {visiblePlayoffCareerChips.length > 0
+        ? renderStatBubble("Career Playoffs", visiblePlayoffCareerChips)
+        : null}
 
       <View
         style={[
@@ -873,7 +950,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         {[
           ["Height", info?.heightInInches ? `${info.heightInInches} in` : "-"],
           ["Weight", info?.weightInPounds ? `${info.weightInPounds} lb` : "-"],
-          ["Shoots", info?.shootsCatches || "-"],
+          [isGoalie ? "Catches" : "Shoots", info?.shootsCatches || "-"],
           ["Birth Date", info?.birthDate || "-"],
           [
             "Birth Place",
@@ -981,6 +1058,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
             losses: entry?.losses,
             otLosses: entry?.otLosses,
             savePctg: entry?.savePctg,
+            goalsAgainstAvg: entry?.goalsAgainstAvg,
             saves: entry?.saves,
             goalsAgainst: entry?.goalsAgainst,
             shotsAgainst: entry?.shotsAgainst,
@@ -1204,12 +1282,32 @@ const PlayerPageScreen = ({ route, navigation }) => {
   const renderCareerTab = () => (
     <View style={styles.careerContainer}>
       {(() => {
+        const careerStatCols = isGoalie
+          ? NHL_CAREER_GOALIE_STAT_COLS
+          : NHL_CAREER_SKATER_STAT_COLS;
+
         const hasStatValue = (row) =>
-          NHL_CAREER_STAT_COLS.some(({ key }) => row?.[key] != null);
+          careerStatCols.some(({ key }) => row?.[key] != null);
+
+        const getGoalieSavePctg = (row) => {
+          const direct = Number(row?.savePctg);
+          if (Number.isFinite(direct)) return direct;
+          const shotsAgainst = Number(row?.shotsAgainst);
+          const goalsAgainst = Number(row?.goalsAgainst);
+          if (
+            Number.isFinite(shotsAgainst) &&
+            shotsAgainst > 0 &&
+            Number.isFinite(goalsAgainst)
+          ) {
+            return (shotsAgainst - goalsAgainst) / shotsAgainst;
+          }
+          return null;
+        };
 
         const formatCareerValue = (key, value) => {
           if (value == null) return "-";
           if (key === "plusMinus") return fmtPlusMinus(value);
+          if (key === "savePctg") return fmtPct(value);
           return String(value);
         };
 
@@ -1224,15 +1322,52 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
         const sumRows = (rows) =>
           rows.reduce(
-            (acc, row) => ({
-              gamesPlayed:
-                (acc.gamesPlayed || 0) + Number(row?.gamesPlayed || 0),
-              goals: (acc.goals || 0) + Number(row?.goals || 0),
-              assists: (acc.assists || 0) + Number(row?.assists || 0),
-              points: (acc.points || 0) + Number(row?.points || 0),
-              plusMinus: (acc.plusMinus || 0) + Number(row?.plusMinus || 0),
-            }),
-            { gamesPlayed: 0, goals: 0, assists: 0, points: 0, plusMinus: 0 },
+            (acc, row) => {
+              if (isGoalie) {
+                const shotsAgainst = Number(row?.shotsAgainst || 0);
+                const goalsAgainst = Number(row?.goalsAgainst || 0);
+                acc.gamesPlayed += Number(row?.gamesPlayed || 0);
+                acc.wins += Number(row?.wins || 0);
+                acc.losses += Number(row?.losses || 0);
+                acc.otLosses += Number(row?.otLosses || 0);
+                acc.shutouts += Number(row?.shutouts || 0);
+                acc.shotsAgainst += shotsAgainst;
+                acc.goalsAgainst += goalsAgainst;
+                acc.goalsAgainstAvg = row?.goalsAgainstAvg?.toFixed(2) || 0;
+                acc.savePctg =
+                  acc.shotsAgainst > 0
+                    ? (acc.shotsAgainst - acc.goalsAgainst) / acc.shotsAgainst
+                    : getGoalieSavePctg(row);
+                return acc;
+              }
+
+              return {
+                gamesPlayed:
+                  (acc.gamesPlayed || 0) + Number(row?.gamesPlayed || 0),
+                goals: (acc.goals || 0) + Number(row?.goals || 0),
+                assists: (acc.assists || 0) + Number(row?.assists || 0),
+                points: (acc.points || 0) + Number(row?.points || 0),
+                plusMinus: (acc.plusMinus || 0) + Number(row?.plusMinus || 0),
+              };
+            },
+            isGoalie
+              ? {
+                  gamesPlayed: 0,
+                  wins: 0,
+                  losses: 0,
+                  otLosses: 0,
+                  shutouts: 0,
+                  shotsAgainst: 0,
+                  goalsAgainst: 0,
+                  savePctg: null,
+                }
+              : {
+                  gamesPlayed: 0,
+                  goals: 0,
+                  assists: 0,
+                  points: 0,
+                  plusMinus: 0,
+                },
           );
 
         const regularCareer = info?.careerTotals?.regularSeason || null;
@@ -1422,7 +1557,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       </View>
 
                       <View style={styles.careerRowStats}>
-                        {NHL_CAREER_STAT_COLS.map(({ key, label }) => (
+                        {careerStatCols.map(({ key, label }) => (
                           <View
                             key={`${sectionRowKey}-${label}`}
                             style={styles.careerRowStatCell}
@@ -1507,7 +1642,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                               </Text>
                             </View>
                             <View style={styles.careerRowStats}>
-                              {NHL_CAREER_STAT_COLS.map(({ key }) => (
+                              {careerStatCols.map(({ key }) => (
                                 <View
                                   key={`${sectionRowKey}-${rowIdx}-${key}`}
                                   style={styles.careerRowStatCell}
@@ -1591,7 +1726,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     </Text>
                   </View>
                   <View style={styles.careerRowStats}>
-                    {NHL_CAREER_STAT_COLS.map(({ key, label }) => (
+                    {careerStatCols.map(({ key, label }) => (
                       <View
                         key={`totals-${label}`}
                         style={styles.careerRowStatCell}
@@ -1669,7 +1804,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             </Text>
                           </View>
                           <View style={styles.careerRowStats}>
-                            {NHL_CAREER_STAT_COLS.map(({ key }) => (
+                            {careerStatCols.map(({ key }) => (
                               <View
                                 key={`total-${idx}-${key}`}
                                 style={styles.careerRowStatCell}
@@ -1706,21 +1841,65 @@ const PlayerPageScreen = ({ route, navigation }) => {
   );
 
   const renderAdvancedStatsTab = () => {
+    const isGoalieTab = String(info?.position || "").toUpperCase() === "G";
     const isCompactLayout = width < 900;
-    const topShotSpeed = tracking?.topShotSpeed || null;
-    const maxSkatingSpeed = tracking?.skatingSpeed?.speedMax || null;
-    const maxDistanceGame = tracking?.distanceMaxGame || null;
-    const sogSummary = Array.isArray(tracking?.sogSummary)
-      ? tracking.sogSummary
+    const topShotSpeed = isGoalieTab ? null : tracking?.topShotSpeed || null;
+    const maxSkatingSpeed = isGoalieTab
+      ? null
+      : tracking?.skatingSpeed?.speedMax || null;
+    const maxDistanceGame = isGoalieTab
+      ? null
+      : tracking?.distanceMaxGame || null;
+    const sogSummary = Array.isArray(
+      isGoalieTab ? tracking?.shotLocationSummary : tracking?.sogSummary,
+    )
+      ? isGoalieTab
+        ? tracking.shotLocationSummary
+        : tracking.sogSummary
       : [];
-    const sogDetails = Array.isArray(tracking?.sogDetails)
-      ? tracking.sogDetails
+    const sogDetails = Array.isArray(
+      isGoalieTab ? tracking?.shotLocationDetails : tracking?.sogDetails,
+    )
+      ? isGoalieTab
+        ? tracking.shotLocationDetails
+        : tracking.sogDetails
+      : [];
+    const highDangerSummary = isGoalieTab
+      ? sogSummary.find(
+          (row) => String(row?.locationCode || "").toLowerCase() === "high",
+        )
+      : null;
+    const goalieMetricCards = isGoalieTab
+      ? [
+          {
+            title: `${toLabel(highDangerSummary?.locationCode || "High")}-Danger`,
+            statLabel: "GAA",
+            value: Number(highDangerSummary?.goalsAgainst || 0).toFixed(0),
+            percentile: highDangerSummary?.goalsAgainstPercentile,
+            leagueAvg: highDangerSummary?.goalsAgainstLeagueAvg,
+          },
+          {
+            title: `${toLabel(highDangerSummary?.locationCode || "High")}-Danger`,
+            statLabel: "SV",
+            value: Number(highDangerSummary?.saves || 0).toFixed(0),
+            percentile: highDangerSummary?.savesPercentile,
+            leagueAvg: highDangerSummary?.savesLeagueAvg,
+          },
+          {
+            title: `${toLabel(highDangerSummary?.locationCode || "High")}-Danger`,
+            statLabel: "SV%",
+            value: fmtPct(highDangerSummary?.savePctg),
+            percentile: highDangerSummary?.savePctgPercentile,
+            leagueAvg: highDangerSummary?.savePctgLeagueAvg,
+          },
+        ].filter((card) => card.percentile != null)
       : [];
 
     const hasAnyAdvanced =
       !!topShotSpeed ||
       !!maxSkatingSpeed ||
       !!maxDistanceGame ||
+      goalieMetricCards.length > 0 ||
       sogSummary.length > 0 ||
       sogDetails.length > 0;
 
@@ -1735,12 +1914,27 @@ const PlayerPageScreen = ({ route, navigation }) => {
     }
 
     const seasonBanner = formatSeasonHeader(info?.featuredStats?.season);
-    const seasonLineStats = [
-      ["GP", info?.featuredStats?.regularSeason?.subSeason?.gamesPlayed],
-      ["G", info?.featuredStats?.regularSeason?.subSeason?.goals],
-      ["A", info?.featuredStats?.regularSeason?.subSeason?.assists],
-      ["P", info?.featuredStats?.regularSeason?.subSeason?.points],
-    ];
+    const seasonLineStats = isGoalieTab
+      ? [
+          ["GP", info?.featuredStats?.regularSeason?.subSeason?.gamesPlayed],
+          ["W", info?.featuredStats?.regularSeason?.subSeason?.wins],
+          [
+            "GAA",
+            info?.featuredStats?.regularSeason?.subSeason?.goalsAgainstAvg?.toFixed(
+              2,
+            ),
+          ],
+          [
+            "SV%",
+            fmtPct(info?.featuredStats?.regularSeason?.subSeason?.savePctg),
+          ],
+        ]
+      : [
+          ["GP", info?.featuredStats?.regularSeason?.subSeason?.gamesPlayed],
+          ["G", info?.featuredStats?.regularSeason?.subSeason?.goals],
+          ["A", info?.featuredStats?.regularSeason?.subSeason?.assists],
+          ["P", info?.featuredStats?.regularSeason?.subSeason?.points],
+        ];
 
     const getOverlayLines = (overlay) => {
       if (!overlay || typeof overlay !== "object") return [];
@@ -1761,7 +1955,15 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return lines;
     };
 
-    const MetricCard = ({ title, value, unit, percentile, overlay }) => {
+    const MetricCard = ({
+      title,
+      value,
+      unit,
+      percentile,
+      overlay,
+      leagueAvg,
+      statLabel,
+    }) => {
       const badge = formatPercentileBadge(percentile);
       const pctColor = getPercentileTierColor(percentile, teamColor);
       const overlayLines = getOverlayLines(overlay);
@@ -1796,7 +1998,25 @@ const PlayerPageScreen = ({ route, navigation }) => {
           </Text>
           <Text
             style={[styles.advMetricTitle, { color: theme.textSecondary }]}
-          >{`${title} ${unit ? `• ${unit}` : ""}`}</Text>
+          >{`${title}${statLabel ? ` · ${statLabel}` : ""}${unit ? ` • ${unit}` : ""}`}</Text>
+          {Number.isFinite(Number(leagueAvg)) && (
+            <Text
+              style={[
+                styles.advOverlayText,
+                {
+                  color: theme.textTertiary ?? theme.textSecondary,
+                  textAlign: "center",
+                  marginTop: 4,
+                },
+              ]}
+            >
+              {`League Avg: ${
+                statLabel === "SV%"
+                  ? fmtPct(leagueAvg)
+                  : Number(leagueAvg).toFixed(2).replace(/\.00$/, "")
+              }`}
+            </Text>
+          )}
           {overlayLines.length > 0 && (
             <View style={styles.advOverlayWrap}>
               {overlayLines.map((line, idx) => (
@@ -1830,29 +2050,31 @@ const PlayerPageScreen = ({ route, navigation }) => {
       { code: "long", label: "Long-Range" },
     ];
 
-    const zoneSnapshotItems = [
-      {
-        key: "defensive",
-        title: "Defensive Zone",
-        value: asNum(tracking?.zoneTimeDetails?.defensiveZonePctg),
-        avg: asNum(tracking?.zoneTimeDetails?.defensiveZoneLeagueAvg),
-        pct: tracking?.zoneTimeDetails?.defensiveZonePercentile,
-      },
-      {
-        key: "neutral",
-        title: "Neutral Zone",
-        value: asNum(tracking?.zoneTimeDetails?.neutralZonePctg),
-        avg: asNum(tracking?.zoneTimeDetails?.neutralZoneLeagueAvg),
-        pct: tracking?.zoneTimeDetails?.neutralZonePercentile,
-      },
-      {
-        key: "offensive",
-        title: "Offensive Zone",
-        value: asNum(tracking?.zoneTimeDetails?.offensiveZonePctg),
-        avg: asNum(tracking?.zoneTimeDetails?.offensiveZoneLeagueAvg),
-        pct: tracking?.zoneTimeDetails?.offensiveZonePercentile,
-      },
-    ];
+    const zoneSnapshotItems = isGoalieTab
+      ? []
+      : [
+          {
+            key: "defensive",
+            title: "Defensive Zone",
+            value: asNum(tracking?.zoneTimeDetails?.defensiveZonePctg),
+            avg: asNum(tracking?.zoneTimeDetails?.defensiveZoneLeagueAvg),
+            pct: tracking?.zoneTimeDetails?.defensiveZonePercentile,
+          },
+          {
+            key: "neutral",
+            title: "Neutral Zone",
+            value: asNum(tracking?.zoneTimeDetails?.neutralZonePctg),
+            avg: asNum(tracking?.zoneTimeDetails?.neutralZoneLeagueAvg),
+            pct: tracking?.zoneTimeDetails?.neutralZonePercentile,
+          },
+          {
+            key: "offensive",
+            title: "Offensive Zone",
+            value: asNum(tracking?.zoneTimeDetails?.offensiveZonePctg),
+            avg: asNum(tracking?.zoneTimeDetails?.offensiveZoneLeagueAvg),
+            pct: tracking?.zoneTimeDetails?.offensiveZonePercentile,
+          },
+        ];
 
     const percentileLegend = [
       { key: "low", label: "1st-50th percentile", pct: 35 },
@@ -1865,6 +2087,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     const detailBars = sogDetails.map((row, idx) => {
       const shots = asNum(row?.shots) ?? 0;
+      const savePctgRaw = asNum(row?.savePctg);
       const areaLabel =
         row?.area ||
         row?.locationName ||
@@ -1876,17 +2099,30 @@ const PlayerPageScreen = ({ route, navigation }) => {
         key: String(areaLabel).toLowerCase().replace(/\s+/g, "-") + `-${idx}`,
         areaLabel: toLabel(areaLabel),
         shots,
+        savePctgRaw,
+        savePctgText: Number.isFinite(savePctgRaw)
+          ? `${(savePctgRaw <= 1 ? savePctgRaw * 100 : savePctgRaw).toFixed(1)}%`
+          : "-",
+        savePctgPercentile: row?.savePctgPercentile,
+        saves: asNum(row?.saves) ?? 0,
+        savesPercentile: row?.savesPercentile,
         shotsPercentile: row?.shotsPercentile,
       };
     });
     const maxDetailShots = Math.max(1, ...detailBars.map((bar) => bar.shots));
+    const maxDetailSaves = Math.max(1, ...detailBars.map((bar) => bar.saves));
+    const BAR_TRACK_HEIGHT = 124;
 
     const renderedSections = ["Season Header"];
-    if (topShotSpeed) renderedSections.push("Hardest Shot");
-    if (maxSkatingSpeed) renderedSections.push("Max Skating Speed");
-    if (maxDistanceGame) renderedSections.push("Most Miles Skated");
+    if (isGoalieTab) {
+      if (goalieMetricCards.length > 0) renderedSections.push("Goalie Metrics");
+    } else {
+      if (topShotSpeed) renderedSections.push("Hardest Shot");
+      if (maxSkatingSpeed) renderedSections.push("Max Skating Speed");
+      if (maxDistanceGame) renderedSections.push("Most Miles Skated");
+    }
     renderedSections.push("Shots On Goal Zone");
-    renderedSections.push("Zone Snapshots");
+    if (!isGoalieTab) renderedSections.push("Zone Snapshots");
 
     if (__DEV__) {
       console.log("[NHL Advanced Stats] Render sections", {
@@ -1941,7 +2177,20 @@ const PlayerPageScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.advMetricGrid}>
-          {topShotSpeed && (
+          {isGoalieTab
+            ? goalieMetricCards.map((card) => (
+                <MetricCard
+                  key={`goalie-metric-${card.title}`}
+                  title={card.title}
+                  value={card.value}
+                  statLabel={card.statLabel}
+                  percentile={card.percentile}
+                  overlay={card.overlay}
+                  leagueAvg={card.leagueAvg}
+                />
+              ))
+            : null}
+          {!isGoalieTab && topShotSpeed && (
             <MetricCard
               title="Hardest Shot"
               value={Number(topShotSpeed?.imperial || 0).toFixed(2)}
@@ -1950,7 +2199,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               overlay={topShotSpeed?.overlay}
             />
           )}
-          {maxSkatingSpeed && (
+          {!isGoalieTab && maxSkatingSpeed && (
             <MetricCard
               title="Max Skating Speed"
               value={Number(maxSkatingSpeed?.imperial || 0).toFixed(2)}
@@ -1959,7 +2208,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               overlay={maxSkatingSpeed?.overlay}
             />
           )}
-          {maxDistanceGame && (
+          {!isGoalieTab && maxDistanceGame && (
             <MetricCard
               title="Most Miles Skated"
               value={Number(maxDistanceGame?.imperial || 0).toFixed(2)}
@@ -1980,17 +2229,29 @@ const PlayerPageScreen = ({ route, navigation }) => {
             ]}
           >
             <Text style={[styles.advSectionTitle, { color: theme.text }]}>
-              Shots On Goal Zone
+              {isGoalieTab ? "Save Percentage by Zone" : "Shots On Goal Zone"}
             </Text>
 
             <View style={styles.advZoneTopGrid}>
               {zoneRows.map(({ code, label }) => {
                 const row = summaryByCode[code] || {};
-                const badge = formatPercentileBadge(row?.shotsPercentile);
+                const topPercentile = isGoalieTab
+                  ? row?.savePctgPercentile
+                  : row?.shotsPercentile;
+                const badge = formatPercentileBadge(topPercentile);
                 const pctColor = getPercentileTierColor(
-                  row?.shotsPercentile,
+                  topPercentile,
                   teamColor,
                 );
+                const topValue = isGoalieTab
+                  ? Number.isFinite(asNum(row?.savePctg))
+                    ? `${(
+                        (asNum(row?.savePctg) <= 1
+                          ? asNum(row?.savePctg) * 100
+                          : asNum(row?.savePctg)) || 0
+                      ).toFixed(1)}%`
+                    : "-"
+                  : (row?.shots ?? "-");
                 return (
                   <View
                     key={`zone-${code}`}
@@ -2027,7 +2288,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     <Text
                       style={[styles.advZoneTopValue, { color: theme.text }]}
                     >
-                      {row?.shots ?? "-"}
+                      {topValue}
                     </Text>
                     <Text
                       style={[
@@ -2056,13 +2317,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
               contentContainerStyle={styles.advZoneBarScrollContent}
             >
               {detailBars.map((bar) => {
-                const normalized = Math.max(0, bar.shots) / maxDetailShots;
-                const barHeight =
-                  bar.shots > 0 ? Math.max(8, Math.round(normalized * 120)) : 0;
+                const normalized = isGoalieTab
+                  ? Math.max(0, Math.min(1, asNum(bar.savePctgRaw) || 0))
+                  : Math.max(0, bar.shots) / maxDetailShots;
+                const barHeight = Math.round(
+                  Math.max(0, Math.min(1, normalized)) * BAR_TRACK_HEIGHT,
+                );
                 const percentileText =
-                  formatPercentileBadge(bar.shotsPercentile) || "-";
+                  formatPercentileBadge(
+                    isGoalieTab ? bar.savePctgPercentile : bar.shotsPercentile,
+                  ) || "-";
                 const pctColor = getPercentileTierColor(
-                  bar.shotsPercentile,
+                  isGoalieTab ? bar.savePctgPercentile : bar.shotsPercentile,
                   teamColor,
                 );
                 return (
@@ -2100,7 +2366,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     </View>
                     <Text
                       style={[styles.advZoneBarShots, { color: theme.text }]}
-                    >{`Shots: ${bar.shots}`}</Text>
+                    >
+                      {isGoalieTab
+                        ? `SV%: ${bar.savePctgText}`
+                        : `Shots: ${bar.shots}`}
+                    </Text>
                     <Text
                       style={[
                         styles.advZoneBarPct,
@@ -2119,56 +2389,40 @@ const PlayerPageScreen = ({ route, navigation }) => {
             )}
           </View>
 
-          <View
-            style={[
-              styles.advSectionCardNarrow,
-              styles.advSectionCardFull,
-              styles.advZoneSnapshotsCard,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.advSectionTitle, { color: theme.text }]}>
-              Zone Snapshots
-            </Text>
+          {isGoalieTab && (
             <View
               style={[
-                styles.advSnapshotsRinkWrap,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                styles.advSectionCardWide,
+                styles.advSectionCardFull,
+                styles.advShotZoneCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <View style={styles.advSnapshotsRinkInner}>
-                <NHLRinkGraphic
-                  teamColor={teamColor}
-                  orientation="horizontal"
-                />
-              </View>
-              <View style={styles.advSnapshotsOverlay}>
-                {zoneSnapshotItems.map((snap) => {
-                  const badge = formatPercentileBadge(snap.pct);
-                  const pctColor = getPercentileTierColor(snap.pct, teamColor);
-                  const valueText = Number.isFinite(snap.value)
-                    ? `${(snap.value * 100).toFixed(1)}%`
-                    : "-";
-                  const avgText = Number.isFinite(snap.avg)
-                    ? `${(snap.avg * 100).toFixed(1)}%`
-                    : "-";
+              <Text style={[styles.advSectionTitle, { color: theme.text }]}>
+                Save Location by Zone
+              </Text>
+
+              <View style={styles.advZoneTopGrid}>
+                {zoneRows.map(({ code, label }) => {
+                  const row = summaryByCode[code] || {};
+                  const badge = formatPercentileBadge(row?.savesPercentile);
+                  const pctColor = getPercentileTierColor(
+                    row?.savesPercentile,
+                    teamColor,
+                  );
                   return (
                     <View
-                      key={`snapshot-bubble-${snap.key}`}
+                      key={`save-zone-${code}`}
                       style={[
-                        styles.advSnapshotBubble,
+                        styles.advZoneTopCard,
                         {
-                          backgroundColor: theme.surface,
+                          backgroundColor: theme.background,
                           borderColor: theme.border,
-                          transform: [{ translateY: 57.5 }],
                         },
                       ]}
                     >
-                      {badge && (
-                        <View style={{ alignItems: "center" }}>
+                      <View style={styles.advZoneTopBadgeWrap}>
+                        {badge ? (
                           <View
                             style={[
                               styles.advPctBadge,
@@ -2187,30 +2441,214 @@ const PlayerPageScreen = ({ route, navigation }) => {
                               {badge}
                             </Text>
                           </View>
-                        </View>
-                      )}
+                        ) : null}
+                      </View>
                       <Text
-                        style={[styles.advSnapshotValue, { color: theme.text }]}
+                        style={[styles.advZoneTopValue, { color: theme.text }]}
                       >
-                        {valueText}
-                      </Text>
-                      <Text
-                        style={[styles.advSnapshotLabel, { color: theme.text }]}
-                      >
-                        {snap.title.toUpperCase()}
+                        {row?.saves ?? "-"}
                       </Text>
                       <Text
                         style={[
-                          styles.advSnapshotAvg,
+                          styles.advZoneTopLabel,
                           { color: theme.textSecondary },
                         ]}
-                      >{`NHL Average: ${avgText}`}</Text>
+                        numberOfLines={2}
+                      >
+                        {label}
+                      </Text>
                     </View>
                   );
                 })}
               </View>
+
+              <View
+                style={[
+                  styles.advZoneSplitDivider,
+                  { borderColor: theme.border },
+                ]}
+              />
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.advZoneBarScrollContent}
+              >
+                {detailBars.map((bar) => {
+                  const normalized = Math.max(0, bar.saves) / maxDetailSaves;
+                  const barHeight = Math.round(
+                    Math.max(0, Math.min(1, normalized)) * BAR_TRACK_HEIGHT,
+                  );
+                  const percentileText =
+                    formatPercentileBadge(bar.savesPercentile) || "-";
+                  const pctColor = getPercentileTierColor(
+                    bar.savesPercentile,
+                    teamColor,
+                  );
+
+                  return (
+                    <View
+                      key={`save-detail-${bar.key}`}
+                      style={[
+                        styles.advZoneBarCard,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.advZoneBarLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {bar.areaLabel}
+                      </Text>
+                      <View
+                        style={[
+                          styles.advZoneBarTrack,
+                          { backgroundColor: `${pctColor.fill}18` },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.advZoneBarFill,
+                            {
+                              height: barHeight,
+                              backgroundColor: pctColor.fill,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.advZoneBarShots, { color: theme.text }]}
+                      >{`Saves: ${bar.saves}`}</Text>
+                      <Text
+                        style={[
+                          styles.advZoneBarPct,
+                          { color: theme.textSecondary },
+                        ]}
+                      >{`Pctile: ${percentileText}`}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              {detailBars.length === 0 && (
+                <Text
+                  style={[styles.emptyText, { color: theme.textSecondary }]}
+                >
+                  No save location detail bars available.
+                </Text>
+              )}
             </View>
-          </View>
+          )}
+
+          {!isGoalieTab && (
+            <View
+              style={[
+                styles.advSectionCardNarrow,
+                styles.advSectionCardFull,
+                styles.advZoneSnapshotsCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.advSectionTitle, { color: theme.text }]}>
+                Zone Snapshots
+              </Text>
+              <View
+                style={[
+                  styles.advSnapshotsRinkWrap,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View style={styles.advSnapshotsRinkInner}>
+                  <NHLRinkGraphic
+                    teamColor={teamColor}
+                    orientation="horizontal"
+                  />
+                </View>
+                <View style={styles.advSnapshotsOverlay}>
+                  {zoneSnapshotItems.map((snap) => {
+                    const badge = formatPercentileBadge(snap.pct);
+                    const pctColor = getPercentileTierColor(
+                      snap.pct,
+                      teamColor,
+                    );
+                    const valueText = Number.isFinite(snap.value)
+                      ? `${(snap.value * 100).toFixed(1)}%`
+                      : "-";
+                    const avgText = Number.isFinite(snap.avg)
+                      ? `${(snap.avg * 100).toFixed(1)}%`
+                      : "-";
+                    return (
+                      <View
+                        key={`snapshot-bubble-${snap.key}`}
+                        style={[
+                          styles.advSnapshotBubble,
+                          {
+                            backgroundColor: theme.surface,
+                            borderColor: theme.border,
+                            transform: [{ translateY: 57.5 }],
+                          },
+                        ]}
+                      >
+                        {badge && (
+                          <View style={{ alignItems: "center" }}>
+                            <View
+                              style={[
+                                styles.advPctBadge,
+                                {
+                                  backgroundColor: pctColor.fill,
+                                  borderColor: pctColor.fill,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.advPctText,
+                                  { color: pctColor.text },
+                                ]}
+                              >
+                                {badge}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                        <Text
+                          style={[
+                            styles.advSnapshotValue,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {valueText}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.advSnapshotLabel,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {snap.title.toUpperCase()}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.advSnapshotAvg,
+                            { color: theme.textSecondary },
+                          ]}
+                        >{`NHL Average: ${avgText}`}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          )}
 
           <View
             style={[
@@ -3313,7 +3751,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
   },
-  
+
   advLegendLabel: {
     fontSize: 10,
     textAlign: "center",

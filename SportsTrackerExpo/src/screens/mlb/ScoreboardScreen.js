@@ -312,7 +312,7 @@ const getPollingInterval = (groups) => {
 
   for (const game of allGames) {
     // Live game → fast
-    if (game.isLive || game.statusType === "I") return INTERVAL_FAST;
+    if (game.isLive || game.statusType === "I" || game.statusType === "IR") return INTERVAL_FAST;
     // Scheduled and starts within 5 min → fast
     const isScheduled =
       !game.isCompleted &&
@@ -429,7 +429,7 @@ const getTeamProbablePitcher = (game, side) => {
   );
 };
 
-const isMlbGameLive = (game) => !!(game?.isLive || game?.statusType === "I");
+const isMlbGameLive = (game) => !!(game?.isLive || game?.statusType === "I" || game?.statusType === "IR");
 
 const isMlbGameFinished = (game) =>
   !!(
@@ -509,7 +509,7 @@ const getGroupPitcherDebugSummary = (group) => {
   let withBothProbables = 0;
 
   group.games.forEach((game) => {
-    const isLive = game.isLive || game.statusType === "I";
+    const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
     const isFinished =
       game.isCompleted ||
       ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
@@ -792,7 +792,7 @@ const MLBGridCard = ({
   ).toUpperCase();
 
   const { time, ampm } = formatLocalTime(game.date);
-  const isLive = game.isLive || game.statusType === "I";
+  const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
   const isFinished =
     !isLive &&
     (game.isCompleted ||
@@ -1340,7 +1340,7 @@ const ScoreboardSection = ({
                 const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
                 const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
 
-                const isLive = game.isLive || game.statusType === "I";
+                const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
                 const isFinished =
                   game.isCompleted ||
                   [
@@ -1888,7 +1888,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
           // Sort: live → scheduled → finished, then by time within group
           const getStatusPriority = (game) => {
-            if (game.isLive || game.statusType === "I") return 1;
+            if (game.isLive || game.statusType === "I" || game.statusType === "IR") return 1;
             if (
               game.isCompleted ||
               ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(

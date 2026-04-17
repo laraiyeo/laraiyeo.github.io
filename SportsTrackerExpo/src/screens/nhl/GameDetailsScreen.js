@@ -3061,6 +3061,580 @@ const NHLStatsSection = ({ game, theme, homeColor, awayColor }) => {
   );
 };
 
+const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
+  if (!isNhlGameLive(game)) return null;
+
+  const seasonCode = useMemo(() => getNhlSeasonSpan(), []);
+
+  const awayTeamId = Number(game?.away?.id);
+  const homeTeamId = Number(game?.home?.id);
+  const awayAbbr = String(game?.away?.abbreviation || "AWY").toUpperCase();
+  const homeAbbr = String(game?.home?.abbreviation || "HME").toUpperCase();
+  const awayName = String(game?.away?.name || "Away Team").trim();
+  const homeName = String(game?.home?.name || "Home Team").trim();
+  const awayLogo = String(game?.away?.logo || "").trim();
+  const homeLogo = String(game?.home?.logo || "").trim();
+  const awayColor = NHLService.getTeamColor(awayAbbr, colors.primary);
+  const homeColor = NHLService.getTeamColor(homeAbbr, colors.primary);
+
+  const playerMetaById =
+    game?.playerMetaById && typeof game.playerMetaById === "object"
+      ? game.playerMetaById
+      : {};
+
+  const rosterSpotById = useMemo(() => {
+    const map = {};
+    const spots = Array.isArray(game?.playRosterSpots) ? game.playRosterSpots : [];
+    spots.forEach((spot) => {
+      const id = Number(spot?.playerId);
+      if (!Number.isFinite(id)) return;
+      map[id] = spot;
+    });
+    return map;
+  }, [game?.playRosterSpots]);
+
+  const boxscoreSideByPlayerId = useMemo(() => {
+    const map = {};
+    const mark = (entries, side) => {
+      (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        const id = Number(
+          entry?.playerId ?? entry?.id ?? entry?.personId ?? entry?.player?.id,
+        );
+        if (!Number.isFinite(id)) return;
+        map[id] = side;
+      });
+    };
+    const awayStats = game?.boxscorePlayerByGameStats?.awayTeam || {};
+    const homeStats = game?.boxscorePlayerByGameStats?.homeTeam || {};
+    [awayStats?.forwards, awayStats?.defense, awayStats?.goalies].forEach((bucket) =>
+      mark(bucket, "away"),
+    );
+    [homeStats?.forwards, homeStats?.defense, homeStats?.goalies].forEach((bucket) =>
+      mark(bucket, "home"),
+    );
+    return map;
+  }, [game?.boxscorePlayerByGameStats]);
+
+  const formatSavePct = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "-";
+    const pct = n <= 1 ? n * 100 : n;
+    return `${pct.toFixed(1)}%`;
+  };
+
+  const buildLivePlayStatItems = (player) => {
+    const isGoalie =
+      String(player?.position || "")
+        .trim()
+        .toUpperCase() === "G";
+
+    if (isGoalie) {
+      return [
+        { label: "GA", value: toSafeStatValue(player?.stats?.goalsAgainst) },
+        { label: "SA", value: toSafeStatValue(player?.stats?.shotsAgainst) },
+        { label: "SV", value: toSafeStatValue(player?.stats?.saves) },
+        { label: "SV%", value: formatSavePct(player?.stats?.savePctg) },
+        { label: "TOI", value: String(player?.stats?.toi || "-") },
+      ];
+    }
+
+    const plusMinusRaw = Number(player?.stats?.plusMinus);
+    const plusMinusDisplay = Number.isFinite(plusMinusRaw)
+      ? plusMinusRaw > 0
+        ? `+${plusMinusRaw}`
+        : String(plusMinusRaw)
+      : "-";
+
+    return [
+      { label: "GLS", value: toSafeStatValue(player?.stats?.goals) },
+      { label: "AST", value: toSafeStatValue(player?.stats?.assists) },
+      { label: "PTS", value: toSafeStatValue(player?.stats?.points) },
+      { label: "+/-", value: plusMinusDisplay },
+      { label: "TOI", value: String(player?.stats?.toi || "-") },
+    ];
+  };
+
+  const renderLivePlayPlayerRow = (player, side, teamColor, teamLogo, teamAbbr) => {
+    const fullName = String(player?.name || "").trim() || "Unknown Player";
+    const number =
+      player?.number != null && Number.isFinite(Number(player.number))
+        ? `#${Number(player.number)}`
+        : "";
+    const position = String(player?.position || "").trim().toUpperCase();
+    const meta = [teamAbbr, number, position].filter(Boolean).join(" \u00B7 ");
+    const statItems = buildLivePlayStatItems(player);
+
+    const infoBlock = (
+      <View
+        style={
+          side === "home"
+            ? styles.livePlayPlayerInfoHome
+            : styles.livePlayPlayerInfoAway
+        }
+      >
+        <Text
+          style={[styles.livePlayPlayerName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {fullName}
+        </Text>
+        {!!meta && (
+          <Text
+            style={[styles.livePlayPlayerMeta, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {meta}
+          </Text>
+        )}
+        <View
+          style={
+            side === "home"
+              ? styles.livePlayPlayerStatsRowHome
+              : styles.livePlayPlayerStatsRowAway
+          }
+        >
+          {statItems.map((item) => (
+            <View
+              key={`${player?.id || fullName}-${item.label}`}
+              style={styles.livePlayPlayerStatCell}
+            >
+              <Text
+                style={[styles.livePlayPlayerStatValue, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.value}
+              </Text>
+              <Text
+                style={[
+                  styles.livePlayPlayerStatLabel,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+
+    return (
+      <View
+        key={`${side}-${player?.id || fullName}`}
+        style={[
+          styles.livePlayPlayerRow,
+          side === "home"
+            ? styles.livePlayPlayerRowHome
+            : styles.livePlayPlayerRowAway,
+        ]}
+      >
+        {side === "home" ? infoBlock : null}
+        <MatchupHeadshot
+          playerId={player?.id}
+          headshot={player?.headshot}
+          seasonCode={seasonCode}
+          teamAbbrev={teamAbbr}
+          teamLogo={teamLogo}
+          position={position || "-"}
+          teamColor={teamColor}
+          side={side}
+          theme={theme}
+          onPress={
+            typeof onPlayerPress === "function"
+              ? () => onPlayerPress(player)
+              : undefined
+          }
+        />
+        {side === "away" ? infoBlock : null}
+      </View>
+    );
+  };
+
+  const rows = useMemo(() => {
+    const plays = Array.isArray(game?.plays) ? game.plays : [];
+    const oppositeSide = (side) => (side === "home" ? "away" : "home");
+
+    const resolvePlayPlayer = (playerId, sideHint) => {
+      const id = Number(playerId);
+      if (!Number.isFinite(id)) return null;
+
+      const profile = playerMetaById[id] || {};
+      const roster = rosterSpotById[id] || {};
+      const boxscoreEntry = getNhlBoxscoreStatsByPlayerId(game, id) || {};
+      const extractedStats = extractNhlStatsFromEntry(boxscoreEntry || {});
+
+      const teamId = Number(profile?.teamId ?? roster?.teamId);
+      let teamSide =
+        teamId === awayTeamId
+          ? "away"
+          : teamId === homeTeamId
+            ? "home"
+            : boxscoreSideByPlayerId[id] || sideHint || null;
+      if (teamSide !== "away" && teamSide !== "home") {
+        teamSide = sideHint || null;
+      }
+      if (!teamSide) return null;
+
+      const first = String(roster?.firstName || profile?.firstName || "").trim();
+      const last = String(roster?.lastName || profile?.lastName || "").trim();
+      const fullFromParts = [first, last].filter(Boolean).join(" ").trim();
+      const fullName =
+        getNhlDisplayName({ id, playerId: id }, game) ||
+        fullFromParts ||
+        String(profile?.name || boxscoreEntry?.name || "").trim() ||
+        "Unknown Player";
+
+      const number = Number(
+        profile?.sweaterNumber ?? roster?.sweaterNumber ?? boxscoreEntry?.sweaterNumber,
+      );
+      const position = String(
+        profile?.position || roster?.positionCode || boxscoreEntry?.position || "",
+      )
+        .trim()
+        .toUpperCase();
+
+      const teamAbbrev = teamSide === "home" ? homeName : awayName;
+      const stats = {
+        ...(profile?.stats || {}),
+        ...(extractedStats || {}),
+      };
+      const toi =
+        String(stats?.toi ?? boxscoreEntry?.toi ?? profile?.stats?.toi ?? "").trim() ||
+        "-";
+
+      return {
+        id,
+        playerId: id,
+        name: fullName,
+        firstName: first,
+        lastName: last,
+        number: Number.isFinite(number) ? number : null,
+        position,
+        teamId:
+          teamSide === "home"
+            ? homeTeamId
+            : teamSide === "away"
+              ? awayTeamId
+              : null,
+        teamAbbrev,
+        teamName: teamSide === "home" ? game?.home?.name : game?.away?.name,
+        teamSide,
+        headshot:
+          String(profile?.headshot || roster?.headshot || boxscoreEntry?.headshot || "").trim() ||
+          null,
+        stats: {
+          ...stats,
+          toi,
+        },
+      };
+    };
+
+    const playerSideHint = (key, ownerSide) => {
+      const opposite = oppositeSide(ownerSide);
+      const ownerKeys = new Set([
+        "playerId",
+        "scoringPlayerId",
+        "shootingPlayerId",
+        "hittingPlayerId",
+        "committedByPlayerId",
+        "winningPlayerId",
+        "assist1PlayerId",
+        "assist2PlayerId",
+      ]);
+      const opponentKeys = new Set([
+        "hitteePlayerId",
+        "blockingPlayerId",
+        "drawnByPlayerId",
+        "losingPlayerId",
+        "goalieInNetId",
+        "goalieId",
+      ]);
+      if (ownerKeys.has(key)) return ownerSide;
+      if (opponentKeys.has(key)) return opposite;
+      return null;
+    };
+
+    const playerIdKeys = [
+      "playerId",
+      "scoringPlayerId",
+      "shootingPlayerId",
+      "hittingPlayerId",
+      "hitteePlayerId",
+      "blockingPlayerId",
+      "winningPlayerId",
+      "losingPlayerId",
+      "committedByPlayerId",
+      "drawnByPlayerId",
+      "goalieInNetId",
+      "goalieId",
+      "assist1PlayerId",
+      "assist2PlayerId",
+    ];
+
+    return plays
+      .map((play, idx) => {
+        const details = play?.details || {};
+        const xCoord = Number(details?.xCoord);
+        const yCoord = Number(details?.yCoord);
+        if (!Number.isFinite(xCoord) || !Number.isFinite(yCoord)) return null;
+
+        const eventOwnerTeamId = Number(details?.eventOwnerTeamId);
+        const eventTeamSide =
+          eventOwnerTeamId === awayTeamId
+            ? "away"
+            : eventOwnerTeamId === homeTeamId
+              ? "home"
+              : null;
+        if (!eventTeamSide) return null;
+
+        const period = Number(play?.periodDescriptor?.number || 0);
+        const periodType = String(
+          play?.periodDescriptor?.periodType || "",
+        ).toUpperCase();
+        const remainingSecs = parseClockSecs(play?.timeRemaining);
+        const periodLengthSecs = periodType === "OT" ? 5 * 60 : 20 * 60;
+        const elapsedSecs = Number.isFinite(remainingSecs)
+          ? Math.max(0, periodLengthSecs - remainingSecs)
+          : 0;
+
+        const awayScore = Number(details?.awayScore);
+        const homeScore = Number(details?.homeScore);
+
+        const eventAbbr = eventTeamSide === "away" ? awayName : homeName;
+        const teamColor = NHLService.getTeamColor(eventAbbr, colors.primary);
+        const typeKey = String(play?.typeDescKey || "update").toLowerCase();
+
+        const playersBySide = { away: [], home: [] };
+        const seenPlayers = new Set();
+
+        playerIdKeys.forEach((key) => {
+          const sideHint = playerSideHint(key, eventTeamSide);
+          const resolved = resolvePlayPlayer(details?.[key], sideHint);
+          if (!resolved || !resolved?.teamSide) return;
+
+          const dedupeKey = Number.isFinite(Number(resolved?.id))
+            ? `id_${Number(resolved.id)}`
+            : `${resolved.teamSide}_${String(resolved?.name || "")}`;
+          if (seenPlayers.has(dedupeKey)) return;
+          seenPlayers.add(dedupeKey);
+
+          playersBySide[resolved.teamSide].push(resolved);
+        });
+
+        const topSide = eventTeamSide === "home" ? "home" : "away";
+        const bottomSide = topSide === "home" ? "away" : "home";
+
+        return {
+          key: `${idx}-${typeKey}-${period}`,
+          sortKey: period * 100000 + elapsedSecs * 10 + idx,
+          typeKey,
+          typeLabel: startCaseFromHyphen(typeKey).toUpperCase(),
+          periodLabel: getScorerPeriodLabel(period),
+          timeRemaining: String(play?.timeRemaining || "--:--"),
+          scoreText:
+            Number.isFinite(awayScore) && Number.isFinite(homeScore)
+              ? `${awayScore} - ${homeScore}`
+              : `${Number(game?.away?.score || 0)} - ${Number(game?.home?.score || 0)}`,
+          eventAbbr: eventAbbr.toUpperCase(),
+          eventTeamSide,
+          homeTeamDefendingSide: String(play?.homeTeamDefendingSide || "")
+            .trim()
+            .toLowerCase(),
+          xCoord,
+          yCoord,
+          teamColor,
+          topSide,
+          bottomSide,
+          awayPlayers: playersBySide.away,
+          homePlayers: playersBySide.home,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.sortKey - a.sortKey);
+  }, [
+    awayAbbr,
+    awayTeamId,
+    colors.primary,
+    game?.away?.score,
+    game?.home?.score,
+    game?.plays,
+    game,
+    homeAbbr,
+    awayName,
+    homeName,
+    homeTeamId,
+    playerMetaById,
+    rosterSpotById,
+    boxscoreSideByPlayerId,
+  ]);
+
+  const activeRow = rows.length > 0 ? rows[0] : null;
+
+  return (
+    <View
+      style={[
+        styles.livePlayCard,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View
+        style={[
+          styles.livePlayHeaderRow,
+          { borderBottomColor: theme.border, backgroundColor: theme.surface },
+        ]}
+      >
+        <View
+          style={[
+            styles.livePlayHeaderAccent,
+            {
+              backgroundColor: activeRow?.teamColor || colors.primary,
+            },
+          ]}
+        />
+        <Text style={[styles.livePlayHeaderTitle, { color: theme.text }]}>Live Play</Text>
+        <Text style={[styles.livePlayHeaderCount, { color: theme.textSecondary }]}>
+          LIVE
+        </Text>
+      </View>
+
+      {!activeRow ? (
+        <View style={styles.livePlayBody}>
+          <Text style={[styles.livePlayEmptyText, { color: theme.textTertiary }]}>
+            No live coordinate plays yet
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.livePlayBody}>
+          <View style={styles.livePlayMetaRow}>
+            <Text style={[styles.livePlayTypeText, { color: theme.text }]}>
+              {activeRow.typeLabel}
+            </Text>
+            <Text style={[styles.livePlayTimeText, { color: theme.textSecondary }]}>
+              {activeRow.timeRemaining} {"\u2022"} {activeRow.periodLabel}
+            </Text>
+          </View>
+
+          <View style={styles.livePlayMetaRow}>
+            <Text style={[styles.livePlayTeamText, { color: activeRow.teamColor }]}>
+              {activeRow.eventAbbr}
+            </Text>
+            <Text style={[styles.livePlayScoreText, { color: theme.textSecondary }]}>
+              {activeRow.scoreText}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.livePlayRinkWrap,
+              {
+                borderColor: activeRow.teamColor,
+                backgroundColor: theme.surfaceSecondary,
+                transform: [{ scaleY: -1 }],
+              },
+            ]}
+          >
+            <NHLRinkGraphic
+              xCoord={activeRow.xCoord}
+              yCoord={activeRow.yCoord}
+              teamColor={activeRow.teamColor}
+              teamSide={activeRow.eventTeamSide}
+              homeTeamDefendingSide={activeRow.homeTeamDefendingSide}
+              isScoring={activeRow.typeKey === "goal"}
+              showTargetPath={activeRow.typeKey === "shot-on-goal"}
+              orientation="horizontal"
+            />
+          </View>
+
+          <View
+            style={[
+              styles.livePlayPlayersWrap,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.surfaceSecondary,
+              },
+            ]}
+          >
+            {[activeRow.topSide, activeRow.bottomSide].map((side, idx) => {
+              const teamColor = side === "home" ? homeColor : awayColor;
+              const teamAbbr = side === "home" ? homeAbbr : awayAbbr;
+              const teamName = side === "home" ? homeName : awayName;
+              const teamLogo = side === "home" ? homeLogo : awayLogo;
+              const sidePlayers =
+                side === "home"
+                  ? activeRow.homePlayers || []
+                  : activeRow.awayPlayers || [];
+
+              return (
+                <View
+                  key={`${activeRow.key}-${side}`}
+                  style={[
+                    styles.livePlayTeamPlayersBody,
+                    idx === 0
+                      ? {
+                          borderBottomColor: theme.border,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                        }
+                      : null,
+                  ]}
+                >
+                  <MatchupGoalieBodyGradient
+                    gradId={`livePlayGrad-${side}-${activeRow.key}`}
+                    color={teamColor}
+                    reverse={side === "home"}
+                  />
+
+                  <View style={styles.livePlayTeamHeaderRow}>
+                    <Text
+                      style={[
+                        styles.livePlayTeamHeaderAbbr,
+                        { color: teamColor },
+                      ]}
+                    >
+                      {teamName.toUpperCase()}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.livePlayTeamHeaderHint,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {side === activeRow.eventTeamSide ? "ON PLAY" : "OPPONENT"}
+                    </Text>
+                  </View>
+
+                  {sidePlayers.length > 0 ? (
+                    sidePlayers.map((player) =>
+                      renderLivePlayPlayerRow(
+                        player,
+                        side,
+                        teamColor,
+                        teamLogo,
+                        teamAbbr,
+                      ),
+                    )
+                  ) : (
+                    <Text
+                      style={[
+                        styles.livePlayNoPlayersText,
+                        {
+                          color: theme.textSecondary,
+                          textAlign: side === "home" ? "right" : "left",
+                        },
+                      ]}
+                    >
+                      No players tagged for this side
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
 const EventsSection = ({
   game,
   theme,
@@ -10631,6 +11205,14 @@ const NHLGameDetailsScreen = ({ route }) => {
                 onPlayerPress={openPlayerModal}
               />
               <LinescoreTable game={liveGame} theme={theme} colors={colors} />
+              {isNhlGameLive(liveGame) ? (
+                <LivePlaySection
+                  game={liveGame}
+                  theme={theme}
+                  colors={colors}
+                  onPlayerPress={openPlayerModal}
+                />
+              ) : null}
               <EventsSection
                 game={liveGame}
                 theme={theme}
@@ -11415,6 +11997,180 @@ const styles = StyleSheet.create({
   linescoreTotalVal: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  livePlayCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  livePlayHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  livePlayHeaderAccent: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+  },
+  livePlayHeaderTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  livePlayHeaderCount: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  livePlayBody: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  livePlayMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  livePlayTypeText: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  livePlayTimeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  livePlayTeamText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  livePlayScoreText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  livePlayRinkWrap: {
+    marginTop: 2,
+    width: "100%",
+    aspectRatio: 320 / 188,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 6,
+    overflow: "hidden",
+  },
+  livePlayEmptyText: {
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "600",
+    paddingVertical: 8,
+  },
+  livePlayPlayersWrap: {
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  livePlayTeamPlayersBody: {
+    position: "relative",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 7,
+  },
+  livePlayTeamHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  livePlayTeamHeaderAbbr: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  livePlayTeamHeaderHint: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.35,
+  },
+  livePlayNoPlayersText: {
+    fontSize: 11,
+    fontWeight: "600",
+    paddingVertical: 2,
+  },
+  livePlayPlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  livePlayPlayerRowAway: {
+    justifyContent: "flex-start",
+  },
+  livePlayPlayerRowHome: {
+    justifyContent: "flex-end",
+  },
+  livePlayPlayerInfoAway: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "flex-start",
+  },
+  livePlayPlayerInfoHome: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "flex-end",
+  },
+  livePlayPlayerName: {
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 15,
+  },
+  livePlayPlayerMeta: {
+    marginTop: 1,
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 13,
+  },
+  livePlayPlayerStatsRowAway: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  livePlayPlayerStatsRowHome: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  livePlayPlayerStatCell: {
+    minWidth: 30,
+    alignItems: "center",
+  },
+  livePlayPlayerStatValue: {
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 13,
+  },
+  livePlayPlayerStatLabel: {
+    marginTop: 1,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.18,
   },
   nhlStatsCard: {
     marginHorizontal: 12,

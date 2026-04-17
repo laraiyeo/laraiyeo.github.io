@@ -1,26 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  ActivityIndicator, 
-  StyleSheet 
-} from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import NHLDataService from '../../services/NHLDataService';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { Image } from "expo-image";
+import { useTheme } from "../../context/ThemeContext";
+import NHLDataService from "../../services/NHLDataService";
+import NHLService from "../../services/NHLService";
+
+const getNhlSeasonSpan = (now = new Date()) => {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  return month >= 8 ? `${year}${year + 1}` : `${year - 1}${year}`;
+};
+
+const toPositionName = (positionCode) => {
+  const code = String(positionCode || "")
+    .trim()
+    .toUpperCase();
+  if (code === "G") return "Goalie";
+  if (code === "C") return "Center";
+  if (code === "D") return "Defenseman";
+  if (code === "L") return "Left Wing";
+  if (code === "R") return "Right Wing";
+  return "Player";
+};
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
-  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
-  
-  const [searchQuery, setSearchQuery] = useState('');
+  const { theme, colors, isDarkMode } = useTheme();
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  
+
   // Local state for NHL data
   const [nhlData, setNhlData] = useState(NHLDataService.getData());
 
@@ -29,7 +48,7 @@ const SearchScreen = ({ route, navigation }) => {
     const initData = async () => {
       await NHLDataService.initializeData();
     };
-    
+
     initData();
 
     // Listen for data updates
@@ -53,7 +72,7 @@ const SearchScreen = ({ route, navigation }) => {
 
   const performSearch = async (query) => {
     if (query.length < 3) return;
-    
+
     // Wait for data to be initialized if not already
     if (!nhlData.teamsCache || !nhlData.playersCache) {
       if (!nhlData.isInitializing) {
@@ -61,85 +80,78 @@ const SearchScreen = ({ route, navigation }) => {
       }
       return;
     }
-    
+
     setLoading(true);
     setHasSearched(true);
-    
+
     try {
       const teamResults = NHLDataService.searchTeams(query);
       const playerResults = NHLDataService.searchPlayers(query);
-      
+
       const combinedResults = [
-        ...teamResults.map(team => ({ ...team, type: 'team' })),
-        ...playerResults.map(player => ({ ...player, type: 'player' }))
+        ...teamResults.map((team) => ({ ...team, type: "team" })),
+        ...playerResults.map((player) => ({ ...player, type: "player" })),
       ];
-      
+
       setSearchResults(combinedResults);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error("Search error:", error);
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getNHLTeamAbbreviation = (team) => {
-    const teamMapping = {
-      '21': 'TOR', '10': 'MTL', '3': 'CGY', '6': 'EDM', '22': 'VAN', '28': 'WPG',
-      '1': 'BOS', '13': 'NYR', '15': 'PHI', '16': 'PIT', '20': 'TBL', '7': 'CAR',
-      '4': 'CHI', '5': 'DET', '27': 'NSH', '19': 'STL', '23': 'WSH',
-      '25': 'ANA', '8': 'LAK', '18': 'SJS', '29': 'CBJ', '30': 'MIN', '14': 'OTT',
-      '26': 'FLA', '2': 'BUF', '11': 'NJD', '12': 'NYI', '9': 'DAL', '17': 'COL',
-      '129764': 'UTA', '124292': 'SEA', '37': 'VGK'
-    };
-
-    if (team?.abbreviation) {
-      return team.abbreviation;
-    }
-    
-    const abbr = teamMapping[team?.id?.toString()];
-    if (abbr) {
-      return abbr;
-    }
-    
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'NHL';
-  };
-
   const handleItemPress = (item) => {
-    if (item.type === 'team') {
-      navigation.navigate('TeamPage', {
-        teamId: item.id,
-        teamName: item.displayName,
-        sport: sport
+    if (item.type === "team") {
+      navigation.navigate("TeamPage", {
+        teamId: item.teamAbbrev || item.id,
+        teamName: item.displayName || item.teamName,
+        sport: sport,
       });
     } else {
-      navigation.navigate('PlayerPage', {
-        playerId: item.id,
-        playerName: item.displayName,
-        teamId: item.team?.id,
-        sport: sport
+      navigation.navigate("PlayerPage", {
+        playerId: item.playerId || item.id,
+        playerName: item.displayName || item.name,
+        teamId: item.teamAbbrev || item.team?.abbreviation,
+        sport: sport,
       });
     }
   };
 
   const renderTeamItem = (item) => {
-    const teamLogoUrl = isDarkMode ? item.logos?.[1]?.href : item.logos?.[0]?.href;
-    
+    const teamAbbr = String(item?.teamAbbrev || "").toUpperCase() || "NHL";
+    const teamColor = NHLService.getTeamColor(teamAbbr, colors.primary);
+    const rawLogo = String(item?.teamLogo || "");
+    const teamLogoUrl = isDarkMode
+      ? rawLogo.replace("_light", "_dark").replace("light.svg", "dark.svg")
+      : rawLogo;
+
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface }]}
+        style={[
+          styles.resultItem,
+          {
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: teamColor,
+          },
+        ]}
         onPress={() => handleItemPress(item)}
       >
-        <Image
-          source={{ uri: teamLogoUrl }}
-          style={styles.teamLogo}
-        />
+        <Image source={{ uri: teamLogoUrl }} style={styles.teamLogo} />
         <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
-            {item.displayName}
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamName, { color: theme.text }]}
+          >
+            {item.displayName || item.teamName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamDetails, { color: theme.textSecondary }]}>
-            {item.location} • NHL
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamDetails, { color: theme.textSecondary }]}
+          >
+            {teamAbbr} • NHL
           </Text>
         </View>
       </TouchableOpacity>
@@ -147,25 +159,51 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderPlayerItem = (item) => {
-    const teamAbbr = item.team?.abbreviation || getNHLTeamAbbreviation(item.team) || 'NHL';
-    
+    const seasonSpan = getNhlSeasonSpan();
+    const teamAbbr = String(
+      item?.teamAbbrev || item?.team?.abbreviation || "NHL",
+    ).toUpperCase();
+    const playerId = item?.playerId || item?.id;
+    const teamColor = NHLService.getTeamColor(teamAbbr, colors.primary);
+    const headshotUrl = `https://assets.nhle.com/mugs/nhl/${seasonSpan}/${teamAbbr}/${playerId}.png`;
+    const positionName =
+      item?.position?.displayName || toPositionName(item?.positionCode);
+
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface }]}
+        style={[
+          styles.resultItem,
+          {
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: teamColor,
+          },
+        ]}
         onPress={() => handleItemPress(item)}
       >
         <Image
-          source={{ 
-            uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${item.id}.png&w=150` || '../../../assets/nhl.png'
-          }}
-          style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
+          source={{ uri: headshotUrl }}
+          style={[
+            styles.playerHeadshot,
+            {
+              backgroundColor: `${teamColor}66`,
+              borderWidth: 1,
+              borderColor: teamColor,
+            },
+          ]}
         />
         <View style={styles.playerInfo}>
-          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
-            {item.displayName}
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerName, { color: theme.text }]}
+          >
+            {item.displayName || item.name}
           </Text>
-          <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
-            {item.position?.displayName || 'Player'} • {teamAbbr}
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerDetails, { color: theme.textSecondary }]}
+          >
+            {positionName} • {teamAbbr}
           </Text>
         </View>
       </TouchableOpacity>
@@ -173,27 +211,43 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderResultItem = ({ item }) => {
-    return item.type === 'team' ? renderTeamItem(item) : renderPlayerItem(item);
+    return item.type === "team" ? renderTeamItem(item) : renderPlayerItem(item);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Search</Text>
-        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.title, { color: colors.primary }]}
+        >
+          Search
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           Search for {sport.toUpperCase()} teams and players
         </Text>
       </View>
 
       {/* Search Input */}
-      <View style={[styles.searchInputContainer, { backgroundColor: theme.surface }]}>
+      <View
+        style={[
+          styles.searchInputContainer,
+          { backgroundColor: theme.surface },
+        ]}
+      >
         <TextInput
-          style={[styles.searchInput, { 
-            color: theme.text, 
-            backgroundColor: theme.background,
-            borderColor: theme.border 
-          }]}
+          style={[
+            styles.searchInput,
+            {
+              color: theme.text,
+              backgroundColor: theme.background,
+              borderColor: theme.border,
+            },
+          ]}
           placeholder="Search teams and players... (3 characters minimum)"
           placeholderTextColor={theme.textSecondary}
           value={searchQuery}
@@ -208,7 +262,10 @@ const SearchScreen = ({ route, navigation }) => {
         {nhlData.isInitializing && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
               Loading NHL data...
             </Text>
           </View>
@@ -217,22 +274,34 @@ const SearchScreen = ({ route, navigation }) => {
         {!nhlData.isInitializing && loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
               Searching...
             </Text>
           </View>
         )}
 
-        {!nhlData.isInitializing && !loading && hasSearched && searchResults.length === 0 && (
-          <View style={styles.noResultsContainer}>
-            <Text allowFontScaling={false} style={[styles.noResultsText, { color: theme.textSecondary }]}>
-              No results found for "{searchQuery}"
-            </Text>
-            <Text allowFontScaling={false} style={[styles.noResultsSubtext, { color: theme.textTertiary }]}>
-              Try searching for team names or player names
-            </Text>
-          </View>
-        )}
+        {!nhlData.isInitializing &&
+          !loading &&
+          hasSearched &&
+          searchResults.length === 0 && (
+            <View style={styles.noResultsContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.noResultsText, { color: theme.textSecondary }]}
+              >
+                No results found for "{searchQuery}"
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.noResultsSubtext, { color: theme.textTertiary }]}
+              >
+                Try searching for team names or player names
+              </Text>
+            </View>
+          )}
 
         {!nhlData.isInitializing && !loading && searchResults.length > 0 && (
           <FlatList
@@ -244,13 +313,21 @@ const SearchScreen = ({ route, navigation }) => {
           />
         )}
 
-        {!nhlData.isInitializing && !hasSearched && searchQuery.length === 0 && (
-          <View style={styles.instructionsContainer}>
-            <Text allowFontScaling={false} style={[styles.instructionsText, { color: theme.textSecondary }]}>
-              Enter at least 3 characters to search for teams and players
-            </Text>
-          </View>
-        )}
+        {!nhlData.isInitializing &&
+          !hasSearched &&
+          searchQuery.length === 0 && (
+            <View style={styles.instructionsContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.instructionsText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Enter at least 3 characters to search for teams and players
+              </Text>
+            </View>
+          )}
       </View>
     </View>
   );
@@ -263,7 +340,7 @@ const styles = StyleSheet.create({
   searchHeader: {
     padding: 20,
     paddingBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -274,7 +351,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   subtitle: {
@@ -282,7 +359,7 @@ const styles = StyleSheet.create({
   },
   searchInputContainer: {
     padding: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -304,8 +381,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   loadingText: {
@@ -314,28 +391,28 @@ const styles = StyleSheet.create({
   },
   noResultsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginBottom: 5,
   },
   noResultsSubtext: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   instructionsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   instructionsText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginHorizontal: 20,
   },
   resultsList: {
@@ -343,12 +420,12 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
     marginVertical: 5,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -367,7 +444,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   teamDetails: {
@@ -384,7 +461,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   playerDetails: {

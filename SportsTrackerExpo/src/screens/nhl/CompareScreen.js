@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,28 +10,29 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
-  Alert
-} from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import NHLDataService from '../../services/NHLDataService';
+  Alert,
+} from "react-native";
+import { useTheme } from "../../context/ThemeContext";
+import NHLDataService from "../../services/NHLDataService";
 
 const getNHLYear = () => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
-  
+
   // If current month is September (8) to December (11), use next year
-  if (month >= 8) { // September to December
+  if (month >= 8) {
+    // September to December
     return currentYear + 1;
   }
-  
+
   return currentYear;
 };
 
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  
+
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
@@ -39,18 +40,18 @@ const CompareScreen = ({ route }) => {
   const [player2Year, setPlayer2Year] = useState(getNHLYear());
   const [comparisonStats, setComparisonStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+
   // State for player search
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchingForPlayer, setSearchingForPlayer] = useState(null); // 1 or 2
-  
+
   // State for year selectors
   const [showYear1Picker, setShowYear1Picker] = useState(false);
   const [showYear2Picker, setShowYear2Picker] = useState(false);
-  
+
   // NHL data loading state
   const [nhlDataLoading, setNhlDataLoading] = useState(true);
   const [allNHLPlayers, setAllNHLPlayers] = useState([]);
@@ -58,7 +59,10 @@ const CompareScreen = ({ route }) => {
   // Generate year options
   const currentYear = getNHLYear();
   const startYear = 2020;
-  const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
+  const yearOptions = Array.from(
+    { length: currentYear - startYear + 1 },
+    (_, i) => currentYear - i,
+  );
 
   useEffect(() => {
     initializeNHLData();
@@ -77,8 +81,8 @@ const CompareScreen = ({ route }) => {
       const players = NHLDataService.getAllPlayers();
       setAllNHLPlayers(players);
     } catch (error) {
-      console.error('Error initializing NHL data:', error);
-      Alert.alert('Error', 'Failed to load NHL data. Please try again.');
+      console.error("Error initializing NHL data:", error);
+      Alert.alert("Error", "Failed to load NHL data. Please try again.");
     } finally {
       setNhlDataLoading(false);
     }
@@ -90,36 +94,41 @@ const CompareScreen = ({ route }) => {
       return;
     }
 
-    const results = allNHLPlayers.filter(player =>
-      player.displayName && 
-      player.displayName.toLowerCase().includes(query.toLowerCase())
+    const results = allNHLPlayers.filter(
+      (player) =>
+        player.displayName &&
+        player.displayName.toLowerCase().includes(query.toLowerCase()),
     );
     setSearchResults(results);
   };
 
   const selectPlayer = (player, playerNumber) => {
     const otherPlayer = playerNumber === 1 ? player2 : player1;
-    
+
     // Check if players can be compared (same position group)
     if (otherPlayer && !NHLDataService.canCompare(player, otherPlayer)) {
-      const playerPos = NHLDataService.getPositionGroup(player.position?.displayName || player.position?.name);
-      const otherPos = NHLDataService.getPositionGroup(otherPlayer.position?.displayName || otherPlayer.position?.name);
-      
+      const playerPos = NHLDataService.getPositionGroup(
+        player.position?.displayName || player.position?.name,
+      );
+      const otherPos = NHLDataService.getPositionGroup(
+        otherPlayer.position?.displayName || otherPlayer.position?.name,
+      );
+
       Alert.alert(
-        'Position Mismatch',
+        "Position Mismatch",
         `Cannot compare ${playerPos}s with ${otherPos}s. Please select players from the same position group (forwards, defensemen, or goalies).`,
-        [{ text: 'OK' }]
+        [{ text: "OK" }],
       );
       return;
     }
-    
+
     if (playerNumber === 1) {
       setPlayer1(player);
     } else {
       setPlayer2(player);
     }
     setShowSearchModal(false);
-    setSearchText('');
+    setSearchText("");
     setSearchResults([]);
   };
 
@@ -144,18 +153,21 @@ const CompareScreen = ({ route }) => {
     try {
       const [stats1, stats2] = await Promise.all([
         fetchPlayerStats(player1.id, player1Year),
-        fetchPlayerStats(player2.id, player2Year)
+        fetchPlayerStats(player2.id, player2Year),
       ]);
 
       if (stats1 && stats2) {
         setComparisonStats({
           player1: { ...player1, stats: stats1 },
-          player2: { ...player2, stats: stats2 }
+          player2: { ...player2, stats: stats2 },
         });
       }
     } catch (error) {
-      console.error('Error loading comparison:', error);
-      Alert.alert('Error', 'Failed to load player statistics. Please try again.');
+      console.error("Error loading comparison:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load player statistics. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -164,7 +176,7 @@ const CompareScreen = ({ route }) => {
   const fetchPlayerStats = async (playerId, year) => {
     try {
       const response = await fetch(
-        `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`
+        `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`,
       );
       const data = await response.json();
 
@@ -174,40 +186,59 @@ const CompareScreen = ({ route }) => {
       // Helper to set value and aliases
       const setStat = (name, value, displayValue) => {
         // Prefer displayValue when available, otherwise keep numeric value
-        const val = (displayValue !== undefined && displayValue !== null) ? displayValue : (value !== undefined ? value : null);
+        const val =
+          displayValue !== undefined && displayValue !== null
+            ? displayValue
+            : value !== undefined
+              ? value
+              : null;
         statsMap[name] = val;
 
         // common aliases to normalize API naming differences
         const aliases = {
-          shotsTotal: ['shots'],
-          avgGoalsAgainst: ['goalsAgainstAverage', 'goalsAgainstAvg'],
-          timeOnIcePerGame: ['avgTimeOnIce'],
-          shots: ['shotsTotal'],
-          savePct: ['savePercentage', 'svPct'],
-          saves: ['saves'],
-          plusMinus: ['plusMinus'],
-          points: ['points'],
-          powerPlayGoals: ['ppGoals'],
+          shotsTotal: ["shots"],
+          avgGoalsAgainst: ["goalsAgainstAverage", "goalsAgainstAvg"],
+          timeOnIcePerGame: ["avgTimeOnIce"],
+          shots: ["shotsTotal"],
+          savePct: ["savePercentage", "svPct"],
+          saves: ["saves"],
+          plusMinus: ["plusMinus"],
+          points: ["points"],
+          powerPlayGoals: ["ppGoals"],
         };
 
         if (aliases[name]) {
-          aliases[name].forEach(a => { if (!(a in statsMap)) statsMap[a] = val; });
+          aliases[name].forEach((a) => {
+            if (!(a in statsMap)) statsMap[a] = val;
+          });
         }
       };
 
       // Case 1: older/newer endpoints may include a statistics array
-      if (data.statistics && Array.isArray(data.statistics) && data.statistics.length > 0) {
+      if (
+        data.statistics &&
+        Array.isArray(data.statistics) &&
+        data.statistics.length > 0
+      ) {
         const primary = data.statistics[0];
         if (primary.stats && Array.isArray(primary.stats)) {
-          primary.stats.forEach(s => setStat(s.name, s.value, s.displayValue));
+          primary.stats.forEach((s) =>
+            setStat(s.name, s.value, s.displayValue),
+          );
         }
       }
 
       // Case 2: more detailed structure under `splits.categories[].stats`
-      if (data.splits && data.splits.categories && Array.isArray(data.splits.categories)) {
-        data.splits.categories.forEach(category => {
+      if (
+        data.splits &&
+        data.splits.categories &&
+        Array.isArray(data.splits.categories)
+      ) {
+        data.splits.categories.forEach((category) => {
           if (category.stats && Array.isArray(category.stats)) {
-            category.stats.forEach(s => setStat(s.name, s.value, s.displayValue));
+            category.stats.forEach((s) =>
+              setStat(s.name, s.value, s.displayValue),
+            );
           }
         });
       }
@@ -231,20 +262,30 @@ const CompareScreen = ({ route }) => {
   const getPositionStats = (positionGroup, categories) => {
     const statMappings = {
       forward: {
-        'Scoring': ['goals', 'assists', 'points', 'plusMinus'],
-        'Shooting': ['shots', 'shootingPct', 'gameWinningGoals', 'powerPlayGoals'],
-        'Advanced': ['timeOnIce', 'avgTimeOnIce', 'faceOffPct', 'hits']
+        Scoring: ["goals", "assists", "points", "plusMinus"],
+        Shooting: [
+          "shots",
+          "shootingPct",
+          "gameWinningGoals",
+          "powerPlayGoals",
+        ],
+        Advanced: ["timeOnIce", "avgTimeOnIce", "faceOffPct", "hits"],
       },
       defenseman: {
-        'Scoring': ['goals', 'assists', 'points', 'plusMinus'],
-        'Defense': ['hits', 'blockedShots', 'timeOnIce', 'avgTimeOnIce'],
-        'Special Teams': ['powerPlayGoals', 'powerPlayAssists', 'shortHandedGoals', 'shortHandedAssists']
+        Scoring: ["goals", "assists", "points", "plusMinus"],
+        Defense: ["hits", "blockedShots", "timeOnIce", "avgTimeOnIce"],
+        "Special Teams": [
+          "powerPlayGoals",
+          "powerPlayAssists",
+          "shortHandedGoals",
+          "shortHandedAssists",
+        ],
       },
       goalie: {
-        'Basic': ['wins', 'losses', 'saves', 'goalsAgainst'],
-        'Percentages': ['savePct', 'goalsAgainstAverage'],
-        'Advanced': ['shutouts', 'gamesStarted', 'timeOnIce']
-      }
+        Basic: ["wins", "losses", "saves", "goalsAgainst"],
+        Percentages: ["savePct", "goalsAgainstAverage"],
+        Advanced: ["shutouts", "gamesStarted", "timeOnIce"],
+      },
     };
 
     return statMappings[positionGroup] || {};
@@ -252,45 +293,80 @@ const CompareScreen = ({ route }) => {
 
   const getNHLTeamAbbreviation = (team) => {
     const teamMapping = {
-      '21': 'TOR', '10': 'MTL', '3': 'CGY', '6': 'EDM', '22': 'VAN', '28': 'WPG',
-      '1': 'BOS', '13': 'NYR', '15': 'PHI', '16': 'PIT', '20': 'TBL', '7': 'CAR',
-      '4': 'CHI', '5': 'DET', '27': 'NSH', '19': 'STL', '23': 'WSH',
-      '25': 'ANA', '8': 'LAK', '18': 'SJS', '29': 'CBJ', '30': 'MIN', '14': 'OTT',
-      '26': 'FLA', '2': 'BUF', '11': 'NJD', '12': 'NYI', '9': 'DAL', '17': 'COL',
-      '129764': 'UTA', '124292': 'SEA', '37': 'VGK'
+      21: "TOR",
+      10: "MTL",
+      3: "CGY",
+      6: "EDM",
+      22: "VAN",
+      28: "WPG",
+      1: "BOS",
+      13: "NYR",
+      15: "PHI",
+      16: "PIT",
+      20: "TBL",
+      7: "CAR",
+      4: "CHI",
+      5: "DET",
+      27: "NSH",
+      19: "STL",
+      23: "WSH",
+      25: "ANA",
+      8: "LAK",
+      18: "SJS",
+      29: "CBJ",
+      30: "MIN",
+      14: "OTT",
+      26: "FLA",
+      2: "BUF",
+      11: "NJD",
+      12: "NYI",
+      9: "DAL",
+      17: "COL",
+      129764: "UTA",
+      124292: "SEA",
+      37: "VGK",
     };
 
     if (team?.abbreviation) {
       return team.abbreviation;
     }
-    
+
     const abbr = teamMapping[team?.id?.toString()];
     if (abbr) {
       return abbr;
     }
-    
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'NHL';
+
+    return team?.name?.substring(0, 3)?.toUpperCase() || "NHL";
   };
 
   const getTeamLogo = (player) => {
     const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500${isDarkMode ? "-dark" : ""}/scoreboard/${(player.team?.abbreviation || "").toLowerCase()}.png&w=200&h=200`;
-    return logoUrl || getTeamLogoUrl(getNHLTeamAbbreviation(player.team), 'nhl');
+    return (
+      teamLogoUrl || getTeamLogoUrl(getNHLTeamAbbreviation(player.team), "nhl")
+    );
   };
 
   const renderPlayerCard = (player, playerNumber) => {
     const year = playerNumber === 1 ? player1Year : player2Year;
     const setYear = playerNumber === 1 ? setPlayer1Year : setPlayer2Year;
-    const showYearPicker = playerNumber === 1 ? showYear1Picker : showYear2Picker;
-    const setShowYearPicker = playerNumber === 1 ? setShowYear1Picker : setShowYear2Picker;
+    const showYearPicker =
+      playerNumber === 1 ? showYear1Picker : showYear2Picker;
+    const setShowYearPicker =
+      playerNumber === 1 ? setShowYear1Picker : setShowYear2Picker;
 
     if (!player) {
       return (
         <TouchableOpacity
-          style={[styles.playerCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          style={[
+            styles.playerCard,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
           onPress={() => openPlayerSearch(playerNumber)}
         >
           <View style={styles.addPlayerButton}>
-            <Text style={[styles.addPlayerIcon, { color: colors.secondary }]}>+</Text>
+            <Text style={[styles.addPlayerIcon, { color: colors.secondary }]}>
+              +
+            </Text>
             <Text style={[styles.addPlayerText, { color: colors.secondary }]}>
               Add Player {playerNumber}
             </Text>
@@ -300,7 +376,12 @@ const CompareScreen = ({ route }) => {
     }
 
     return (
-      <View style={[styles.playerCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.playerCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
         <TouchableOpacity
           style={styles.clearButton}
           onPress={() => clearPlayer(playerNumber)}
@@ -320,10 +401,13 @@ const CompareScreen = ({ route }) => {
 
         <View style={styles.playerImageContainer}>
           <Image
-            source={{ 
-              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${player.id}.png&w=300`
+            source={{
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${player.id}.png&w=300`,
             }}
-            style={[styles.playerImage, { backgroundColor: `#${player.team?.color || '000000'}` + '88' }]}
+            style={[
+              styles.playerImage,
+              { backgroundColor: `#${player.team?.color || "000000"}` + "88" },
+            ]}
           />
         </View>
 
@@ -332,29 +416,51 @@ const CompareScreen = ({ route }) => {
             {player.displayName}
           </Text>
           <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
-            {player.position?.displayName || 'Player'} • #{player.jersey || '00'}
+            {player.position?.displayName || "Player"} • #
+            {player.jersey || "00"}
           </Text>
         </View>
 
         <View style={styles.yearSelector}>
-          <Text style={[styles.yearLabel, { color: theme.textSecondary }]}>Season</Text>
+          <Text style={[styles.yearLabel, { color: theme.textSecondary }]}>
+            Season
+          </Text>
           <TouchableOpacity
-            style={[styles.yearButton, { backgroundColor: theme.background, borderColor: theme.border }]}
+            style={[
+              styles.yearButton,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
             onPress={() => setShowYearPicker(true)}
           >
-            <Text style={[styles.yearButtonText, { color: theme.text }]}>{year}</Text>
-            <Text style={[styles.yearButtonArrow, { color: theme.textSecondary }]}>▼</Text>
+            <Text style={[styles.yearButtonText, { color: theme.text }]}>
+              {year}
+            </Text>
+            <Text
+              style={[styles.yearButtonArrow, { color: theme.textSecondary }]}
+            >
+              ▼
+            </Text>
           </TouchableOpacity>
         </View>
 
         <Modal visible={showYearPicker} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.yearPickerModal, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.yearPickerTitle, { color: theme.text, borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.yearPickerModal,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.yearPickerTitle,
+                  { color: theme.text, borderBottomColor: theme.border },
+                ]}
+              >
                 Select Season
               </Text>
               <ScrollView style={styles.yearOptions}>
-                {yearOptions.map(yearOption => (
+                {yearOptions.map((yearOption) => (
                   <TouchableOpacity
                     key={yearOption}
                     style={styles.yearOption}
@@ -363,19 +469,35 @@ const CompareScreen = ({ route }) => {
                       setShowYearPicker(false);
                     }}
                   >
-                    <Text style={[styles.yearOptionText, { 
-                      color: yearOption === year ? colors.primary : theme.text 
-                    }]}>
+                    <Text
+                      style={[
+                        styles.yearOptionText,
+                        {
+                          color:
+                            yearOption === year ? colors.primary : theme.text,
+                        },
+                      ]}
+                    >
                       {yearOption}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <TouchableOpacity
-                style={[styles.yearPickerCancel, { borderTopColor: theme.border }]}
+                style={[
+                  styles.yearPickerCancel,
+                  { borderTopColor: theme.border },
+                ]}
                 onPress={() => setShowYearPicker(false)}
               >
-                <Text style={[styles.yearPickerCancelText, { color: colors.primary }]}>Cancel</Text>
+                <Text
+                  style={[
+                    styles.yearPickerCancelText,
+                    { color: colors.primary },
+                  ]}
+                >
+                  Cancel
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -388,62 +510,122 @@ const CompareScreen = ({ route }) => {
     if (!comparisonStats) return null;
 
     const { player1: p1, player2: p2 } = comparisonStats;
-    const positionGroup = getPositionGroup(p1.position?.displayName || p1.position?.name);
+    const positionGroup = getPositionGroup(
+      p1.position?.displayName || p1.position?.name,
+    );
     const statCategories = getPositionStats(positionGroup, p1.stats);
 
     return (
       <View style={styles.statsContainer}>
-        <View style={[styles.comparisonHeader, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.comparisonType, { color: 'white' }]}>
-            {positionGroup.charAt(0).toUpperCase() + positionGroup.slice(1)} Comparison
+        <View
+          style={[styles.comparisonHeader, { backgroundColor: colors.primary }]}
+        >
+          <Text style={[styles.comparisonType, { color: "white" }]}>
+            {positionGroup.charAt(0).toUpperCase() + positionGroup.slice(1)}{" "}
+            Comparison
           </Text>
         </View>
 
         {Object.entries(statCategories).map(([categoryName, statKeys]) => (
           <View key={categoryName}>
-            <Text style={[styles.categoryHeader, { color: theme.text, backgroundColor: theme.surface }]}>
+            <Text
+              style={[
+                styles.categoryHeader,
+                { color: theme.text, backgroundColor: theme.surface },
+              ]}
+            >
               {categoryName}
             </Text>
-            {statKeys.map(statKey => {
+            {statKeys.map((statKey) => {
               const stat1 = p1.stats?.[statKey];
               const stat2 = p2.stats?.[statKey];
-              
+
               if (stat1 === undefined && stat2 === undefined) return null;
 
               const val1 = parseFloat(stat1) || 0;
               const val2 = parseFloat(stat2) || 0;
-              const isHigherBetter = !['goalsAgainst', 'goalsAgainstAverage', 'losses'].includes(statKey);
-              const winner = isHigherBetter ? (val1 > val2 ? 1 : val1 < val2 ? 2 : 0) : (val1 < val2 ? 1 : val1 > val2 ? 2 : 0);
+              const isHigherBetter = ![
+                "goalsAgainst",
+                "goalsAgainstAverage",
+                "losses",
+              ].includes(statKey);
+              const winner = isHigherBetter
+                ? val1 > val2
+                  ? 1
+                  : val1 < val2
+                    ? 2
+                    : 0
+                : val1 < val2
+                  ? 1
+                  : val1 > val2
+                    ? 2
+                    : 0;
 
               return (
-                <View key={statKey} style={[styles.statRow, { backgroundColor: theme.background }]}>
-                  <View style={[styles.statBox, { 
-                    backgroundColor: winner === 1 ? colors.secondary + '20' : theme.surface,
-                    borderWidth: winner === 1 ? 1 : 0,
-                    borderColor: winner === 1 ? colors.secondary : 'transparent'
-                  }]}>
-                    <Text style={[styles.statValue, { 
-                      color: winner === 1 ? colors.secondary : theme.text 
-                    }]}>
-                      {stat1 || '0'}
+                <View
+                  key={statKey}
+                  style={[
+                    styles.statRow,
+                    { backgroundColor: theme.background },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.statBox,
+                      {
+                        backgroundColor:
+                          winner === 1
+                            ? colors.secondary + "20"
+                            : theme.surface,
+                        borderWidth: winner === 1 ? 1 : 0,
+                        borderColor:
+                          winner === 1 ? colors.secondary : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statValue,
+                        {
+                          color: winner === 1 ? colors.secondary : theme.text,
+                        },
+                      ]}
+                    >
+                      {stat1 || "0"}
                     </Text>
                   </View>
 
                   <View style={styles.statLabelContainer}>
                     <Text style={[styles.statLabel, { color: theme.text }]}>
-                      {statKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      {statKey
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (str) => str.toUpperCase())}
                     </Text>
                   </View>
 
-                  <View style={[styles.statBox, { 
-                    backgroundColor: winner === 2 ? colors.secondary + '20' : theme.surface,
-                    borderWidth: winner === 2 ? 1 : 0,
-                    borderColor: winner === 2 ? colors.secondary : 'transparent'
-                  }]}>
-                    <Text style={[styles.statValue, { 
-                      color: winner === 2 ? colors.secondary : theme.text 
-                    }]}>
-                      {stat2 || '0'}
+                  <View
+                    style={[
+                      styles.statBox,
+                      {
+                        backgroundColor:
+                          winner === 2
+                            ? colors.secondary + "20"
+                            : theme.surface,
+                        borderWidth: winner === 2 ? 1 : 0,
+                        borderColor:
+                          winner === 2 ? colors.secondary : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statValue,
+                        {
+                          color: winner === 2 ? colors.secondary : theme.text,
+                        },
+                      ]}
+                    >
+                      {stat2 || "0"}
                     </Text>
                   </View>
                 </View>
@@ -470,9 +652,14 @@ const CompareScreen = ({ route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.primary }]}>Compare Players</Text>
+          <Text style={[styles.title, { color: colors.primary }]}>
+            Compare Players
+          </Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             Compare NHL players from the same position group
           </Text>
@@ -480,11 +667,11 @@ const CompareScreen = ({ route }) => {
 
         <View style={styles.playersHeader}>
           {renderPlayerCard(player1, 1)}
-          
+
           <View style={styles.vsContainer}>
             <Text style={[styles.vsText, { color: theme.text }]}>VS</Text>
           </View>
-          
+
           {renderPlayerCard(player2, 2)}
         </View>
 
@@ -509,14 +696,24 @@ const CompareScreen = ({ route }) => {
       </ScrollView>
 
       {/* Search Modal */}
-      <Modal 
-        visible={showSearchModal} 
-        animationType="slide" 
-        presentationStyle="pageSheet" 
+      <Modal
+        visible={showSearchModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowSearchModal(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <View
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               Select Player {searchingForPlayer}
             </Text>
@@ -524,17 +721,22 @@ const CompareScreen = ({ route }) => {
               style={styles.modalCloseButton}
               onPress={() => setShowSearchModal(false)}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text style={[styles.modalCloseText, { color: colors.primary }]}>
+                Close
+              </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.searchContainer}>
             <TextInput
-              style={[styles.searchInput, { 
-                color: theme.text, 
-                backgroundColor: theme.surface,
-                borderColor: theme.border 
-              }]}
+              style={[
+                styles.searchInput,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
               placeholder="Search for a player..."
               placeholderTextColor={theme.textSecondary}
               value={searchText}
@@ -552,25 +754,52 @@ const CompareScreen = ({ route }) => {
               data={searchResults}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.searchResultItem, { backgroundColor: theme.surface }]}
+                  style={[
+                    styles.searchResultItem,
+                    { backgroundColor: theme.surface },
+                  ]}
                   onPress={() => selectPlayer(item, searchingForPlayer)}
                 >
-                  <View style={[styles.searchResultImage, { backgroundColor: theme.background }]}>
+                  <View
+                    style={[
+                      styles.searchResultImage,
+                      { backgroundColor: theme.background },
+                    ]}
+                  >
                     <Image
-                      source={{ 
-                        uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${item.id}.png&w=200`
+                      source={{
+                        uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${item.id}.png&w=200`,
                       }}
-                      style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
+                      style={[
+                        styles.playerHeadshot,
+                        {
+                          backgroundColor:
+                            `#${item.team?.color || "000000"}` + "88",
+                        },
+                      ]}
                     />
                   </View>
                   <View style={styles.searchResultInfo}>
-                    <Text style={[styles.searchResultName, { color: theme.text }]}>
+                    <Text
+                      style={[styles.searchResultName, { color: theme.text }]}
+                    >
                       {item.displayName}
                     </Text>
-                    <Text style={[styles.searchResultDetails, { color: theme.textSecondary }]}>
-                      {item.position?.displayName || 'Player'} • #{item.jersey || '00'}
+                    <Text
+                      style={[
+                        styles.searchResultDetails,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {item.position?.displayName || "Player"} • #
+                      {item.jersey || "00"}
                     </Text>
-                    <Text style={[styles.searchResultTeam, { color: theme.textTertiary }]}>
+                    <Text
+                      style={[
+                        styles.searchResultTeam,
+                        { color: theme.textTertiary },
+                      ]}
+                    >
                       {getNHLTeamAbbreviation(item.team)}
                     </Text>
                   </View>
@@ -604,21 +833,21 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   playersHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
     gap: 16,
   },
@@ -626,14 +855,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 12,
-    alignItems: 'center',
-    position: 'relative',
+    alignItems: "center",
+    position: "relative",
     minHeight: 240,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
     borderWidth: 1,
   },
   teamHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 8,
   },
   teamLogo: {
@@ -643,35 +872,35 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   playerImageContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 6,
   },
   playerNameContainer: {
     height: 45,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
   clearButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#dc3545',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#dc3545",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1,
   },
   clearButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   playerImage: {
     width: 70,
@@ -686,27 +915,27 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 4,
   },
   playerDetails: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
   },
   yearSelector: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 8,
   },
   yearLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   yearButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
@@ -715,7 +944,7 @@ const styles = StyleSheet.create({
   },
   yearButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   yearButtonArrow: {
     fontSize: 12,
@@ -723,53 +952,53 @@ const styles = StyleSheet.create({
   },
   addPlayerButton: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
   },
   addPlayerIcon: {
     fontSize: 48,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   addPlayerText: {
     fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   vsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   vsText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statsContainer: {
     gap: 8,
     marginTop: 8,
   },
   comparisonHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 12,
     marginBottom: 12,
     borderRadius: 8,
   },
   comparisonType: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   categoryHeader: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     padding: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     borderRadius: 6,
   },
   statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     borderRadius: 8,
     gap: 12,
@@ -779,37 +1008,37 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statRank: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 4,
   },
   statLabelContainer: {
     width: 80,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statLabel: {
     fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   errorContainer: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   errorText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   loadingContainer: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 12,
@@ -819,22 +1048,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalCloseButton: {
     padding: 8,
   },
   modalCloseText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   searchContainer: {
     padding: 16,
@@ -850,8 +1079,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -861,19 +1090,19 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchResultInitials: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   searchResultInfo: {
     flex: 1,
   },
   searchResultName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   searchResultDetails: {
     fontSize: 14,
@@ -882,7 +1111,7 @@ const styles = StyleSheet.create({
   searchResultTeam: {
     fontSize: 12,
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   searchResultTeamLogo: {
     width: 32,
@@ -890,9 +1119,9 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   yearPickerModal: {
     width: 280,
@@ -902,8 +1131,8 @@ const styles = StyleSheet.create({
   },
   yearPickerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     padding: 16,
     borderBottomWidth: 1,
   },
@@ -912,20 +1141,20 @@ const styles = StyleSheet.create({
   },
   yearOption: {
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   yearOptionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   yearPickerCancel: {
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     borderTopWidth: 1,
   },
   yearPickerCancelText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 
