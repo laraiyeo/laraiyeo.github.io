@@ -13,10 +13,12 @@ import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
+import WBCService from "../../services/WBCService";
+import { MLBService } from "../../services/MLBService";
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
-  const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
 
@@ -69,7 +71,7 @@ const SearchScreen = ({ route, navigation }) => {
     try {
       // Get all MLB teams
       const response = await fetch(
-        "https://statsapi.mlb.com/api/v1/teams?sportId=1",
+        "https://statsapi.mlb.com/api/v1/teams?sportId=1&fields=teams,id,name,abbreviation,teamName,division,name,shortName,clubName,locationName",
       );
       const data = await response.json();
 
@@ -86,6 +88,7 @@ const SearchScreen = ({ route, navigation }) => {
             id: team.id,
             type: "team",
             name: team.name,
+            division: team.division,
             teamName: team.teamName,
             locationName: team.locationName,
             abbreviation: team.abbreviation,
@@ -116,7 +119,7 @@ const SearchScreen = ({ route, navigation }) => {
               // Try to get current team info from player stats
               const currentYear = new Date().getFullYear();
               const statsResponse = await fetch(
-                `https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}&fields=stats,splits,team,id,name,player,id,fullName`,
+                `https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S&fields=stats,splits,team,id,name,player,id,fullName`,
               );
               const statsData = await statsResponse.json();
 
@@ -238,16 +241,18 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderTeamItem = (item) => {
-    const teamAbbr = getMLBTeamAbbreviation(item);
+    const teamColor = WBCService.getTeamColor(item?.id) || theme.border;
+    const teamAbbr = item.abbreviation || getMLBTeamAbbreviation(item);
+    const teamId = item.id;
 
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface }]}
+        style={[styles.resultItem, { backgroundColor: theme.surface, borderWidth: 1, borderColor: teamColor }]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
         <Image cachePolicy="memory-disk"
-          source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
+          source={{ uri: MLBService.getTeamLogo(teamId, isDarkMode) }}
           style={styles.teamLogo}
           defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
         />
@@ -262,7 +267,7 @@ const SearchScreen = ({ route, navigation }) => {
             allowFontScaling={false}
             style={[styles.teamDetails, { color: theme.textSecondary }]}
           >
-            {teamAbbr} • Team
+            {teamAbbr} • {item.division?.name || "Team"}
           </Text>
         </View>
       </TouchableOpacity>
@@ -273,10 +278,12 @@ const SearchScreen = ({ route, navigation }) => {
     const teamAbbr = item.currentTeam
       ? getMLBTeamAbbreviation(item.currentTeam)
       : null;
+    const teamId = item.currentTeam?.id;
+    const teamColor = WBCService.getTeamColor(teamId) || theme.border;
 
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface }]}
+        style={[styles.resultItem, { backgroundColor: theme.surface, borderWidth: 1, borderColor: teamColor }]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
@@ -284,7 +291,7 @@ const SearchScreen = ({ route, navigation }) => {
           source={{
             uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.id}/headshot/67/current`,
           }}
-          style={styles.playerHeadshot}
+          style={[styles.playerHeadshot, { borderWidth: 2, borderColor: teamColor }]}
           defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
         />
         <View style={styles.playerInfo}>

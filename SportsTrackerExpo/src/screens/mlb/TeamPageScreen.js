@@ -1,4 +1,10 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -8,6 +14,7 @@ import {
   Animated,
   RefreshControl,
   Dimensions,
+  PanResponder,
 } from "react-native";
 import { Image } from "expo-image";
 import Svg, {
@@ -26,6 +33,11 @@ const STAT_CHIP_GAP = 8;
 const STAT_CHIP_W =
   (width - 2 * 12 - 2 * 14 - STAT_CHIP_GAP * (STAT_CHIP_COLS - 1)) /
   STAT_CHIP_COLS;
+const TOP3_CARD_COLS = 2;
+const TOP3_CARD_GAP = 10;
+const TOP3_CARD_W =
+  (width - 2 * 12 - TOP3_CARD_GAP * (TOP3_CARD_COLS - 1)) / TOP3_CARD_COLS;
+const FILTER_PANEL_H = 34;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -112,161 +124,197 @@ const getGameLabel = (game) => {
 
 const TABS = ["Team", "Matches", "Stats", "Roster"];
 
-// ─── Team stats helpers ───────────────────────────────────────────────────────
+const PITCHER_ABBRS = new Set(["P", "SP", "RP"]);
 
-// For hitting: only strikeouts are penalised
-const HITTING_LOWER_IS_BETTER = new Set(["Strike Outs"]);
-
-// For pitching: opponent-facing counting/rate stats are all lower-is-better
-const PITCHING_LOWER_IS_BETTER = new Set([
-  "Runs",
-  "Hits",
-  "Doubles",
-  "Triples",
-  "Home Runs",
-  "Base On Balls",
-  "Avg",
-  "At Bats",
-  "Obp",
-  "Slg",
-  "Ops",
-  "Stolen Bases",
-  "Total Bases",
-  "Rbi",
+const BATTER_LOWER_IS_BETTER = new Set([
+  "Strike Outs",
+  "Caught Stealing",
+  "Ground Into Double Plays",
+  "Ground Into Double Play",
 ]);
 
-// Build rows from the stat object returned by the /bb/team endpoint.
-// Each stat entry has the shape { teamValue, rank, min, max }.
-const buildTeamStatRows = (statObj, lowerSet) => {
-  if (!statObj) return [];
-  return Object.entries(statObj)
-    .filter(([, info]) => info?.teamValue != null)
-    .map(([key, info]) => {
-      const n = parseFloat(info.teamValue);
-      const minVal = parseFloat(info.min);
-      const maxVal = parseFloat(info.max);
-      const isLower = lowerSet.has(key);
-      let pct = 0;
-      if (!isNaN(n) && !isNaN(minVal) && !isNaN(maxVal) && maxVal !== minVal) {
-        const norm = (n - minVal) / (maxVal - minVal);
-        pct = isLower ? 1 - norm : norm;
-        pct = Math.max(0, Math.min(1, pct));
-      }
-      return { key, label: key, value: String(info.teamValue), pct, isLower };
-    });
+const PITCHER_LOWER_IS_BETTER = new Set([
+  "Era",
+  "Whip",
+  "Avg",
+  "Base On Balls",
+  "Walks",
+  "Hits",
+  "Runs",
+  "Earned Runs",
+  "Home Runs",
+  "Balks",
+  "Wild Pitches",
+  "Stolen Bases",
+  "Stolen Bases Allowed",
+  "Ops",
+  "Walks And Hits Per Inning Pitched",
+]);
+
+const toTitleWords = (value) =>
+  String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const formatTopRankName = (player) => {
+  const first = String(player?.firstName || "").trim();
+  const last = String(player?.lastName || "").trim();
+  const full = String(player?.fullName || "").trim();
+  if (last) {
+    return `${first ? `${first.charAt(0).toUpperCase()}. ` : ""}${last}`;
+  }
+  if (!full) return "Unknown";
+  const parts = full.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0).toUpperCase()}. ${parts.slice(1).join(" ")}`;
+  }
+  return full;
 };
 
-// ─── Stats bubble (collapsible) ───────────────────────────────────────────────
-
-const StatBubble = ({ title, rows, expanded, onToggle, teamColor, theme }) => {
-  const visibleRows = expanded ? rows : rows.slice(0, 5);
-  return (
-    <TouchableOpacity
-      style={[sbStyles.bubble, { backgroundColor: theme.surface }]}
-      onPress={onToggle}
-      activeOpacity={0.85}
-    >
-      <View style={sbStyles.bubbleHeader}>
-        <Text
-          allowFontScaling={false}
-          style={[sbStyles.bubbleTitle, { color: theme.text }]}
-        >
-          {title}
-        </Text>
-        <View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
-          <Text style={[sbStyles.bubbleChevron, { color: theme.text }]}>›</Text>
-        </View>
-      </View>
-      <View>
-        {visibleRows.map(({ key, label, value, pct }) => (
-          <View key={key} style={sbStyles.statRow}>
-            <Text
-              allowFontScaling={false}
-              style={[sbStyles.statRowLabel, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
-            <View style={sbStyles.statRowRight}>
-              <Text
-                allowFontScaling={false}
-                style={[sbStyles.statRowValue, { color: theme.text }]}
-              >
-                {value}
-              </Text>
-              <View
-                style={[
-                  sbStyles.statBarTrack,
-                  { backgroundColor: theme.border },
-                ]}
-              >
-                <View
-                  style={[
-                    sbStyles.statBarFill,
-                    {
-                      width: `${Math.round(pct * 100)}%`,
-                      backgroundColor: teamColor,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-        ))}
-        {!expanded && rows.length > 5 && (
-          <Text
-            allowFontScaling={false}
-            style={[sbStyles.showMore, { color: theme.textSecondary }]}
-          >
-            +{rows.length - 5} more ›
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+const toFinite = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 };
 
-const sbStyles = StyleSheet.create({
-  bubble: {
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 0,
-  },
-  bubbleHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  bubbleTitle: { fontSize: 14, fontWeight: "800", letterSpacing: 0.3 },
-  bubbleChevron: { fontSize: 20, lineHeight: 22 },
-  statRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  statRowLabel: { flex: 1, fontSize: 12, fontWeight: "500", paddingRight: 8 },
-  statRowRight: { alignItems: "flex-end", gap: 4 },
-  statRowValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    textAlign: "right",
-    minWidth: 40,
-  },
-  statBarTrack: { width: 64, height: 3, borderRadius: 2, overflow: "hidden" },
-  statBarFill: { height: "100%", borderRadius: 2, minWidth: 2 },
-  showMore: {
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "right",
-    marginTop: 2,
-  },
-});
+const isPitcher = (player) =>
+  PITCHER_ABBRS.has(String(player?.position?.abbreviation || "").toUpperCase());
+
+const getNameParts = (fullName) => {
+  const parts = String(fullName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length <= 1) {
+    return { firstName: parts[0] || "", lastName: "" };
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
+const getPlayerGamesPlayed = (player) => {
+  const entries = Object.entries(player?.stats || {});
+  for (const [key, info] of entries) {
+    const label = toTitleWords(info?.label || key);
+    if (label === "Games Played" || label === "Games") {
+      const val = toFinite(info?.numericValue ?? info?.value);
+      if (val != null) return val;
+    }
+  }
+  return 0;
+};
+
+const getStatMapForPlayer = (player) => {
+  const mapped = {};
+  for (const [rawKey, info] of Object.entries(player?.stats || {})) {
+    const val = toFinite(info?.numericValue ?? info?.value);
+    if (val == null) continue;
+    const label = toTitleWords(info?.label || rawKey);
+    mapped[label] = {
+      label,
+      value: info?.value != null ? String(info.value) : String(val),
+      numeric: val,
+    };
+  }
+  return mapped;
+};
+
+const passesGamesFilter = (gamesPlayed, minGames, comparator) => {
+  const gp = Number(gamesPlayed);
+  const threshold = Number(minGames);
+  if (!Number.isFinite(gp) || !Number.isFinite(threshold)) return false;
+  return comparator === "<=" ? gp <= threshold : gp >= threshold;
+};
+
+const buildMlbTopThreeCards = ({
+  players,
+  lowerSet,
+  selectedPosition,
+  minGames,
+  gamesComparator,
+}) => {
+  const positionFilter = String(selectedPosition || "ALL").toUpperCase();
+  const comparator = gamesComparator === "<=" ? "<=" : ">=";
+
+  const pool = (Array.isArray(players) ? players : []).map((player) => {
+    const fullName = player?.person?.fullName || "";
+    const nameParts = getNameParts(fullName);
+    return {
+      id: String(player?.person?.id || ""),
+      firstName: nameParts.firstName,
+      lastName: nameParts.lastName,
+      fullName,
+      positionCode: String(player?.position?.abbreviation || "").toUpperCase(),
+      gamesPlayed: getPlayerGamesPlayed(player),
+      stats: getStatMapForPlayer(player),
+    };
+  });
+
+  const eligible = pool.filter((p) => {
+    if (!p.id) return false;
+    if (positionFilter !== "ALL" && p.positionCode !== positionFilter) {
+      return false;
+    }
+    return passesGamesFilter(p.gamesPlayed, minGames, comparator);
+  });
+
+  const statKeys = new Set();
+  for (const p of eligible) {
+    for (const label of Object.keys(p.stats || {})) {
+      if (label === "Games Played" || label === "Games") continue;
+      statKeys.add(label);
+    }
+  }
+
+  return [...statKeys]
+    .sort((a, b) => a.localeCompare(b))
+    .map((statLabel) => {
+      const reverse = lowerSet.has(statLabel);
+      const ranked = eligible
+        .filter((p) => Number.isFinite(Number(p.stats?.[statLabel]?.numeric)))
+        .slice()
+        .sort((a, b) => {
+          const av = Number(a.stats?.[statLabel]?.numeric);
+          const bv = Number(b.stats?.[statLabel]?.numeric);
+          if (av === bv) return a.id.localeCompare(b.id);
+          return reverse ? av - bv : bv - av;
+        })
+        .slice(0, 3)
+        .map((p) => {
+          const personId = p.id;
+          return {
+            id: personId,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            fullName: p.fullName,
+            positionCode: p.positionCode,
+            headshot: personId
+              ? `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${personId}/headshot/67/current`
+              : null,
+            value: p.stats?.[statLabel]?.value || "-",
+          };
+        });
+
+      if (!ranked.length) return null;
+
+      return {
+        key: statLabel,
+        label: statLabel,
+        leaders: ranked,
+      };
+    })
+    .filter(Boolean);
+};
 
 // ─── Roster player row ────────────────────────────────────────────────────────
 
-const RosterPlayerRow = ({ player, teamColor, theme }) => {
+const RosterPlayerRow = ({ player, teamColor, theme, navigation, sport, teamId }) => {
   const [expanded, setExpanded] = useState(false);
   const personId = player.person?.id;
   const headshotUrl = personId
@@ -383,6 +431,38 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
             </View>
           </View>
         ))}
+
+      {expanded && (
+        <View style={[rStyles.playerFooter, { borderTopColor: theme.border }]}>
+          <TouchableOpacity
+            style={[
+              rStyles.goToPlayerBtn,
+              {
+                backgroundColor: teamColor + "22",
+                borderColor: teamColor + "66",
+              },
+            ]}
+            onPress={() => {
+              if (!personId) return;
+              navigation.navigate("PlayerPage", {
+                playerId: personId,
+                playerName: player.person?.fullName,
+                teamId,
+                sport: sport ?? "mlb",
+              });
+            }}
+            activeOpacity={0.8}
+            disabled={!personId}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[rStyles.goToPlayerBtnText, { color: teamColor }]}
+            >
+              Go To Player
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -474,6 +554,589 @@ const rStyles = StyleSheet.create({
   posSectionCount: {
     fontSize: 12,
     fontWeight: "800",
+  },
+  playerFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  goToPlayerBtn: {
+    minWidth: 140,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goToPlayerBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+  },
+});
+
+const MinGamesSlider = ({ value, min, max, onChange, theme, teamColor }) => {
+  const [trackW, setTrackW] = useState(0);
+  const ratio =
+    max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+  const knobLeft = ratio * trackW;
+
+  const updateFromX = useCallback(
+    (x) => {
+      if (!trackW || max <= min) return;
+      const clamped = Math.max(0, Math.min(trackW, x));
+      const next = Math.round(min + (clamped / trackW) * (max - min));
+      onChange(next);
+    },
+    [trackW, max, min, onChange],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => updateFromX(evt.nativeEvent.locationX),
+        onPanResponderMove: (evt) => updateFromX(evt.nativeEvent.locationX),
+      }),
+    [updateFromX],
+  );
+
+  return (
+    <View style={topStyles.sliderRow}>
+      <View
+        style={topStyles.sliderTrackWrap}
+        onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
+        {...panResponder.panHandlers}
+      >
+        <View
+          style={[topStyles.sliderTrack, { backgroundColor: theme.border }]}
+        />
+        <View
+          style={[
+            topStyles.sliderFill,
+            { width: knobLeft, backgroundColor: teamColor },
+          ]}
+        />
+        <View
+          style={[
+            topStyles.sliderKnob,
+            {
+              left: knobLeft - 8,
+              borderColor: teamColor,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        />
+      </View>
+      <Text style={[topStyles.sliderValue, { color: theme.text }]}>{value}</Text>
+    </View>
+  );
+};
+
+const TopFilters = ({
+  theme,
+  teamColor,
+  positionOptions,
+  selectedPosition,
+  onSelectPosition,
+  showPositionPanel,
+  setShowPositionPanel,
+  minGames,
+  onChangeMinGames,
+  maxGames,
+  gamesComparator,
+  onChangeComparator,
+  showGamesPanel,
+  setShowGamesPanel,
+}) => {
+  return (
+    <View style={topStyles.filtersWrap}>
+      <View style={topStyles.filtersBtnRow}>
+        <TouchableOpacity
+          style={[
+            topStyles.filterMainBtn,
+            {
+              borderColor: teamColor,
+              backgroundColor: showPositionPanel
+                ? teamColor + "22"
+                : "transparent",
+            },
+          ]}
+          onPress={() => setShowPositionPanel((v) => !v)}
+        >
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>Position</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            topStyles.filterMainBtn,
+            {
+              borderColor: teamColor,
+              backgroundColor: showGamesPanel
+                ? teamColor + "22"
+                : "transparent",
+            },
+          ]}
+          onPress={() => setShowGamesPanel((v) => !v)}
+        >
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>Min Games Played</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showPositionPanel && (
+        <View style={topStyles.filterPanel}>
+          <View style={topStyles.pillsWrap}>
+            {positionOptions.map((pos) => {
+              const active = selectedPosition === pos;
+              return (
+                <TouchableOpacity
+                  key={pos}
+                  onPress={() => onSelectPosition(pos)}
+                  style={[
+                    topStyles.pill,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: active ? teamColor : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      topStyles.pillText,
+                      { color: active ? getTextOnColor(teamColor) : theme.text },
+                    ]}
+                  >
+                    {pos}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {showGamesPanel && (
+        <View style={topStyles.filterPanel}>
+          <View style={topStyles.compRow}>
+            {[">=", "<="].map((op) => {
+              const active = gamesComparator === op;
+              return (
+                <TouchableOpacity
+                  key={op}
+                  onPress={() => onChangeComparator(op)}
+                  style={[
+                    topStyles.compBtn,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: active ? teamColor : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      topStyles.compBtnText,
+                      { color: active ? getTextOnColor(teamColor) : theme.text },
+                    ]}
+                  >
+                    {op}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <MinGamesSlider
+            value={minGames}
+            min={0}
+            max={Math.max(0, maxGames)}
+            onChange={onChangeMinGames}
+            theme={theme}
+            teamColor={teamColor}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
+const TopThreeCard = ({ card, theme, teamColor }) => {
+  const [headshotError, setHeadshotError] = useState(false);
+  const first = card?.leaders?.[0] || null;
+  const firstLabelFirst = String(first?.firstName || "").trim() || "Unknown";
+  const firstLabelLast =
+    String(first?.lastName || "").trim() ||
+    String(first?.fullName || "")
+      .trim()
+      .split(/\s+/)
+      .slice(1)
+      .join(" ") ||
+    "Player";
+
+  return (
+    <View style={[topStyles.card, { backgroundColor: theme.surface }]}>
+      <Text
+        allowFontScaling={false}
+        style={[topStyles.cardLabel, { color: theme.text }]}
+        numberOfLines={1}
+      >
+        {card?.label || "Stat"}
+      </Text>
+
+      {first ? (
+        <View style={topStyles.firstCol}>
+          <View style={topStyles.firstHeadshotWrap}>
+            {first.headshot && !headshotError ? (
+              <Image
+                cachePolicy="memory-disk"
+                source={{ uri: first.headshot }}
+                style={[
+                  topStyles.firstHeadshot,
+                  {
+                    backgroundColor: teamColor + "33",
+                    borderColor: teamColor,
+                  },
+                ]}
+                onError={() => setHeadshotError(true)}
+              />
+            ) : (
+              <View
+                style={[
+                  topStyles.firstHeadshot,
+                  topStyles.firstHeadshotFallback,
+                  { backgroundColor: teamColor + "22", borderColor: teamColor },
+                ]}
+              >
+                <Text style={[topStyles.firstInitial, { color: teamColor }]}> 
+                  {firstLabelLast.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            {!!first.positionCode && (
+              <View
+                style={[
+                  topStyles.positionBadge,
+                  { backgroundColor: teamColor, borderColor: theme.surface },
+                ]}
+              >
+                <Text
+                  style={[
+                    topStyles.positionBadgeText,
+                    { color: getTextOnColor(teamColor) },
+                  ]}
+                >
+                  {first.positionCode}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.firstName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {firstLabelFirst}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.lastName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {firstLabelLast}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[topStyles.firstValue, { color: teamColor }]}
+            numberOfLines={1}
+          >
+            {first.value}
+          </Text>
+        </View>
+      ) : null}
+
+      {[1, 2].map((rankIdx) => {
+        const p = card?.leaders?.[rankIdx];
+        if (!p) return null;
+        return (
+          <View key={`${card.key}-${rankIdx}`}>
+            <View style={[topStyles.divider, { backgroundColor: theme.border }]} />
+            <View style={topStyles.rankRow}>
+              <Text
+                allowFontScaling={false}
+                style={[topStyles.rankName, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {formatTopRankName(p)}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[topStyles.rankValue, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {p.value}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const TopThreeSection = ({
+  title,
+  cards,
+  theme,
+  teamColor,
+  expanded,
+  onToggle,
+}) => {
+  if (!cards.length) return null;
+  return (
+    <View style={topStyles.sectionWrap}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={onToggle}
+        style={topStyles.sectionHeaderBtn}
+      >
+        <View style={[topStyles.sectionLine, { backgroundColor: teamColor }]} />
+        <Text
+          allowFontScaling={false}
+          style={[topStyles.sectionTitle, { color: teamColor }]}
+        >
+          {title}
+        </Text>
+        <View style={[topStyles.sectionLine, { backgroundColor: teamColor }]} />
+        <Text style={[topStyles.sectionChevron, { color: theme.text }]}>
+          {expanded ? "▲" : "▼"}
+        </Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={topStyles.grid}>
+          {cards.map((card) => (
+            <TopThreeCard
+              key={card.key}
+              card={card}
+              theme={theme}
+              teamColor={teamColor}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const topStyles = StyleSheet.create({
+  filtersWrap: {
+    marginBottom: 2,
+    gap: 8,
+  },
+  filtersBtnRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterMainBtn: {
+    flex: 1,
+    height: FILTER_PANEL_H,
+    borderWidth: 1,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterMainBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filterPanel: {
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(128,128,128,0.3)",
+  },
+  pillsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  pillText: { fontSize: 11, fontWeight: "700" },
+  compRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  compBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  compBtnText: { fontSize: 11, fontWeight: "700" },
+  sliderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sliderTrackWrap: {
+    flex: 1,
+    height: 22,
+    justifyContent: "center",
+  },
+  sliderTrack: {
+    height: 4,
+    borderRadius: 3,
+  },
+  sliderFill: {
+    position: "absolute",
+    left: 0,
+    height: 4,
+    borderRadius: 3,
+  },
+  sliderKnob: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
+  sliderValue: {
+    width: 40,
+    textAlign: "right",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sectionWrap: {
+    gap: 10,
+  },
+  sectionHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 2,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 2,
+    borderRadius: 2,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    minWidth: 74,
+    textAlign: "center",
+  },
+  sectionChevron: {
+    fontSize: 14,
+    fontWeight: "700",
+    width: 14,
+    textAlign: "center",
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: TOP3_CARD_GAP,
+  },
+  card: {
+    width: TOP3_CARD_W,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 196,
+  },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  firstCol: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  firstHeadshotWrap: { position: "relative", marginBottom: 8 },
+  firstHeadshot: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+  },
+  firstHeadshotFallback: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  positionBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  positionBadgeText: {
+    fontSize: 8,
+    fontWeight: "800",
+    lineHeight: 10,
+  },
+  firstInitial: { fontSize: 16, fontWeight: "800" },
+  firstName: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 14,
+    textAlign: "center",
+  },
+  lastName: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  firstValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 5,
+    textAlign: "center",
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 4,
+    marginTop: 10,
+  },
+  rankRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 8,
+  },
+  rankName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    paddingRight: 8,
+  },
+  rankValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+    minWidth: 28,
   },
 });
 
@@ -1205,8 +1868,13 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("Team");
-  const [hitExpanded, setHitExpanded] = useState(false);
-  const [pitExpanded, setPitExpanded] = useState(false);
+  const [fieldersExpanded, setFieldersExpanded] = useState(true);
+  const [pitchersExpanded, setPitchersExpanded] = useState(false);
+  const [showPositionPanel, setShowPositionPanel] = useState(false);
+  const [showGamesPanel, setShowGamesPanel] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState("ALL");
+  const [gamesComparator, setGamesComparator] = useState(">=");
+  const [minGamesPlayed, setMinGamesPlayed] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(180);
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -1238,67 +1906,128 @@ const TeamPageScreen = ({ route, navigation }) => {
   }, [loadTeam]);
 
   const team = teamData?.team ?? null;
+  const rosterPlayers = teamData?.roster ?? [];
+  const fielders = useMemo(
+    () => rosterPlayers.filter((p) => !isPitcher(p)),
+    [rosterPlayers],
+  );
+  const pitchers = useMemo(
+    () => rosterPlayers.filter((p) => isPitcher(p)),
+    [rosterPlayers],
+  );
 
-  // Pick the most recent year's stats (current year preferred, then prior year)
-  const pickStatYear = (group) => {
-    if (!group) return null;
-    const year = new Date().getFullYear();
-    if (group[String(year)]) return group[String(year)].stat ?? null;
-    if (group[String(year - 1)]) return group[String(year - 1)].stat ?? null;
-    const firstKey = Object.keys(group)[0];
-    return firstKey ? (group[firstKey].stat ?? null) : null;
-  };
+  const positionOptions = useMemo(() => {
+    const set = new Set(["ALL"]);
+    for (const p of rosterPlayers) {
+      const pos = String(p?.position?.abbreviation || "").toUpperCase();
+      if (pos) set.add(pos);
+    }
+    return [...set];
+  }, [rosterPlayers]);
 
-  const hitStat = pickStatYear(teamData?.stats?.hitting);
-  const pitStat = pickStatYear(teamData?.stats?.pitching);
-  const hasHit = !!hitStat;
-  const hasPit = !!pitStat;
+  const maxGamesPlayed = useMemo(() => {
+    let max = 0;
+    for (const p of rosterPlayers) {
+      max = Math.max(max, getPlayerGamesPlayed(p));
+    }
+    return max;
+  }, [rosterPlayers]);
 
-  const hitRows = buildTeamStatRows(hitStat, HITTING_LOWER_IS_BETTER);
-  const pitRows = buildTeamStatRows(pitStat, PITCHING_LOWER_IS_BETTER);
+  useEffect(() => {
+    if (minGamesPlayed > maxGamesPlayed) {
+      setMinGamesPlayed(maxGamesPlayed);
+    }
+  }, [maxGamesPlayed, minGamesPlayed]);
 
-  let statsContent;
-  if (!hasHit && !hasPit) {
-    statsContent = (
-      <View style={styles.emptyContainer}>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-          No stats available
-        </Text>
-      </View>
-    );
-  } else {
-    statsContent = (
-      <View
-        style={{
-          paddingHorizontal: 12,
-          paddingTop: 8,
-          paddingBottom: 24,
-          gap: 12,
-        }}
-      >
-        {hasHit && (
-          <StatBubble
-            title="Hitting"
-            rows={hitRows}
-            expanded={hitExpanded}
-            onToggle={() => setHitExpanded((v) => !v)}
-            teamColor={teamColor}
-            theme={theme}
-          />
-        )}
-        {hasPit && (
-          <StatBubble
-            title="Pitching"
-            rows={pitRows}
-            expanded={pitExpanded}
-            onToggle={() => setPitExpanded((v) => !v)}
-            teamColor={teamColor}
-            theme={theme}
-          />
-        )}
-      </View>
-    );
-  }
+  const fielderTopCards = useMemo(
+    () =>
+      buildMlbTopThreeCards({
+        players: fielders,
+        lowerSet: BATTER_LOWER_IS_BETTER,
+        selectedPosition,
+        minGames: minGamesPlayed,
+        gamesComparator,
+      }),
+    [fielders, selectedPosition, minGamesPlayed, gamesComparator],
+  );
+
+  const pitcherTopCards = useMemo(
+    () =>
+      buildMlbTopThreeCards({
+        players: pitchers,
+        lowerSet: PITCHER_LOWER_IS_BETTER,
+        selectedPosition,
+        minGames: minGamesPlayed,
+        gamesComparator,
+      }),
+    [pitchers, selectedPosition, minGamesPlayed, gamesComparator],
+  );
+
+  const hasBaseStats = fielders.length > 0 || pitchers.length > 0;
+
+  const statsContent = !hasBaseStats ? (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+        No stats available
+      </Text>
+    </View>
+  ) : (
+    <View
+      style={{
+        paddingHorizontal: 12,
+        paddingTop: 8,
+        paddingBottom: 24,
+        gap: 12,
+      }}
+    >
+      <TopFilters
+        theme={theme}
+        teamColor={teamColor}
+        positionOptions={positionOptions}
+        selectedPosition={selectedPosition}
+        onSelectPosition={setSelectedPosition}
+        showPositionPanel={showPositionPanel}
+        setShowPositionPanel={setShowPositionPanel}
+        minGames={minGamesPlayed}
+        onChangeMinGames={setMinGamesPlayed}
+        maxGames={maxGamesPlayed}
+        gamesComparator={gamesComparator}
+        onChangeComparator={setGamesComparator}
+        showGamesPanel={showGamesPanel}
+        setShowGamesPanel={setShowGamesPanel}
+      />
+
+      {fielderTopCards.length > 0 && (
+        <TopThreeSection
+          title="Fielders"
+          cards={fielderTopCards}
+          theme={theme}
+          teamColor={teamColor}
+          expanded={fieldersExpanded}
+          onToggle={() => setFieldersExpanded((v) => !v)}
+        />
+      )}
+
+      {pitcherTopCards.length > 0 && (
+        <TopThreeSection
+          title="Pitchers"
+          cards={pitcherTopCards}
+          theme={theme}
+          teamColor={teamColor}
+          expanded={pitchersExpanded}
+          onToggle={() => setPitchersExpanded((v) => !v)}
+        />
+      )}
+
+      {fielderTopCards.length === 0 && pitcherTopCards.length === 0 && (
+        <View style={{ alignItems: "center", paddingVertical: 28 }}>
+          <Text style={{ fontSize: 14, color: theme.textSecondary }}>
+            No players match current filters
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   // Split games into today / past / upcoming
   const todayStr = getTodayDateStr();
@@ -1477,7 +2206,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 >
                   {team?.name ?? ""}
                 </Text>
-                {team?.league?.name ? (
+                {team?.division?.name ? (
                   <Text
                     allowFontScaling={false}
                     style={[
@@ -1486,7 +2215,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {team.league.name}
+                    {team.division.name}
                   </Text>
                 ) : null}
               </View>
@@ -1682,6 +2411,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                           player={player}
                           teamColor={teamColor}
                           theme={theme}
+                          navigation={navigation}
+                          sport={sport ?? "mlb"}
+                          teamId={resolvedId}
                         />
                       ))}
                     </View>

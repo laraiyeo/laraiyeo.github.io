@@ -213,7 +213,7 @@ const formatRosterStatValue = (rawKey, rawValue) => {
   }
 
   const label = toTitleWords(rawKey);
-  if (/\bPctg\b/i.test(label)) {
+  if (/\b(Pctg|Percentage)\b/i.test(label)) {
     return `${(n * 100).toFixed(1)}%`;
   }
 
@@ -238,7 +238,7 @@ const formatTopRankName = (player) => {
 
 const isReverseRankStat = (statKey) => {
   const key = String(statKey || "").toLowerCase();
-  return key === "losses" || key === "overtimelosses";
+  return key === "losses" || key === "overtimelosses" || key === "goalsagainst" || key === "goalsagainstaverage" || key === "penaltyminutes";
 };
 
 const getStatKeys = (players) => {
@@ -485,7 +485,7 @@ const sbStyles = StyleSheet.create({
   },
 });
 
-const RosterPlayerRow = ({ player, teamColor, theme }) => {
+const RosterPlayerRow = ({ player, teamColor, theme, navigation, sport, teamId }) => {
   const [expanded, setExpanded] = useState(false);
   const [headshotError, setHeadshotError] = useState(false);
   const personId = player.person?.id;
@@ -625,6 +625,38 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
             </View>
           </View>
         ))}
+
+      {expanded && (
+        <View style={[rStyles.playerFooter, { borderTopColor: theme.border }]}>
+          <TouchableOpacity
+            style={[
+              rStyles.goToPlayerBtn,
+              {
+                backgroundColor: teamColor + "22",
+                borderColor: teamColor + "66",
+              },
+            ]}
+            onPress={() => {
+              if (!personId) return;
+              navigation.navigate("PlayerPage", {
+                playerId: personId,
+                playerName: player.person?.fullName,
+                teamId,
+                sport: sport || "nhl",
+              });
+            }}
+            activeOpacity={0.8}
+            disabled={!personId}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[rStyles.goToPlayerBtnText, { color: teamColor }]}
+            >
+              Go To Player
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -717,6 +749,27 @@ const rStyles = StyleSheet.create({
   posSectionCount: {
     fontSize: 12,
     fontWeight: "800",
+  },
+  playerFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  goToPlayerBtn: {
+    minWidth: 140,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goToPlayerBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
   },
 });
 
@@ -3126,6 +3179,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                           player={player}
                           teamColor={teamColor}
                           theme={theme}
+                          navigation={navigation}
+                          sport={sport || "nhl"}
+                          teamId={teamInput.id || team?.id || teamInput.endpointId}
                         />
                       ))}
                     </View>

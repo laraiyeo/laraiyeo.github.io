@@ -237,6 +237,11 @@ const pickPlayerId = (player) => {
   return parseIdFromHeadshot(player?.headshot);
 };
 
+const formatKey = (key) => {
+  if (key === "offensiveZoneTime") return "Average Zone Time";
+  return key;
+};
+
 const extractMetric = (row) => {
   if (!row || typeof row !== "object") return { key: "value", value: "-" };
 
@@ -244,13 +249,15 @@ const extractMetric = (row) => {
   const keys = Object.keys(row).filter((k) => !blocked.has(k));
 
   for (const key of keys) {
+    const displayKey = formatKey(key);
     const val = row[key];
+
     if (typeof val === "number") {
       if (Math.abs(val) < 1 && key.toLowerCase().includes("pct")) {
-        return { key, value: `${(val * 100).toFixed(1)}%` };
+        return { key: displayKey, value: `${(val * 100).toFixed(1)}%` };
       }
       return {
-        key,
+        key: displayKey,
         value: Number.isInteger(val)
           ? String(val)
           : String(Math.round(val * 1000) / 1000),
@@ -260,7 +267,7 @@ const extractMetric = (row) => {
     if (val && typeof val === "object") {
       if (Number.isFinite(val.metric)) {
         return {
-          key,
+          key: displayKey,
           value: Number.isInteger(val.metric)
             ? String(val.metric)
             : String(Math.round(val.metric * 1000) / 1000),
@@ -268,7 +275,7 @@ const extractMetric = (row) => {
       }
       if (Number.isFinite(val.imperial)) {
         return {
-          key,
+          key: displayKey,
           value: Number.isInteger(val.imperial)
             ? String(val.imperial)
             : String(Math.round(val.imperial * 1000) / 1000),
@@ -768,10 +775,12 @@ const StatsScreen = ({ route }) => {
 
           <View style={styles.modalPlayerInfo}>
             <View style={styles.modalNameRow}>
+              {isAthlete ? (
               <Image
                 source={{ uri: getNhlSvgLogoUrl(item?.teamAbbr, isDarkMode) }}
                 style={styles.modalTeamLogo}
               />
+              ) : null}
               <Text
                 allowFontScaling={false}
                 style={[styles.modalPlayerName, { color: theme.text }]}
@@ -1255,6 +1264,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    marginRight: -8
   },
   edgeStatCard: {
     width: "31%",

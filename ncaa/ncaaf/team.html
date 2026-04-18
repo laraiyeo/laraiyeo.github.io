@@ -34,10 +34,30 @@
     .game-card * {
       font-family: Arial, sans-serif !important;
     }
+
+    .app-promo-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.92);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: clamp(28px, 4vw, 56px);
+      line-height: 1.2;
+      letter-spacing: 0.5px;
+      padding: 20px;
+      box-sizing: border-box;
+      white-space: normal;
+    }
   </style>
   <script src="../../assets/analytics.js"></script>
 </head>
 <body>
+<div id="appPromoOverlay" class="app-promo-overlay">Download The SportsHeart<br>App Now!</div>
 <div id="scaleWrapper">
   <div id="gameBlockContainer"></div>
   <script>
@@ -54,6 +74,19 @@
     let currentHtml = "";
     let currentConference = "8"; // Default to SEC
     let cachedTeamData = null; // Cache the team data to avoid re-fetching
+
+    const PROMO_INTERVAL_MS = 15 * 60 * 1000;
+    const PROMO_DURATION_MS = 10 * 1000;
+
+    function updateAppPromoOverlay() {
+      const overlay = document.getElementById("appPromoOverlay");
+      if (!overlay) return;
+      const shouldShow = (Date.now() % PROMO_INTERVAL_MS) < PROMO_DURATION_MS;
+      overlay.style.display = shouldShow ? "flex" : "none";
+    }
+
+    updateAppPromoOverlay();
+    setInterval(updateAppPromoOverlay, 1000);
 
     // NCAA Football Conferences
     const CONFERENCES = {

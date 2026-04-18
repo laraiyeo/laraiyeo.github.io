@@ -948,7 +948,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       >
         <Text style={[styles.bubbleTitle, { color: theme.text }]}>Bio</Text>
         {[
-          ["Height", info?.heightInInches ? `${info.heightInInches} in` : "-"],
+          ["Height", info?.heightInInches ? `${Math.floor(info.heightInInches / 12)}' ${info.heightInInches % 12}"` : "-"],
           ["Weight", info?.weightInPounds ? `${info.weightInPounds} lb` : "-"],
           [isGoalie ? "Catches" : "Shoots", info?.shootsCatches || "-"],
           ["Birth Date", info?.birthDate || "-"],

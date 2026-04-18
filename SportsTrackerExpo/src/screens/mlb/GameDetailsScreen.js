@@ -47,6 +47,10 @@ const { width } = Dimensions.get("window");
 const SCREEN_SPORT = "mlb";
 const RUN_IT_BACK_INTRO_KEY = "mlb_run_it_back_intro_skip_v1";
 const RUN_IT_BACK_BASE_STEP_MS = 3000;
+const MLB_SERIES_CACHE_PREFIX = "@mlb_series_v2";
+const MLB_SERIES_CACHE_TTL_MS = 60 * 60 * 1000;
+const MLB_SERIES_FIELDS =
+  "dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description";
 const RUN_IT_BACK_SPEED_OPTIONS = [
   { label: "0.5x", value: 0.5 },
   { label: "1x", value: 1 },
@@ -181,6 +185,12 @@ const resolvePlayer = (playersMap, id) => {
   return (
     playersMap[`ID${id}`] ?? playersMap[String(id)] ?? playersMap[id] ?? null
   );
+};
+
+const getMlbSeriesCacheKey = ({ year, homeTeamId, awayTeamId }) => {
+  const low = Math.min(Number(homeTeamId), Number(awayTeamId));
+  const high = Math.max(Number(homeTeamId), Number(awayTeamId));
+  return `${MLB_SERIES_CACHE_PREFIX}:${year}:${low}:${high}`;
 };
 
 // ─── Batting stat columns ────────────────────────────────────────────────────
@@ -5531,6 +5541,57 @@ const fmtGameTime = (isoString) => {
   }
 };
 
+const isMlbSeriesLiveState = (status) => {
+  const code = String(status?.codedGameState || status?.statusCode || "");
+  return !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(code);
+};
+
+const isMlbSeriesFinishedState = (status) => {
+  const code = String(status?.codedGameState || status?.statusCode || "");
+  return ["D", "C", "O", "F", "Q", "R"].includes(code);
+};
+
+const getMlbSeriesGameStatus = (game) => {
+  const status = game?.status ?? {};
+  const linescore = game?.linescore ?? {};
+  const isLive = isMlbSeriesLiveState(status);
+  const isFinished = isMlbSeriesFinishedState(status);
+  const inning = linescore?.currentInning;
+  const isTop = linescore?.isTopInning !== false;
+  const balls = linescore?.balls;
+  const strikes = linescore?.strikes;
+  const outs = linescore?.outs;
+
+  if (isLive && inning) {
+    return {
+      top: `${isTop ? "Top" : "Bot"} ${toOrdinal(inning)}`,
+      bottom:
+        balls != null && strikes != null && outs != null
+          ? `${balls}-${strikes}, ${outs} out${outs === 1 ? "" : "s"}`
+          : String(status?.detailedState || "In Progress"),
+      isLive,
+      isFinished,
+    };
+  }
+
+  if (isFinished) {
+    return {
+      top: `Final${inning && inning !== 9 ? `/${inning}` : ""}`,
+      bottom: String(status?.detailedState || ""),
+      isLive,
+      isFinished,
+    };
+  }
+
+  return {
+    top:
+      fmtGameTime(game?.gameDate) || String(status?.detailedState || "Scheduled"),
+    bottom: String(game?.seriesDescription || status?.detailedState || ""),
+    isLive,
+    isFinished,
+  };
+};
+
 // ─── Center status badge ──────────────────────────────────────────────────────
 const StatusBadge = ({
   status,
@@ -7795,6 +7856,519 @@ const WinProbabilityChart = ({
   );
 };
 
+const SeriesSummarySection = ({
+  homeTeam,
+  awayTeam,
+  homeColor,
+  awayColor,
+  summary,
+  homeOnly,
+  onToggleHomeOnly,
+  theme,
+  isDarkMode,
+}) => {
+  const homeLogo = WBCService.getTeamLogo(homeTeam?.id, isDarkMode);
+  const awayLogo = WBCService.getTeamLogo(awayTeam?.id, isDarkMode);
+  const homeWins = Number(summary?.homeWins ?? 0);
+  const awayWins = Number(summary?.awayWins ?? 0);
+  const total = homeWins + awayWins;
+  const homeFlex = total > 0 ? homeWins : 1;
+  const awayFlex = total > 0 ? awayWins : 1;
+
+  return (
+    <View style={[seriesStyles.card, { backgroundColor: theme.surface }]}>
+      <View
+        style={[seriesStyles.headerRow, { borderBottomColor: theme.border }]}
+      >
+        <Text style={[seriesStyles.headerTitle, { color: theme.text }]}>
+          SEASON SERIES
+        </Text>
+        <TouchableOpacity
+          style={[
+            seriesStyles.homeFilterBtn,
+            {
+              borderColor: homeColor,
+              backgroundColor: homeOnly ? `${homeColor}1A` : theme.surface,
+            },
+          ]}
+          activeOpacity={0.8}
+          onPress={onToggleHomeOnly}
+        >
+          {homeLogo ? (
+            <Image
+              source={{ uri: homeLogo }}
+              style={seriesStyles.homeFilterLogo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.homeFilterLogoFallback,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.homeFilterLogoFallbackText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {String(homeTeam?.abbreviation || "H").charAt(0)}
+              </Text>
+            </View>
+          )}
+          <Text
+            style={[
+              seriesStyles.homeFilterText,
+              { color: homeOnly ? theme.text : theme.textSecondary },
+            ]}
+          >
+            HOME
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={seriesStyles.bodyRow}>
+        <View style={[seriesStyles.sideBlock, seriesStyles.sideBlockLeft]}>
+          {awayLogo ? (
+            <Image
+              source={{ uri: awayLogo }}
+              style={seriesStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[seriesStyles.logoInitial, { color: theme.textSecondary }]}
+              >
+                {String(awayTeam?.abbreviation || "A").charAt(0)}
+              </Text>
+            </View>
+          )}
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>{awayWins}</Text>
+        </View>
+
+        <View style={seriesStyles.centerBlock}>
+          <Text style={[seriesStyles.vsText, { color: theme.textSecondary }]}>
+            VS
+          </Text>
+        </View>
+
+        <View style={[seriesStyles.sideBlock, seriesStyles.sideBlockRight]}>
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>{homeWins}</Text>
+          {homeLogo ? (
+            <Image
+              source={{ uri: homeLogo }}
+              style={seriesStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                seriesStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text
+                style={[seriesStyles.logoInitial, { color: theme.textSecondary }]}
+              >
+                {String(homeTeam?.abbreviation || "H").charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View
+        style={[
+          seriesStyles.summaryFooter,
+          {
+            borderTopColor: theme.surface,
+            backgroundColor: theme.surfaceSecondary,
+          },
+        ]}
+      >
+        <View
+          style={[
+            seriesStyles.summaryFooterFill,
+            {
+              flex: awayFlex,
+              backgroundColor: awayColor,
+              borderRightColor: theme.surface,
+              borderRightWidth: 2.5,
+            },
+          ]}
+        />
+        <View
+          style={[
+            seriesStyles.summaryFooterFill,
+            {
+              flex: homeFlex,
+              backgroundColor: homeColor,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+};
+
+const SeriesGameCard = ({
+  match,
+  currentGamePk,
+  homeColor,
+  awayColor,
+  currentHomeId,
+  currentAwayId,
+  theme,
+  isDarkMode,
+  navigation,
+}) => {
+  const home = match?.teams?.home ?? {};
+  const away = match?.teams?.away ?? {};
+  const homeInfo = home?.team ?? {};
+  const awayInfo = away?.team ?? {};
+
+  const status = match?.status ?? {};
+  const coded = String(status?.codedGameState || status?.statusCode || "");
+  const isLive = isMlbSeriesLiveState(status);
+  const isFinished = isMlbSeriesFinishedState(status);
+
+  const homeScoreNum = Number(home?.score);
+  const awayScoreNum = Number(away?.score);
+  const homeScore = Number.isFinite(homeScoreNum) ? homeScoreNum : null;
+  const awayScore = Number.isFinite(awayScoreNum) ? awayScoreNum : null;
+  const hasScores = homeScore != null && awayScore != null;
+  const homeWin = hasScores && homeScore > awayScore;
+  const awayWin = hasScores && awayScore > homeScore;
+
+  const homeLogo = WBCService.getTeamLogo(homeInfo?.id, isDarkMode);
+  const awayLogo = WBCService.getTeamLogo(awayInfo?.id, isDarkMode);
+
+  const getTimeParts = (isoString) => {
+    const normalized = normalizeUtcIso(isoString);
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return { time: "--:--", ampm: "" };
+    const parts = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(d);
+
+    const hour = parts.find((p) => p.type === "hour")?.value ?? "--";
+    const minute = parts.find((p) => p.type === "minute")?.value ?? "--";
+    const ampm =
+      parts.find((p) => p.type === "dayPeriod")?.value?.toUpperCase() ?? "";
+
+    return { time: `${hour}:${minute}`, ampm };
+  };
+
+  const { time, ampm } = getTimeParts(match?.gameDate);
+
+  const topDate = (() => {
+    try {
+      const d = new Date(normalizeUtcIso(match?.gameDate));
+      if (Number.isNaN(d.getTime())) return "";
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    } catch {
+      return "";
+    }
+  })();
+
+  const gameTypeDesc =
+    match?.gameType === "S"
+      ? "Spring Training"
+      : match?.gameType === "R"
+        ? "Regular Season"
+        : match?.gameType === "P"
+          ? "Postseason"
+          : "MLB";
+  const topLine = topDate ? `${topDate} \u00B7 ${gameTypeDesc}` : gameTypeDesc;
+  const venueLine = match?.venue?.name || match?.seriesDescription || "";
+
+  const inning = Number(match?.linescore?.currentInning || 0);
+  const isTop = match?.linescore?.isTopInning !== false;
+  const statusShort =
+    isLive && inning
+      ? `${isTop ? "T" : "B"}${inning}`
+      : isFinished
+        ? "FINAL"
+        : coded === "S" || coded === "P"
+          ? ""
+          : String(status?.detailedState || "").toUpperCase();
+
+  const gradId = `mlb_series_grad_${String(match?.gamePk ?? Math.random()).replace(/[^a-zA-Z0-9_]/g, "_")}`;
+
+  const leftColor = currentAwayId === awayInfo?.id ? awayColor : homeColor;
+  const rightColor = currentHomeId === homeInfo?.id ? homeColor : awayColor;
+
+  const extraInnings = hasScores && !isLive && inning !== 9 ? `/${inning}` : "";
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      style={[
+        seriesStyles.matchCard,
+        {
+          borderColor: theme.border,
+          backgroundColor: theme.surface,
+        },
+      ]}
+      onPress={() => {
+        const nextPk = Number(match?.gamePk);
+        if (!nextPk) return;
+        navigation.push("GameDetails", { gamePk: nextPk, sport: "mlb" });
+      }}
+    >
+      <View style={seriesStyles.matchCardTopRow}>
+        <Text
+          style={[seriesStyles.matchCardTopText, { color: theme.textSecondary }]}
+          numberOfLines={1}
+        >
+          {topLine}
+        </Text>
+      </View>
+
+      <View
+        style={[
+          seriesStyles.matchCardBody,
+          { backgroundColor: theme.surfaceSecondary ?? theme.background },
+        ]}
+      >
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+        >
+          <Defs>
+            <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor={leftColor} stopOpacity="0.35" />
+              <Stop offset="35%" stopColor={leftColor} stopOpacity="0" />
+              <Stop offset="65%" stopColor={rightColor} stopOpacity="0" />
+              <Stop offset="100%" stopColor={rightColor} stopOpacity="0.35" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+        </Svg>
+
+        <View style={seriesStyles.matchCardInner}>
+          <View style={seriesStyles.matchTeamSide}>
+            {awayLogo ? (
+              <Image
+                source={{ uri: awayLogo }}
+                style={seriesStyles.matchTeamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  seriesStyles.logoFallback,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
+                <Text style={[seriesStyles.logoFallbackText, { color: theme.text }]}>
+                  {String(awayInfo?.abbreviation || "A").charAt(0)}
+                </Text>
+              </View>
+            )}
+
+            <View style={seriesStyles.matchTeamTextCol}>
+              <Text
+                style={[
+                  seriesStyles.matchTeamName,
+                  {
+                    color: awayWin ? theme.text : theme.textSecondary,
+                    fontWeight: awayWin ? "700" : "500",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {awayInfo?.name || "Away"}
+              </Text>
+              <Text
+                style={[
+                  seriesStyles.matchTeamRecord,
+                  {
+                    color: theme.textTertiary,
+                    fontWeight: "500",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {away?.leagueRecord.wins || "W"} - {away?.leagueRecord.losses || "L"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={seriesStyles.matchScoreBlock}>
+            {!!statusShort && (
+              <Text
+                style={[
+                  seriesStyles.matchStatusText,
+                  {
+                    color: isLive ? theme.error : theme.textSecondary,
+                    marginTop: -6,
+                    fontWeight: isLive ? "700" : "500",
+                  },
+                ]}
+              >
+                {statusShort}{extraInnings}
+              </Text>
+            )}
+
+            {hasScores ? (
+              <View style={seriesStyles.matchScoreRow}>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    {
+                      color: isLive
+                        ? theme.error
+                        : awayWin
+                          ? theme.text
+                          : theme.textSecondary,
+                      fontWeight: awayWin ? "800" : "500",
+                    },
+                  ]}
+                >
+                  {awayScore}
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchScoreDash,
+                    { color: isLive ? theme.error : theme.textTertiary || theme.textSecondary },
+                  ]}
+                >
+                  -
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    {
+                      color: isLive
+                        ? theme.error
+                        : homeWin
+                          ? theme.text
+                          : theme.textSecondary,
+                      fontWeight: homeWin ? "800" : "500",
+                    },
+                  ]}
+                >
+                  {homeScore}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={[
+                    seriesStyles.matchScore,
+                    { color: theme.text, fontWeight: "800" },
+                  ]}
+                >
+                  {time}
+                </Text>
+                <Text
+                  style={[
+                    seriesStyles.matchTimeAmPm,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {ampm}
+                </Text>
+              </>
+            )}
+          </View>
+
+          <View style={seriesStyles.matchTeamSideAway}>
+            <View
+              style={[
+                seriesStyles.matchTeamTextCol,
+                seriesStyles.matchTeamTextColAway,
+              ]}
+            >
+              <Text
+                style={[
+                  seriesStyles.matchTeamName,
+                  seriesStyles.matchTeamNameAway,
+                  {
+                    color: homeWin ? theme.text : theme.textSecondary,
+                    fontWeight: homeWin ? "700" : "500",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {homeInfo?.name || "Home"}
+              </Text>
+              <Text
+                style={[
+                  seriesStyles.matchTeamRecord,
+                  {
+                    color: theme.textTertiary,
+                    fontWeight: "500",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {home?.leagueRecord.wins || "W"} - {home?.leagueRecord.losses || "L"}
+              </Text>
+            </View>
+
+            {homeLogo ? (
+              <Image
+                source={{ uri: homeLogo }}
+                style={seriesStyles.matchTeamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  seriesStyles.logoFallback,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
+                <Text style={[seriesStyles.logoFallbackText, { color: theme.text }]}>
+                  {String(homeInfo?.abbreviation || "H").charAt(0)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      <Text style={[seriesStyles.matchCardBottomText, { color: theme.textTertiary }]}>
+        {venueLine || match?.seriesDescription || ""}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 const GameDetailsScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
@@ -7805,6 +8379,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [seriesGames, setSeriesGames] = useState([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesError, setSeriesError] = useState("");
+  const [seriesVisibleCount, setSeriesVisibleCount] = useState(5);
+  const [seriesHomeOnly, setSeriesHomeOnly] = useState(false);
   const isLoggedIn = useIsLoggedIn();
   const { viewerData, isJoined } = useGamePresence(gamePk);
 
@@ -7967,8 +8546,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
   }, [activeTab]);
 
   const TABS = isScheduled
-    ? ["Main", "Away", "Home"]
-    : ["Main", "Away", "Home", "Plays"];
+    ? ["Main", "Away", "Home", "Series"]
+    : ["Main", "Away", "Home", "Plays", "Series"];
 
   // Reset to Main if Plays tab is active but no longer available
   useEffect(() => {
@@ -8395,6 +8974,125 @@ const GameDetailsScreen = ({ navigation, route }) => {
     gameData?.datetime?.officialDate,
     gameData?.datetime?.originalDate,
   ]);
+
+  const seriesRequestParams = useMemo(() => {
+    const homeTeamId = Number(homeTeam?.id);
+    const awayTeamId = Number(awayTeam?.id);
+    const rawDate = gameData?.datetime?.originalDate || gameData?.datetime?.dateTime;
+    const year = Number(String(rawDate || "").slice(0, 4));
+    if (!homeTeamId || !awayTeamId || !year) return null;
+    return { homeTeamId, awayTeamId, year };
+  }, [awayTeam?.id, gameData?.datetime?.dateTime, gameData?.datetime?.originalDate, homeTeam?.id]);
+
+  const fetchSeriesGames = useCallback(
+    async ({ force = false } = {}) => {
+      if (!seriesRequestParams) return;
+
+      const cacheKey = getMlbSeriesCacheKey(seriesRequestParams);
+      setSeriesLoading(true);
+      setSeriesError("");
+
+      try {
+        if (!force) {
+          const cachedRaw = await AsyncStorage.getItem(cacheKey);
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw);
+            const isFresh =
+              Number(cached?.ts) > 0 &&
+              Date.now() - Number(cached.ts) < MLB_SERIES_CACHE_TTL_MS;
+            if (isFresh && Array.isArray(cached?.data)) {
+              setSeriesGames(cached.data);
+              setSeriesLoading(false);
+              return;
+            }
+          }
+        }
+
+        const { homeTeamId, awayTeamId, year } = seriesRequestParams;
+        const url =
+          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1` +
+          `&startDate=${year}-01-01` +
+          `&endDate=${year}-12-31` +
+          `&teamId=${homeTeamId}` +
+          `&opponentId=${awayTeamId}` +
+          `&hydrate=linescore` +
+          `&fields=${MLB_SERIES_FIELDS}`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Series request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const games = (payload?.dates ?? [])
+          .flatMap((dateEntry) =>
+            Array.isArray(dateEntry?.games) ? dateEntry.games : [],
+          )
+          .sort((a, b) => new Date(b?.gameDate || 0) - new Date(a?.gameDate || 0));
+
+        setSeriesGames(games);
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({ ts: Date.now(), data: games }),
+        );
+      } catch (err) {
+        console.error("MLB series fetch error:", err);
+        setSeriesError("Failed to load series games.");
+      } finally {
+        setSeriesLoading(false);
+      }
+    },
+    [seriesRequestParams],
+  );
+
+  useEffect(() => {
+    setSeriesGames([]);
+    setSeriesError("");
+    setSeriesVisibleCount(5);
+    setSeriesHomeOnly(false);
+  }, [seriesRequestParams?.awayTeamId, seriesRequestParams?.homeTeamId, seriesRequestParams?.year]);
+
+  useEffect(() => {
+    if (activeTab !== "Series") return;
+    if (!seriesRequestParams) return;
+    if (seriesLoading || seriesGames.length > 0) return;
+    fetchSeriesGames();
+  }, [activeTab, fetchSeriesGames, seriesGames.length, seriesLoading, seriesRequestParams]);
+
+  const seriesFilteredGames = useMemo(() => {
+    if (!seriesHomeOnly) return seriesGames;
+    const homeId = Number(homeTeam?.id);
+    return seriesGames.filter(
+      (match) => Number(match?.teams?.home?.team?.id) === homeId,
+    );
+  }, [homeTeam?.id, seriesGames, seriesHomeOnly]);
+
+  const seriesSummary = useMemo(() => {
+    const homeId = Number(homeTeam?.id);
+    const awayId = Number(awayTeam?.id);
+    let homeWins = 0;
+    let awayWins = 0;
+
+    seriesGames.forEach((match) => {
+      const status = match?.status ?? {};
+      if (!isMlbSeriesFinishedState(status)) return;
+
+      const hId = Number(match?.teams?.home?.team?.id);
+      const aId = Number(match?.teams?.away?.team?.id);
+      const hScore = Number(match?.teams?.home?.score);
+      const aScore = Number(match?.teams?.away?.score);
+
+      if (!Number.isFinite(hScore) || !Number.isFinite(aScore) || hScore === aScore) {
+        return;
+      }
+
+      const winnerId = hScore > aScore ? hId : aId;
+      if (winnerId === homeId) homeWins += 1;
+      else if (winnerId === awayId) awayWins += 1;
+    });
+
+    return { homeWins, awayWins };
+  }, [awayTeam?.id, homeTeam?.id, seriesGames]);
 
   // ── Streaming helpers ──────────────────────────────────────────────────────
   const STREAM_API_BASE = "https://streamed.pk/api";
@@ -8984,35 +9682,41 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
           {/* Tab bar */}
           <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
-            {TABS.map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[
-                  styles.tabButton,
-                  activeTab === tab && {
-                    borderBottomColor: colors.primary,
-                    borderBottomWidth: 2,
-                  },
-                ]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.7}
-              >
-                <Text
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabBarContent}
+            >
+              {TABS.map((tab) => (
+                <TouchableOpacity
+                  key={tab}
                   style={[
-                    styles.tabLabel,
-                    {
-                      color:
-                        activeTab === tab
-                          ? colors.primary
-                          : theme.textSecondary,
-                      fontWeight: activeTab === tab ? "700" : "400",
+                    styles.tabButton,
+                    activeTab === tab && {
+                      borderBottomColor: colors.primary,
+                      borderBottomWidth: 2,
                     },
                   ]}
+                  onPress={() => setActiveTab(tab)}
+                  activeOpacity={0.7}
                 >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      {
+                        color:
+                          activeTab === tab
+                            ? colors.primary
+                            : theme.textSecondary,
+                        fontWeight: activeTab === tab ? "700" : "400",
+                      },
+                    ]}
+                  >
+                    {tab}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
 
@@ -9214,6 +9918,97 @@ const GameDetailsScreen = ({ navigation, route }) => {
             theme={theme}
             colors={colors}
           />
+        )}
+
+        {activeTab === "Series" && (
+          <View style={{ paddingTop: 0 }}>
+            <SeriesSummarySection
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              summary={seriesSummary}
+              homeOnly={seriesHomeOnly}
+              onToggleHomeOnly={() => setSeriesHomeOnly((prev) => !prev)}
+              theme={theme}
+              isDarkMode={isDarkMode}
+            />
+
+            <View style={seriesStyles.matchesWrap}>
+              {seriesLoading ? (
+                <View style={seriesStyles.loadingWrap}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text
+                    style={[seriesStyles.emptyText, { color: theme.textSecondary }]}
+                  >
+                    Loading series games...
+                  </Text>
+                </View>
+              ) : seriesError ? (
+                <View style={seriesStyles.loadingWrap}>
+                  <Text
+                    style={[seriesStyles.emptyText, { color: theme.textSecondary }]}
+                  >
+                    {seriesError}
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      seriesStyles.showMoreBtn,
+                      {
+                        borderColor: theme.border,
+                        backgroundColor: theme.surfaceSecondary,
+                      },
+                    ]}
+                    onPress={() => fetchSeriesGames({ force: true })}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[seriesStyles.showMoreText, { color: theme.text }]}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : seriesFilteredGames.length === 0 ? (
+                <Text style={[seriesStyles.emptyText, { color: theme.textSecondary }]}> 
+                  No series games found.
+                </Text>
+              ) : (
+                <>
+                  {seriesFilteredGames.slice(0, seriesVisibleCount).map((match, idx) => (
+                    <SeriesGameCard
+                      key={`${match?.gamePk ?? "series"}-${idx}`}
+                      match={match}
+                      currentGamePk={gamePk}
+                      homeColor={homeColor}
+                      awayColor={awayColor}
+                      currentHomeId={homeTeam?.id}
+                      currentAwayId={awayTeam?.id}
+                      theme={theme}
+                      isDarkMode={isDarkMode}
+                      navigation={navigation}
+                    />
+                  ))}
+
+                  {seriesVisibleCount < seriesFilteredGames.length && (
+                    <TouchableOpacity
+                      style={[
+                        seriesStyles.showMoreBtn,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: theme.surfaceSecondary,
+                        },
+                      ]}
+                      onPress={() =>
+                        setSeriesVisibleCount((prev) =>
+                          Math.min(prev + 10, seriesFilteredGames.length),
+                        )
+                      }
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[seriesStyles.showMoreText, { color: theme.text }]}>Show more</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
         )}
 
         <View style={styles.bottomPadding} />
@@ -10275,11 +11070,13 @@ const styles = StyleSheet.create({
   },
   // ── tab bar ──
   tabBar: {
-    flexDirection: "row",
     borderBottomWidth: 1,
   },
+  tabBarContent: {
+    flexDirection: "row",
+  },
   tabButton: {
-    flex: 1,
+    width: width / 4,
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 2,
@@ -10817,6 +11614,273 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 9,
     fontWeight: "800",
+  },
+});
+
+const seriesStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  bodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  sideBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  sideBlockLeft: {
+    justifyContent: "flex-start",
+  },
+  sideBlockRight: {
+    justifyContent: "flex-end",
+  },
+  logo: {
+    width: 80,
+    height: 40,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoInitial: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  winCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  centerBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 76,
+  },
+  drawCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  drawLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  vsText: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  summaryFooter: {
+    height: 12.5,
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  summaryFooterFill: {
+    height: "100%",
+  },
+  homeFilterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  homeFilterLogo: {
+    width: 20,
+    height: 14,
+  },
+  homeFilterLogoFallback: {
+    width: 20,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  homeFilterLogoFallbackText: {
+    fontSize: 8,
+    fontWeight: "800",
+  },
+  homeFilterText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  matchesWrap: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    gap: 10,
+  },
+  matchCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  matchCardTopRow: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  matchCardTopText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  matchCardBody: {
+    overflow: "hidden",
+  },
+  matchCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  matchTeamSide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  matchTeamSideAway: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  matchTeamLogo: {
+    width: 36,
+    height: 36,
+  },
+  logoFallback: {
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoFallbackText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  matchTeamName: {
+    fontSize: 13,
+    fontWeight: "500",
+    flexWrap: "wrap",
+  },
+  matchTeamRecord: {
+    fontSize: 10,
+    fontWeight: "500",
+    flexWrap: "wrap",
+  },
+  matchTeamTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  matchTeamTextColAway: {
+    alignItems: "flex-end",
+  },
+  matchTeamNameAway: {
+    textAlign: "right",
+  },
+  matchTeamPlace: {
+    marginTop: 1,
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  matchTeamPlaceAway: {
+    textAlign: "right",
+  },
+  matchScoreBlock: {
+    alignItems: "center",
+    paddingHorizontal: 8,
+    minWidth: 80,
+  },
+  matchScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  matchScore: {
+    fontSize: 22,
+    minWidth: 24,
+    textAlign: "center",
+  },
+  matchScoreDash: {
+    fontSize: 18,
+  },
+  matchStatusText: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  matchTimeAmPm: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  matchCardBottomText: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  emptyText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "500",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  loadingWrap: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  showMoreBtn: {
+    alignSelf: "center",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  showMoreText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 

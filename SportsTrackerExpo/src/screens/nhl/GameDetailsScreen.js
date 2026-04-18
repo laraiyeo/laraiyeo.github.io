@@ -39,7 +39,9 @@ import Svg, {
   Line,
 } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
+import ChatComponent from "../../components/ChatComponent";
 import { useGamePresence } from "../../hooks/useGamePresence";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useTheme } from "../../context/ThemeContext";
 import { NHLService } from "../../services/NHLService";
 import { useStreamingAccess } from "../../utils/streamingUtils";
@@ -2378,6 +2380,52 @@ const NHLTeamRosterSection = ({
   const rosterSkaters = useSeasonStatsFallback ? seasonSkaters : skaters;
   const rosterGoalies = useSeasonStatsFallback ? seasonGoalies : goalies;
 
+  const shiftNameKey = (value) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const starterShiftNameSet = useMemo(() => {
+    const teamId = String(teamSide === "home" ? game?.home?.id : game?.away?.id);
+    const teamShifts =
+      (game?.shifts && typeof game.shifts === "object"
+        ? game.shifts?.[teamId] || game.shifts?.[Number(teamId)]
+        : null) || {};
+
+    const starters = new Set();
+    Object.entries(teamShifts).forEach(([playerName, playerShifts]) => {
+      const shifts = Array.isArray(playerShifts) ? playerShifts : [];
+      const hasOpeningShift = shifts.some((shift) => {
+        const period = Number(shift?.period ?? shift?.periodNumber ?? 0);
+        if (period !== 1) return false;
+        const startClock = String(shift?.startTime || shift?.start || "").trim();
+        return parseClockSecs(startClock) === 0;
+      });
+      if (!hasOpeningShift) return;
+      const key = shiftNameKey(playerName);
+      if (key) starters.add(key);
+    });
+    return starters;
+  }, [game?.away?.id, game?.home?.id, game?.shifts, teamSide]);
+
+  const isShiftStarter = useCallback(
+    (player) => {
+      const fullNameKey = shiftNameKey(player?.name);
+      if (fullNameKey && starterShiftNameSet.has(fullNameKey)) return true;
+
+      const partsNameKey = shiftNameKey(
+        `${String(player?.firstName || "").trim()} ${String(player?.lastName || "").trim()}`,
+      );
+      if (partsNameKey && starterShiftNameSet.has(partsNameKey)) return true;
+
+      return false;
+    },
+    [starterShiftNameSet],
+  );
+
   const benchSkaters = useMemo(
     () =>
       rosterSkaters.filter(
@@ -2401,8 +2449,18 @@ const NHLTeamRosterSection = ({
 
     if (isFinished) {
       return [
-        { key: "skaters", label: "Skaters", players: rosterSkaters },
-        { key: "goalies", label: goalieLabel, players: rosterGoalies },
+        {
+          key: "skaters",
+          label: "Skaters",
+          players: rosterSkaters,
+          splitByStarter: true,
+        },
+        {
+          key: "goalies",
+          label: goalieLabel,
+          players: rosterGoalies,
+          splitByStarter: true,
+        },
         { key: "injured", label: "Injured", players: injured },
       ].filter((section) => section.players.length > 0);
     }
@@ -2410,8 +2468,18 @@ const NHLTeamRosterSection = ({
     if (isLive) {
       if (onIce.length === 0 && onIceGoalies.length === 0) {
         return [
-          { key: "skaters", label: "Skaters", players: rosterSkaters },
-          { key: "goalies", label: goalieLabel, players: rosterGoalies },
+          {
+            key: "skaters",
+            label: "Skaters",
+            players: rosterSkaters,
+            splitByStarter: true,
+          },
+          {
+            key: "goalies",
+            label: goalieLabel,
+            players: rosterGoalies,
+            splitByStarter: true,
+          },
         ].filter((section) => section.players.length > 0);
       }
       const liveSections = [
@@ -2443,6 +2511,7 @@ const NHLTeamRosterSection = ({
         key: "skaters",
         label: "Skaters",
         players: rosterSkaters,
+        splitByStarter: true,
       });
     }
     if (rosterGoalies.length > 0) {
@@ -2450,6 +2519,7 @@ const NHLTeamRosterSection = ({
         key: "goalies",
         label: goalieLabel,
         players: rosterGoalies,
+        splitByStarter: true,
       });
     }
     if (injured.length > 0) {
@@ -2503,6 +2573,25 @@ const NHLTeamRosterSection = ({
   const benchGoaliesToRender = Array.isArray(activeSection?.benchGoalies)
     ? activeSection.benchGoalies
     : [];
+  const shouldSplitByStarter =
+    isFinished && activeSection?.splitByStarter === true;
+  const starterPlayersToRender = useMemo(() => {
+    if (!shouldSplitByStarter) return [];
+    return players.filter((player) => isShiftStarter(player));
+  }, [isShiftStarter, players, shouldSplitByStarter]);
+  const starterIdentitySet = useMemo(() => {
+    const set = new Set();
+    starterPlayersToRender.forEach((player) => {
+      set.add(benchIdentity(player));
+    });
+    return set;
+  }, [starterPlayersToRender]);
+  const nonStarterPlayersToRender = useMemo(() => {
+    if (!shouldSplitByStarter) return players;
+    return players.filter((player) => !starterIdentitySet.has(benchIdentity(player)));
+  }, [players, shouldSplitByStarter, starterIdentitySet]);
+  const starterDividerLabel =
+    activeSection?.key === "goalies" ? "STARTER" : "STARTERS";
 
   return (
     <View style={{ paddingBottom: 24 }}>
@@ -2611,6 +2700,56 @@ const NHLTeamRosterSection = ({
           ) : null}
 
           {penaltyBoxPlayersToRender.map((player) => (
+            <NHLRosterPlayerCard
+              key={player.key}
+              player={player}
+              theme={theme}
+              teamColor={teamColor}
+              isScheduled={!!game?.isPre}
+              showStats
+              onPress={
+                typeof onPlayerPress === "function"
+                  ? () => onPlayerPress(player)
+                  : undefined
+              }
+            />
+          ))}
+        </>
+      ) : shouldSplitByStarter ? (
+        <>
+          {starterPlayersToRender.length > 0 ? (
+            <Text
+              style={[styles.nhlRosterSeasonStatsLabel, { color: theme.text }]}
+            >
+              {starterDividerLabel}
+            </Text>
+          ) : null}
+
+          {starterPlayersToRender.map((player) => (
+            <NHLRosterPlayerCard
+              key={player.key}
+              player={player}
+              theme={theme}
+              teamColor={teamColor}
+              isScheduled={!!game?.isPre}
+              showStats
+              onPress={
+                typeof onPlayerPress === "function"
+                  ? () => onPlayerPress(player)
+                  : undefined
+              }
+            />
+          ))}
+
+          {nonStarterPlayersToRender.length > 0 ? (
+            <Text
+              style={[styles.nhlRosterSeasonStatsLabel, { color: theme.text }]}
+            >
+              BENCH
+            </Text>
+          ) : null}
+
+          {nonStarterPlayersToRender.map((player) => (
             <NHLRosterPlayerCard
               key={player.key}
               player={player}
@@ -10275,6 +10414,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
   const navigation = useNavigation();
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const isLoggedIn = useIsLoggedIn();
 
   const { viewerData, isJoined } = useGamePresence(gameId);
 
@@ -10288,6 +10428,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [clockGame, setClockGame] = useState(null);
   const [selectedModalPlayer, setSelectedModalPlayer] = useState(null);
   const [goalSharePayload, setGoalSharePayload] = useState(null);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
   const [availableStreams, setAvailableStreams] = useState({});
   const [currentStreamType, setCurrentStreamType] = useState("alpha1");
   const [streamLoading, setStreamLoading] = useState(false);
@@ -10373,6 +10514,29 @@ const NHLGameDetailsScreen = ({ route }) => {
     [game],
   );
   const liveGame = clockGame || game;
+  const chatGameData = useMemo(() => {
+    if (!liveGame) return null;
+    const startUtc = String(liveGame?.startTimeUtc || "").trim();
+    const officialDate = startUtc ? startUtc.slice(0, 10) : "";
+    return {
+      gameDate: startUtc,
+      date: startUtc,
+      startTime: startUtc,
+      datetime: {
+        dateTime: startUtc,
+        officialDate,
+      },
+      awayTeam: {
+        abbreviation: liveGame?.away?.abbreviation,
+        name: liveGame?.away?.name,
+      },
+      homeTeam: {
+        abbreviation: liveGame?.home?.abbreviation,
+        name: liveGame?.home?.name,
+      },
+    };
+  }, [liveGame]);
+
   const visibleTabs = useMemo(() => {
     if (liveGame?.isPre) {
       return TABS.filter((tab) => tab !== "Plays" && tab !== "Shifts");
@@ -11385,6 +11549,82 @@ const NHLGameDetailsScreen = ({ route }) => {
         colors={colors}
       />
 
+      <>
+      {isLoggedIn && (
+        <TouchableOpacity
+          style={[
+            styles.floatingChatButton,
+            { backgroundColor: colors.primary },
+          ]}
+          onPress={() => setChatModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={30}
+            color="#fff"
+          />
+        </TouchableOpacity>
+      )}
+
+        <Modal
+          animationType="slide"
+          transparent
+          visible={chatModalVisible}
+          onRequestClose={() => setChatModalVisible(false)}
+          presentationStyle="pageSheet"
+        >
+          <View style={styles.chatModalOverlay}>
+            <View
+              style={[
+                styles.chatModalContent,
+                { backgroundColor: theme.surface, paddingBottom: 20 },
+              ]}
+            >
+              <View
+                style={[
+                  styles.chatModalHeader,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.chatModalTitle, { color: theme.text }]}
+                >
+                  {`🏒 ${liveGame?.away?.abbreviation ?? "Away"} vs ${liveGame?.home?.abbreviation ?? "Home"}`}
+                </Text>
+                <TouchableOpacity
+                  style={styles.chatModalCloseButton}
+                  onPress={() => setChatModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.chatModalBody}>
+                {!!liveGame && isLoggedIn && (
+                  <ChatComponent
+                    gameId={gameId}
+                    gameData={chatGameData}
+                    hideHeader={true}
+                  />
+                )}
+
+                {!!liveGame && !isLoggedIn && (
+                  <View style={styles.chatLoginPromptWrap}>
+                    <Text
+                      style={[styles.chatLoginPromptText, { color: theme.textSecondary }]}
+                    >
+                      Sign in to use game chat.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
+
       {isStreamingUnlocked && (
         <Modal
           animationType="fade"
@@ -11752,6 +11992,67 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   streamLoadingText: { marginTop: 10, fontSize: 16, fontWeight: "600" },
+  floatingChatButton: {
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+    zIndex: 90,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0)",
+    justifyContent: "flex-end",
+  },
+  chatModalContent: {
+    height: "85%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  chatModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  chatModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+    marginRight: -20,
+  },
+  chatModalCloseButton: {
+    padding: 4,
+  },
+  chatModalBody: {
+    flex: 1,
+  },
+  chatLoginPromptWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  chatLoginPromptText: {
+    fontSize: 14,
+    textAlign: "center",
+  },
   teamsRow: {
     flexDirection: "row",
     alignItems: "center",

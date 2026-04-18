@@ -611,8 +611,14 @@ const NHLGridCard = ({
   const awayFav = isFavorite(String(away.id || ""), "nhl");
   const homeFav = isFavorite(String(home.id || ""), "nhl");
 
-  const awayRecord = away?.record ? away.record : null;
-  const homeRecord = home?.record ? home.record : null;
+  const awayAbbrev = away.abbrev || away.teamName || "";
+  const homeAbbrev = home.abbrev || home.teamName || "";
+
+  const awaySeriesWins = game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+  const homeSeriesWins = game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+
+  const awayRecord = game.seriesStatus?.seriesTitle ? awaySeriesWins : away?.record ? away.record : null;
+  const homeRecord = game.seriesStatus?.seriesTitle ? homeSeriesWins : home?.record ? home.record : null;
 
   const gradId = `ng_${game.id}`;
   const { time, ampm } = formatLocalTime(game.startTimeUTC);
@@ -1031,10 +1037,14 @@ const ScoreboardSection = ({
 
                 const awayFav = isFavorite(String(away.id || ""), "nhl");
                 const homeFav = isFavorite(String(home.id || ""), "nhl");
-                const awayRecord =
-                  away.record || away.teamRecord || away.recordSummary || "";
-                const homeRecord =
-                  home.record || home.teamRecord || home.recordSummary || "";
+                const awayAbbrev = away.abbrev || away.teamName || "";
+                const homeAbbrev = home.abbrev || home.teamName || "";
+
+                const awaySeriesWins = game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+                const homeSeriesWins = game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+
+                const awayRecord = game.seriesStatus?.seriesTitle ? awaySeriesWins : away?.record ? away.record : null;
+                const homeRecord = game.seriesStatus?.seriesTitle ? homeSeriesWins : home?.record ? home.record : null;
                 const awayHasRecord = !!awayRecord;
                 const homeHasRecord = !!homeRecord;
 
@@ -1264,6 +1274,16 @@ const ScoreboardSection = ({
                             ]}
                           >
                             {game.venue}
+                          </Text>
+                        ) : null}
+                        {game.seriesStatus?.seriesTitle ? (
+                          <Text
+                            style={[
+                              styles.broadcast,
+                              { color: theme.textTertiary },
+                            ]}
+                          >
+                            {game.seriesStatus?.seriesTitle} · Game {game.seriesStatus?.gameNumberOfSeries}
                           </Text>
                         ) : null}
                       </View>
@@ -1743,6 +1763,10 @@ const styles = StyleSheet.create({
   venue: {
     fontSize: 12,
     marginBottom: 2,
+  },
+  broadcast: {
+    fontSize: 12,
+    fontStyle: "italic",
   },
   matchSeparator: {
     height: 1,

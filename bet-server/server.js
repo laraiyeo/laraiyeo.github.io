@@ -2481,23 +2481,54 @@ let oddsCache = {}; // { [sport]: { lastFetched: Date, data: [...] } }
 const SGO_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 let rosterCache = {}; // { [sport]: { lastFetched: number, data: {...}, isFetching: bool } }
 
+function getLosAngelesDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const map = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+  };
+}
+
+function formatDateOnlyUTC(date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 // Helper: compute startsAfter / startsBefore for SportGameOdds based on PST day
 function getSGODayRangePST() {
-  const pst = getPSTTime();
-  // Use previous day if before 2am PST
-  const dayStart = new Date(pst);
-  if (pst.getHours() < 2) dayStart.setDate(dayStart.getDate() - 1);
-  const dayStartY = dayStart.getFullYear();
-  const dayStartM = String(dayStart.getMonth() + 1).padStart(2, "0");
-  const dayStartD = String(dayStart.getDate()).padStart(2, "0");
-  const startsAfter = `${dayStartY}-${dayStartM}-${dayStartD}T10:00:00Z`;
+  const la = getLosAngelesDateParts();
+  // Use previous LA day if before 2am in Los Angeles
+  const anchor = new Date(Date.UTC(la.year, la.month - 1, la.day));
+  if (la.hour < 2) {
+    anchor.setUTCDate(anchor.getUTCDate() - 1);
+  }
 
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  const dayEndY = dayEnd.getFullYear();
-  const dayEndM = String(dayEnd.getMonth() + 1).padStart(2, "0");
-  const dayEndD = String(dayEnd.getDate()).padStart(2, "0");
-  const startsBefore = `${dayEndY}-${dayEndM}-${dayEndD}T10:00:00Z`;
+  const next = new Date(anchor);
+  next.setUTCDate(next.getUTCDate() + 1);
+
+  const startDate = formatDateOnlyUTC(anchor);
+  const endDate = formatDateOnlyUTC(next);
+
+  // Keep 10:00Z boundaries to preserve existing API window behavior.
+  const startsAfter = `${startDate}T10:00:00Z`;
+  const startsBefore = `${endDate}T10:00:00Z`;
 
   return { startsAfter, startsBefore };
 }
@@ -2677,6 +2708,9 @@ async function fetchSGOOdds(sport = "nba") {
   try {
     const leagueID = SGO_LEAGUE_IDS[sportKey] || SGO_LEAGUE_IDS.nba;
     const { startsAfter, startsBefore } = getSGODayRangePST();
+    console.log(
+      `[SGO:${sportKey}] query window startsAfter=${startsAfter} startsBefore=${startsBefore}`,
+    );
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
       leagueID,
@@ -3031,25 +3065,23 @@ function getTimeDifferenceInMinutes(date1, date2) {
 
 function getPSTTime() {
   const now = new Date();
-  // Convert to PST (UTC-8)
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const pstTime = new Date(utc + 3600000 * -8);
-  return pstTime;
+  const la = getLosAngelesDateParts(now);
+  return new Date(Date.UTC(la.year, la.month - 1, la.day, la.hour));
 }
 
 function getScoreboardDate() {
-  const pstTime = getPSTTime();
-  const hour = pstTime.getHours();
+  const la = getLosAngelesDateParts();
+  const anchor = new Date(Date.UTC(la.year, la.month - 1, la.day));
 
-  // If before 2am PST, use previous day
-  if (hour < 2) {
-    pstTime.setDate(pstTime.getDate() - 1);
+  // If before 2am in Los Angeles, use previous local day
+  if (la.hour < 2) {
+    anchor.setUTCDate(anchor.getUTCDate() - 1);
   }
 
   // Format as YYYYMMDD
-  const year = pstTime.getFullYear();
-  const month = String(pstTime.getMonth() + 1).padStart(2, "0");
-  const day = String(pstTime.getDate()).padStart(2, "0");
+  const year = anchor.getUTCFullYear();
+  const month = String(anchor.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(anchor.getUTCDate()).padStart(2, "0");
 
   return `${year}${month}${day}`;
 }
