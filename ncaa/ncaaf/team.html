@@ -1,173 +1,236 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OBS Embed View - NCAA Football Live Tracker</title>
-  <link rel="icon" href="football.png" type="image/png" />
-  <link rel="stylesheet" href="style.css"/>
-  <style>
-    body {
-      margin: 0;
-      background: transparent;
-      padding-top: 25px;
-      padding-left: 50px;
-      display: flex;
-      justify-content: flex-start;
-      align-items: flex-start;
-      height: 100vh;
-      font-family: Arial, sans-serif;
-      overflow-y: hidden;
-    }
-
-    #scaleWrapper {
-      transform: scale(2);
-      transform-origin: top left;
-    }
-  
-    .game-card {
-      margin: 0;
-      max-width: 400px;
-      font-family: Arial, sans-serif !important;
-    }
-
-    .game-card * {
-      font-family: Arial, sans-serif !important;
-    }
-
-    .app-promo-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      background: rgba(0, 0, 0, 0.92);
-      color: #ffffff;
-      font-weight: 800;
-      font-size: clamp(28px, 4vw, 56px);
-      line-height: 1.2;
-      letter-spacing: 0.5px;
-      padding: 20px;
-      box-sizing: border-box;
-      white-space: normal;
-    }
-  </style>
-  <script src="../../assets/analytics.js"></script>
-</head>
-<body>
-<div id="appPromoOverlay" class="app-promo-overlay">Download The SportsHeart<br>App Now!</div>
-<div id="scaleWrapper">
-  <div id="gameBlockContainer"></div>
-  <script>
-    // Convert HTTP URLs to HTTPS to avoid mixed content issues
-    function convertToHttps(url) {
-      if (url && url.startsWith('http://')) {
-        return url.replace('http://', 'https://');
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OBS Embed View - NCAA Football Live Tracker</title>
+    <link rel="icon" href="football.png" type="image/png" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        margin: 0;
+        background: transparent;
+        padding-top: 25px;
+        padding-left: 50px;
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-start;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+        overflow-y: hidden;
       }
-      return url;
-    }
 
-    const params = new URLSearchParams(window.location.search);
-    const teamIdentifier = params.get("team");
-    let currentHtml = "";
-    let currentConference = "8"; // Default to SEC
-    let cachedTeamData = null; // Cache the team data to avoid re-fetching
-
-    const PROMO_INTERVAL_MS = 15 * 60 * 1000;
-    const PROMO_DURATION_MS = 10 * 1000;
-
-    function updateAppPromoOverlay() {
-      const overlay = document.getElementById("appPromoOverlay");
-      if (!overlay) return;
-      const shouldShow = (Date.now() % PROMO_INTERVAL_MS) < PROMO_DURATION_MS;
-      overlay.style.display = shouldShow ? "flex" : "none";
-    }
-
-    updateAppPromoOverlay();
-    setInterval(updateAppPromoOverlay, 1000);
-
-    // NCAA Football Conferences
-    const CONFERENCES = {
-      "American": { groupId: "151", name: "American Athletic Conference", code: "american" },
-      "ACC": { groupId: "1", name: "ACC", code: "acc" },
-      "Big 12": { groupId: "4", name: "Big 12 Conference", code: "big_12" },
-      "Big Ten": { groupId: "5", name: "Big Ten Conference", code: "big_ten" },
-      "CUSA": { groupId: "12", name: "Conference USA", code: "conference_usa" },
-      "Independents": { groupId: "18", name: "FBS Independents", code: "fbs_independents" },
-      "MAC": { groupId: "15", name: "Mid-American Conference", code: "mid_american" },
-      "Mountain West": { groupId: "17", name: "Mountain West Conference", code: "mountain_west" },
-      "PAC-12": { groupId: "9", name: "Pac-12 Conference", code: "pac_12" },
-      "SEC": { groupId: "8", name: "Southeastern Conference", code: "sec" },
-      "Sun Belt": { groupId: "37", name: "Sun Belt Conference", code: "sun_belt" }
-    };
-
-    // Required functions for game card building
-    function getAdjustedDateForNFL() {
-      const now = new Date();
-      const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-      if (estNow.getHours() < 2) {
-        estNow.setDate(estNow.getDate() - 1);
+      #scaleWrapper {
+        transform: scale(2);
+        transform-origin: top left;
       }
-      const adjustedDate = estNow.getFullYear() +
-                           String(estNow.getMonth() + 1).padStart(2, "0") +
-                           String(estNow.getDate()).padStart(2, "0");
-      return adjustedDate;
-    }
 
-    function adjustTeamShortName(shortName) {
-      if (shortName === "Timberwolves") return "T. Wolves";
-      if (shortName === "Trail Blazers") return "T. Blazers";
-      return shortName;
-    }
+      .game-card {
+        margin: 0;
+        max-width: 400px;
+        font-family: Arial, sans-serif !important;
+      }
 
-    async function buildGameCard(game, team) {
-      const logoUrl = team.logos?.find(logo =>
-            logo.rel.includes(
-              ["19", "20"].includes(team.id) ? 'dark' : 'dark'
-            )
-          )?.href || `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`;
+      .game-card * {
+        font-family: Arial, sans-serif !important;
+      }
 
-      function getOrdinalSuffix(num) {
-        if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
-        switch (num % 10) {
-          case 1: return `${num}st`;
-          case 2: return `${num}nd`;
-          case 3: return `${num}rd`;
-          default: return `${num}th`;
+      .app-promo-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.92);
+        color: #ffffff;
+        font-weight: 800;
+        font-size: clamp(28px, 4vw, 56px);
+        line-height: 1.2;
+        letter-spacing: 0.5px;
+        padding: 20px;
+        box-sizing: border-box;
+        white-space: normal;
+      }
+    </style>
+    <script src="../../assets/analytics.js"></script>
+  </head>
+  <body>
+    <div id="appPromoOverlay" class="app-promo-overlay">
+      Download The SportsHeart<br />App Now!
+    </div>
+    <div id="scaleWrapper">
+      <div id="gameBlockContainer"></div>
+      <script>
+        // Convert HTTP URLs to HTTPS to avoid mixed content issues
+        function convertToHttps(url) {
+          if (url && url.startsWith("http://")) {
+            return url.replace("http://", "https://");
+          }
+          return url;
         }
-      }
 
-      const currentPeriod = game?.competitions[0]?.status?.period
-        ? `${getOrdinalSuffix(game.competitions[0].status.period)} Quarter`
-        : "Unknown Period";
+        const params = new URLSearchParams(window.location.search);
+        const teamIdentifier = params.get("team");
+        let currentHtml = "";
+        let currentConference = "8"; // Default to SEC
+        let cachedTeamData = null; // Cache the team data to avoid re-fetching
 
-      if (game && game.status.type.description === "Scheduled") {
-        const startTime = new Date(game.date).toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
+        const PROMO_INTERVAL_MS = 15 * 60 * 1000;
+        const PROMO_DURATION_MS = 10 * 1000;
 
-        const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+        function updateAppPromoOverlay() {
+          const overlay = document.getElementById("appPromoOverlay");
+          if (!overlay) return;
+          const shouldShow = Date.now() % PROMO_INTERVAL_MS < PROMO_DURATION_MS;
+          overlay.style.display = shouldShow ? "flex" : "none";
+        }
 
-        const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team || {};
-        const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team || {};
-        const slug = game.season?.slug || "regular-season";
+        updateAppPromoOverlay();
+        setInterval(updateAppPromoOverlay, 1000);
 
-        const homeTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+        // NCAA Football Conferences
+        const CONFERENCES = {
+          American: {
+            groupId: "151",
+            name: "American Athletic Conference",
+            code: "american",
+          },
+          ACC: { groupId: "1", name: "ACC", code: "acc" },
+          "Big 12": { groupId: "4", name: "Big 12 Conference", code: "big_12" },
+          "Big Ten": {
+            groupId: "5",
+            name: "Big Ten Conference",
+            code: "big_ten",
+          },
+          CUSA: {
+            groupId: "12",
+            name: "Conference USA",
+            code: "conference_usa",
+          },
+          Independents: {
+            groupId: "18",
+            name: "FBS Independents",
+            code: "fbs_independents",
+          },
+          MAC: {
+            groupId: "15",
+            name: "Mid-American Conference",
+            code: "mid_american",
+          },
+          "Mountain West": {
+            groupId: "17",
+            name: "Mountain West Conference",
+            code: "mountain_west",
+          },
+          "PAC-12": { groupId: "9", name: "Pac-12 Conference", code: "pac_12" },
+          SEC: { groupId: "8", name: "Southeastern Conference", code: "sec" },
+          "Sun Belt": {
+            groupId: "37",
+            name: "Sun Belt Conference",
+            code: "sun_belt",
+          },
+        };
 
-        const awayTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+        // Required functions for game card building
+        function getAdjustedDateForNFL() {
+          const now = new Date();
+          const estNow = new Date(
+            now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+          );
+          if (estNow.getHours() < 2) {
+            estNow.setDate(estNow.getDate() - 1);
+          }
+          const adjustedDate =
+            estNow.getFullYear() +
+            String(estNow.getMonth() + 1).padStart(2, "0") +
+            String(estNow.getDate()).padStart(2, "0");
+          return adjustedDate;
+        }
 
-        const awayTeamShortName = adjustTeamShortName(awayTeam.shortDisplayName || "Unknown");
-        const homeTeamShortName = adjustTeamShortName(homeTeam.shortDisplayName || "Unknown");
+        function adjustTeamShortName(shortName) {
+          if (shortName === "Timberwolves") return "T. Wolves";
+          if (shortName === "Trail Blazers") return "T. Blazers";
+          return shortName;
+        }
 
-        return `
+        async function buildGameCard(game, team) {
+          const logoUrl =
+            team.logos?.find((logo) =>
+              logo.rel.includes(
+                ["19", "20"].includes(team.id) ? "dark" : "dark",
+              ),
+            )?.href ||
+            `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`;
+
+          function getOrdinalSuffix(num) {
+            if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
+            switch (num % 10) {
+              case 1:
+                return `${num}st`;
+              case 2:
+                return `${num}nd`;
+              case 3:
+                return `${num}rd`;
+              default:
+                return `${num}th`;
+            }
+          }
+
+          const currentPeriod = game?.competitions[0]?.status?.period
+            ? `${getOrdinalSuffix(game.competitions[0].status.period)} Quarter`
+            : "Unknown Period";
+
+          if (game && game.status.type.description === "Scheduled") {
+            const startTime = new Date(game.date).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
+
+            const headline =
+              game.competitions[0].notes?.find((note) => note.type === "event")
+                ?.headline || "";
+
+            const homeTeam =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "home",
+              )?.team || {};
+            const awayTeam =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "away",
+              )?.team || {};
+            const slug = game.season?.slug || "regular-season";
+
+            const homeTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "home",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "home")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
+
+            const awayTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "away",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "away")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
+
+            const awayTeamShortName = adjustTeamShortName(
+              awayTeam.shortDisplayName || "Unknown",
+            );
+            const homeTeamShortName = adjustTeamShortName(
+              homeTeam.shortDisplayName || "Unknown",
+            );
+
+            return `
           <div class="game-card scheduled-game-card">
             <div class="game-headline">${headline}</div>
             <div class="game-content">
@@ -188,42 +251,76 @@
             </div>
           </div>
         `;
-      } else if (game && game.status.type.description === "Final") {
-        const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+          } else if (game && game.status.type.description === "Final") {
+            const headline =
+              game.competitions[0].notes?.find((note) => note.type === "event")
+                ?.headline || "";
 
-        const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-        const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-        const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-        const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-        const slug = game.season?.slug || "regular-season";
+            const homeTeam = game.competitions[0].competitors.find(
+              (c) => c.homeAway === "home",
+            )?.team;
+            const awayTeam = game.competitions[0].competitors.find(
+              (c) => c.homeAway === "away",
+            )?.team;
+            const homeTeamScore =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "home",
+              )?.score || "0";
+            const awayTeamScore =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "away",
+              )?.score || "0";
+            const slug = game.season?.slug || "regular-season";
 
-        const homeTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+            const homeTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "home",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "home")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
 
-        const awayTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+            const awayTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "away",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "away")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
 
-        const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
-        const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
+            const awayTeamShortName = adjustTeamShortName(
+              awayTeam?.shortDisplayName || "Unknown",
+            );
+            const homeTeamShortName = adjustTeamShortName(
+              homeTeam?.shortDisplayName || "Unknown",
+            );
 
-        let winningTeam = null;
+            let winningTeam = null;
 
-        if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
-          winningTeam = homeTeam;
-        } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
-          winningTeam = awayTeam;
-        }
+            if (
+              parseInt(homeTeamScore) > parseInt(awayTeamScore) &&
+              parseInt(homeTeamScore) > 0
+            ) {
+              winningTeam = homeTeam;
+            } else if (
+              parseInt(awayTeamScore) > parseInt(homeTeamScore) &&
+              parseInt(awayTeamScore) > 0
+            ) {
+              winningTeam = awayTeam;
+            }
 
-        return `
+            return `
           <div class="game-card final-game-card">
             <div class="game-headline">${headline}</div>
             <div class="game-content">
               <div class="team away-team">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.id}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-                  <span class="card-team-score" style="color: ${winningTeam === awayTeam ? '#fff' : '#777'}">${awayTeamScore}</span>
+                  <span class="card-team-score" style="color: ${winningTeam === awayTeam ? "#fff" : "#777"}">${awayTeamScore}</span>
                 </div>
                 <div class="card-team-name">${awayTeamShortName}</div>
                 <div class="card-team-record">${awayTeamRecord}</div>
@@ -234,7 +331,7 @@
               </div>
               <div class="team home-team">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="card-team-score" style="color: ${winningTeam === homeTeam ? '#fff' : '#777'}">${homeTeamScore}</span>
+                  <span class="card-team-score" style="color: ${winningTeam === homeTeam ? "#fff" : "#777"}">${homeTeamScore}</span>
                   <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.id}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
                 </div>
                 <div class="card-team-name">${homeTeamShortName}</div>
@@ -243,56 +340,106 @@
             </div>
           </div>
         `;
-      } else if (game && (game.status.type.description === "In Progress" || game.status.type.description === "Halftime" || game.status.type.description === "End of Period")) {
-        const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+          } else if (
+            game &&
+            (game.status.type.description === "In Progress" ||
+              game.status.type.description === "Halftime" ||
+              game.status.type.description === "End of Period")
+          ) {
+            const headline =
+              game.competitions[0].notes?.find((note) => note.type === "event")
+                ?.headline || "";
 
-        const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-        const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-        const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-        const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-        const slug = game.season?.slug || "regular-season";
+            const homeTeam = game.competitions[0].competitors.find(
+              (c) => c.homeAway === "home",
+            )?.team;
+            const awayTeam = game.competitions[0].competitors.find(
+              (c) => c.homeAway === "away",
+            )?.team;
+            const homeTeamScore =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "home",
+              )?.score || "0";
+            const awayTeamScore =
+              game.competitions[0].competitors.find(
+                (c) => c.homeAway === "away",
+              )?.score || "0";
+            const slug = game.season?.slug || "regular-season";
 
-        const homeTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+            const homeTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "home",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "home")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
 
-        const awayTeamRecord = slug === "post-season"
-          ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-          : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+            const awayTeamRecord =
+              slug === "post-season"
+                ? game.competitions[0].competitors.find(
+                    (c) => c.homeAway === "away",
+                  )?.record || "0-0"
+                : game.competitions[0].competitors
+                    .find((c) => c.homeAway === "away")
+                    ?.records?.find((r) => r.type === "total")?.summary ||
+                  "0-0";
 
-        const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
-        const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
+            const awayTeamShortName = adjustTeamShortName(
+              awayTeam?.shortDisplayName || "Unknown",
+            );
+            const homeTeamShortName = adjustTeamShortName(
+              homeTeam?.shortDisplayName || "Unknown",
+            );
 
-        const clockTime = game?.competitions[0]?.status?.displayClock;
-        const isHalftime = game?.competitions[0]?.status?.type?.description === "Halftime";
-        const isEndOfPeriod = game?.competitions[0]?.status?.type?.description === "End of Period";
-        const periodDescription = isHalftime
-          ? "Halftime"
-          : isEndOfPeriod
-          ? `End of ${currentPeriod}`
-          : currentPeriod;
-        const possession = game?.competitions[0]?.situation?.possession;
-        const text = game?.competitions[0]?.situation?.possessionText || "";
-        const distance = game?.competitions[0]?.situation?.distance || "N/A";
-        const yardLine = game?.competitions[0]?.situation?.yardLine || "N/A";
-        const kickoff = game?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : game?.competitions[0]?.situation?.shortDownDistanceText || "";
+            const clockTime = game?.competitions[0]?.status?.displayClock;
+            const isHalftime =
+              game?.competitions[0]?.status?.type?.description === "Halftime";
+            const isEndOfPeriod =
+              game?.competitions[0]?.status?.type?.description ===
+              "End of Period";
+            const periodDescription = isHalftime
+              ? "Halftime"
+              : isEndOfPeriod
+                ? `End of ${currentPeriod}`
+                : currentPeriod;
+            const possession = game?.competitions[0]?.situation?.possession;
+            const text = game?.competitions[0]?.situation?.possessionText || "";
+            const distance =
+              game?.competitions[0]?.situation?.distance || "N/A";
+            const yardLine =
+              game?.competitions[0]?.situation?.yardLine || "N/A";
+            const kickoff =
+              game?.competitions[0]?.situation?.shortDownDistanceText ===
+                "1st & 10" &&
+              distance === 10 &&
+              (yardLine === 65 || yardLine === 35)
+                ? "Kickoff"
+                : game?.competitions[0]?.situation?.shortDownDistanceText || "";
 
             let winningTeam = null;
 
-            if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
+            if (
+              parseInt(homeTeamScore) > parseInt(awayTeamScore) &&
+              parseInt(homeTeamScore) > 0
+            ) {
               winningTeam = homeTeam;
-            } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
+            } else if (
+              parseInt(awayTeamScore) > parseInt(homeTeamScore) &&
+              parseInt(awayTeamScore) > 0
+            ) {
               winningTeam = awayTeam;
             }
 
-        return `
+            return `
           <div class="game-card in-progress-game-card">
             <div class="game-headline">${headline}</div>
             <div class="game-content">
               <div class="team away-team">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.id}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-                  <span class="card-team-score" style="color: ${winningTeam === awayTeam ? '#777' : '#fff'}">${awayTeamScore}</span>
+                  <span class="card-team-score" style="color: ${winningTeam === awayTeam ? "#777" : "#fff"}">${awayTeamScore}</span>
                 </div>
                 <div class="card-team-name">${awayTeamShortName}</div>
                 <div class="card-team-record">${awayTeamRecord}</div>
@@ -306,7 +453,7 @@
               </div>
               <div class="team home-team">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="card-team-score" style="color: ${winningTeam === homeTeam ? '#777' : '#fff'}">${homeTeamScore}</span>
+                  <span class="card-team-score" style="color: ${winningTeam === homeTeam ? "#777" : "#fff"}">${homeTeamScore}</span>
                   <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.id}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
                 </div>
                 <div class="card-team-name">${homeTeamShortName}</div>
@@ -315,169 +462,180 @@
             </div>
           </div>
         `;
-      } else {
-        return `
+          } else {
+            return `
           <div class="game-card no-game-card">
             <img src="${logoUrl}" alt="${team?.displayName || "Unknown"} logo" class="card-team-logo">
             <div class="no-game-text">No game scheduled <br> for today</div>
           </div>
         `;
-      }
-    }
-
-    // Function to fetch team details from reference URL
-    async function fetchTeamDetails(teamRef) {
-      try {
-        const httpsRef = convertToHttps(teamRef);
-        const response = await fetch(httpsRef);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const teamData = await response.json();
-        return teamData;
-      } catch (error) {
-        console.error("Error fetching team details for:", teamRef, error);
-        return null;
-      }
-    }
-
-    // Function to find team data once and cache it
-    async function findAndCacheTeamData(teamIdentifier) {
-      if (cachedTeamData) {
-        return cachedTeamData; // Return cached data if available
-      }
-
-      try {
-        // Search through all conferences to find the team
-        for (const [confName, confData] of Object.entries(CONFERENCES)) {
-          console.log(`Searching in conference: ${confName} (${confData.groupId})`);
-          
-          const currentSeason = new Date().getFullYear();
-          const teamsApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/groups/${confData.groupId}/teams?lang=en&region=us`;
-          
-          try {
-            const teamsResponse = await fetch(convertToHttps(teamsApiUrl));
-            if (!teamsResponse.ok) continue;
-            
-            const teamsData = await teamsResponse.json();
-            if (!teamsData.items || teamsData.items.length === 0) continue;
-
-            // Look for our team in this conference
-            for (const teamItem of teamsData.items) {
-              const teamDetails = await fetchTeamDetails(convertToHttps(teamItem.$ref));
-              if (teamDetails && (
-                teamDetails.abbreviation === teamIdentifier || 
-                teamDetails.id === teamIdentifier ||
-                teamDetails.id === parseInt(teamIdentifier)
-              )) {
-                // Cache the team data and conference
-                cachedTeamData = teamDetails;
-                currentConference = confData.groupId;
-                console.log(`Found and cached team ${teamIdentifier} in conference ${confName}`);
-                return cachedTeamData;
-              }
-            }
-          } catch (error) {
-            console.error(`Error searching conference ${confName}:`, error);
-            continue;
           }
         }
 
-        console.error(`Team ${teamIdentifier} not found in any conference`);
-        return null;
-      } catch (error) {
-        console.error("Error finding team data:", error);
-        return null;
-      }
-    }
+        // Function to fetch team details from reference URL
+        async function fetchTeamDetails(teamRef) {
+          try {
+            const httpsRef = convertToHttps(teamRef);
+            const response = await fetch(httpsRef);
 
-    async function fetchAndRenderTeamGame(teamIdentifier) {
-      const adjustedDate = getAdjustedDateForNFL();
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-      try {
-        // Get team data (from cache or find it once)
-        const foundTeam = await findAndCacheTeamData(teamIdentifier);
-        if (!foundTeam) {
-          console.error(`Team ${teamIdentifier} not found`);
-          return;
+            const teamData = await response.json();
+            return teamData;
+          } catch (error) {
+            console.error("Error fetching team details for:", teamRef, error);
+            return null;
+          }
         }
 
-        // Only fetch scoreboard data for the team's conference
-        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
-        
-        const scoreboardResponse = await fetch(convertToHttps(SCOREBOARD_API_URL));
-        const scoreboardData = await scoreboardResponse.json();
-        const games = scoreboardData.events || [];
+        // Function to find team data once and cache it
+        async function findAndCacheTeamData(teamIdentifier) {
+          if (cachedTeamData) {
+            return cachedTeamData; // Return cached data if available
+          }
 
-        // Find the game for this specific team - search by both ID and abbreviation
-        const foundGame = games.find(g =>
-          g.competitions[0].competitors.some(c => 
-            c.team.abbreviation === teamIdentifier || 
-            c.team.id === teamIdentifier ||
-            c.team.id === parseInt(teamIdentifier)
-          )
-        );
+          try {
+            // Search through all conferences to find the team
+            for (const [confName, confData] of Object.entries(CONFERENCES)) {
+              console.log(
+                `Searching in conference: ${confName} (${confData.groupId})`,
+              );
 
-        const container = document.getElementById("gameBlockContainer");
+              const currentSeason = new Date().getFullYear();
+              const teamsApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/groups/${confData.groupId}/teams?lang=en&region=us`;
 
-        if (!foundGame) {
-          // No game scheduled - show no game card
-          const logoUrl = foundTeam.logos?.find(logo =>
-            logo.rel.includes(
-              ["19", "20"].includes(foundTeam.id) ? 'dark' : 'dark'
-            )
-          )?.href || `https://a.espncdn.com/i/teamlogos/ncaa/500/${foundTeam.id}.png`;
+              try {
+                const teamsResponse = await fetch(convertToHttps(teamsApiUrl));
+                if (!teamsResponse.ok) continue;
 
-          const noGameCard = document.createElement("div");
-          noGameCard.className = "game-card no-game-card";
-          noGameCard.style.display = "flex";
-          noGameCard.style.flexDirection = "column";
-          noGameCard.style.alignItems = "center";
-          noGameCard.style.justifyContent = "center";
-          noGameCard.style.gap = "10px";
-          noGameCard.style.padding = "20px";
-          noGameCard.style.width = "300px";
+                const teamsData = await teamsResponse.json();
+                if (!teamsData.items || teamsData.items.length === 0) continue;
 
-          noGameCard.innerHTML = `
+                // Look for our team in this conference
+                for (const teamItem of teamsData.items) {
+                  const teamDetails = await fetchTeamDetails(
+                    convertToHttps(teamItem.$ref),
+                  );
+                  if (
+                    teamDetails &&
+                    (teamDetails.abbreviation === teamIdentifier ||
+                      teamDetails.id === teamIdentifier ||
+                      teamDetails.id === parseInt(teamIdentifier))
+                  ) {
+                    // Cache the team data and conference
+                    cachedTeamData = teamDetails;
+                    currentConference = confData.groupId;
+                    console.log(
+                      `Found and cached team ${teamIdentifier} in conference ${confName}`,
+                    );
+                    return cachedTeamData;
+                  }
+                }
+              } catch (error) {
+                console.error(`Error searching conference ${confName}:`, error);
+                continue;
+              }
+            }
+
+            console.error(`Team ${teamIdentifier} not found in any conference`);
+            return null;
+          } catch (error) {
+            console.error("Error finding team data:", error);
+            return null;
+          }
+        }
+
+        async function fetchAndRenderTeamGame(teamIdentifier) {
+          const adjustedDate = getAdjustedDateForNFL();
+
+          try {
+            // Get team data (from cache or find it once)
+            const foundTeam = await findAndCacheTeamData(teamIdentifier);
+            if (!foundTeam) {
+              console.error(`Team ${teamIdentifier} not found`);
+              return;
+            }
+
+            // Only fetch scoreboard data for the team's conference
+            const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
+
+            const scoreboardResponse = await fetch(
+              convertToHttps(SCOREBOARD_API_URL),
+            );
+            const scoreboardData = await scoreboardResponse.json();
+            const games = scoreboardData.events || [];
+
+            // Find the game for this specific team - search by both ID and abbreviation
+            const foundGame = games.find((g) =>
+              g.competitions[0].competitors.some(
+                (c) =>
+                  c.team.abbreviation === teamIdentifier ||
+                  c.team.id === teamIdentifier ||
+                  c.team.id === parseInt(teamIdentifier),
+              ),
+            );
+
+            const container = document.getElementById("gameBlockContainer");
+
+            if (!foundGame) {
+              // No game scheduled - show no game card
+              const logoUrl =
+                foundTeam.logos?.find((logo) =>
+                  logo.rel.includes(
+                    ["19", "20"].includes(foundTeam.id) ? "dark" : "dark",
+                  ),
+                )?.href ||
+                `https://a.espncdn.com/i/teamlogos/ncaa/500/${foundTeam.id}.png`;
+
+              const noGameCard = document.createElement("div");
+              noGameCard.className = "game-card no-game-card";
+              noGameCard.style.display = "flex";
+              noGameCard.style.flexDirection = "column";
+              noGameCard.style.alignItems = "center";
+              noGameCard.style.justifyContent = "center";
+              noGameCard.style.gap = "10px";
+              noGameCard.style.padding = "20px";
+              noGameCard.style.width = "300px";
+
+              noGameCard.innerHTML = `
             <img src="${logoUrl}" alt="${foundTeam?.displayName || "Unknown"} logo" class="card-team-logo team-shadow">
             <div class="no-game-text">No game scheduled <br> for today</div>
           `;
 
-          const newHtml = noGameCard.innerHTML;
-          if (newHtml !== currentHtml) {
-            container.innerHTML = "";
-            container.appendChild(noGameCard);
-            currentHtml = newHtml;
+              const newHtml = noGameCard.innerHTML;
+              if (newHtml !== currentHtml) {
+                container.innerHTML = "";
+                container.appendChild(noGameCard);
+                currentHtml = newHtml;
+              }
+              return;
+            }
+
+            // Game found - build and display game card
+            const cardHtml = await buildGameCard(foundGame, foundTeam);
+            const newHtml = cardHtml;
+            if (newHtml !== currentHtml) {
+              container.innerHTML = "";
+              container.innerHTML = cardHtml;
+              currentHtml = newHtml;
+              const gameCards = container.querySelectorAll(".game-card");
+            }
+          } catch (err) {
+            console.error("Error loading team game block:", err);
           }
-          return;
         }
 
-        // Game found - build and display game card
-        const cardHtml = await buildGameCard(foundGame, foundTeam);
-        const newHtml = cardHtml;
-        if (newHtml !== currentHtml) {
-          container.innerHTML = "";
-          container.innerHTML = cardHtml;
-          currentHtml = newHtml;
-          const gameCards = container.querySelectorAll('.game-card');
+        if (teamIdentifier) {
+          // Show the game card immediately on load
+          fetchAndRenderTeamGame(teamIdentifier);
+
+          setInterval(async () => {
+            await fetchAndRenderTeamGame(teamIdentifier);
+          }, 2000);
         }
-
-      } catch (err) {
-        console.error("Error loading team game block:", err);
-      }
-    }
-
-    if (teamIdentifier) {
-      // Show the game card immediately on load
-      fetchAndRenderTeamGame(teamIdentifier);
-
-      setInterval(async () => {
-        await fetchAndRenderTeamGame(teamIdentifier);
-      }, 2000);
-    }
-  </script>
-</div>
-</body>
+      </script>
+    </div>
+  </body>
 </html>

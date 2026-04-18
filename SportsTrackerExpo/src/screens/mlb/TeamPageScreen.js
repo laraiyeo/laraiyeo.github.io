@@ -314,7 +314,14 @@ const buildMlbTopThreeCards = ({
 
 // ─── Roster player row ────────────────────────────────────────────────────────
 
-const RosterPlayerRow = ({ player, teamColor, theme, navigation, sport, teamId }) => {
+const RosterPlayerRow = ({
+  player,
+  teamColor,
+  theme,
+  navigation,
+  sport,
+  teamId,
+}) => {
   const [expanded, setExpanded] = useState(false);
   const personId = player.person?.id;
   const headshotUrl = personId
@@ -336,7 +343,8 @@ const RosterPlayerRow = ({ player, teamColor, theme, navigation, sport, teamId }
         activeOpacity={0.75}
       >
         {headshotUrl && !headshotError ? (
-          <Image cachePolicy="memory-disk"
+          <Image
+            cachePolicy="memory-disk"
             source={{ uri: headshotUrl }}
             style={rStyles.headshot}
             onError={() => setHeadshotError(true)}
@@ -632,7 +640,9 @@ const MinGamesSlider = ({ value, min, max, onChange, theme, teamColor }) => {
           ]}
         />
       </View>
-      <Text style={[topStyles.sliderValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[topStyles.sliderValue, { color: theme.text }]}>
+        {value}
+      </Text>
     </View>
   );
 };
@@ -668,7 +678,9 @@ const TopFilters = ({
           ]}
           onPress={() => setShowPositionPanel((v) => !v)}
         >
-          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>Position</Text>
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>
+            Position
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -683,7 +695,9 @@ const TopFilters = ({
           ]}
           onPress={() => setShowGamesPanel((v) => !v)}
         >
-          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>Min Games Played</Text>
+          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>
+            Min Games Played
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -707,7 +721,9 @@ const TopFilters = ({
                   <Text
                     style={[
                       topStyles.pillText,
-                      { color: active ? getTextOnColor(teamColor) : theme.text },
+                      {
+                        color: active ? getTextOnColor(teamColor) : theme.text,
+                      },
                     ]}
                   >
                     {pos}
@@ -739,7 +755,9 @@ const TopFilters = ({
                   <Text
                     style={[
                       topStyles.compBtnText,
-                      { color: active ? getTextOnColor(teamColor) : theme.text },
+                      {
+                        color: active ? getTextOnColor(teamColor) : theme.text,
+                      },
                     ]}
                   >
                     {op}
@@ -810,7 +828,7 @@ const TopThreeCard = ({ card, theme, teamColor }) => {
                   { backgroundColor: teamColor + "22", borderColor: teamColor },
                 ]}
               >
-                <Text style={[topStyles.firstInitial, { color: teamColor }]}> 
+                <Text style={[topStyles.firstInitial, { color: teamColor }]}>
                   {firstLabelLast.charAt(0).toUpperCase()}
                 </Text>
               </View>
@@ -863,7 +881,9 @@ const TopThreeCard = ({ card, theme, teamColor }) => {
         if (!p) return null;
         return (
           <View key={`${card.key}-${rankIdx}`}>
-            <View style={[topStyles.divider, { backgroundColor: theme.border }]} />
+            <View
+              style={[topStyles.divider, { backgroundColor: theme.border }]}
+            />
             <View style={topStyles.rankRow}>
               <Text
                 allowFontScaling={false}
@@ -1612,7 +1632,8 @@ const MatchCard = ({
             <View style={styles.matchTeamRow}>
               <View style={styles.matchLogoWrap}>
                 {awayLogo ? (
-                  <Image cachePolicy="memory-disk"
+                  <Image
+                    cachePolicy="memory-disk"
                     source={{ uri: awayLogo }}
                     style={styles.matchTeamLogo}
                     resizeMode="contain"
@@ -1682,7 +1703,8 @@ const MatchCard = ({
             <View style={styles.matchTeamRow}>
               <View style={styles.matchLogoWrap}>
                 {homeLogo ? (
-                  <Image cachePolicy="memory-disk"
+                  <Image
+                    cachePolicy="memory-disk"
                     source={{ uri: homeLogo }}
                     style={styles.matchTeamLogo}
                     resizeMode="contain"
@@ -2099,7 +2121,8 @@ const TeamPageScreen = ({ route, navigation }) => {
           {/* Logo + name block */}
           <View style={styles.headerMain}>
             {teamLogo ? (
-              <Image cachePolicy="memory-disk"
+              <Image
+                cachePolicy="memory-disk"
                 source={{ uri: teamLogo }}
                 style={styles.headerLogo}
                 resizeMode="contain"
@@ -2192,7 +2215,8 @@ const TeamPageScreen = ({ route, navigation }) => {
 
             <View style={styles.stickyMiniContent}>
               {teamLogo ? (
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: teamLogo }}
                   style={styles.stickyMiniLogo}
                   resizeMode="contain"

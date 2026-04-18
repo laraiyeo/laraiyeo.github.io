@@ -238,7 +238,13 @@ const formatTopRankName = (player) => {
 
 const isReverseRankStat = (statKey) => {
   const key = String(statKey || "").toLowerCase();
-  return key === "losses" || key === "overtimelosses" || key === "goalsagainst" || key === "goalsagainstaverage" || key === "penaltyminutes";
+  return (
+    key === "losses" ||
+    key === "overtimelosses" ||
+    key === "goalsagainst" ||
+    key === "goalsagainstaverage" ||
+    key === "penaltyminutes"
+  );
 };
 
 const getStatKeys = (players) => {
@@ -485,7 +491,14 @@ const sbStyles = StyleSheet.create({
   },
 });
 
-const RosterPlayerRow = ({ player, teamColor, theme, navigation, sport, teamId }) => {
+const RosterPlayerRow = ({
+  player,
+  teamColor,
+  theme,
+  navigation,
+  sport,
+  teamId,
+}) => {
   const [expanded, setExpanded] = useState(false);
   const [headshotError, setHeadshotError] = useState(false);
   const personId = player.person?.id;
@@ -3181,7 +3194,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                           theme={theme}
                           navigation={navigation}
                           sport={sport || "nhl"}
-                          teamId={teamInput.id || team?.id || teamInput.endpointId}
+                          teamId={
+                            teamInput.id || team?.id || teamInput.endpointId
+                          }
                         />
                       ))}
                     </View>
