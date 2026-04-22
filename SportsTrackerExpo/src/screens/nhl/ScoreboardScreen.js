@@ -629,11 +629,29 @@ const NHLGridCard = ({
   const awayAbbrev = away.abbrev || away.teamName || "";
   const homeAbbrev = home.abbrev || home.teamName || "";
 
-  const awaySeriesWins = game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
-  const homeSeriesWins = game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+  const awaySeriesWins =
+    game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev
+      ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}`
+      : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev
+        ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}`
+        : null;
+  const homeSeriesWins =
+    game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev
+      ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}`
+      : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev
+        ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}`
+        : null;
 
-  const awayRecord = game.seriesStatus?.seriesTitle ? awaySeriesWins : away?.record ? away.record : null;
-  const homeRecord = game.seriesStatus?.seriesTitle ? homeSeriesWins : home?.record ? home.record : null;
+  const awayRecord = game.seriesStatus?.seriesTitle
+    ? awaySeriesWins
+    : away?.record
+      ? away.record
+      : null;
+  const homeRecord = game.seriesStatus?.seriesTitle
+    ? homeSeriesWins
+    : home?.record
+      ? home.record
+      : null;
 
   const gradId = `ng_${game.id}`;
   const { time, ampm } = formatLocalTime(game.startTimeUTC);
@@ -680,23 +698,21 @@ const NHLGridCard = ({
 
       <View style={nhlGridStyles.cardTop}>
         <Text
-            style={[
-                nhlGridStyles.statusText,
-                {
-                color: isLive ? colors.primary : theme.text,
-                },
-            ]}
-            numberOfLines={1}
-            >
-            <Text style={{ fontWeight: "800" }}>
-                {statusLine}
-            </Text>
+          style={[
+            nhlGridStyles.statusText,
+            {
+              color: isLive ? colors.primary : theme.text,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          <Text style={{ fontWeight: "800" }}>{statusLine}</Text>
 
-            {statusLine2 ? (
-                <Text style={{ fontWeight: "500", color: theme.textSecondary }}>
-                {` ${statusLine2}`}
-                </Text>
-            ) : null}
+          {statusLine2 ? (
+            <Text style={{ fontWeight: "500", color: theme.textSecondary }}>
+              {` ${statusLine2}`}
+            </Text>
+          ) : null}
         </Text>
         <LiveViewerBadge
           gameId={game.id}
@@ -766,14 +782,11 @@ const NHLGridCard = ({
             {awayAbbr}
           </Text>
           {awayRecord && (
-          <Text
-            style={[
-              nhlGridStyles.teamRecord,
-              { color: theme.textSecondary },
-            ]}
-          >
-            {awayRecord}
-          </Text>
+            <Text
+              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary }]}
+            >
+              {awayRecord}
+            </Text>
           )}
         </View>
 
@@ -840,14 +853,11 @@ const NHLGridCard = ({
             {homeAbbr}
           </Text>
           {homeRecord && (
-          <Text
-            style={[
-              nhlGridStyles.teamRecord,
-              { color: theme.textSecondary },
-            ]}
-          >
-            {homeRecord}
-          </Text>
+            <Text
+              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary }]}
+            >
+              {homeRecord}
+            </Text>
           )}
         </View>
       </View>
@@ -1037,7 +1047,8 @@ const ScoreboardSection = ({
                 let statusLine1 = "";
                 let statusLine2 = "";
                 if (isFinished) {
-                  statusLine1 = "Final" + (periodType !== "REG" ? ` (${periodType})` : "");
+                  statusLine1 =
+                    "Final" + (periodType !== "REG" ? ` (${periodType})` : "");
                   const { time, ampm } = formatLocalTime(game.startTimeUTC);
                   statusLine2 = `${time} ${ampm}`.trim();
                 } else if (isLive) {
@@ -1055,11 +1066,29 @@ const ScoreboardSection = ({
                 const awayAbbrev = away.abbrev || away.teamName || "";
                 const homeAbbrev = home.abbrev || home.teamName || "";
 
-                const awaySeriesWins = game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
-                const homeSeriesWins = game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}` : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}` : null;
+                const awaySeriesWins =
+                  game.seriesStatus?.topSeedTeamAbbrev === awayAbbrev
+                    ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}`
+                    : game.seriesStatus?.bottomSeedTeamAbbrev === awayAbbrev
+                      ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}`
+                      : null;
+                const homeSeriesWins =
+                  game.seriesStatus?.topSeedTeamAbbrev === homeAbbrev
+                    ? `${game.seriesStatus?.topSeedWins ?? 0} - ${game.seriesStatus?.bottomSeedWins ?? 0}`
+                    : game.seriesStatus?.bottomSeedTeamAbbrev === homeAbbrev
+                      ? `${game.seriesStatus?.bottomSeedWins ?? 0} - ${game.seriesStatus?.topSeedWins ?? 0}`
+                      : null;
 
-                const awayRecord = game.seriesStatus?.seriesTitle ? awaySeriesWins : away?.record ? away.record : null;
-                const homeRecord = game.seriesStatus?.seriesTitle ? homeSeriesWins : home?.record ? home.record : null;
+                const awayRecord = game.seriesStatus?.seriesTitle
+                  ? awaySeriesWins
+                  : away?.record
+                    ? away.record
+                    : null;
+                const homeRecord = game.seriesStatus?.seriesTitle
+                  ? homeSeriesWins
+                  : home?.record
+                    ? home.record
+                    : null;
                 const awayHasRecord = !!awayRecord;
                 const homeHasRecord = !!homeRecord;
 
@@ -1298,7 +1327,8 @@ const ScoreboardSection = ({
                               { color: theme.textTertiary },
                             ]}
                           >
-                            {game.seriesStatus?.seriesTitle} · Game {game.seriesStatus?.gameNumberOfSeries}
+                            {game.seriesStatus?.seriesTitle} · Game{" "}
+                            {game.seriesStatus?.gameNumberOfSeries}
                           </Text>
                         ) : null}
                       </View>
