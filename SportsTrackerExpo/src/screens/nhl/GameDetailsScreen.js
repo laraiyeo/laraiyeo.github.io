@@ -206,9 +206,59 @@ const parseClockSecs = (mmss) => {
 };
 
 const TABS = ["Main", "Away", "Home", "Stats", "Plays", "Shifts", "Series"];
-const INTERVAL_FAST = 5 * 1000;
-const INTERVAL_SLOW = 30 * 60 * 1000;
-const SOON_THRESHOLD = 5 * 60 * 1000;
+const INTERVAL_PRE_FAR = 60 * 60 * 1000;
+const INTERVAL_PRE_MEDIUM = 10 * 60 * 1000;
+const INTERVAL_PRE_SOON = 30 * 1000;
+const INTERVAL_LIVE = 5 * 1000;
+const PRE_MEDIUM_THRESHOLD = 65 * 60 * 1000;
+const PRE_SOON_THRESHOLD = 5 * 60 * 1000;
+
+const getPregamePollingInterval = (msUntilStart) => {
+  if (!Number.isFinite(msUntilStart)) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_MEDIUM_THRESHOLD) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_SOON_THRESHOLD) return INTERVAL_PRE_MEDIUM;
+  if (msUntilStart >= 0) return INTERVAL_PRE_SOON;
+  return INTERVAL_LIVE;
+};
+
+const getNhlGamePollingPlan = (game, nowMs = Date.now()) => {
+  if (!game) {
+    return {
+      intervalMs: INTERVAL_PRE_FAR,
+      useGameEndpoint: false,
+    };
+  }
+
+  if (isNhlGameLive(game)) {
+    return {
+      intervalMs: INTERVAL_LIVE,
+      useGameEndpoint: true,
+    };
+  }
+
+  if (isNhlGameFinished(game)) {
+    return {
+      intervalMs: INTERVAL_PRE_FAR,
+      useGameEndpoint: false,
+    };
+  }
+
+  const startMs = Date.parse(String(game?.startTimeUtc || ""));
+  if (!Number.isFinite(startMs)) {
+    return {
+      intervalMs: INTERVAL_PRE_FAR,
+      useGameEndpoint: false,
+    };
+  }
+
+  const msUntilStart = startMs - nowMs;
+  const intervalMs = getPregamePollingInterval(msUntilStart);
+  return {
+    intervalMs,
+    // Before start, avoid polling game endpoint; use scoreboard checks instead.
+    useGameEndpoint: msUntilStart <= 0,
+  };
+};
 
 const getNhlSeasonSpan = (now = new Date()) => {
   const year = now.getFullYear();
@@ -439,33 +489,43 @@ const formatLocalTime = (dateString) => {
   }
 };
 
-const getPeriodLabel = (number) => {
+const isNhlPlayoffGameType = (gameType) => Number(gameType) === 3;
+
+const getNhlExtraPeriodLabel = ({ number, gameType, longForm = false }) => {
+  const n = Number(number || 0);
+  if (!Number.isFinite(n) || n <= 3) return "";
+
+  // In playoff games, periods after regulation are all overtime periods.
+  if (isNhlPlayoffGameType(gameType)) {
+    return `${longForm ? "Overtime" : "OT"} ${Math.max(1, n - 3)}`;
+  }
+
+  if (n === 4) return longForm ? "Overtime" : "OT";
+  if (n === 5) return longForm ? "Shootout" : "SO";
+  return longForm ? `${toOrdinal(n)} Period` : `P${n}`;
+};
+
+const getPeriodLabel = (number, gameType) => {
   const n = Number(number || 0);
   if (!Number.isFinite(n) || n <= 0) return "";
   if (n === 1) return "1st";
   if (n === 2) return "2nd";
   if (n === 3) return "3rd";
-  if (n === 4) return "OT";
-  if (n === 5) return "SO";
-  return `P${n}`;
+  return getNhlExtraPeriodLabel({ number: n, gameType, longForm: false });
 };
 
-const getPeriodHeaderLabel = (number) => {
+const getPeriodHeaderLabel = (number, gameType) => {
   const n = Number(number || 0);
   if (!Number.isFinite(n) || n <= 0) return "";
   if (n <= 3) return `${toOrdinal(n)} Period`;
-  if (n === 4) return "Overtime";
-  if (n === 5) return "Shootout";
-  return `${toOrdinal(n)} Period`;
+  return getNhlExtraPeriodLabel({ number: n, gameType, longForm: true });
 };
 
-const getScorerPeriodLabel = (number) => {
+const getScorerPeriodLabel = (number, gameType) => {
   const n = Number(number || 0);
   if (!Number.isFinite(n) || n <= 0) return "";
   if (n <= 3) return toOrdinal(n);
-  if (n === 4) return "OT";
-  if (n === 5) return "SO";
-  return `P${n}`;
+  return getNhlExtraPeriodLabel({ number: n, gameType, longForm: false });
 };
 
 const isNhlGameLive = (game) => {
@@ -532,7 +592,7 @@ const normalizeGameWithClockState = (game, prev, nowMs) => {
 const getStatusLines = (game, nowMs) => {
   if (!game) return { line1: "--", line2: "" };
   if (isNhlGameLive(game)) {
-    const period = getPeriodLabel(game?.periodNumber) || "1st";
+    const period = getPeriodLabel(game?.periodNumber, game?.gameType) || "1st";
     const intermission = game?.intermission === true;
     return {
       line1:
@@ -685,6 +745,7 @@ const normalizeGameData = (details, isDarkMode) => {
       statusSub,
       isPre,
       rawState: state,
+      gameType: Number(landing?.gameType || 0),
       periodNumber,
       intermission,
       clockSecondsRemaining: Number(
@@ -782,6 +843,7 @@ const normalizeGameData = (details, isDarkMode) => {
     statusSub,
     isPre,
     rawState: String(statusType?.state || "").toUpperCase(),
+    gameType: Number(landing?.gameType || details?.gameType || 0),
     periodNumber: Number(competition?.status?.period || 0),
     clockSecondsRemaining: parseClockSecs(
       competition?.status?.displayClock || "",
@@ -844,9 +906,16 @@ const normalizeGameData = (details, isDarkMode) => {
   };
 };
 
-const buildScorers = ({ summaryScoring, plays, awayAbbr, homeAbbr }) => {
+const buildScorers = ({
+  summaryScoring,
+  plays,
+  awayAbbr,
+  homeAbbr,
+  gameType,
+}) => {
   const awayGoals = [];
   const homeGoals = [];
+  const playoffGame = isNhlPlayoffGameType(gameType);
 
   const addGoal = (bucket, name, timeInPeriod, periodNumber) => {
     if (!name || !timeInPeriod || !periodNumber) return;
@@ -861,7 +930,7 @@ const buildScorers = ({ summaryScoring, plays, awayAbbr, homeAbbr }) => {
   if (Array.isArray(summaryScoring) && summaryScoring.length > 0) {
     summaryScoring.forEach((periodBlock) => {
       const periodNumber = Number(periodBlock?.periodDescriptor?.number || 0);
-      if (!periodNumber || periodNumber >= 5) return;
+      if (!periodNumber || (!playoffGame && periodNumber >= 5)) return;
 
       const goals = Array.isArray(periodBlock?.goals) ? periodBlock.goals : [];
       goals.forEach((goal) => {
@@ -889,7 +958,7 @@ const buildScorers = ({ summaryScoring, plays, awayAbbr, homeAbbr }) => {
       if (!isGoal) return;
 
       const periodNumber = Number(play?.periodDescriptor?.number || 0);
-      if (!periodNumber || periodNumber >= 5) return;
+      if (!periodNumber || (!playoffGame && periodNumber >= 5)) return;
 
       const name =
         play?.details?.scoringPlayerName ||
@@ -915,7 +984,7 @@ const buildScorers = ({ summaryScoring, plays, awayAbbr, homeAbbr }) => {
   };
 
   const formatGoalMoment = (g) =>
-    `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber)})`;
+    `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber, gameType)})`;
 
   const formatGroupedByPlayer = (goals) => {
     const grouped = new Map();
@@ -1645,11 +1714,11 @@ const LinescoreTable = ({ game, theme, colors }) => {
               const label =
                 pNum <= 3
                   ? String(pNum)
-                  : pNum === 4
-                    ? "OT"
-                    : pNum === 5
-                      ? "SO"
-                      : `P${pNum}`;
+                  : getNhlExtraPeriodLabel({
+                      number: pNum,
+                      gameType: game?.gameType,
+                      longForm: false,
+                    });
               return (
                 <View
                   key={`p-h-${idx}`}
@@ -2389,7 +2458,9 @@ const NHLTeamRosterSection = ({
       .trim();
 
   const starterShiftNameSet = useMemo(() => {
-    const teamId = String(teamSide === "home" ? game?.home?.id : game?.away?.id);
+    const teamId = String(
+      teamSide === "home" ? game?.home?.id : game?.away?.id,
+    );
     const teamShifts =
       (game?.shifts && typeof game.shifts === "object"
         ? game.shifts?.[teamId] || game.shifts?.[Number(teamId)]
@@ -2401,7 +2472,9 @@ const NHLTeamRosterSection = ({
       const hasOpeningShift = shifts.some((shift) => {
         const period = Number(shift?.period ?? shift?.periodNumber ?? 0);
         if (period !== 1) return false;
-        const startClock = String(shift?.startTime || shift?.start || "").trim();
+        const startClock = String(
+          shift?.startTime || shift?.start || "",
+        ).trim();
         return parseClockSecs(startClock) === 0;
       });
       if (!hasOpeningShift) return;
@@ -2588,7 +2661,9 @@ const NHLTeamRosterSection = ({
   }, [starterPlayersToRender]);
   const nonStarterPlayersToRender = useMemo(() => {
     if (!shouldSplitByStarter) return players;
-    return players.filter((player) => !starterIdentitySet.has(benchIdentity(player)));
+    return players.filter(
+      (player) => !starterIdentitySet.has(benchIdentity(player)),
+    );
   }, [players, shouldSplitByStarter, starterIdentitySet]);
   const starterDividerLabel =
     activeSection?.key === "goalies" ? "STARTER" : "STARTERS";
@@ -3223,7 +3298,9 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
 
   const rosterSpotById = useMemo(() => {
     const map = {};
-    const spots = Array.isArray(game?.playRosterSpots) ? game.playRosterSpots : [];
+    const spots = Array.isArray(game?.playRosterSpots)
+      ? game.playRosterSpots
+      : [];
     spots.forEach((spot) => {
       const id = Number(spot?.playerId);
       if (!Number.isFinite(id)) return;
@@ -3245,11 +3322,11 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
     };
     const awayStats = game?.boxscorePlayerByGameStats?.awayTeam || {};
     const homeStats = game?.boxscorePlayerByGameStats?.homeTeam || {};
-    [awayStats?.forwards, awayStats?.defense, awayStats?.goalies].forEach((bucket) =>
-      mark(bucket, "away"),
+    [awayStats?.forwards, awayStats?.defense, awayStats?.goalies].forEach(
+      (bucket) => mark(bucket, "away"),
     );
-    [homeStats?.forwards, homeStats?.defense, homeStats?.goalies].forEach((bucket) =>
-      mark(bucket, "home"),
+    [homeStats?.forwards, homeStats?.defense, homeStats?.goalies].forEach(
+      (bucket) => mark(bucket, "home"),
     );
     return map;
   }, [game?.boxscorePlayerByGameStats]);
@@ -3293,13 +3370,21 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
     ];
   };
 
-  const renderLivePlayPlayerRow = (player, side, teamColor, teamLogo, teamAbbr) => {
+  const renderLivePlayPlayerRow = (
+    player,
+    side,
+    teamColor,
+    teamLogo,
+    teamAbbr,
+  ) => {
     const fullName = String(player?.name || "").trim() || "Unknown Player";
     const number =
       player?.number != null && Number.isFinite(Number(player.number))
         ? `#${Number(player.number)}`
         : "";
-    const position = String(player?.position || "").trim().toUpperCase();
+    const position = String(player?.position || "")
+      .trim()
+      .toUpperCase();
     const meta = [teamAbbr, number, position].filter(Boolean).join(" \u00B7 ");
     const statItems = buildLivePlayStatItems(player);
 
@@ -3414,7 +3499,9 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
       }
       if (!teamSide) return null;
 
-      const first = String(roster?.firstName || profile?.firstName || "").trim();
+      const first = String(
+        roster?.firstName || profile?.firstName || "",
+      ).trim();
       const last = String(roster?.lastName || profile?.lastName || "").trim();
       const fullFromParts = [first, last].filter(Boolean).join(" ").trim();
       const fullName =
@@ -3424,10 +3511,15 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
         "Unknown Player";
 
       const number = Number(
-        profile?.sweaterNumber ?? roster?.sweaterNumber ?? boxscoreEntry?.sweaterNumber,
+        profile?.sweaterNumber ??
+          roster?.sweaterNumber ??
+          boxscoreEntry?.sweaterNumber,
       );
       const position = String(
-        profile?.position || roster?.positionCode || boxscoreEntry?.position || "",
+        profile?.position ||
+          roster?.positionCode ||
+          boxscoreEntry?.position ||
+          "",
       )
         .trim()
         .toUpperCase();
@@ -3438,8 +3530,9 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
         ...(extractedStats || {}),
       };
       const toi =
-        String(stats?.toi ?? boxscoreEntry?.toi ?? profile?.stats?.toi ?? "").trim() ||
-        "-";
+        String(
+          stats?.toi ?? boxscoreEntry?.toi ?? profile?.stats?.toi ?? "",
+        ).trim() || "-";
 
       return {
         id,
@@ -3459,8 +3552,12 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
         teamName: teamSide === "home" ? game?.home?.name : game?.away?.name,
         teamSide,
         headshot:
-          String(profile?.headshot || roster?.headshot || boxscoreEntry?.headshot || "").trim() ||
-          null,
+          String(
+            profile?.headshot ||
+              roster?.headshot ||
+              boxscoreEntry?.headshot ||
+              "",
+          ).trim() || null,
         stats: {
           ...stats,
           toi,
@@ -3531,7 +3628,18 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
           play?.periodDescriptor?.periodType || "",
         ).toUpperCase();
         const remainingSecs = parseClockSecs(play?.timeRemaining);
-        const periodLengthSecs = periodType === "OT" ? 5 * 60 : 20 * 60;
+        const playoffGame = isNhlPlayoffGameType(game?.gameType);
+        const shootoutPeriod =
+          periodType === "SO" || (!playoffGame && period >= 5);
+        const overtimePeriod =
+          !shootoutPeriod && (periodType === "OT" || period > 3);
+        const periodLengthSecs = shootoutPeriod
+          ? 0
+          : overtimePeriod
+            ? playoffGame
+              ? 20 * 60
+              : 5 * 60
+            : 20 * 60;
         const elapsedSecs = Number.isFinite(remainingSecs)
           ? Math.max(0, periodLengthSecs - remainingSecs)
           : 0;
@@ -3568,7 +3676,7 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
           sortKey: period * 100000 + elapsedSecs * 10 + idx,
           typeKey,
           typeLabel: startCaseFromHyphen(typeKey).toUpperCase(),
-          periodLabel: getScorerPeriodLabel(period),
+          periodLabel: getScorerPeriodLabel(period, game?.gameType),
           timeRemaining: String(play?.timeRemaining || "--:--"),
           scoreText:
             Number.isFinite(awayScore) && Number.isFinite(homeScore)
@@ -3630,15 +3738,21 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
             },
           ]}
         />
-        <Text style={[styles.livePlayHeaderTitle, { color: theme.text }]}>Live Play</Text>
-        <Text style={[styles.livePlayHeaderCount, { color: theme.textSecondary }]}>
+        <Text style={[styles.livePlayHeaderTitle, { color: theme.text }]}>
+          Live Play
+        </Text>
+        <Text
+          style={[styles.livePlayHeaderCount, { color: theme.textSecondary }]}
+        >
           LIVE
         </Text>
       </View>
 
       {!activeRow ? (
         <View style={styles.livePlayBody}>
-          <Text style={[styles.livePlayEmptyText, { color: theme.textTertiary }]}>
+          <Text
+            style={[styles.livePlayEmptyText, { color: theme.textTertiary }]}
+          >
             No live coordinate plays yet
           </Text>
         </View>
@@ -3648,16 +3762,22 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
             <Text style={[styles.livePlayTypeText, { color: theme.text }]}>
               {activeRow.typeLabel}
             </Text>
-            <Text style={[styles.livePlayTimeText, { color: theme.textSecondary }]}>
+            <Text
+              style={[styles.livePlayTimeText, { color: theme.textSecondary }]}
+            >
               {activeRow.timeRemaining} {"\u2022"} {activeRow.periodLabel}
             </Text>
           </View>
 
           <View style={styles.livePlayMetaRow}>
-            <Text style={[styles.livePlayTeamText, { color: activeRow.teamColor }]}>
+            <Text
+              style={[styles.livePlayTeamText, { color: activeRow.teamColor }]}
+            >
               {activeRow.eventAbbr}
             </Text>
-            <Text style={[styles.livePlayScoreText, { color: theme.textSecondary }]}>
+            <Text
+              style={[styles.livePlayScoreText, { color: theme.textSecondary }]}
+            >
               {activeRow.scoreText}
             </Text>
           </View>
@@ -3679,7 +3799,10 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
               teamSide={activeRow.eventTeamSide}
               homeTeamDefendingSide={activeRow.homeTeamDefendingSide}
               isScoring={activeRow.typeKey === "goal"}
-              showTargetPath={activeRow.typeKey === "shot-on-goal"}
+              showTargetPath={
+                activeRow.typeKey === "shot-on-goal" ||
+                activeRow.typeKey === "goal"
+              }
               orientation="horizontal"
             />
           </View>
@@ -3737,7 +3860,9 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      {side === activeRow.eventTeamSide ? "ON PLAY" : "OPPONENT"}
+                      {side === activeRow.eventTeamSide
+                        ? "ON PLAY"
+                        : "OPPONENT"}
                     </Text>
                   </View>
 
@@ -4103,7 +4228,7 @@ const EventsSection = ({
       scorer,
       assistName: assistsText,
       minuteLabel: event?.timeInPeriod,
-      periodLabel: getPeriodHeaderLabel(event?.period || 0),
+      periodLabel: getPeriodHeaderLabel(event?.period || 0, game?.gameType),
       scoreAfter: {
         away: event?.awayScoreAfter,
         home: event?.homeScoreAfter,
@@ -4163,7 +4288,8 @@ const EventsSection = ({
       const periodType = String(
         periodBlock?.periodDescriptor?.periodType || "REG",
       ).toUpperCase();
-      if (periodType === "SO" || periodNumber >= 5) return;
+      const playoffGame = isNhlPlayoffGameType(game?.gameType);
+      if (periodType === "SO" || (!playoffGame && periodNumber >= 5)) return;
       const goals = Array.isArray(periodBlock?.goals) ? periodBlock.goals : [];
       goals.forEach((goal) => {
         const time = goal?.timeInPeriod || goal?.timeRemaining || "";
@@ -4358,13 +4484,17 @@ const EventsSection = ({
       });
     });
 
+    const shouldUseShootout = !isNhlPlayoffGameType(game?.gameType);
     const shootoutLiveScore =
-      game?.summaryShootout && typeof game.summaryShootout === "object"
+      shouldUseShootout &&
+      game?.summaryShootout &&
+      typeof game.summaryShootout === "object"
         ? game.summaryShootout.liveScore || {}
         : {};
-    const shootoutEvents = Array.isArray(game?.summaryShootout?.events)
-      ? game.summaryShootout.events
-      : [];
+    const shootoutEvents =
+      shouldUseShootout && Array.isArray(game?.summaryShootout?.events)
+        ? game.summaryShootout.events
+        : [];
     shootoutEvents.forEach((attempt, index) => {
       const playerId = Number(attempt?.playerId);
       const firstName = String(
@@ -4498,7 +4628,7 @@ const EventsSection = ({
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {getPeriodHeaderLabel(period)}
+                    {getPeriodHeaderLabel(period, game?.gameType)}
                   </Text>
                   <View style={styles.periodDividerFtScores}>
                     <Text
@@ -6626,9 +6756,13 @@ const PlaysTabSection = ({
     const p = Number(periodNumber || 0);
     if (!Number.isFinite(p) || p <= 0) return "P?";
     if (p <= 3) return `P${p}`;
-    if (p === 4) return "OT";
-    if (p === 5) return `SO`;
-    return `P${p}`;
+    return (
+      getNhlExtraPeriodLabel({
+        number: p,
+        gameType: game?.gameType,
+        longForm: false,
+      }) || `P${p}`
+    );
   };
 
   const rosterSpotById = useMemo(() => {
@@ -6862,7 +6996,18 @@ const PlaysTabSection = ({
           play?.periodDescriptor?.periodType || "",
         ).toUpperCase();
         const remainingSecs = parseClockSecs(play?.timeRemaining);
-        const periodLengthSecs = periodType === "OT" ? 5 * 60 : 20 * 60;
+        const playoffGame = isNhlPlayoffGameType(game?.gameType);
+        const shootoutPeriod =
+          periodType === "SO" || (!playoffGame && period >= 5);
+        const overtimePeriod =
+          !shootoutPeriod && (periodType === "OT" || period > 3);
+        const periodLengthSecs = shootoutPeriod
+          ? 0
+          : overtimePeriod
+            ? playoffGame
+              ? 20 * 60
+              : 5 * 60
+            : 20 * 60;
         const elapsedSecs = Number.isFinite(remainingSecs)
           ? Math.max(0, periodLengthSecs - remainingSecs)
           : 0;
@@ -6994,6 +7139,7 @@ const PlaysTabSection = ({
     rosterSpotById,
     teamById,
     theme.border,
+    game?.gameType,
   ]);
 
   const filterTypes = useMemo(() => {
@@ -8048,6 +8194,112 @@ const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
     (timelineBounds.maxEnd - timelineBounds.minStart) * PX_PER_MIN,
   );
 
+  const timelineRowsHeight = useMemo(
+    () =>
+      chartRows.reduce((sum, row) => sum + (row.type === "team" ? 16 : 22), 0),
+    [chartRows],
+  );
+
+  const goalMarkers = useMemo(() => {
+    const plays = Array.isArray(game?.plays) ? game.plays : [];
+    const markers = [];
+
+    plays.forEach((play, idx) => {
+      const typeKey = String(play?.typeDescKey || "").toLowerCase();
+      const isGoal =
+        Number(play?.typeCode) === 505 ||
+        typeKey === "goal" ||
+        play?.scoringPlay === true;
+      if (!isGoal) return;
+
+      const period = Number(play?.periodDescriptor?.number || 0);
+      if (!Number.isFinite(period) || period <= 0) return;
+      if (selectedPeriod && period !== selectedPeriod) return;
+
+      const baseMin = getPeriodStartMin(period);
+      const periodLengthMin = getPeriodLengthMin(period);
+      const periodLengthSecs = Math.round(periodLengthMin * 60);
+
+      const remainingSecs = parseClockSecs(play?.timeRemaining);
+      const elapsedSecsFromRemaining = Number.isFinite(remainingSecs)
+        ? Math.max(0, periodLengthSecs - remainingSecs)
+        : null;
+      const elapsedSecsFromInPeriod = parseClockSecs(play?.timeInPeriod);
+
+      const elapsedSecs = Number.isFinite(elapsedSecsFromRemaining)
+        ? elapsedSecsFromRemaining
+        : Number.isFinite(elapsedSecsFromInPeriod)
+          ? elapsedSecsFromInPeriod
+          : null;
+      if (!Number.isFinite(elapsedSecs)) return;
+
+      const minute = baseMin + elapsedSecs / 60;
+      if (periodWindow) {
+        if (minute < periodWindow.startMin || minute > periodWindow.endMin) {
+          return;
+        }
+      }
+
+      const ownerTeamId = Number(play?.details?.eventOwnerTeamId);
+      const ownerAbbr = String(
+        play?.details?.eventOwnerTeamAbbrev || "",
+      ).toUpperCase();
+
+      const isAway =
+        Number.isFinite(ownerTeamId) &&
+        String(ownerTeamId) === String(game?.away?.id);
+      const isHome =
+        Number.isFinite(ownerTeamId) &&
+        String(ownerTeamId) === String(game?.home?.id);
+
+      const teamAbbr = isAway
+        ? String(game?.away?.abbreviation || ownerAbbr || "AWY").toUpperCase()
+        : isHome
+          ? String(game?.home?.abbreviation || ownerAbbr || "HME").toUpperCase()
+          : ownerAbbr || "UNK";
+      const teamLogo = isAway
+        ? game?.away?.logo || getTeamLogoUrl("nhl", teamAbbr)
+        : isHome
+          ? game?.home?.logo || getTeamLogoUrl("nhl", teamAbbr)
+          : getTeamLogoUrl("nhl", teamAbbr);
+      const teamColor = NHLService.getTeamColor(teamAbbr, colors.primary);
+
+      // Keep unique markers for same team/period/time bucket.
+      const dedupeKey = `${teamAbbr}|${period}|${Math.round(minute * 10)}`;
+      markers.push({
+        key: `goal-marker-${idx}-${dedupeKey}`,
+        dedupeKey,
+        minute,
+        period,
+        teamAbbr,
+        teamLogo,
+        teamColor,
+      });
+    });
+
+    const seen = new Set();
+    return markers
+      .filter((marker) => {
+        if (seen.has(marker.dedupeKey)) return false;
+        seen.add(marker.dedupeKey);
+        return true;
+      })
+      .sort((a, b) => a.minute - b.minute);
+  }, [
+    colors.primary,
+    game?.away?.abbreviation,
+    game?.away?.id,
+    game?.away?.logo,
+    game?.gameType,
+    game?.home?.abbreviation,
+    game?.home?.id,
+    game?.home?.logo,
+    game?.plays,
+    getTeamLogoUrl,
+    periodWindow,
+    selectedPeriod,
+  ]);
+
   return (
     <View style={styles.shiftsSectionWrap}>
       <View style={styles.shiftsFiltersRow}>
@@ -8113,11 +8365,13 @@ const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
             numberOfLines={1}
           >
             {selectedPeriod
-              ? selectedPeriod === 5
-                ? "SO"
-                : selectedPeriod === 4
-                  ? "OT"
-                  : `P${selectedPeriod}`
+              ? Number(selectedPeriod) <= 3
+                ? `P${selectedPeriod}`
+                : getNhlExtraPeriodLabel({
+                    number: selectedPeriod,
+                    gameType: game?.gameType,
+                    longForm: false,
+                  })
               : "Period"}
           </Text>
         </TouchableOpacity>
@@ -8308,9 +8562,17 @@ const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
                     style={[styles.shiftsPickerItemText, { color: theme.text }]}
                   >
                     {period === 4
-                      ? "Overtime"
-                      : period === 5
-                        ? "Shootout"
+                      ? getNhlExtraPeriodLabel({
+                          number: period,
+                          gameType: game?.gameType,
+                          longForm: true,
+                        })
+                      : period > 4
+                        ? getNhlExtraPeriodLabel({
+                            number: period,
+                            gameType: game?.gameType,
+                            longForm: true,
+                          })
                         : `Period ${period}`}
                   </Text>
                 </TouchableOpacity>
@@ -8425,6 +8687,31 @@ const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
                     })}
                   </View>
 
+                  <View
+                    style={[
+                      styles.shiftsGoalLinesOverlay,
+                      { height: timelineRowsHeight },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    {goalMarkers.map((marker) => {
+                      const left =
+                        (marker.minute - timelineBounds.minStart) * PX_PER_MIN;
+                      return (
+                        <View
+                          key={marker.key}
+                          style={[
+                            styles.shiftsGoalLine,
+                            {
+                              left,
+                              backgroundColor: marker.teamColor,
+                            },
+                          ]}
+                        />
+                      );
+                    })}
+                  </View>
+
                   {chartRows.map((row, idx) =>
                     row.type === "team" ? (
                       <View
@@ -8506,6 +8793,26 @@ const ShiftsTabSection = ({ game, theme, colors, getTeamLogoUrl }) => {
                         >
                           {formatAxisLabel(tick)}
                         </Text>
+                      );
+                    })}
+
+                    {goalMarkers.map((marker) => {
+                      if (!marker?.teamLogo) return null;
+                      const left =
+                        (marker.minute - timelineBounds.minStart) * PX_PER_MIN;
+                      return (
+                        <Image
+                          key={`${marker.key}-logo`}
+                          source={{ uri: marker.teamLogo }}
+                          style={[
+                            styles.shiftsGoalLogo,
+                            {
+                              left,
+                              borderColor: marker.teamColor,
+                            },
+                          ]}
+                          contentFit="contain"
+                        />
                       );
                     })}
                   </View>
@@ -10510,6 +10817,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         plays: game?.plays,
         awayAbbr: String(game?.away?.abbreviation || "").toUpperCase(),
         homeAbbr: String(game?.home?.abbreviation || "").toUpperCase(),
+        gameType: game?.gameType,
       }),
     [game],
   );
@@ -10552,22 +10860,57 @@ const NHLGameDetailsScreen = ({ route }) => {
     const source = clockGame || game;
     if (!source) return;
 
-    const isLive = isNhlGameLive(source);
-    const isScheduled = !isLive && !isNhlGameFinished(source);
-    const startTs = new Date(source.startTimeUtc || "").getTime();
-    const soon =
-      isScheduled &&
-      !Number.isNaN(startTs) &&
-      startTs - Date.now() <= SOON_THRESHOLD &&
-      startTs - Date.now() >= 0;
-    const intervalMs = isLive || soon ? INTERVAL_FAST : INTERVAL_SLOW;
+    const scoreboardDate = String(source?.startTimeUtc || "")
+      .slice(0, 10)
+      .replace(/-/g, "");
 
-    const id = setInterval(() => {
-      loadDetails({ current: true });
-    }, intervalMs);
+    let timerId = null;
+    let cancelled = false;
 
-    return () => clearInterval(id);
-  }, [clockGame, gameId, isDarkMode]);
+    const pollOnce = async () => {
+      const plan = getNhlGamePollingPlan(source, Date.now());
+      if (plan.useGameEndpoint) {
+        loadDetails({ current: true });
+        return;
+      }
+
+      if (!scoreboardDate) return;
+      try {
+        const scoreboard = await NHLService.getScoreboard(scoreboardDate);
+        const games = Array.isArray(scoreboard?.games) ? scoreboard.games : [];
+        const matched =
+          games.find((g) => String(g?.id || "") === String(gameId || "")) ||
+          null;
+        if (!matched) return;
+
+        const startMs = Date.parse(String(matched?.startTimeUTC || ""));
+        const shouldSwitchToGamePolling =
+          isNhlGameLive(matched) ||
+          (Number.isFinite(startMs) && startMs <= Date.now());
+        if (shouldSwitchToGamePolling) {
+          loadDetails({ current: true });
+        }
+      } catch (err) {
+        console.warn("NHL pregame scoreboard polling failed", err);
+      }
+    };
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const plan = getNhlGamePollingPlan(source, Date.now());
+      timerId = setTimeout(async () => {
+        await pollOnce();
+        scheduleNext();
+      }, plan.intervalMs);
+    };
+
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [clockGame, game, gameId, isDarkMode]);
 
   const statusLines = getStatusLines(liveGame, nowMs);
 
@@ -11550,22 +11893,22 @@ const NHLGameDetailsScreen = ({ route }) => {
       />
 
       <>
-      {isLoggedIn && (
-        <TouchableOpacity
-          style={[
-            styles.floatingChatButton,
-            { backgroundColor: colors.primary },
-          ]}
-          onPress={() => setChatModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={30}
-            color="#fff"
-          />
-        </TouchableOpacity>
-      )}
+        {isLoggedIn && (
+          <TouchableOpacity
+            style={[
+              styles.floatingChatButton,
+              { backgroundColor: colors.primary },
+            ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={30}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        )}
 
         <Modal
           animationType="slide"
@@ -11613,7 +11956,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                 {!!liveGame && !isLoggedIn && (
                   <View style={styles.chatLoginPromptWrap}>
                     <Text
-                      style={[styles.chatLoginPromptText, { color: theme.textSecondary }]}
+                      style={[
+                        styles.chatLoginPromptText,
+                        { color: theme.textSecondary },
+                      ]}
                     >
                       Sign in to use game chat.
                     </Text>
@@ -13797,16 +14143,41 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   shiftsAxisBottomPad: {
-    height: 24,
+    height: 34,
     borderTopWidth: StyleSheet.hairlineWidth,
     position: "relative",
   },
   shiftsAxisBottomLabel: {
     position: "absolute",
-    top: 5,
+    top: 2,
     marginLeft: -16,
     fontSize: 10,
     fontWeight: "600",
+  },
+  shiftsGoalLinesOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 24,
+    zIndex: 2,
+  },
+  shiftsGoalLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 2,
+    marginLeft: -1,
+    opacity: 0.9,
+  },
+  shiftsGoalLogo: {
+    position: "absolute",
+    bottom: 2,
+    width: 16,
+    height: 16,
+    marginLeft: -8,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.92)",
   },
   shiftsEmptyWrap: {
     minHeight: 180,

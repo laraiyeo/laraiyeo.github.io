@@ -201,6 +201,9 @@ export class NBAService extends BaseCacheService {
         (competition.competitors || []).find((c) => c.homeAway === "away") ||
         {};
 
+      const homeRecord = home.record || away?.record ? away.record.split("-").reverse().join("-") : "";
+      const awayRecord = away.record || home?.record ? home.record.split("-").reverse().join("-") : "";
+
       return {
         id: game.id,
         status: game.status?.type?.description || "",
@@ -218,7 +221,7 @@ export class NBAService extends BaseCacheService {
           // URL shapes (combiner vs raw) across the app.
           logo: combinerUrl(home.team?.logo),
           score: home.score,
-          record: home.record || home.records?.[0]?.summary || "",
+          record: homeRecord || home.records?.[0]?.summary || "",
         },
         awayTeam: {
           id: away.id,
@@ -226,7 +229,7 @@ export class NBAService extends BaseCacheService {
           abbreviation: away.team?.abbreviation || "",
           logo: combinerUrl(away.team?.logo),
           score: away.score,
-          record: away.record || away.records?.[0]?.summary || "",
+          record: awayRecord || away.records?.[0]?.summary || "",
         },
         date: game.date,
         venue: competition.venue?.fullName || "",

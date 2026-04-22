@@ -287,9 +287,12 @@ const DatePickerBar = ({
   );
 };
 
-const INTERVAL_SLOW = 30 * 60 * 1000;
-const INTERVAL_FAST = 5 * 1000;
-const SOON_THRESHOLD = 5 * 60 * 1000;
+const INTERVAL_PRE_FAR = 60 * 60 * 1000;
+const INTERVAL_PRE_MEDIUM = 10 * 60 * 1000;
+const INTERVAL_PRE_SOON = 30 * 1000;
+const INTERVAL_LIVE = 5 * 1000;
+const PRE_MEDIUM_THRESHOLD = 65 * 60 * 1000;
+const PRE_SOON_THRESHOLD = 5 * 60 * 1000;
 
 const isNhlGameLive = (game) => {
   const state = String(game?.gameState || "").toUpperCase();
@@ -359,24 +362,36 @@ const normalizeGamesWithClockState = (games, prevById, nowMs) => {
   });
 };
 
+const getPregamePollingInterval = (msUntilStart) => {
+  if (!Number.isFinite(msUntilStart)) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_MEDIUM_THRESHOLD) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_SOON_THRESHOLD) return INTERVAL_PRE_MEDIUM;
+  if (msUntilStart >= 0) return INTERVAL_PRE_SOON;
+  return INTERVAL_LIVE;
+};
+
+const getNhlGamePollingInterval = (game, nowMs) => {
+  if (isNhlGameLive(game)) return INTERVAL_LIVE;
+  if (isNhlGameFinished(game)) return INTERVAL_PRE_FAR;
+
+  const startMs = Date.parse(String(game?.startTimeUTC || ""));
+  if (Number.isFinite(startMs)) {
+    return getPregamePollingInterval(startMs - nowMs);
+  }
+
+  return INTERVAL_PRE_FAR;
+};
+
 const getPollingInterval = (groups) => {
   const allGames = groups.flatMap((g) => g.games);
   if (allGames.length === 0) return null;
 
   const now = Date.now();
-
-  for (const game of allGames) {
-    if (isNhlGameLive(game)) return INTERVAL_FAST;
-
-    const isScheduled = !isNhlGameLive(game) && !isNhlGameFinished(game);
-    const ts = new Date(game?.startTimeUTC).getTime();
-    if (isScheduled && !Number.isNaN(ts)) {
-      const msUntil = ts - now;
-      if (msUntil >= 0 && msUntil <= SOON_THRESHOLD) return INTERVAL_FAST;
-    }
-  }
-
-  return INTERVAL_SLOW;
+  let desired = INTERVAL_PRE_FAR;
+  allGames.forEach((game) => {
+    desired = Math.min(desired, getNhlGamePollingInterval(game, now));
+  });
+  return desired;
 };
 
 const formatLocalTime = (dateString) => {

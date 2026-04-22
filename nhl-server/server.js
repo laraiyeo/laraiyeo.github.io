@@ -13,9 +13,12 @@ const PLAYER_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const STANDINGS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const cache = new Map();
-const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
-const INTERVAL_FAST = 5 * 1000; // 5 seconds
-const SOON_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+const INTERVAL_PRE_FAR = 60 * 60 * 1000; // > 1h 5m before start
+const INTERVAL_PRE_MEDIUM = 10 * 60 * 1000; // 1h 5m -> 5m before start
+const INTERVAL_PRE_SOON = 30 * 1000; // <= 5m before start
+const INTERVAL_LIVE = 5 * 1000; // at/after start or live
+const PRE_MEDIUM_THRESHOLD = 65 * 60 * 1000; // 1h 5m
+const PRE_SOON_THRESHOLD = 5 * 60 * 1000; // 5m
 
 const URLS = {
   player: {
@@ -536,28 +539,37 @@ function transformSearchTeamsFromStandings(standingsPayload) {
   return teams;
 }
 
+function getPregamePollingInterval(msUntilStart) {
+  if (!Number.isFinite(msUntilStart)) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_MEDIUM_THRESHOLD) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_SOON_THRESHOLD) return INTERVAL_PRE_MEDIUM;
+  if (msUntilStart >= 0) return INTERVAL_PRE_SOON;
+  return INTERVAL_LIVE;
+}
+
 function getGamePollingInterval(landingPayload) {
   const state = String(landingPayload?.gameState || "").toUpperCase();
   const startMs = Date.parse(String(landingPayload?.startTimeUTC || ""));
   const nowMs = Date.now();
 
-  const isLive = state === "LIVE" || state === "CRIT";
-  if (isLive) return INTERVAL_FAST;
+  const isLive = state === "LIVE" || state === "CRIT" || state === "IN";
+  if (isLive) return INTERVAL_LIVE;
+
+  const isFinal = state === "OFF" || state === "FINAL" || state === "OVER";
+  if (isFinal) return INTERVAL_PRE_FAR;
 
   const isScheduled = state === "FUT" || state === "PRE";
-  if (
-    isScheduled &&
-    Number.isFinite(startMs) &&
-    startMs > nowMs &&
-    startMs - nowMs <= SOON_THRESHOLD
-  ) {
-    return INTERVAL_FAST;
+  if (isScheduled && Number.isFinite(startMs)) {
+    return getPregamePollingInterval(startMs - nowMs);
   }
 
-  const isFinal = state === "OFF" || state === "FINAL";
-  if (state && !isScheduled && !isFinal) return INTERVAL_FAST;
+  if (Number.isFinite(startMs)) {
+    return getPregamePollingInterval(startMs - nowMs);
+  }
 
-  return INTERVAL_SLOW;
+  if (state && !isFinal) return INTERVAL_LIVE;
+
+  return INTERVAL_PRE_FAR;
 }
 
 function transformLandingPayload(payload) {
@@ -1123,27 +1135,33 @@ function transformStandingsPayload(payload) {
 
 function getScoreboardPollingInterval(payload) {
   const games = Array.isArray(payload?.games) ? payload.games : [];
-  if (games.length === 0) return INTERVAL_SLOW;
+  if (games.length === 0) return INTERVAL_PRE_FAR;
 
   const nowMs = Date.now();
-  const hasLive = games.some((g) => {
-    const state = String(g?.gameState || "").toUpperCase();
-    return state === "LIVE" || state === "CRIT";
-  });
-  if (hasLive) return INTERVAL_FAST;
+  let desired = INTERVAL_PRE_FAR;
 
-  const hasSoon = games.some((g) => {
+  games.forEach((g) => {
     const state = String(g?.gameState || "").toUpperCase();
-    if (state !== "FUT" && state !== "PRE") return false;
+    if (state === "LIVE" || state === "CRIT" || state === "IN") {
+      desired = Math.min(desired, INTERVAL_LIVE);
+      return;
+    }
+
+    if (state === "OFF" || state === "FINAL" || state === "OVER") {
+      desired = Math.min(desired, INTERVAL_PRE_FAR);
+      return;
+    }
+
     const startMs = Date.parse(String(g?.startTimeUTC || ""));
-    return (
-      Number.isFinite(startMs) &&
-      startMs > nowMs &&
-      startMs - nowMs <= SOON_THRESHOLD
-    );
+    if (Number.isFinite(startMs)) {
+      desired = Math.min(desired, getPregamePollingInterval(startMs - nowMs));
+      return;
+    }
+
+    desired = Math.min(desired, INTERVAL_LIVE);
   });
 
-  return hasSoon ? INTERVAL_FAST : INTERVAL_SLOW;
+  return desired;
 }
 
 async function respondCached(res, cacheKey, url) {
@@ -1302,14 +1320,14 @@ app.get("/nhl/game/:id", async (req, res) => {
     let landing = await getCachedJsonWithTtl(
       `game:landing:${id}`,
       urls.landing,
-      INTERVAL_SLOW,
+      INTERVAL_PRE_FAR,
     );
     let pollingIntervalMs = getGamePollingInterval(landing.data);
-    if (pollingIntervalMs === INTERVAL_FAST) {
+    if (pollingIntervalMs !== INTERVAL_PRE_FAR) {
       landing = await getCachedJsonWithTtl(
         `game:landing:${id}`,
         urls.landing,
-        INTERVAL_FAST,
+        pollingIntervalMs,
       );
       pollingIntervalMs = getGamePollingInterval(landing.data);
     }
@@ -1365,7 +1383,14 @@ app.get("/nhl/game/:id", async (req, res) => {
       id,
       polling: {
         intervalMs: pollingIntervalMs,
-        mode: pollingIntervalMs === INTERVAL_FAST ? "fast" : "slow",
+        mode:
+          pollingIntervalMs <= INTERVAL_LIVE
+            ? "live"
+            : pollingIntervalMs <= INTERVAL_PRE_SOON
+              ? "soon"
+              : pollingIntervalMs <= INTERVAL_PRE_MEDIUM
+                ? "pregame"
+                : "slow",
       },
       data,
     });
@@ -1388,18 +1413,18 @@ app.get("/nhl/scoreboard/:date", async (req, res) => {
 
   const url = expandUrl(URLS.scoreboard, { date });
   try {
-    // First fetch/cache with slow TTL; if response needs fast polling, immediately tighten to fast TTL.
+    // Start with far pregame TTL; tighten cache window dynamically as game times approach.
     let { data, fromCache } = await getCachedJsonWithTtl(
       `scoreboard:${date}`,
       url,
-      INTERVAL_SLOW,
+      INTERVAL_PRE_FAR,
     );
     const desiredInterval = getScoreboardPollingInterval(data);
-    if (desiredInterval === INTERVAL_FAST) {
+    if (desiredInterval !== INTERVAL_PRE_FAR) {
       const refreshed = await getCachedJsonWithTtl(
         `scoreboard:${date}`,
         url,
-        INTERVAL_FAST,
+        desiredInterval,
       );
       data = refreshed.data;
       fromCache = refreshed.fromCache;
@@ -1413,7 +1438,14 @@ app.get("/nhl/scoreboard/:date", async (req, res) => {
       date,
       polling: {
         intervalMs: pollingIntervalMs,
-        mode: pollingIntervalMs === INTERVAL_FAST ? "fast" : "slow",
+        mode:
+          pollingIntervalMs <= INTERVAL_LIVE
+            ? "live"
+            : pollingIntervalMs <= INTERVAL_PRE_SOON
+              ? "soon"
+              : pollingIntervalMs <= INTERVAL_PRE_MEDIUM
+                ? "pregame"
+                : "slow",
       },
       ...transformed,
     });

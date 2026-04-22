@@ -149,6 +149,7 @@ const PITCHER_LOWER_IS_BETTER = new Set([
   "Stolen Bases Allowed",
   "Ops",
   "Walks And Hits Per Inning Pitched",
+  "Earned Run Average"
 ]);
 
 const toTitleWords = (value) =>
