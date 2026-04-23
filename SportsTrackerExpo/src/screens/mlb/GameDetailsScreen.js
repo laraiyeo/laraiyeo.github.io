@@ -140,7 +140,8 @@ const TeamColumn = ({
         style={{ alignItems: "center", alignSelf: "stretch" }}
       >
         {logo ? (
-          <Image cachePolicy="memory-disk"
+          <Image
+            cachePolicy="memory-disk"
             source={{ uri: logo }}
             style={styles.teamLogo}
             resizeMode="contain"
@@ -313,7 +314,8 @@ const PlayerCard = ({
       {/* Top row: headshot + name block + stat toggle */}
       <View style={pcStyles.topRow}>
         {/* Headshot */}
-        <Image cachePolicy="memory-disk"
+        <Image
+          cachePolicy="memory-disk"
           source={{ uri: playerHeadshotUrl(playerId) }}
           style={pcStyles.headshot}
           resizeMode="cover"
@@ -1780,7 +1782,8 @@ const PlayerDetailModal = ({
               >
                 <View style={pdStyles.headshotWrap}>
                   <View style={{ position: "relative" }}>
-                    <Image cachePolicy="memory-disk"
+                    <Image
+                      cachePolicy="memory-disk"
                       source={{ uri: playerHeadshotUrl(playerId) }}
                       style={[pdStyles.headshot, { borderColor: teamColor }]}
                       resizeMode="cover"
@@ -1835,7 +1838,8 @@ const PlayerDetailModal = ({
                 {compareTargetId ? (
                   <View style={{ alignItems: "center" }}>
                     <View style={{ position: "relative" }}>
-                      <Image cachePolicy="memory-disk"
+                      <Image
+                        cachePolicy="memory-disk"
                         source={{ uri: playerHeadshotUrl(compareTargetId) }}
                         style={[
                           pdStyles.headshot,
@@ -1918,7 +1922,8 @@ const PlayerDetailModal = ({
             >
               <View style={pdStyles.headshotWrap}>
                 <View style={{ position: "relative" }}>
-                  <Image cachePolicy="memory-disk"
+                  <Image
+                    cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(playerId) }}
                     style={[pdStyles.headshot, { borderColor: teamColor }]}
                     resizeMode="cover"
@@ -2198,7 +2203,8 @@ const PlayerDetailModal = ({
                               },
                             ]}
                           >
-                            <Image cachePolicy="memory-disk"
+                            <Image
+                              cachePolicy="memory-disk"
                               source={{ uri: playerHeadshotUrl(p.pid) }}
                               style={[
                                 pdStyles.compareHeadshotImage,
@@ -2237,7 +2243,8 @@ const PlayerDetailModal = ({
                                 : null;
                               if (!logo) return null;
                               return (
-                                <Image cachePolicy="memory-disk"
+                                <Image
+                                  cachePolicy="memory-disk"
                                   source={{ uri: logo }}
                                   style={[
                                     pdStyles.compareTeamLogo,
@@ -3208,7 +3215,8 @@ const PlayerShareCardModal = ({
                     }}
                   >
                     {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image cachePolicy="memory-disk"
+                      <Image
+                        cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                         }}
@@ -3240,7 +3248,8 @@ const PlayerShareCardModal = ({
                       </Text>
                     </Text>
                     {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image cachePolicy="memory-disk"
+                      <Image
+                        cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                         }}
@@ -3254,7 +3263,8 @@ const PlayerShareCardModal = ({
 
               {/* Headshot + name/summary */}
               <View style={psStyles.headshotRow}>
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(playerId) }}
                   style={[psStyles.cardHeadshot, { borderColor: teamColor }]}
                   resizeMode="cover"
@@ -3285,7 +3295,8 @@ const PlayerShareCardModal = ({
                       {!!teamName && (
                         <View style={psStyles.teamNameRow}>
                           {!!teamLogoUri && (
-                            <Image cachePolicy="memory-disk"
+                            <Image
+                              cachePolicy="memory-disk"
                               source={{ uri: teamLogoUri }}
                               style={psStyles.teamNameLogo}
                               resizeMode="contain"
@@ -3586,7 +3597,8 @@ const ShareCardModal = ({
         ];
     return (
       <View style={scStyles.miniPlayer}>
-        <Image cachePolicy="memory-disk"
+        <Image
+          cachePolicy="memory-disk"
           source={{ uri: playerHeadshotUrl(info.id) }}
           style={[scStyles.miniHeadshot, { borderColor: bsColor }]}
           resizeMode="cover"
@@ -3663,7 +3675,8 @@ const ShareCardModal = ({
                     }}
                   >
                     {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image cachePolicy="memory-disk"
+                      <Image
+                        cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                         }}
@@ -3675,7 +3688,8 @@ const ShareCardModal = ({
                       {awayScore} – {homeScore}
                     </Text>
                     {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image cachePolicy="memory-disk"
+                      <Image
+                        cachePolicy="memory-disk"
                         source={{
                           uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                         }}
@@ -4310,7 +4324,8 @@ const PlayDetailModal = ({
               {/* Batter – left */}
               {batterInfo ? (
                 <View style={modalStyles.matchupPlayer}>
-                  <Image cachePolicy="memory-disk"
+                  <Image
+                    cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(batterId) }}
                     style={[
                       modalStyles.matchupHeadshot,
@@ -4437,7 +4452,8 @@ const PlayDetailModal = ({
                     { alignItems: "flex-end" },
                   ]}
                 >
-                  <Image cachePolicy="memory-disk"
+                  <Image
+                    cachePolicy="memory-disk"
                     source={{ uri: playerHeadshotUrl(pitcherId) }}
                     style={[
                       modalStyles.matchupHeadshot,
@@ -4989,7 +5005,6 @@ const CountIndicator = ({ balls, strikes, theme, onColor }) => {
                 shadowRadius: 4,
                 shadowOffset: { width: 0, height: 0 },
                 elevation: 4,
-
               },
             ]}
           />
@@ -5255,7 +5270,9 @@ const PlaysPanel = ({
                                 backgroundColor: isScoringPlay
                                   ? primaryText
                                   : teamColor,
-                                shadowColor: isScoringPlay ? primaryText : teamColor,
+                                shadowColor: isScoringPlay
+                                  ? primaryText
+                                  : teamColor,
                                 shadowOpacity: 0.7,
                                 shadowRadius: 4,
                                 shadowOffset: { width: 0, height: 0 },
@@ -5276,7 +5293,9 @@ const PlaysPanel = ({
                                   backgroundColor: isScoringPlay
                                     ? primaryText
                                     : teamColor,
-                                  shadowColor: isScoringPlay ? primaryText : teamColor,
+                                  shadowColor: isScoringPlay
+                                    ? primaryText
+                                    : teamColor,
                                   shadowOpacity: 0.7,
                                   shadowRadius: 4,
                                   shadowOffset: { width: 0, height: 0 },
@@ -5299,7 +5318,9 @@ const PlaysPanel = ({
                                   backgroundColor: isScoringPlay
                                     ? primaryText
                                     : teamColor,
-                                  shadowColor: isScoringPlay ? primaryText : teamColor,
+                                  shadowColor: isScoringPlay
+                                    ? primaryText
+                                    : teamColor,
                                   shadowOpacity: 0.7,
                                   shadowRadius: 4,
                                   shadowOffset: { width: 0, height: 0 },
@@ -5585,7 +5606,8 @@ const getMlbSeriesGameStatus = (game) => {
 
   return {
     top:
-      fmtGameTime(game?.gameDate) || String(status?.detailedState || "Scheduled"),
+      fmtGameTime(game?.gameDate) ||
+      String(status?.detailedState || "Scheduled"),
     bottom: String(game?.seriesDescription || status?.detailedState || ""),
     isLive,
     isFinished,
@@ -6389,7 +6411,8 @@ const ProbablePitchersBubble = ({
           Probable Pitcher
         </Text>
         <View style={ppStyles.headshotWrap}>
-          <Image cachePolicy="memory-disk"
+          <Image
+            cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(playerId) }}
             style={[ppStyles.headshot, { borderColor: teamColor }]}
           />
@@ -6881,7 +6904,8 @@ const LastPlayBubble = ({
           <View style={[lpStyles.matchupRow, { borderTopColor: theme.border }]}>
             {batterInfo ? (
               <View style={lpStyles.matchupSide}>
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(batterId) }}
                   style={[lpStyles.matchupHeadshot, { borderColor: teamColor }]}
                 />
@@ -6925,7 +6949,8 @@ const LastPlayBubble = ({
                     Pitcher
                   </Text>
                 </View>
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{ uri: playerHeadshotUrl(pitcherId) }}
                   style={[
                     lpStyles.matchupHeadshot,
@@ -7199,7 +7224,8 @@ const CurrentAtBatBubble = ({
             })
           }
         >
-          <Image cachePolicy="memory-disk"
+          <Image
+            cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(batterId) }}
             style={[cabStyles.headshot, { borderColor: batterTeamColor }]}
             resizeMode="cover"
@@ -7313,7 +7339,8 @@ const CurrentAtBatBubble = ({
             })
           }
         >
-          <Image cachePolicy="memory-disk"
+          <Image
+            cachePolicy="memory-disk"
             source={{ uri: playerHeadshotUrl(pitcherId) }}
             style={[cabStyles.headshot, { borderColor: pitcherTeamColor }]}
             resizeMode="cover"
@@ -7404,7 +7431,8 @@ const CurrentAtBatBubble = ({
                 },
               ]}
             >
-              <Image cachePolicy="memory-disk"
+              <Image
+                cachePolicy="memory-disk"
                 source={{ uri: playerHeadshotUrl(id) }}
                 style={[
                   cabStyles.nextHeadshot,
@@ -7946,13 +7974,18 @@ const SeriesSummarySection = ({
               ]}
             >
               <Text
-                style={[seriesStyles.logoInitial, { color: theme.textSecondary }]}
+                style={[
+                  seriesStyles.logoInitial,
+                  { color: theme.textSecondary },
+                ]}
               >
                 {String(awayTeam?.abbreviation || "A").charAt(0)}
               </Text>
             </View>
           )}
-          <Text style={[seriesStyles.winCount, { color: theme.text }]}>{awayWins}</Text>
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>
+            {awayWins}
+          </Text>
         </View>
 
         <View style={seriesStyles.centerBlock}>
@@ -7962,7 +7995,9 @@ const SeriesSummarySection = ({
         </View>
 
         <View style={[seriesStyles.sideBlock, seriesStyles.sideBlockRight]}>
-          <Text style={[seriesStyles.winCount, { color: theme.text }]}>{homeWins}</Text>
+          <Text style={[seriesStyles.winCount, { color: theme.text }]}>
+            {homeWins}
+          </Text>
           {homeLogo ? (
             <Image
               source={{ uri: homeLogo }}
@@ -7978,7 +8013,10 @@ const SeriesSummarySection = ({
               ]}
             >
               <Text
-                style={[seriesStyles.logoInitial, { color: theme.textSecondary }]}
+                style={[
+                  seriesStyles.logoInitial,
+                  { color: theme.textSecondary },
+                ]}
               >
                 {String(homeTeam?.abbreviation || "H").charAt(0)}
               </Text>
@@ -8144,7 +8182,10 @@ const SeriesGameCard = ({
     >
       <View style={seriesStyles.matchCardTopRow}>
         <Text
-          style={[seriesStyles.matchCardTopText, { color: theme.textSecondary }]}
+          style={[
+            seriesStyles.matchCardTopText,
+            { color: theme.textSecondary },
+          ]}
           numberOfLines={1}
         >
           {topLine}
@@ -8191,7 +8232,9 @@ const SeriesGameCard = ({
                   { backgroundColor: theme.surfaceSecondary },
                 ]}
               >
-                <Text style={[seriesStyles.logoFallbackText, { color: theme.text }]}>
+                <Text
+                  style={[seriesStyles.logoFallbackText, { color: theme.text }]}
+                >
                   {String(awayInfo?.abbreviation || "A").charAt(0)}
                 </Text>
               </View>
@@ -8220,7 +8263,8 @@ const SeriesGameCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {away?.leagueRecord.wins || "W"} - {away?.leagueRecord.losses || "L"}
+                {away?.leagueRecord.wins || "W"} -{" "}
+                {away?.leagueRecord.losses || "L"}
               </Text>
             </View>
           </View>
@@ -8237,7 +8281,8 @@ const SeriesGameCard = ({
                   },
                 ]}
               >
-                {statusShort}{extraInnings}
+                {statusShort}
+                {extraInnings}
               </Text>
             )}
 
@@ -8261,7 +8306,11 @@ const SeriesGameCard = ({
                 <Text
                   style={[
                     seriesStyles.matchScoreDash,
-                    { color: isLive ? theme.error : theme.textTertiary || theme.textSecondary },
+                    {
+                      color: isLive
+                        ? theme.error
+                        : theme.textTertiary || theme.textSecondary,
+                    },
                   ]}
                 >
                   -
@@ -8334,7 +8383,8 @@ const SeriesGameCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {home?.leagueRecord.wins || "W"} - {home?.leagueRecord.losses || "L"}
+                {home?.leagueRecord.wins || "W"} -{" "}
+                {home?.leagueRecord.losses || "L"}
               </Text>
             </View>
 
@@ -8353,7 +8403,9 @@ const SeriesGameCard = ({
                   { backgroundColor: theme.surfaceSecondary },
                 ]}
               >
-                <Text style={[seriesStyles.logoFallbackText, { color: theme.text }]}>
+                <Text
+                  style={[seriesStyles.logoFallbackText, { color: theme.text }]}
+                >
                   {String(homeInfo?.abbreviation || "H").charAt(0)}
                 </Text>
               </View>
@@ -8362,7 +8414,12 @@ const SeriesGameCard = ({
         </View>
       </View>
 
-      <Text style={[seriesStyles.matchCardBottomText, { color: theme.textTertiary }]}>
+      <Text
+        style={[
+          seriesStyles.matchCardBottomText,
+          { color: theme.textTertiary },
+        ]}
+      >
         {venueLine || match?.seriesDescription || ""}
       </Text>
     </TouchableOpacity>
@@ -8978,11 +9035,17 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const seriesRequestParams = useMemo(() => {
     const homeTeamId = Number(homeTeam?.id);
     const awayTeamId = Number(awayTeam?.id);
-    const rawDate = gameData?.datetime?.originalDate || gameData?.datetime?.dateTime;
+    const rawDate =
+      gameData?.datetime?.originalDate || gameData?.datetime?.dateTime;
     const year = Number(String(rawDate || "").slice(0, 4));
     if (!homeTeamId || !awayTeamId || !year) return null;
     return { homeTeamId, awayTeamId, year };
-  }, [awayTeam?.id, gameData?.datetime?.dateTime, gameData?.datetime?.originalDate, homeTeam?.id]);
+  }, [
+    awayTeam?.id,
+    gameData?.datetime?.dateTime,
+    gameData?.datetime?.originalDate,
+    homeTeam?.id,
+  ]);
 
   const fetchSeriesGames = useCallback(
     async ({ force = false } = {}) => {
@@ -9020,7 +9083,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error(`Series request failed with status ${response.status}`);
+          throw new Error(
+            `Series request failed with status ${response.status}`,
+          );
         }
 
         const payload = await response.json();
@@ -9028,7 +9093,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
           .flatMap((dateEntry) =>
             Array.isArray(dateEntry?.games) ? dateEntry.games : [],
           )
-          .sort((a, b) => new Date(b?.gameDate || 0) - new Date(a?.gameDate || 0));
+          .sort(
+            (a, b) => new Date(b?.gameDate || 0) - new Date(a?.gameDate || 0),
+          );
 
         setSeriesGames(games);
         await AsyncStorage.setItem(
@@ -9050,14 +9117,24 @@ const GameDetailsScreen = ({ navigation, route }) => {
     setSeriesError("");
     setSeriesVisibleCount(5);
     setSeriesHomeOnly(false);
-  }, [seriesRequestParams?.awayTeamId, seriesRequestParams?.homeTeamId, seriesRequestParams?.year]);
+  }, [
+    seriesRequestParams?.awayTeamId,
+    seriesRequestParams?.homeTeamId,
+    seriesRequestParams?.year,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "Series") return;
     if (!seriesRequestParams) return;
     if (seriesLoading || seriesGames.length > 0) return;
     fetchSeriesGames();
-  }, [activeTab, fetchSeriesGames, seriesGames.length, seriesLoading, seriesRequestParams]);
+  }, [
+    activeTab,
+    fetchSeriesGames,
+    seriesGames.length,
+    seriesLoading,
+    seriesRequestParams,
+  ]);
 
   const seriesFilteredGames = useMemo(() => {
     if (!seriesHomeOnly) return seriesGames;
@@ -9082,7 +9159,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
       const hScore = Number(match?.teams?.home?.score);
       const aScore = Number(match?.teams?.away?.score);
 
-      if (!Number.isFinite(hScore) || !Number.isFinite(aScore) || hScore === aScore) {
+      if (
+        !Number.isFinite(hScore) ||
+        !Number.isFinite(aScore) ||
+        hScore === aScore
+      ) {
         return;
       }
 
@@ -9546,7 +9627,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
             {/* Away */}
             <View style={[styles.miniSide, { justifyContent: "flex-start" }]}>
               {WBCService.getTeamLogo(awayTeam?.id, isDarkMode) ? (
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{
                     uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                   }}
@@ -9669,7 +9751,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 {homeTeam?.abbreviation ?? ""}
               </Text>
               {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
-                <Image cachePolicy="memory-disk"
+                <Image
+                  cachePolicy="memory-disk"
                   source={{
                     uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                   }}
@@ -9942,7 +10025,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 <View style={seriesStyles.loadingWrap}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text
-                    style={[seriesStyles.emptyText, { color: theme.textSecondary }]}
+                    style={[
+                      seriesStyles.emptyText,
+                      { color: theme.textSecondary },
+                    ]}
                   >
                     Loading series games...
                   </Text>
@@ -9950,7 +10036,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
               ) : seriesError ? (
                 <View style={seriesStyles.loadingWrap}>
                   <Text
-                    style={[seriesStyles.emptyText, { color: theme.textSecondary }]}
+                    style={[
+                      seriesStyles.emptyText,
+                      { color: theme.textSecondary },
+                    ]}
                   >
                     {seriesError}
                   </Text>
@@ -9965,29 +10054,40 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     onPress={() => fetchSeriesGames({ force: true })}
                     activeOpacity={0.85}
                   >
-                    <Text style={[seriesStyles.showMoreText, { color: theme.text }]}>Retry</Text>
+                    <Text
+                      style={[seriesStyles.showMoreText, { color: theme.text }]}
+                    >
+                      Retry
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : seriesFilteredGames.length === 0 ? (
-                <Text style={[seriesStyles.emptyText, { color: theme.textSecondary }]}> 
+                <Text
+                  style={[
+                    seriesStyles.emptyText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   No series games found.
                 </Text>
               ) : (
                 <>
-                  {seriesFilteredGames.slice(0, seriesVisibleCount).map((match, idx) => (
-                    <SeriesGameCard
-                      key={`${match?.gamePk ?? "series"}-${idx}`}
-                      match={match}
-                      currentGamePk={gamePk}
-                      homeColor={homeColor}
-                      awayColor={awayColor}
-                      currentHomeId={homeTeam?.id}
-                      currentAwayId={awayTeam?.id}
-                      theme={theme}
-                      isDarkMode={isDarkMode}
-                      navigation={navigation}
-                    />
-                  ))}
+                  {seriesFilteredGames
+                    .slice(0, seriesVisibleCount)
+                    .map((match, idx) => (
+                      <SeriesGameCard
+                        key={`${match?.gamePk ?? "series"}-${idx}`}
+                        match={match}
+                        currentGamePk={gamePk}
+                        homeColor={homeColor}
+                        awayColor={awayColor}
+                        currentHomeId={homeTeam?.id}
+                        currentAwayId={awayTeam?.id}
+                        theme={theme}
+                        isDarkMode={isDarkMode}
+                        navigation={navigation}
+                      />
+                    ))}
 
                   {seriesVisibleCount < seriesFilteredGames.length && (
                     <TouchableOpacity
@@ -10005,7 +10105,14 @@ const GameDetailsScreen = ({ navigation, route }) => {
                       }
                       activeOpacity={0.85}
                     >
-                      <Text style={[seriesStyles.showMoreText, { color: theme.text }]}>Show more</Text>
+                      <Text
+                        style={[
+                          seriesStyles.showMoreText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        Show more
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </>
@@ -10497,7 +10604,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                               onPress={() => toggleRunItBackTeam(tId)}
                             >
                               {WBCService.getTeamLogo(tId, isDarkMode) ? (
-                                <Image cachePolicy="memory-disk"
+                                <Image
+                                  cachePolicy="memory-disk"
                                   source={{
                                     uri: WBCService.getTeamLogo(
                                       tId,
@@ -10580,7 +10688,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                             ]}
                             onPress={() => toggleRunItBackPlayer(p.id)}
                           >
-                            <Image cachePolicy="memory-disk"
+                            <Image
+                              cachePolicy="memory-disk"
                               source={{ uri: playerHeadshotUrl(p.id) }}
                               style={styles.runItBackPlayerHeadshot}
                             />
