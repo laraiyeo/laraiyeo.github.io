@@ -93,7 +93,9 @@ const allowedTree = {
                 startSpeed: true,
                 strikeZoneTop: true,
                 strikeZoneBottom: true,
-                coordinates: { pX: true, pZ: true },
+                coordinates: true,
+                breaks: true,
+                plateTime: true,
               },
               hitData: {
                 launchSpeed: true,
@@ -131,8 +133,9 @@ const allowedTree = {
               endSpeed: true,
               strikeZoneTop: true,
               strikeZoneBottom: true,
-              coordinates: { pX: true, pZ: true },
-              breaks: { spinRate: true },
+              coordinates: true,
+              breaks: true,
+              plateTime: true,
             },
             hitData: {
               launchSpeed: true,

@@ -917,13 +917,14 @@ const buildScorers = ({
   const homeGoals = [];
   const playoffGame = isNhlPlayoffGameType(gameType);
 
-  const addGoal = (bucket, name, timeInPeriod, periodNumber) => {
+  const addGoal = (bucket, name, timeInPeriod, periodNumber, strength) => {
     if (!name || !timeInPeriod || !periodNumber) return;
     bucket.push({
       name,
       timeInPeriod,
       periodNumber,
       secs: parseClockSecs(timeInPeriod),
+      strength,
     });
   };
 
@@ -939,11 +940,12 @@ const buildScorers = ({
           `${String(goal?.firstName || "").charAt(0)}. ${goal?.lastName || ""}`.trim();
         const teamAbbr = String(goal?.teamAbbrev || "").toUpperCase();
         const timeInPeriod = goal?.timeInPeriod || goal?.timeRemaining;
+        const strength = String(goal?.strength || "").toUpperCase();
 
         if (teamAbbr && teamAbbr === awayAbbr) {
-          addGoal(awayGoals, scorerName, timeInPeriod, periodNumber);
+          addGoal(awayGoals, scorerName, timeInPeriod, periodNumber, strength);
         } else if (teamAbbr && teamAbbr === homeAbbr) {
-          addGoal(homeGoals, scorerName, timeInPeriod, periodNumber);
+          addGoal(homeGoals, scorerName, timeInPeriod, periodNumber, strength);
         }
       });
     });
@@ -970,10 +972,12 @@ const buildScorers = ({
         play?.details?.eventOwnerTeamAbbrev || "",
       ).toUpperCase();
 
+      const strength = String(play?.details?.strength || "").toUpperCase();
+
       if (teamAbbr === awayAbbr)
-        addGoal(awayGoals, name, timeInPeriod, periodNumber);
+        addGoal(awayGoals, name, timeInPeriod, periodNumber, strength);
       if (teamAbbr === homeAbbr)
-        addGoal(homeGoals, name, timeInPeriod, periodNumber);
+        addGoal(homeGoals, name, timeInPeriod, periodNumber, strength);
     });
   }
 
@@ -983,8 +987,10 @@ const buildScorers = ({
     return a.secs - b.secs;
   };
 
+  const strengthLabel = (strength) => strength !== "EV" ? `, ${strength}` : "";
+
   const formatGoalMoment = (g) =>
-    `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber, gameType)})`;
+    `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber, gameType)}${strengthLabel(g.strength)})`;
 
   const formatGroupedByPlayer = (goals) => {
     const grouped = new Map();
@@ -2702,7 +2708,7 @@ const NHLTeamRosterSection = ({
 
       {useSeasonStatsFallback && players.length > 0 && (
         <Text style={[styles.nhlRosterSeasonStatsLabel, { color: theme.text }]}>
-          SEASON STATS
+          {isNhlPlayoffGameType ? "PLAYOFF STATS" : "SEASON STATS"}
         </Text>
       )}
 
@@ -4292,6 +4298,7 @@ const EventsSection = ({
       if (periodType === "SO" || (!playoffGame && periodNumber >= 5)) return;
       const goals = Array.isArray(periodBlock?.goals) ? periodBlock.goals : [];
       goals.forEach((goal) => {
+        const strength = String(goal?.strength || "").toUpperCase();
         const time = goal?.timeInPeriod || goal?.timeRemaining || "";
         const assists = Array.isArray(goal?.assists) ? goal.assists : [];
         const scorerId = Number(
@@ -4368,6 +4375,7 @@ const EventsSection = ({
           type: "goal",
           teamAbbr: String(goal?.teamAbbrev || "").toUpperCase(),
           timeInPeriod: time,
+          strength,
           sortSecs: parseClockSecs(time),
           playerId: Number.isFinite(scorerId) ? scorerId : null,
           mainText: scorerName,
@@ -4855,6 +4863,11 @@ const EventsSection = ({
                                     {event.homeScoreAfter}
                                   </Text>
                                   {")"}
+                                  {event.strength && event.strength !== "EV" && (
+                                  <Text style={{ fontWeight: "700" }}>
+                                    {" "} · {event.strength}
+                                  </Text>
+                                  )}
                                 </>
                               ) : null}
                             </Text>
@@ -6199,7 +6212,7 @@ const SeriesSummarySection = ({
         style={[seriesStyles.headerRow, { borderBottomColor: theme.border }]}
       >
         <Text style={[seriesStyles.headerTitle, { color: theme.text }]}>
-          SEASON SERIES
+          {isNhlPlayoffGameType ? "PLAYOFF SERIES" : "SEASON SERIES"}
         </Text>
         <TouchableOpacity
           style={[
@@ -9782,7 +9795,7 @@ const NHLPlayerShareCardModal = ({
                       fontSize: 10,
                     }}
                   >
-                    {"SEASON STATS"}
+                    {isNhlPlayoffGameType ? "PLAYOFF STATS" : "SEASON STATS"}
                   </Text>
                 )}
               </View>

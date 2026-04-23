@@ -9073,7 +9073,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
     let homeWins = 0;
     let awayWins = 0;
 
-    seriesGames.forEach((match) => {
+    seriesFilteredGames.forEach((match) => {
       const status = match?.status ?? {};
       if (!isMlbSeriesFinishedState(status)) return;
 
@@ -9092,7 +9092,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
     });
 
     return { homeWins, awayWins };
-  }, [awayTeam?.id, homeTeam?.id, seriesGames]);
+  }, [awayTeam?.id, homeTeam?.id, seriesFilteredGames]);
 
   // ── Streaming helpers ──────────────────────────────────────────────────────
   const STREAM_API_BASE = "https://streamed.pk/api";
@@ -9929,7 +9929,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
               awayColor={awayColor}
               summary={seriesSummary}
               homeOnly={seriesHomeOnly}
-              onToggleHomeOnly={() => setSeriesHomeOnly((prev) => !prev)}
+              onToggleHomeOnly={() => {
+                setSeriesHomeOnly((prev) => !prev);
+                setSeriesVisibleCount(5);
+              }}
               theme={theme}
               isDarkMode={isDarkMode}
             />

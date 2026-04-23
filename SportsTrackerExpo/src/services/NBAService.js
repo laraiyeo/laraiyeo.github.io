@@ -201,8 +201,17 @@ export class NBAService extends BaseCacheService {
         (competition.competitors || []).find((c) => c.homeAway === "away") ||
         {};
 
-      const homeRecord = home.record || away?.record ? away.record.split("-").reverse().join("-") : "";
-      const awayRecord = away.record || home?.record ? home.record.split("-").reverse().join("-") : "";
+      const homeRecord = home?.record ?? (
+        typeof away?.record === "string"
+          ? away.record.split("-").reverse().join("-")
+          : ""
+      );
+
+      const awayRecord = away?.record ?? (
+        typeof home?.record === "string"
+          ? home.record.split("-").reverse().join("-")
+          : ""
+      );
 
       return {
         id: game.id,

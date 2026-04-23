@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,8 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import * as Sharing from "expo-sharing";
+import ViewShot from "react-native-view-shot";
 import Svg, {
   Circle,
   Defs,
@@ -18,10 +21,12 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { NHLService } from "../../services/NHLService";
 
 const { width } = require("react-native").Dimensions.get("window");
+const TAB_BUTTON_WIDTH = Math.max(92, Math.floor(width / 4.1));
 
 const TABS = ["Player", "Game Log", "Career", "Advanced Stats", "Awards"];
 const GAME_LOG_PAGE_SIZE = 15;
@@ -128,6 +133,17 @@ const formatSeason = (season) => {
   const s = String(season || "").trim();
   if (s.length !== 8) return s || "-";
   return `${s.slice(0, 4)}-${s.slice(6, 8)}`;
+};
+
+const getCurrentDateLines = () => {
+  const now = new Date();
+  return {
+    monthDay: now.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
+    year: now.toLocaleDateString("en-US", { year: "numeric" }),
+  };
 };
 
 const toLabel = (key) =>
@@ -706,6 +722,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
   const [headerHeight, setHeaderHeight] = useState(170);
   const [gameLogPage, setGameLogPage] = useState(0);
   const [careerExpandedRows, setCareerExpandedRows] = useState({});
+  const [seasonShareVisible, setSeasonShareVisible] = useState(false);
+  const [seasonSharing, setSeasonSharing] = useState(false);
+  const seasonShareRef = useRef(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -900,16 +919,164 @@ const PlayerPageScreen = ({ route, navigation }) => {
     extrapolate: "clamp",
   });
 
-  const renderStatBubble = (title, chips) => (
+  const seasonShareStats = useMemo(() => {
+    const regular = isGoalie
+      ? [
+          { label: "GP", value: featured?.gamesPlayed ?? "-" },
+          { label: "W", value: featured?.wins ?? "-" },
+          { label: "L", value: featured?.losses ?? "-" },
+          { label: "OTL", value: featured?.otLosses ?? "-" },
+          { label: "SV%", value: fmtPct(featured?.savePctg) },
+          {
+            label: "GAA",
+            value:
+              featured?.goalsAgainstAvg != null
+                ? Number(featured.goalsAgainstAvg).toFixed(2)
+                : "-",
+          },
+          { label: "SO", value: featured?.shutouts ?? "-" },
+          {
+            label: "W%",
+            value: fmtPct(
+              (featured?.wins ?? 0) / Math.max(1, featured?.gamesPlayed ?? 0),
+            ),
+          },
+        ]
+      : [
+          { label: "GLS", value: featured?.goals ?? "-" },
+          { label: "AST", value: featured?.assists ?? "-" },
+          { label: "PTS", value: featured?.points ?? "-" },
+          { label: "GP", value: featured?.gamesPlayed ?? "-" },
+          { label: "+/-", value: fmtPlusMinus(featured?.plusMinus) },
+          { label: "SHT", value: featured?.shots ?? "-" },
+          { label: "SHT%", value: fmtPct(featured?.shootingPctg) },
+          { label: "PIM", value: featured?.pim ?? "-" },
+        ];
+
+    const skaterZones = Array.isArray(tracking?.sogSummary)
+      ? tracking.sogSummary
+      : [];
+    const goalieZones = Array.isArray(tracking?.shotLocationSummary)
+      ? tracking.shotLocationSummary
+      : [];
+    const allSkaterZone = skaterZones.find(
+      (row) => String(row?.locationCode || "").toLowerCase() === "all",
+    );
+    const highDanger = goalieZones.find(
+      (row) => String(row?.locationCode || "").toLowerCase() === "high",
+    );
+    const allGoalieZone = goalieZones.find(
+      (row) => String(row?.locationCode || "").toLowerCase() === "all",
+    );
+
+    const advanced = isGoalie
+      ? [
+          {
+            label: "HD GAA",
+            value:
+              highDanger?.goalsAgainstAvg != null
+                ? Number(highDanger.goalsAgainstAvg).toFixed(2)
+                : (highDanger?.goalsAgainst ?? "-"),
+            pct: formatPercentileBadge(highDanger?.goalsAgainstPercentile),
+          },
+          {
+            label: "HD SV",
+            value: highDanger?.saves ?? "-",
+            pct: formatPercentileBadge(highDanger?.savesPercentile),
+          },
+          {
+            label: "HD SV%",
+            value: fmtPct(highDanger?.savePctg),
+            pct: formatPercentileBadge(highDanger?.savePctgPercentile),
+          },
+          {
+            label: "SV ZONE",
+            value: allGoalieZone?.saves ?? "-",
+            pct: formatPercentileBadge(allGoalieZone?.savesPercentile),
+          },
+        ]
+      : [
+          {
+            label: "HARD SHOT",
+            value:
+              tracking?.topShotSpeed?.imperial != null
+                ? `${Number(tracking.topShotSpeed.imperial).toFixed(2)} MPH`
+                : "-",
+            pct: formatPercentileBadge(tracking?.topShotSpeed?.percentile),
+          },
+          {
+            label: "MAX GAME SPEED",
+            value:
+              tracking?.skatingSpeed?.speedMax?.imperial != null
+                ? `${Number(tracking.skatingSpeed.speedMax.imperial).toFixed(2)} MPH`
+                : "-",
+            pct: formatPercentileBadge(
+              tracking?.skatingSpeed?.speedMax?.percentile,
+            ),
+          },
+          {
+            label: "MAX GAME MILES",
+            value:
+              tracking?.distanceMaxGame?.imperial != null
+                ? `${Number(tracking.distanceMaxGame.imperial).toFixed(2)} MI`
+                : "-",
+            pct: formatPercentileBadge(tracking?.distanceMaxGame?.percentile),
+          },
+          {
+            label: "SOG ALL ZONE",
+            value: allSkaterZone?.shots ?? "-",
+            pct: formatPercentileBadge(allSkaterZone?.shotsPercentile),
+          },
+        ];
+
+    return [...regular, ...advanced].slice(0, 12);
+  }, [featured, isGoalie, tracking]);
+
+  const shareTopStats = useMemo(
+    () => seasonShareStats.slice(0, 3),
+    [seasonShareStats],
+  );
+
+  const handleSeasonShare = async () => {
+    if (!seasonShareRef.current || seasonSharing) return;
+    try {
+      setSeasonSharing(true);
+      await new Promise((res) => setTimeout(res, 280));
+      const uri = await seasonShareRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("NHL player season share failed", e);
+    } finally {
+      setSeasonSharing(false);
+    }
+  };
+
+  const renderStatBubble = (title, chips, showShareButton = false) => (
     <View
       style={[
         styles.bubble,
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}
     >
-      <Text style={[styles.bubbleTitle, { color: theme.textSecondary }]}>
-        {title}
-      </Text>
+      <View style={styles.bubbleHeaderRow}>
+        <Text style={[styles.bubbleTitle, { color: theme.textSecondary }]}>
+          {title}
+        </Text>
+        {showShareButton ? (
+          <TouchableOpacity
+            onPress={() => setSeasonShareVisible(true)}
+            style={[
+              styles.seasonShareBtn,
+              { borderColor: theme.border, backgroundColor: teamColor },
+            ]}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.seasonShareBtnText, { color: "#fff" }]}>
+              Share
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
       <View style={styles.chipsGrid}>
         {chips.map((chip, idx) => (
           <View
@@ -931,7 +1098,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
   const renderPlayerTab = () => (
     <View style={styles.tabWrap}>
       {visibleTopChips.length > 0
-        ? renderStatBubble("Season", visibleTopChips)
+        ? renderStatBubble("Season", visibleTopChips, true)
         : null}
       {visibleRegularCareerChips.length > 0
         ? renderStatBubble("Career Regular Season", visibleRegularCareerChips)
@@ -948,7 +1115,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
       >
         <Text style={[styles.bubbleTitle, { color: theme.text }]}>Bio</Text>
         {[
-          ["Height", info?.heightInInches ? `${Math.floor(info.heightInInches / 12)}' ${info.heightInInches % 12}"` : "-"],
+          [
+            "Height",
+            info?.heightInInches
+              ? `${Math.floor(info.heightInInches / 12)}' ${info.heightInInches % 12}"`
+              : "-",
+          ],
           ["Weight", info?.weightInPounds ? `${info.weightInPounds} lb` : "-"],
           [isGoalie ? "Catches" : "Shoots", info?.shootsCatches || "-"],
           ["Birth Date", info?.birthDate || "-"],
@@ -3058,6 +3230,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 activeOpacity={0.75}
               >
                 <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                   style={{
                     color: activeTab === tab ? theme.text : theme.textSecondary,
                     fontWeight: activeTab === tab ? "700" : "500",
@@ -3084,6 +3258,260 @@ const PlayerPageScreen = ({ route, navigation }) => {
         {activeTab === "Advanced Stats" && renderAdvancedStatsTab()}
         {activeTab === "Awards" && renderAwardsTab()}
       </Animated.ScrollView>
+
+      <Modal
+        visible={seasonShareVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSeasonShareVisible(false)}
+      >
+        <View style={styles.shareOverlay}>
+          <ViewShot
+            ref={seasonShareRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
+          >
+            <View
+              style={[
+                styles.shareCard,
+                {
+                  backgroundColor: theme.surface,
+                  width: Math.min(width - 48, 540),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.shareHeader,
+                  {
+                    borderBottomColor: teamColor,
+                    backgroundColor: `${teamColor}22`,
+                  },
+                ]}
+              >
+                <View style={styles.shareHeaderTop}>
+                  <View
+                    style={[styles.shareBadge, { backgroundColor: teamColor }]}
+                  >
+                    <Text
+                      style={[
+                        styles.shareBadgeText,
+                        { color: getTextOnColor(teamColor) },
+                      ]}
+                    >
+                      {String(info?.position || "P").toUpperCase()} {" · "}
+                      {toPositionName(info?.position)}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontWeight: "800",
+                      color: theme.text,
+                      fontSize: 10,
+                    }}
+                  >
+                    SEASON SNAPSHOT
+                  </Text>
+                </View>
+
+                <View style={styles.shareHeaderBody}>
+                  <Image
+                    source={{ uri: info?.headshot || "" }}
+                    style={[styles.shareHeadshot, { borderColor: teamColor }]}
+                    contentFit="cover"
+                  />
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.shareTopStatsRow}>
+                      {shareTopStats.map((item) => (
+                        <View
+                          key={`share-top-${item.label}`}
+                          style={styles.shareTopStatCell}
+                        >
+                          <Text
+                            style={[
+                              styles.shareTopStatValue,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.value}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.shareTopStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <View style={styles.shareNameDateRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={[styles.shareName, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {displayName}
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 2,
+                            marginTop: 2,
+                          }}
+                        >
+                          {teamLogo ? (
+                            <Image
+                              source={{ uri: teamLogo }}
+                              style={styles.shareLogo}
+                              contentFit="contain"
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.shareLogoFallback,
+                                { backgroundColor: "rgba(255,255,255,0.2)" },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.shareLogoFallbackText,
+                                  { color: headerTextColor },
+                                ]}
+                              >
+                                {teamAbbrev}
+                              </Text>
+                            </View>
+                          )}
+                          <Text
+                            style={[
+                              styles.shareTeam,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {teamName || teamAbbrev}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.shareDateWrap}>
+                        <Text
+                          style={[
+                            styles.shareDateLine,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {getCurrentDateLines().monthDay}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.shareDateLine,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {getCurrentDateLines().year}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.shareGrid}>
+                {seasonShareStats.map((item, i) => (
+                  <View
+                    key={`share-stat-${item.label}-${i}`}
+                    style={[
+                      styles.shareStatCell,
+                      { borderColor: theme.border },
+                      i % 3 !== 2 && {
+                        borderRightWidth: StyleSheet.hairlineWidth,
+                      },
+                      i < 9 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                    ]}
+                  >
+                    {!!item.pct && (
+                      <Text
+                        style={[
+                          styles.shareStatPct,
+                          {
+                            color:
+                              parseInt(item.pct, 10) >= 81 &&
+                              !item.pct.includes("<")
+                                ? theme.success
+                                : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {item.pct} PCTILE
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.shareStatValue,
+                        {
+                          color:
+                            item.label === "+/-"
+                              ? item.value > 0
+                                ? theme.success
+                                : theme.danger
+                              : theme.text,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.value}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.shareStatLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View
+                style={[styles.shareFooter, { borderTopColor: theme.border }]}
+              >
+                <Text style={[styles.shareFooterText, { color: theme.text }]}>
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+
+          <View style={styles.shareActions}>
+            <TouchableOpacity
+              onPress={handleSeasonShare}
+              disabled={seasonSharing}
+              style={[styles.shareActionBtn, { backgroundColor: teamColor }]}
+            >
+              <Text style={styles.shareActionBtnTxt}>
+                {seasonSharing ? "Sharing..." : "Share"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSeasonShareVisible(false)}
+              style={[styles.shareActionBtn, { backgroundColor: theme.border }]}
+            >
+              <Text style={[styles.shareActionBtnTxt, { color: theme.text }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -3126,6 +3554,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerLogoFallbackText: { fontSize: 12, fontWeight: "800" },
+  shareLogo: {
+    width: 30,
+    height: 20,
+    borderRadius: 22,
+    marginLeft: -6,
+  },
+  shareLogoFallback: {
+    width: 30,
+    height: 20,
+    borderRadius: 22,
+    marginLeft: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareLogoFallbackText: { fontSize: 12, fontWeight: "800" },
   headerTextBlock: { flex: 1, minWidth: 0 },
   headerName: { fontSize: 22, fontWeight: "800" },
   headerSub: { fontSize: 13, fontWeight: "700", marginTop: 2 },
@@ -3167,13 +3610,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   tabBarContent: {
-    flexGrow: 1,
-    justifyContent: "space-evenly",
+    flexGrow: 0,
+    justifyContent: "flex-start",
+    paddingHorizontal: 2,
   },
   tabBarBtn: {
     alignItems: "center",
     paddingVertical: 11,
-    paddingHorizontal: 12,
+    minWidth: TAB_BUTTON_WIDTH,
     position: "relative",
   },
   tabBarIndicator: {
@@ -3193,8 +3637,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.4,
-    marginBottom: 14,
     textTransform: "uppercase",
+  },
+  bubbleHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  seasonShareBtn: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  seasonShareBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   chipsGrid: { flexDirection: "row", flexWrap: "wrap", gap: CHIP_GAP },
   chip: {
@@ -3756,6 +4216,153 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
     fontWeight: "600",
+  },
+  shareOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 18,
+    padding: 20,
+  },
+  shareCard: {
+    overflow: "hidden",
+  },
+  shareHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  shareHeaderTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  shareBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  shareBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  shareHeaderBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  shareHeadshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  shareTopStatsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 4,
+  },
+  shareTopStatCell: {
+    alignItems: "center",
+  },
+  shareTopStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  shareTopStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  shareNameDateRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  shareName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  shareTeam: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  shareDateWrap: {
+    alignItems: "flex-end",
+    marginLeft: 6,
+    flexShrink: 0,
+  },
+  shareDateLine: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "right",
+    lineHeight: 12,
+  },
+  shareGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  shareStatCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  shareStatPct: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  shareStatValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  shareStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  shareFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  shareFooterText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  shareActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  shareActionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  shareActionBtnTxt: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
   emptyText: { textAlign: "center", marginTop: 20, fontSize: 14 },
 });
