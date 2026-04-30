@@ -960,7 +960,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       const dn = String(d.driver_number);
       if (driversSet.has(dn))
         driversMap[dn] =
-          d.broadcast_name || d.full_name || d.fullName || d.name || null;
+          d.full_name || d.broadcast_name || d.fullName || d.name || null;
     }
 
     // build meetings/sessions maps only for referenced keys
@@ -1308,7 +1308,7 @@ app.get("/championship_drivers", async (req, res) => {
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
       driversMap[String(d.driver_number)] =
-        d.broadcast_name || d.full_name || d.fullName || d.name || null;
+        d.full_name || d.broadcast_name || d.fullName || d.name || null;
     }
 
     res.json({
@@ -1373,7 +1373,7 @@ app.get("/championship_teams", async (req, res) => {
       if (!team) continue;
       if (!driversByTeam[team]) driversByTeam[team] = Object.create(null);
       driversByTeam[team][String(d.driver_number)] =
-        d.broadcast_name || d.full_name || d.fullName || d.name || null;
+        d.full_name || d.broadcast_name || d.fullName || d.name || null;
     }
 
     res.json({
@@ -1390,6 +1390,77 @@ app.get("/championship_teams", async (req, res) => {
       error: "Failed to fetch championship_teams",
       details: err.message,
     });
+  }
+});
+
+// Standings endpoint: combine championship_drivers and championship_teams
+app.get("/standings", async (req, res) => {
+  try {
+    // ensure cached source data exists
+    await getCachedWithTTL("championship_drivers", `${BASE_URL}championship_drivers`, TTL_1H).catch(() => {});
+    await getCachedWithTTL("championship_teams", `${BASE_URL}championship_teams`, TTL_1H).catch(() => {});
+
+    const driversRaw = normalizeArray(cache.get("championship_drivers")?.data);
+    const teamsRaw = normalizeArray(cache.get("championship_teams")?.data);
+
+    // Build latest-per-driver from championship_drivers (take last object in array for each driver)
+    const driversByNumber = Object.create(null);
+    for (const d of driversRaw) {
+      const dn = String(d?.driver_number ?? d?.driverNumber ?? "");
+      if (!dn) continue;
+      if (!driversByNumber[dn]) driversByNumber[dn] = [];
+      driversByNumber[dn].push(d);
+    }
+
+    const drivers = [];
+    for (const dn of Object.keys(driversByNumber)) {
+      const arr = driversByNumber[dn];
+      const last = arr[arr.length - 1] || {};
+      drivers.push({
+        driver_number: dn,
+        points_current: last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
+        position_current: last.position_current ?? last.positionCurrent ?? last.position ?? null,
+      });
+    }
+
+    // Build latest-per-team from championship_teams
+    const teamsByName = Object.create(null);
+    for (const t of teamsRaw) {
+      const tn = String(t?.team_name ?? t?.teamName ?? "");
+      if (!tn) continue;
+      if (!teamsByName[tn]) teamsByName[tn] = [];
+      teamsByName[tn].push(t);
+    }
+
+    const teams = [];
+    for (const tn of Object.keys(teamsByName)) {
+      const arr = teamsByName[tn];
+      const last = arr[arr.length - 1] || {};
+      teams.push({
+        team_name: tn,
+        points_current: last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
+        position_current: last.position_current ?? last.positionCurrent ?? last.position ?? null,
+      });
+    }
+
+    // Build drivers_by_team and drivers maps from cached drivers list
+    const driversGlobal = normalizeArray(cache.get("drivers")?.data);
+    const drivers_by_team = Object.create(null);
+    const driversMap = Object.create(null);
+    for (const dv of driversGlobal) {
+      const team = dv?.team_name || dv?.teamName || "";
+      const dn = String(dv?.driver_number ?? "");
+      const name = dv?.full_name || dv?.broadcast_name || dv?.fullName || dv?.name || null;
+      if (dn) driversMap[dn] = name;
+      if (!team) continue;
+      if (!drivers_by_team[team]) drivers_by_team[team] = Object.create(null);
+      if (dn) drivers_by_team[team][dn] = name;
+    }
+
+    setCachingHeaders(res, TTL_1H);
+    res.json({ source: "cache", data: { drivers, teams, drivers_by_team, drivers_map: driversMap } });
+  } catch (e) {
+    res.status(502).json({ error: "Failed to build standings", details: e?.message || e });
   }
 });
 
@@ -1461,7 +1532,7 @@ app.get("/session_result", async (req, res) => {
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
       driversMap[String(d.driver_number)] =
-        d.broadcast_name || d.full_name || d.fullName || d.name || null;
+        d.full_name || d.broadcast_name || d.fullName || d.name || null;
     }
 
     res.json({
@@ -1529,7 +1600,7 @@ app.get("/starting_grid", async (req, res) => {
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
       driversMap[String(d.driver_number)] =
-        d.broadcast_name || d.full_name || d.fullName || d.name || null;
+        d.full_name || d.broadcast_name || d.fullName || d.name || null;
     }
 
     res.json({

@@ -952,7 +952,7 @@ const SettingsScreen = ({ navigation }) => {
                   },
                 ]}
               >
-                <Text allowFontScaling={false} style={styles.profileButtonText}>
+                <Text allowFontScaling={false} style={[styles.profileButtonText, { color: supabaseUser ? "#fff" : colors.primary }]}>
                   {supabaseUser ? "Settings" : "Login/Create Account"}
                 </Text>
               </TouchableOpacity>
