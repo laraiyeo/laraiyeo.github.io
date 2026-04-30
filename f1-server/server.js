@@ -959,8 +959,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     for (const d of driversGlobal) {
       const dn = String(d.driver_number);
       if (driversSet.has(dn))
-        driversMap[dn] =
-          d.full_name || d.broadcast_name || d.fullName || d.name || null;
+        driversMap[dn] = {
+          name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
+          headshot_url: d.headshot_url || d.headshotUrl || null,
+        };
     }
 
     // build meetings/sessions maps only for referenced keys
@@ -1307,8 +1309,10 @@ app.get("/championship_drivers", async (req, res) => {
     const driversMap = Object.create(null);
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
-      driversMap[String(d.driver_number)] =
-        d.full_name || d.broadcast_name || d.fullName || d.name || null;
+      driversMap[String(d.driver_number)] = {
+        name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
+        headshot_url: d.headshot_url || d.headshotUrl || null,
+      };
     }
 
     res.json({
@@ -1470,7 +1474,12 @@ app.get("/standings", async (req, res) => {
       const dn = String(dv?.driver_number ?? "");
       const name =
         dv?.full_name || dv?.broadcast_name || dv?.fullName || dv?.name || null;
-      if (dn) driversMap[dn] = name;
+      const head = dv?.headshot_url || dv?.headshotUrl || null;
+      if (dn)
+        driversMap[dn] = {
+          name,
+          headshot_url: head,
+        };
       if (!team) continue;
       if (!drivers_by_team[team]) drivers_by_team[team] = Object.create(null);
       if (dn) drivers_by_team[team][dn] = name;
@@ -1555,8 +1564,10 @@ app.get("/session_result", async (req, res) => {
     const driversMap = Object.create(null);
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
-      driversMap[String(d.driver_number)] =
-        d.full_name || d.broadcast_name || d.fullName || d.name || null;
+      driversMap[String(d.driver_number)] = {
+        name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
+        headshot_url: d.headshot_url || d.headshotUrl || null,
+      };
     }
 
     res.json({
@@ -1623,8 +1634,10 @@ app.get("/starting_grid", async (req, res) => {
     const driversMap = Object.create(null);
     for (const d of driversArr) {
       if (!d?.driver_number) continue;
-      driversMap[String(d.driver_number)] =
-        d.full_name || d.broadcast_name || d.fullName || d.name || null;
+      driversMap[String(d.driver_number)] = {
+        name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
+        headshot_url: d.headshot_url || d.headshotUrl || null,
+      };
     }
 
     res.json({
