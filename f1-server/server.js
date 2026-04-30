@@ -925,7 +925,8 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           let last = arr[0];
           for (const it of arr) {
             if (!it || !it.date) continue;
-            if (new Date(it.date).getTime() >= new Date(last.date).getTime()) last = it;
+            if (new Date(it.date).getTime() >= new Date(last.date).getTime())
+              last = it;
           }
           positionMap[dn] = last;
         }
