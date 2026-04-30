@@ -13,17 +13,17 @@ import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const SERVER_BASE = 'https://laraiyeogithubio-production-ed10.up.railway.app';
-const MEETINGS_CACHE_KEY = 'f1_meetings_cache';
+const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
+const MEETINGS_CACHE_KEY = "f1_meetings_cache";
 const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 function parseGmtOffset(gmt) {
   if (!gmt) return 0;
   // gmt like "+03:00:00" or "-04:00:00" or "03:00:00"
-  const sign = gmt.trim().startsWith('-') ? -1 : 1;
-  const parts = gmt.replace(/^[+-]/, '').split(':').map(Number);
+  const sign = gmt.trim().startsWith("-") ? -1 : 1;
+  const parts = gmt.replace(/^[+-]/, "").split(":").map(Number);
   const h = parts[0] || 0;
   const m = parts[1] || 0;
   const s = parts[2] || 0;
@@ -80,7 +80,11 @@ const ResultsScreen = ({ route }) => {
           const cached = await AsyncStorage.getItem(MEETINGS_CACHE_KEY);
           if (cached) {
             const parsed = JSON.parse(cached);
-            if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < MEETINGS_CACHE_TTL) {
+            if (
+              parsed &&
+              parsed.fetchedAt &&
+              Date.now() - parsed.fetchedAt < MEETINGS_CACHE_TTL
+            ) {
               meetingsData = parsed.data;
             }
           }
@@ -92,10 +96,20 @@ const ResultsScreen = ({ route }) => {
           const url = `${SERVER_BASE}/meetings`;
           const resp = await fetch(url);
           const json = await resp.json();
-          const arr = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+          const arr = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json)
+              ? json
+              : [];
           meetingsData = arr.map((m) => {
-            const start = applyGmtOffsetToDate(m.date_start || m.dateStart || m.date || null, m.gmt_offset || m.gmtOffset || m.gmt);
-            const end = applyGmtOffsetToDate(m.date_end || m.dateEnd || m.endDate || null, m.gmt_offset || m.gmtOffset || m.gmt);
+            const start = applyGmtOffsetToDate(
+              m.date_start || m.dateStart || m.date || null,
+              m.gmt_offset || m.gmtOffset || m.gmt,
+            );
+            const end = applyGmtOffsetToDate(
+              m.date_end || m.dateEnd || m.endDate || null,
+              m.gmt_offset || m.gmtOffset || m.gmt,
+            );
             const startMs = start ? start.getTime() : null;
             const endMs = end ? end.getTime() : null;
             const endPlusOneMs = endMs ? endMs + 24 * 60 * 60 * 1000 : null;
@@ -106,27 +120,58 @@ const ResultsScreen = ({ route }) => {
             const todayEnd = new Date();
             todayEnd.setHours(23, 59, 59, 999);
             const eventStartDate = start || (m.date ? new Date(m.date) : null);
-            const eventEndDate = end || (m.date_end ? new Date(m.date_end) : null);
-            const isTodayInEventPeriod = eventStartDate && eventEndDate ? (todayStart <= eventEndDate && todayEnd >= eventStartDate) : false;
-            const finalIsUpcoming = isCompleted ? false : (isTodayInEventPeriod ? false : isUpcoming);
+            const eventEndDate =
+              end || (m.date_end ? new Date(m.date_end) : null);
+            const isTodayInEventPeriod =
+              eventStartDate && eventEndDate
+                ? todayStart <= eventEndDate && todayEnd >= eventStartDate
+                : false;
+            const finalIsUpcoming = isCompleted
+              ? false
+              : isTodayInEventPeriod
+                ? false
+                : isUpcoming;
             return {
               ...m,
               id: m.meeting_key || m.meetingKey || m.id,
-              name: m.meeting_name || m.meeting_official_name || m.meetingName || m.name || '',
-              date: isCompleted ? (end ? end.toISOString() : (m.date_end || m.dateEnd || '')) : (start ? start.toISOString() : (m.date_start || m.dateStart || '')),
+              name:
+                m.meeting_name ||
+                m.meeting_official_name ||
+                m.meetingName ||
+                m.name ||
+                "",
+              date: isCompleted
+                ? end
+                  ? end.toISOString()
+                  : m.date_end || m.dateEnd || ""
+                : start
+                  ? start.toISOString()
+                  : m.date_start || m.dateStart || "",
               eventDate: start,
               endDate: end,
-              countryFlag: m.country_flag || m.countryFlag || '',
-              venueName: m.circuit_short_name || m.circuitShortName || m.venueName || m.location || '',
+              countryFlag: m.country_flag || m.countryFlag || "",
+              venueName:
+                m.circuit_short_name ||
+                m.circuitShortName ||
+                m.venueName ||
+                m.location ||
+                "",
               isCompleted,
               isUpcoming: finalIsUpcoming,
               competitionWinners: {},
-              winnerName: m.winner || '',
-              winnerTeam: m.winner_team || m.winnerTeam || '',
-              winnerTeamColor: m.winner_team ? `#${getTeamColor(m.winner_team)}` : '#333333',
+              winnerName: m.winner || "",
+              winnerTeam: m.winner_team || m.winnerTeam || "",
+              winnerTeamColor: m.winner_team
+                ? `#${getTeamColor(m.winner_team)}`
+                : "#333333",
             };
           });
-          try { await AsyncStorage.setItem(MEETINGS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data: meetingsData })); } catch (e) {}
+          try {
+            await AsyncStorage.setItem(
+              MEETINGS_CACHE_KEY,
+              JSON.stringify({ fetchedAt: Date.now(), data: meetingsData }),
+            );
+          } catch (e) {}
         }
 
         if (meetingsData && meetingsData.length > 0) {
@@ -140,7 +185,10 @@ const ResultsScreen = ({ route }) => {
         }
       } catch (e) {
         // if server fetch fails, fall back to existing calendar logic
-        console.warn('meetings fetch failed, falling back to calendar', e?.message || e);
+        console.warn(
+          "meetings fetch failed, falling back to calendar",
+          e?.message || e,
+        );
       }
 
       // Fetch calendar first (efficient approach)
@@ -194,7 +242,7 @@ const ResultsScreen = ({ route }) => {
               console.warn(
                 "Failed to fetch venue info for event",
                 eventData.id,
-                venueErr
+                venueErr,
               );
             }
           }
@@ -220,8 +268,8 @@ const ResultsScreen = ({ route }) => {
           const finalIsUpcoming = isCompleted
             ? false
             : isTodayInEventPeriod
-            ? false
-            : isUpcoming;
+              ? false
+              : isUpcoming;
           const isInProgress = !isCompleted && !finalIsUpcoming;
 
           const enriched = {
@@ -258,7 +306,7 @@ const ResultsScreen = ({ route }) => {
                     .toString()
                     .toLowerCase();
                   return name.includes("race") && !name.includes("sprint");
-                }
+                },
               );
 
               if (raceCompetition) {
@@ -321,7 +369,7 @@ const ResultsScreen = ({ route }) => {
                       winnerName || "UNKNOWN"
                     } - ${manufacturer || "UNKNOWN"}${
                       winnerTeamColor ? ` • ${winnerTeamColor}` : ""
-                    }`
+                    }`,
                   );
                 }
               }
@@ -329,7 +377,7 @@ const ResultsScreen = ({ route }) => {
               console.warn(
                 "Failed to resolve winner for completed event",
                 eventData.id,
-                winnerErr
+                winnerErr,
               );
             }
           }
@@ -479,7 +527,7 @@ const ResultsScreen = ({ route }) => {
                           athleteName || "UNKNOWN"
                         } - ${manufacturer || "UNKNOWN"}${
                           teamColor ? ` • ${teamColor}` : ""
-                        }`
+                        }`,
                       );
                     }
                   } else {
@@ -507,7 +555,7 @@ const ResultsScreen = ({ route }) => {
                       if (isCompletedStatus) {
                         const firstPlace = Array.isArray(competitors)
                           ? competitors.find(
-                              (c) => c.order === 1 || c.rank === 1
+                              (c) => c.order === 1 || c.rank === 1,
                             ) || competitors[0]
                           : null;
                         if (firstPlace) {
@@ -566,7 +614,7 @@ const ResultsScreen = ({ route }) => {
                               athleteName || "UNKNOWN"
                             } - ${manufacturer || "UNKNOWN"}${
                               teamColor ? ` • ${teamColor}` : ""
-                            }`
+                            }`,
                           );
                         }
                       }
@@ -575,7 +623,7 @@ const ResultsScreen = ({ route }) => {
                       try {
                         const firstPlace = Array.isArray(competitors)
                           ? competitors.find(
-                              (c) => c.order === 1 || c.rank === 1
+                              (c) => c.order === 1 || c.rank === 1,
                             ) || null
                           : null;
                         if (firstPlace) {
@@ -633,7 +681,7 @@ const ResultsScreen = ({ route }) => {
                               athleteName || "UNKNOWN"
                             } - ${manufacturer || "UNKNOWN"}${
                               teamColor ? ` • ${teamColor}` : ""
-                            }`
+                            }`,
                           );
                         }
                       } catch (fallbackErr) {
@@ -648,7 +696,7 @@ const ResultsScreen = ({ route }) => {
 
               if (!anyWinners) {
                 console.log(
-                  `In Progress Race: ${evName}: No winners found yet`
+                  `In Progress Race: ${evName}: No winners found yet`,
                 );
               }
 
@@ -687,7 +735,7 @@ const ResultsScreen = ({ route }) => {
 
       // Wait for all events to be processed and filter out nulls
       const eventsWithDetails = (await Promise.all(sectionPromises)).filter(
-        Boolean
+        Boolean,
       );
 
       // Cache all events for tab switching
@@ -907,10 +955,10 @@ const ResultsScreen = ({ route }) => {
                 {event.nextCompetitionAbbr === "FP1"
                   ? " 1"
                   : event.nextCompetitionAbbr === "FP2"
-                  ? " 2"
-                  : event.nextCompetitionAbbr === "FP3"
-                  ? " 3"
-                  : ""}
+                    ? " 2"
+                    : event.nextCompetitionAbbr === "FP3"
+                      ? " 3"
+                      : ""}
               </Text>
             ) : null}
           </View>
@@ -981,7 +1029,7 @@ const ResultsScreen = ({ route }) => {
                     onPress={() =>
                       handleTeamFavoriteToggle(
                         event.winnerTeam,
-                        event.winnerTeamColor
+                        event.winnerTeamColor,
                       )
                     }
                     activeOpacity={0.7}
@@ -1058,7 +1106,7 @@ const ResultsScreen = ({ route }) => {
                 if (indexA !== -1) return -1;
                 if (indexB !== -1) return 1;
                 return a.localeCompare(b);
-              }
+              },
             );
 
             return sortedEntries.map(([compName, winnerObj]) => {
@@ -1085,7 +1133,7 @@ const ResultsScreen = ({ route }) => {
                             onPress={() =>
                               handleTeamFavoriteToggle(
                                 winnerTeam,
-                                event.winnerTeamColor
+                                event.winnerTeamColor,
                               )
                             }
                             activeOpacity={0.7}
@@ -1137,7 +1185,11 @@ const ResultsScreen = ({ route }) => {
 
       {/* Viewer Count Section - Bottom placement as requested */}
       <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-        <LiveViewerBadge gameId={event.id} status={event.status} style={styles.viewerBadge} />
+        <LiveViewerBadge
+          gameId={event.id}
+          status={event.status}
+          style={styles.viewerBadge}
+        />
       </View>
     </TouchableOpacity>
   );

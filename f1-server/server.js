@@ -297,7 +297,9 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     setCachingHeaders(res, TTL_6H);
     res.json({ meeting, sessions: enriched });
   } catch (e) {
-    res.status(502).json({ error: "Failed to fetch meeting", details: e.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch meeting", details: e.message });
   }
 });
 
