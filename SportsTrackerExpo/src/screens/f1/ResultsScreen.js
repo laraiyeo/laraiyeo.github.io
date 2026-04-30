@@ -14,7 +14,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import Icon from "react-native-vector-icons/FontAwesome6";
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
@@ -182,13 +187,26 @@ const ResultsScreen = ({ route }) => {
           // For now, if a meeting is live and is meeting 1281, fetch its detailed payload (ttl 5m)
           for (let i = 0; i < meetingsData.length; i++) {
             const ev = meetingsData[i];
-            const startMs = ev.eventDate ? new Date(ev.eventDate).getTime() : ev.startRaw ? new Date(ev.startRaw).getTime() : null;
-            const endMs = ev.endDate ? new Date(ev.endDate).getTime() : ev.endRaw ? new Date(ev.endRaw).getTime() : null;
+            const startMs = ev.eventDate
+              ? new Date(ev.eventDate).getTime()
+              : ev.startRaw
+                ? new Date(ev.startRaw).getTime()
+                : null;
+            const endMs = ev.endDate
+              ? new Date(ev.endDate).getTime()
+              : ev.endRaw
+                ? new Date(ev.endRaw).getTime()
+                : null;
             const nowMsLocal = Date.now();
-              // Optionally fetch meeting details only when the meeting is live.
-              if (startMs && endMs && nowMsLocal >= startMs && nowMsLocal <= endMs) {
-                // could fetch details for live meetings here (disabled by default)
-              }
+            // Optionally fetch meeting details only when the meeting is live.
+            if (
+              startMs &&
+              endMs &&
+              nowMsLocal >= startMs &&
+              nowMsLocal <= endMs
+            ) {
+              // could fetch details for live meetings here (disabled by default)
+            }
           }
 
           setAllEvents(meetingsData);
@@ -842,86 +860,92 @@ const ResultsScreen = ({ route }) => {
     return colorMap[constructorName] || "333333";
   };
 
-    // Country color map used for upcoming item gradients (exact list)
-    const countryColorMap = {
-      "bahrain": "#CE1126",
-      "australia": "#012169",
-      "china": "#DE2910",
-      "japan": "#FFFFFF",
-      "saudi arabia": "#006C35",
-      "united states": "#3C3B6E",
-      "canada": "#FF0000",
-      "monaco": "#CE1126",
-      "spain": "#AA151B",
-      "austria": "#ED2939",
-      "united kingdom": "#012169",
-      "belgium": "#000000",
-      "hungary": "#CE2939",
-      "netherlands": "#FF7900",
-      "italy": "#009246",
-      "azerbaijan": "#00B5E2",
-      "singapore": "#EF3340",
-      "mexico": "#006847",
-      "brazil": "#009C3B",
-      "qatar": "#8A1538",
-      "united arab emirates": "#00732F",
-    };
+  // Country color map used for upcoming item gradients (exact list)
+  const countryColorMap = {
+    bahrain: "#CE1126",
+    australia: "#012169",
+    china: "#DE2910",
+    japan: "#FFFFFF",
+    "saudi arabia": "#006C35",
+    "united states": "#3C3B6E",
+    canada: "#FF0000",
+    monaco: "#CE1126",
+    spain: "#AA151B",
+    austria: "#ED2939",
+    "united kingdom": "#012169",
+    belgium: "#000000",
+    hungary: "#CE2939",
+    netherlands: "#FF7900",
+    italy: "#009246",
+    azerbaijan: "#00B5E2",
+    singapore: "#EF3340",
+    mexico: "#006847",
+    brazil: "#009C3B",
+    qatar: "#8A1538",
+    "united arab emirates": "#00732F",
+  };
 
-    const getCountryColor = (countryName) => {
-      if (!countryName) return null;
-      const normalized = countryName
-        .toString()
-        .toLowerCase()
-        .replace(/\(.*?\)/g, "")
-        .replace(/[^a-z\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+  const getCountryColor = (countryName) => {
+    if (!countryName) return null;
+    const normalized = countryName
+      .toString()
+      .toLowerCase()
+      .replace(/\(.*?\)/g, "")
+      .replace(/[^a-z\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-      // Direct lookup
-      if (countryColorMap[normalized]) return countryColorMap[normalized];
+    // Direct lookup
+    if (countryColorMap[normalized]) return countryColorMap[normalized];
 
-      // Substring match to handle values like "Bahrain International Circuit"
-      for (const k of Object.keys(countryColorMap)) {
-        if (normalized.includes(k)) return countryColorMap[k];
+    // Substring match to handle values like "Bahrain International Circuit"
+    for (const k of Object.keys(countryColorMap)) {
+      if (normalized.includes(k)) return countryColorMap[k];
+    }
+
+    // Common abbreviations
+    if (
+      normalized === "usa" ||
+      normalized === "u.s.a" ||
+      normalized.includes("united states")
+    )
+      return countryColorMap["united states"];
+    if (normalized === "uae" || normalized.includes("united arab emirates"))
+      return countryColorMap["united arab emirates"];
+
+    return null;
+  };
+
+  const resolveCountryNameFromEvent = (ev) => {
+    if (!ev) return null;
+    const candidates = [
+      // explicit country fields (API uses snake_case)
+      ev.country_name,
+      ev.countryName,
+      ev.country,
+      // nested meeting payloads may include country_name
+      ev.meeting?.country_name,
+      ev.meeting?.countryName,
+      // venue/location fields
+      ev.venueName,
+      ev.venue,
+      ev.location,
+      // fallback to visible names
+      ev.country_name || ev.country_name,
+      ev.name,
+      ev.meeting?.meeting_official_name,
+      ev.meeting?.meeting_name,
+    ];
+
+    for (const c of candidates) {
+      if (c && typeof c === "string") {
+        const maybe = c.toString().trim();
+        if (maybe.length > 0) return maybe;
       }
+    }
 
-      // Common abbreviations
-      if (normalized === "usa" || normalized === "u.s.a" || normalized.includes("united states")) return countryColorMap["united states"];
-      if (normalized === "uae" || normalized.includes("united arab emirates")) return countryColorMap["united arab emirates"];
-
-      return null;
-    };
-
-    const resolveCountryNameFromEvent = (ev) => {
-      if (!ev) return null;
-      const candidates = [
-        // explicit country fields (API uses snake_case)
-        ev.country_name,
-        ev.countryName,
-        ev.country,
-        // nested meeting payloads may include country_name
-        ev.meeting?.country_name,
-        ev.meeting?.countryName,
-        // venue/location fields
-        ev.venueName,
-        ev.venue,
-        ev.location,
-        // fallback to visible names
-        ev.country_name || ev.country_name,
-        ev.name,
-        ev.meeting?.meeting_official_name,
-        ev.meeting?.meeting_name,
-      ];
-
-      for (const c of candidates) {
-        if (c && typeof c === "string") {
-          const maybe = c.toString().trim();
-          if (maybe.length > 0) return maybe;
-        }
-      }
-
-      return null;
-    };
+    return null;
+  };
 
   // Fetch meeting details with short TTL cache (5 minutes)
   const MEETING_DETAIL_TTL = 5 * 60 * 1000; // 5 minutes
@@ -932,7 +956,11 @@ const ResultsScreen = ({ route }) => {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < MEETING_DETAIL_TTL) {
+        if (
+          parsed &&
+          parsed.fetchedAt &&
+          Date.now() - parsed.fetchedAt < MEETING_DETAIL_TTL
+        ) {
           return parsed.data;
         }
       }
@@ -947,11 +975,14 @@ const ResultsScreen = ({ route }) => {
       const json = await resp.json();
       // store in cache
       try {
-        await AsyncStorage.setItem(cacheKey, JSON.stringify({ fetchedAt: Date.now(), data: json }));
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({ fetchedAt: Date.now(), data: json }),
+        );
       } catch (e) {}
       return json;
     } catch (err) {
-      console.warn('Failed to fetch meeting detail', meetingKey, err);
+      console.warn("Failed to fetch meeting detail", meetingKey, err);
       return null;
     }
   };
@@ -1013,7 +1044,10 @@ const ResultsScreen = ({ route }) => {
   const renderResultItem = (event) => (
     <TouchableOpacity
       key={event.id}
-      style={[styles.resultItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      style={[
+        styles.resultItem,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
       onPress={() => {
         // Navigate to F1 race details
         navigation.navigate("F1RaceDetails", {
@@ -1028,9 +1062,11 @@ const ResultsScreen = ({ route }) => {
       }}
     >
       {/* Left gradient strip using winnerTeamColor (skipped when cancelled or when showing meetingDetails) */}
-      {!(event.is_cancelled || event.isCancelled) && !(selectedType === "CURRENT" && event.meetingDetails) && (
+      {!(event.is_cancelled || event.isCancelled) &&
+        !(selectedType === "CURRENT" && event.meetingDetails) &&
         (() => {
-          const isUpcomingCard = selectedType === "UPCOMING" || event.isUpcoming;
+          const isUpcomingCard =
+            selectedType === "UPCOMING" || event.isUpcoming;
           if (isUpcomingCard) {
             // Right-side gradient (use country color when available)
             const _countryCandidate = resolveCountryNameFromEvent(event);
@@ -1050,14 +1086,40 @@ const ResultsScreen = ({ route }) => {
                   zIndex: 0,
                 }}
               >
-                <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
+                <Svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  pointerEvents="none"
+                >
                   <Defs>
-                    <SvgLinearGradient id={`rightGrad_${event.id}`} x1="100%" y1="0%" x2="0%" y2="0%">
-                      <Stop offset="0%" stopColor={_gradColor} stopOpacity="0.3" />
-                      <Stop offset="55%" stopColor={_gradColor} stopOpacity="0" />
+                    <SvgLinearGradient
+                      id={`rightGrad_${event.id}`}
+                      x1="100%"
+                      y1="0%"
+                      x2="0%"
+                      y2="0%"
+                    >
+                      <Stop
+                        offset="0%"
+                        stopColor={_gradColor}
+                        stopOpacity="0.3"
+                      />
+                      <Stop
+                        offset="55%"
+                        stopColor={_gradColor}
+                        stopOpacity="0"
+                      />
                     </SvgLinearGradient>
                   </Defs>
-                  <Rect x={0} y={0} width="100%" height="100%" fill={`url(#rightGrad_${event.id})`} />
+                  <Rect
+                    x={0}
+                    y={0}
+                    width="100%"
+                    height="100%"
+                    fill={`url(#rightGrad_${event.id})`}
+                  />
                 </Svg>
               </View>
             );
@@ -1078,19 +1140,48 @@ const ResultsScreen = ({ route }) => {
                 zIndex: 0,
               }}
             >
-              <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
+              <Svg
+                width="100%"
+                height="100%"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                pointerEvents="none"
+              >
                 <Defs>
-                  <SvgLinearGradient id={`leftGrad_${event.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <Stop offset="0%" stopColor={event.winnerTeamColor || theme.surfaceSecondary} stopOpacity="0.3" />
-                    <Stop offset="55%" stopColor={event.winnerTeamColor || theme.surfaceSecondary} stopOpacity="0" />
+                  <SvgLinearGradient
+                    id={`leftGrad_${event.id}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="0%"
+                  >
+                    <Stop
+                      offset="0%"
+                      stopColor={
+                        event.winnerTeamColor || theme.surfaceSecondary
+                      }
+                      stopOpacity="0.3"
+                    />
+                    <Stop
+                      offset="55%"
+                      stopColor={
+                        event.winnerTeamColor || theme.surfaceSecondary
+                      }
+                      stopOpacity="0"
+                    />
                   </SvgLinearGradient>
                 </Defs>
-                <Rect x={0} y={0} width="100%" height="100%" fill={`url(#leftGrad_${event.id})`} />
+                <Rect
+                  x={0}
+                  y={0}
+                  width="100%"
+                  height="100%"
+                  fill={`url(#leftGrad_${event.id})`}
+                />
               </Svg>
             </View>
           );
-        })()
-      )}
+        })()}
 
       {event.is_cancelled || event.isCancelled ? (
         <>
@@ -1113,274 +1204,350 @@ const ResultsScreen = ({ route }) => {
         </>
       ) : null}
 
-      <View style={{ position: 'relative', zIndex: 1 }}>
+      <View style={{ position: "relative", zIndex: 1 }}>
         <View style={styles.resultHeader}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.raceName, { color: theme.text }]}
-          numberOfLines={1}
-        >
-          {event.name}
-        </Text>
-        <Text
-          allowFontScaling={false}
-          style={[styles.raceDate, { color: theme.textSecondary }]}
-        >
-          {formatDate(event.date)}
-        </Text>
-      </View>
-      {/** For Current tab, show flag/country/next time above meeting details */}
-      {selectedType === "CURRENT" && (
-        <View style={styles.resultInfo}>
-          <View style={styles.flagAndCircuit}>
-            {event.countryFlag ? (
-              <Image
-                source={{ uri: convertToHttps(event.countryFlag) }}
-                style={[styles.countryFlag, { marginTop: 0}]}
-                onError={() => {}}
-              />
-            ) : null}
-            <View style={styles.circuitInfo}>
-              <Text allowFontScaling={false} style={[styles.circuitName, { color: theme.textSecondary }]} numberOfLines={1}>
-                {event.venueName || event.venue || event.location || "Circuit Information"}
-              </Text>
-              {selectedType === "CURRENT" && event.nextCompetitionType ? (
-                <Text allowFontScaling={false} style={[styles.competitionType, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {event.nextCompetitionType}
-                  {event.nextCompetitionAbbr === "FP1"
-                    ? " 1"
-                    : event.nextCompetitionAbbr === "FP2"
-                      ? " 2"
-                      : event.nextCompetitionAbbr === "FP3"
-                        ? " 3"
-                        : ""}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <View style={styles.rightColumn}>
-            <Text allowFontScaling={false} style={[styles.raceTime, { color: theme.textSecondary }]}>{formatTime(event.date)}</Text>
-          </View>
-        </View>
-      )}
-
-      {event.meetingDetails ? (
-        <View style={styles.meetingDetails}>
-          <Text allowFontScaling={false} style={[styles.meetingName, { color: theme.text }]} numberOfLines={2}>
-            {event.meetingDetails.meeting?.meeting_official_name || event.meetingDetails.meeting?.meeting_name || event.name}
-          </Text>
-          {Array.isArray(event.meetingDetails.sessions) && (
-            <View style={{ marginTop: 6 }}>
-              {event.meetingDetails.sessions.map((s) => (
-                <View key={s.session_key} style={styles.meetingSessionRow}>
-                  <View style={styles.meetingSessionLeft}>
-                    <Text allowFontScaling={false} style={[styles.meetingSessionName, { color: theme.text }]}>{s.session_name}</Text>
-                    <Text allowFontScaling={false} style={[styles.meetingSessionTime, { color: theme.textSecondary }]}>{formatTime(s.date_start)} - {formatTime(s.date_end)}</Text>
-                  </View>
-                  <View style={styles.meetingSessionRight}>
-                    <Text allowFontScaling={false} style={[styles.meetingWinner, { color: theme.text }]} numberOfLines={1}>{s.winner || s.winnerName || ""}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text allowFontScaling={false} style={[styles.meetingWinnerTeam, { color: theme.textSecondary }]} numberOfLines={1}>{s.winner_team || s.winnerTeam || ""}</Text>
-                    <Image
-                      source={require('../../../assets/f1-car-svgrepo-com.png')}
-                      style={{ width: 28, height: 12, tintColor: s.winner_team ? `#${getTeamColor(s.winner_team)}` : theme.textSecondary, marginTop: 2 }}
-                    />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      ) : null}
-      
-      {selectedType !== "CURRENT" && (
-      <View style={styles.resultInfo}>
-        <View style={styles.flagAndCircuit}>
-          {event.countryFlag ? (
-            <Image
-              source={{ uri: convertToHttps(event.countryFlag) }}
-              style={styles.countryFlag}
-              onError={() => {
-                /* fail silently */
-              }}
-            />
-          ) : null}
-          <View style={styles.circuitInfo}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.circuitName, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {event.venueName ||
-                event.venue ||
-                event.location ||
-                "Circuit Information"}
-            </Text>
-            {selectedType === "CURRENT" && event.nextCompetitionType ? (
-              <Text
-                allowFontScaling={false}
-                style={[styles.competitionType, { color: theme.textSecondary }]}
-                numberOfLines={1}
-              >
-                {event.nextCompetitionType}
-                {event.nextCompetitionAbbr === "FP1"
-                  ? " 1"
-                  : event.nextCompetitionAbbr === "FP2"
-                    ? " 2"
-                    : event.nextCompetitionAbbr === "FP3"
-                      ? " 3"
-                      : ""}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.rightColumn}>
           <Text
             allowFontScaling={false}
-            style={[styles.raceTime, { color: theme.textSecondary }]}
+            style={[styles.raceName, { color: theme.text }]}
+            numberOfLines={1}
           >
-            {formatTime(event.date)}
+            {event.name}
           </Text>
-          {/* Status (keep top-right) */}
-          {selectedType === "LAST" && (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.statusText,
-                {
-                  color:
-                    event.is_cancelled || event.isCancelled
-                      ? theme.error
-                      : theme.success,
-                  marginTop: 6,
-                },
-              ]}
-            >
-              {event.is_cancelled || event.isCancelled
-                ? "CANCELLED"
-                : "Completed"}
-            </Text>
-          )}
-          {selectedType === "CURRENT" && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.statusText, { color: theme.error, marginTop: 6 }]}
-            >
-              In Progress
-            </Text>
-          )}
-          {selectedType === "UPCOMING" && (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.statusText,
-                { color: theme.warning, marginTop: 6 },
-              ]}
-            >
-              Scheduled
-            </Text>
-          )}
+          <Text
+            allowFontScaling={false}
+            style={[styles.raceDate, { color: theme.textSecondary }]}
+          >
+            {formatDate(event.date)}
+          </Text>
         </View>
-      </View>
-      )}
-
-      {selectedType === "LAST" && event.winnerName ? (
-        <View style={styles.winnerRow}>
-          <View style={styles.winnerLeft}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.winnerLabel, { color: theme.textSecondary }]}
-            >
-              Winner:
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.winnerName, { color: theme.text }]}
-            >
-              {event.winnerName}
-            </Text>
-          </View>
-          <View style={styles.winnerRight}>
-            {event.winnerTeam ? (
-              <View style={styles.winnerTeamContainer}>
-                {isFavorite(getF1TeamId(event.winnerTeam)) && (
-                  <TouchableOpacity
-                    onPress={() =>
-                      handleTeamFavoriteToggle(
-                        event.winnerTeam,
-                        event.winnerTeamColor,
-                      )
-                    }
-                    activeOpacity={0.7}
-                    style={styles.winnerTeamFavoriteButton}
+        {/** For Current tab, show flag/country/next time above meeting details */}
+        {selectedType === "CURRENT" && (
+          <View style={styles.resultInfo}>
+            <View style={styles.flagAndCircuit}>
+              {event.countryFlag ? (
+                <Image
+                  source={{ uri: convertToHttps(event.countryFlag) }}
+                  style={[styles.countryFlag, { marginTop: 0 }]}
+                  onError={() => {}}
+                />
+              ) : null}
+              <View style={styles.circuitInfo}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.circuitName, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {event.venueName ||
+                    event.venue ||
+                    event.location ||
+                    "Circuit Information"}
+                </Text>
+                {selectedType === "CURRENT" && event.nextCompetitionType ? (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.competitionType,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
                   >
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.winnerTeamFavoriteIcon,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      ★
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                    {event.nextCompetitionType}
+                    {event.nextCompetitionAbbr === "FP1"
+                      ? " 1"
+                      : event.nextCompetitionAbbr === "FP2"
+                        ? " 2"
+                        : event.nextCompetitionAbbr === "FP3"
+                          ? " 3"
+                          : ""}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.rightColumn}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.raceTime, { color: theme.textSecondary }]}
+              >
+                {formatTime(event.date)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {event.meetingDetails ? (
+          <View style={styles.meetingDetails}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.meetingName, { color: theme.text }]}
+              numberOfLines={2}
+            >
+              {event.meetingDetails.meeting?.meeting_official_name ||
+                event.meetingDetails.meeting?.meeting_name ||
+                event.name}
+            </Text>
+            {Array.isArray(event.meetingDetails.sessions) && (
+              <View style={{ marginTop: 6 }}>
+                {event.meetingDetails.sessions.map((s) => (
+                  <View key={s.session_key} style={styles.meetingSessionRow}>
+                    <View style={styles.meetingSessionLeft}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.meetingSessionName,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {s.session_name}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.meetingSessionTime,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {formatTime(s.date_start)} - {formatTime(s.date_end)}
+                      </Text>
+                    </View>
+                    <View style={styles.meetingSessionRight}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.meetingWinner, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {s.winner || s.winnerName || ""}
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.meetingWinnerTeam,
+                            { color: theme.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {s.winner_team || s.winnerTeam || ""}
+                        </Text>
+                        <Image
+                          source={require("../../../assets/f1-car-svgrepo-com.png")}
+                          style={{
+                            width: 28,
+                            height: 12,
+                            tintColor: s.winner_team
+                              ? `#${getTeamColor(s.winner_team)}`
+                              : theme.textSecondary,
+                            marginTop: 2,
+                          }}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {selectedType !== "CURRENT" && (
+          <View style={styles.resultInfo}>
+            <View style={styles.flagAndCircuit}>
+              {event.countryFlag ? (
+                <Image
+                  source={{ uri: convertToHttps(event.countryFlag) }}
+                  style={styles.countryFlag}
+                  onError={() => {
+                    /* fail silently */
+                  }}
+                />
+              ) : null}
+              <View style={styles.circuitInfo}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.circuitName, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {event.venueName ||
+                    event.venue ||
+                    event.location ||
+                    "Circuit Information"}
+                </Text>
+                {selectedType === "CURRENT" && event.nextCompetitionType ? (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.competitionType,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {event.nextCompetitionType}
+                    {event.nextCompetitionAbbr === "FP1"
+                      ? " 1"
+                      : event.nextCompetitionAbbr === "FP2"
+                        ? " 2"
+                        : event.nextCompetitionAbbr === "FP3"
+                          ? " 3"
+                          : ""}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.rightColumn}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.raceTime, { color: theme.textSecondary }]}
+              >
+                {formatTime(event.date)}
+              </Text>
+              {/* Status (keep top-right) */}
+              {selectedType === "LAST" && (
                 <Text
                   allowFontScaling={false}
                   style={[
-                    styles.winnerTeamRight,
+                    styles.statusText,
                     {
-                      color: isFavorite(getF1TeamId(event.winnerTeam))
-                        ? colors.primary
-                        : theme.textSecondary,
+                      color:
+                        event.is_cancelled || event.isCancelled
+                          ? theme.error
+                          : theme.success,
+                      marginTop: 6,
                     },
                   ]}
-                  numberOfLines={1}
                 >
-                  {event.winnerTeam}
+                  {event.is_cancelled || event.isCancelled
+                    ? "CANCELLED"
+                    : "Completed"}
                 </Text>
-              </View>
-            ) : null}
+              )}
+              {selectedType === "CURRENT" && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.statusText,
+                    { color: theme.error, marginTop: 6 },
+                  ]}
+                >
+                  In Progress
+                </Text>
+              )}
+              {selectedType === "UPCOMING" && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.statusText,
+                    { color: theme.warning, marginTop: 6 },
+                  ]}
+                >
+                  Scheduled
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
-      ) : null}
+        )}
 
-      {/* For current/in-progress races show winners for each competition (FP1, FP2, Qualifying, Race, etc.) */}
-      {selectedType === "CURRENT" &&
-      event.competitionWinners &&
-      Object.keys(event.competitionWinners).length > 0 ? (
-        <View style={styles.winnersContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.winnerLabel,
-              { color: theme.textSecondary, marginBottom: 6 },
-            ]}
-          >
-            Winners:
-          </Text>
+        {selectedType === "LAST" && event.winnerName ? (
+          <View style={styles.winnerRow}>
+            <View style={styles.winnerLeft}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.winnerLabel, { color: theme.textSecondary }]}
+              >
+                Winner:
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.winnerName, { color: theme.text }]}
+              >
+                {event.winnerName}
+              </Text>
+            </View>
+            <View style={styles.winnerRight}>
+              {event.winnerTeam ? (
+                <View style={styles.winnerTeamContainer}>
+                  {isFavorite(getF1TeamId(event.winnerTeam)) && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleTeamFavoriteToggle(
+                          event.winnerTeam,
+                          event.winnerTeamColor,
+                        )
+                      }
+                      activeOpacity={0.7}
+                      style={styles.winnerTeamFavoriteButton}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.winnerTeamFavoriteIcon,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        ★
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.winnerTeamRight,
+                      {
+                        color: isFavorite(getF1TeamId(event.winnerTeam))
+                          ? colors.primary
+                          : theme.textSecondary,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {event.winnerTeam}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
-          {(() => {
-            // Sort competitions in logical race weekend order (same as web results.js)
-            const competitionOrder = [
-              "Free Practice 1",
-              "FP1",
-              "Free Practice 2",
-              "FP2",
-              "Free Practice 3",
-              "FP3",
-              "Sprint Shootout",
-              "Sprint Race",
-              "Qualifying",
-              "Qual",
-              "Race",
-            ];
+        {/* For current/in-progress races show winners for each competition (FP1, FP2, Qualifying, Race, etc.) */}
+        {selectedType === "CURRENT" &&
+        event.competitionWinners &&
+        Object.keys(event.competitionWinners).length > 0 ? (
+          <View style={styles.winnersContainer}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.winnerLabel,
+                { color: theme.textSecondary, marginBottom: 6 },
+              ]}
+            >
+              Winners:
+            </Text>
 
-            const sortedEntries = Object.entries(event.competitionWinners).sort(
-              ([a], [b]) => {
+            {(() => {
+              // Sort competitions in logical race weekend order (same as web results.js)
+              const competitionOrder = [
+                "Free Practice 1",
+                "FP1",
+                "Free Practice 2",
+                "FP2",
+                "Free Practice 3",
+                "FP3",
+                "Sprint Shootout",
+                "Sprint Race",
+                "Qualifying",
+                "Qual",
+                "Race",
+              ];
+
+              const sortedEntries = Object.entries(
+                event.competitionWinners,
+              ).sort(([a], [b]) => {
                 const indexA = competitionOrder.indexOf(a);
                 const indexB = competitionOrder.indexOf(b);
                 // If both found in order, use order. If not found, put at end.
@@ -1388,83 +1555,84 @@ const ResultsScreen = ({ route }) => {
                 if (indexA !== -1) return -1;
                 if (indexB !== -1) return 1;
                 return a.localeCompare(b);
-              },
-            );
+              });
 
-            return sortedEntries.map(([compName, winnerObj]) => {
-              // winnerObj expected as { winnerName, winnerTeam } but handle strings for safety
-              const winnerName =
-                winnerObj?.winnerName ||
-                (typeof winnerObj === "string" ? winnerObj : "TBD");
-              const winnerTeam = winnerObj?.winnerTeam || "";
+              return sortedEntries.map(([compName, winnerObj]) => {
+                // winnerObj expected as { winnerName, winnerTeam } but handle strings for safety
+                const winnerName =
+                  winnerObj?.winnerName ||
+                  (typeof winnerObj === "string" ? winnerObj : "TBD");
+                const winnerTeam = winnerObj?.winnerTeam || "";
 
-              return (
-                <View key={compName} style={styles.winnerRowInProgress}>
-                  <View style={styles.winnerLeft}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.winnerNameSmall, { color: theme.text }]}
-                      numberOfLines={1}
-                    >
-                      {winnerName}
-                    </Text>
-                    {winnerTeam ? (
-                      <View style={styles.winnerTeamSmallContainer}>
-                        {isFavorite(getF1TeamId(winnerTeam)) && (
-                          <TouchableOpacity
-                            onPress={() =>
-                              handleTeamFavoriteToggle(
-                                winnerTeam,
-                                event.winnerTeamColor,
-                              )
-                            }
-                            activeOpacity={0.7}
-                            style={styles.winnerTeamSmallFavoriteButton}
-                          >
-                            <Text
-                              allowFontScaling={false}
-                              style={[
-                                styles.winnerTeamSmallFavoriteIcon,
-                                { color: colors.primary },
-                              ]}
+                return (
+                  <View key={compName} style={styles.winnerRowInProgress}>
+                    <View style={styles.winnerLeft}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.winnerNameSmall, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {winnerName}
+                      </Text>
+                      {winnerTeam ? (
+                        <View style={styles.winnerTeamSmallContainer}>
+                          {isFavorite(getF1TeamId(winnerTeam)) && (
+                            <TouchableOpacity
+                              onPress={() =>
+                                handleTeamFavoriteToggle(
+                                  winnerTeam,
+                                  event.winnerTeamColor,
+                                )
+                              }
+                              activeOpacity={0.7}
+                              style={styles.winnerTeamSmallFavoriteButton}
                             >
-                              ★
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.winnerTeamSmall,
-                            {
-                              color: isFavorite(getF1TeamId(winnerTeam))
-                                ? colors.primary
-                                : theme.textSecondary,
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {winnerTeam}
-                        </Text>
-                      </View>
-                    ) : null}
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.winnerTeamSmallFavoriteIcon,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                ★
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.winnerTeamSmall,
+                              {
+                                color: isFavorite(getF1TeamId(winnerTeam))
+                                  ? colors.primary
+                                  : theme.textSecondary,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {winnerTeam}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.winnerRight}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.compName,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {compName}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.winnerRight}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.compName, { color: theme.textSecondary }]}
-                      numberOfLines={1}
-                    >
-                      {compName}
-                    </Text>
-                  </View>
-                </View>
-              );
-            });
-          })()}
-        </View>
-      ) : null}
-
+                );
+              });
+            })()}
+          </View>
+        ) : null}
       </View>
 
       {/* Viewer Count Section - Bottom placement as requested */}
@@ -1474,13 +1642,13 @@ const ResultsScreen = ({ route }) => {
           const startMs = event.eventDate
             ? new Date(event.eventDate).getTime()
             : event.startRaw
-            ? new Date(event.startRaw).getTime()
-            : null;
+              ? new Date(event.startRaw).getTime()
+              : null;
           const endMs = event.endDate
             ? new Date(event.endDate).getTime()
             : event.endRaw
-            ? new Date(event.endRaw).getTime()
-            : null;
+              ? new Date(event.endRaw).getTime()
+              : null;
 
           let liveStatus = event.status || null;
           if (startMs && nowMs < startMs) liveStatus = "scheduled";

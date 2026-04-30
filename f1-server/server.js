@@ -1397,8 +1397,16 @@ app.get("/championship_teams", async (req, res) => {
 app.get("/standings", async (req, res) => {
   try {
     // ensure cached source data exists
-    await getCachedWithTTL("championship_drivers", `${BASE_URL}championship_drivers`, TTL_1H).catch(() => {});
-    await getCachedWithTTL("championship_teams", `${BASE_URL}championship_teams`, TTL_1H).catch(() => {});
+    await getCachedWithTTL(
+      "championship_drivers",
+      `${BASE_URL}championship_drivers`,
+      TTL_1H,
+    ).catch(() => {});
+    await getCachedWithTTL(
+      "championship_teams",
+      `${BASE_URL}championship_teams`,
+      TTL_1H,
+    ).catch(() => {});
 
     const driversRaw = normalizeArray(cache.get("championship_drivers")?.data);
     const teamsRaw = normalizeArray(cache.get("championship_teams")?.data);
@@ -1418,8 +1426,13 @@ app.get("/standings", async (req, res) => {
       const last = arr[arr.length - 1] || {};
       drivers.push({
         driver_number: dn,
-        points_current: last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
-        position_current: last.position_current ?? last.positionCurrent ?? last.position ?? null,
+        points_current:
+          last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
+        position_current:
+          last.position_current ??
+          last.positionCurrent ??
+          last.position ??
+          null,
       });
     }
 
@@ -1438,8 +1451,13 @@ app.get("/standings", async (req, res) => {
       const last = arr[arr.length - 1] || {};
       teams.push({
         team_name: tn,
-        points_current: last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
-        position_current: last.position_current ?? last.positionCurrent ?? last.position ?? null,
+        points_current:
+          last.points_current ?? last.pointsCurrent ?? last.points ?? 0,
+        position_current:
+          last.position_current ??
+          last.positionCurrent ??
+          last.position ??
+          null,
       });
     }
 
@@ -1450,7 +1468,8 @@ app.get("/standings", async (req, res) => {
     for (const dv of driversGlobal) {
       const team = dv?.team_name || dv?.teamName || "";
       const dn = String(dv?.driver_number ?? "");
-      const name = dv?.full_name || dv?.broadcast_name || dv?.fullName || dv?.name || null;
+      const name =
+        dv?.full_name || dv?.broadcast_name || dv?.fullName || dv?.name || null;
       if (dn) driversMap[dn] = name;
       if (!team) continue;
       if (!drivers_by_team[team]) drivers_by_team[team] = Object.create(null);
@@ -1458,9 +1477,14 @@ app.get("/standings", async (req, res) => {
     }
 
     setCachingHeaders(res, TTL_1H);
-    res.json({ source: "cache", data: { drivers, teams, drivers_by_team, drivers_map: driversMap } });
+    res.json({
+      source: "cache",
+      data: { drivers, teams, drivers_by_team, drivers_map: driversMap },
+    });
   } catch (e) {
-    res.status(502).json({ error: "Failed to build standings", details: e?.message || e });
+    res
+      .status(502)
+      .json({ error: "Failed to build standings", details: e?.message || e });
   }
 });
 
