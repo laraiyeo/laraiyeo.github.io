@@ -281,9 +281,10 @@ app.get("/meeting/:meeting_key", async (req, res) => {
       let winner_team = null;
       if (sr) {
         const driverNum = sr.driver_number || sr.driverNumber || sr.driver;
-        const driverObj = driversArr.find(
+        const driverObj = driversArr
+          .find
           // intervals
-        );
+          ();
         winner = driverObj
           ? driverObj.broadcast_name || driverObj.full_name || driverObj.name
           : sr.driver_name || sr.name || null;
@@ -297,9 +298,8 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     setCachingHeaders(res, TTL_6H);
     res.json({ meeting, sessions: enriched });
   } catch (e) {
-    res
-      .status(502)
-          // location
+    res.status(502);
+    // location
   }
 });
 
@@ -692,7 +692,13 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     );
 
     // fetch other resources using session_key
-    const resourceNames = ["overtakes", "pit", "race_control", "stints", "session_result"];
+    const resourceNames = [
+      "overtakes",
+      "pit",
+      "race_control",
+      "stints",
+      "session_result",
+    ];
     const resources = {};
     for (const name of resourceNames) {
       try {
@@ -824,11 +830,21 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
           // live versions of other resources (overtakes, pit, race_control, stints, session_result)
           try {
-            const liveResources = ["overtakes", "pit", "race_control", "stints", "session_result"];
+            const liveResources = [
+              "overtakes",
+              "pit",
+              "race_control",
+              "stints",
+              "session_result",
+            ];
             for (const name of liveResources) {
               try {
                 const path = `${name}?session_key=${encodeURIComponent(sessionKey)}&date%3E=${encodeURIComponent(a)}&date%3C=${encodeURIComponent(b)}`;
-                const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, 10000).catch(() => ({ data: null }));
+                const { data } = await getCachedWithTTL(
+                  path,
+                  `${BASE_URL}${path}`,
+                  10000,
+                ).catch(() => ({ data: null }));
                 const liveArr = normalizeArray(data);
                 if (Array.isArray(liveArr) && liveArr.length > 0) {
                   // replace the previously fetched full-ttl resource with the live window
@@ -837,7 +853,9 @@ async function buildAndCacheSession(sessionKey, options = {}) {
                     if (!it) continue;
                     if (it.meeting_key) delete it.meeting_key;
                     if (it.session_key) delete it.session_key;
-                    const dn = String(it.driver_number || it.driverNumber || "");
+                    const dn = String(
+                      it.driver_number || it.driverNumber || "",
+                    );
                     if (dn) driversSet.add(dn);
                   }
                 }
@@ -859,7 +877,8 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           let last = arr[0];
           for (const it of arr) {
             if (!it || !it.date) continue;
-            if (new Date(it.date).getTime() >= new Date(last.date).getTime()) last = it;
+            if (new Date(it.date).getTime() >= new Date(last.date).getTime())
+              last = it;
           }
           intervalsMap[dn] = last;
         }
@@ -870,7 +889,8 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           let last = arr[0];
           for (const it of arr) {
             if (!it || !it.date) continue;
-            if (new Date(it.date).getTime() >= new Date(last.date).getTime()) last = it;
+            if (new Date(it.date).getTime() >= new Date(last.date).getTime())
+              last = it;
           }
           locationMap[dn] = last;
         }
@@ -944,27 +964,40 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     // ensure refresh interval for assembled session
     try {
       const now = Date.now();
-      const startMs = new Date(sessionObj.date_start || sessionObj.dateStart).getTime();
-      const endMs = new Date(sessionObj.date_end || sessionObj.dateEnd).getTime();
+      const startMs = new Date(
+        sessionObj.date_start || sessionObj.dateStart,
+      ).getTime();
+      const endMs = new Date(
+        sessionObj.date_end || sessionObj.dateEnd,
+      ).getTime();
       const hasValidDates = Number.isFinite(startMs) && Number.isFinite(endMs);
-      const liveWindowStart = hasValidDates ? startMs - 15 * 60 * 1000 : -Infinity;
+      const liveWindowStart = hasValidDates
+        ? startMs - 15 * 60 * 1000
+        : -Infinity;
       const liveWindowEnd = hasValidDates ? endMs + 15 * 60 * 1000 : -Infinity;
-      const isLiveWindow = hasValidDates && now >= liveWindowStart && now <= liveWindowEnd;
+      const isLiveWindow =
+        hasValidDates && now >= liveWindowStart && now <= liveWindowEnd;
       // Only use aggressive 10s refresh if either (a) caller forced live and a recent
       // active live request exists for this session, or (b) we're in the live time
       // window and there is a recent active live request. This avoids polling when
       // no clients are actively requesting live data.
       const hasActiveClient = activeLiveClients.has(String(sessionKey));
-      const shouldUseFastRefresh = hasActiveClient && (options && options.forceLive || isLiveWindow);
+      const shouldUseFastRefresh =
+        hasActiveClient && ((options && options.forceLive) || isLiveWindow);
       const refreshMs = shouldUseFastRefresh ? 10000 : ttl;
 
       // if there's an existing interval, clear it so we can set the new cadence
       if (refreshIntervals.has(cacheKey)) {
-        try { clearInterval(refreshIntervals.get(cacheKey)); } catch (e) {}
+        try {
+          clearInterval(refreshIntervals.get(cacheKey));
+        } catch (e) {}
         refreshIntervals.delete(cacheKey);
       }
 
-      const id = setInterval(() => buildAndCacheSession(sessionKey, options).catch(() => {}), refreshMs);
+      const id = setInterval(
+        () => buildAndCacheSession(sessionKey, options).catch(() => {}),
+        refreshMs,
+      );
       refreshIntervals.set(cacheKey, id);
     } catch (e) {
       // ignore interval creation errors
@@ -1067,13 +1100,15 @@ app.get("/session/:session_key/:status?", async (req, res) => {
       sessionObj?.date_end || sessionObj?.dateEnd,
     );
 
-    const forceLive = status === 'live' || String(req.query.status || '').toLowerCase() === 'live';
+    const forceLive =
+      status === "live" ||
+      String(req.query.status || "").toLowerCase() === "live";
     const entry = cache.get(cacheKey);
     if (entry && !forceLive) {
       const age = Date.now() - entry.fetchedAt;
       if (age < ttl) {
         setCachingHeaders(res, ttl);
-        return res.json({ source: 'cache', data: entry.data });
+        return res.json({ source: "cache", data: entry.data });
       }
     }
 
