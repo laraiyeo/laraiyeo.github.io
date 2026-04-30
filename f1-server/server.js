@@ -698,6 +698,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       "race_control",
       "stints",
       "session_result",
+      "position",
     ];
     const resources = {};
     for (const name of resourceNames) {
@@ -753,6 +754,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     // live intervals and location: fetch 10s window when session is live (session start..end+15m) or when forced
     let intervalsMap = Object.create(null);
     let locationMap = Object.create(null);
+    let positionMap = Object.create(null);
     try {
       const now = Date.now();
       const startMs = new Date(
@@ -828,6 +830,27 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             }
           } catch (e) {}
 
+          // position (like intervals/location)
+          try {
+            const path = `position?session_key=${encodeURIComponent(sessionKey)}&date%3E=${encodeURIComponent(a)}&date%3C=${encodeURIComponent(b)}`;
+            const { data } = await getCachedWithTTL(
+              path,
+              `${BASE_URL}${path}`,
+              10000,
+            ).catch(() => ({ data: null }));
+            const arrPos = normalizeArray(data);
+            for (const it of arrPos) {
+              const dn = String(it.driver_number || it.driverNumber || "");
+              if (!dn) continue;
+              const copy = { ...it };
+              if (copy.meeting_key) delete copy.meeting_key;
+              if (copy.session_key) delete copy.session_key;
+              if (!positionMap[dn]) positionMap[dn] = [];
+              positionMap[dn].push(copy);
+              driversSet.add(dn);
+            }
+          } catch (e) {}
+
           // live versions of other resources (overtakes, pit, race_control, stints, session_result)
           try {
             const liveResources = [
@@ -836,6 +859,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
               "race_control",
               "stints",
               "session_result",
+              "position",
             ];
             for (const name of liveResources) {
               try {
@@ -895,6 +919,17 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           locationMap[dn] = last;
         }
       }
+      for (const dn of Object.keys(positionMap)) {
+        const arr = positionMap[dn];
+        if (Array.isArray(arr) && arr.length > 0) {
+          let last = arr[0];
+          for (const it of arr) {
+            if (!it || !it.date) continue;
+            if (new Date(it.date).getTime() >= new Date(last.date).getTime()) last = it;
+          }
+          positionMap[dn] = last;
+        }
+      }
     } catch (e) {
       // ignore reducing errors
     }
@@ -913,6 +948,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     collectDriversFrom(resources.race_control || []);
     collectDriversFrom(resources.stints || []);
     collectDriversFrom(resources.session_result || []);
+    collectDriversFrom(resources.position || []);
     if (weatherObj && weatherObj.driver_number)
       driversSet.add(String(weatherObj.driver_number));
 
@@ -951,6 +987,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       session_result: resources.session_result || [],
       intervals: intervalsMap,
       location: locationMap,
+      positions: positionMap,
       weather: weatherObj,
       maps: {
         meetings: meetingsMap,
