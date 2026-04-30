@@ -13,6 +13,30 @@ import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const SERVER_BASE = 'https://laraiyeogithubio-production-ed10.up.railway.app';
+const MEETINGS_CACHE_KEY = 'f1_meetings_cache';
+const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function parseGmtOffset(gmt) {
+  if (!gmt) return 0;
+  // gmt like "+03:00:00" or "-04:00:00" or "03:00:00"
+  const sign = gmt.trim().startsWith('-') ? -1 : 1;
+  const parts = gmt.replace(/^[+-]/, '').split(':').map(Number);
+  const h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const s = parts[2] || 0;
+  return sign * ((h * 3600 + m * 60 + s) * 1000);
+}
+
+function applyGmtOffsetToDate(dateStr, gmtOffsetStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const offMs = parseGmtOffset(gmtOffsetStr);
+  // treat dateStr as UTC reference and add venue offset to get venue-local instant
+  return new Date(d.getTime() + offMs);
+}
 
 const ResultsScreen = ({ route }) => {
   const { theme, colors } = useTheme();
@@ -48,6 +72,76 @@ const ResultsScreen = ({ route }) => {
       setLoading(true);
       const now = new Date();
       const nowMs = Date.now();
+
+      // Try to load meetings from our server and short-circuit the ESPN calendar parsing.
+      try {
+        let meetingsData = null;
+        try {
+          const cached = await AsyncStorage.getItem(MEETINGS_CACHE_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < MEETINGS_CACHE_TTL) {
+              meetingsData = parsed.data;
+            }
+          }
+        } catch (e) {
+          // ignore cache read errors
+        }
+
+        if (!meetingsData) {
+          const url = `${SERVER_BASE}/meetings`;
+          const resp = await fetch(url);
+          const json = await resp.json();
+          const arr = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+          meetingsData = arr.map((m) => {
+            const start = applyGmtOffsetToDate(m.date_start || m.dateStart || m.date || null, m.gmt_offset || m.gmtOffset || m.gmt);
+            const end = applyGmtOffsetToDate(m.date_end || m.dateEnd || m.endDate || null, m.gmt_offset || m.gmtOffset || m.gmt);
+            const startMs = start ? start.getTime() : null;
+            const endMs = end ? end.getTime() : null;
+            const endPlusOneMs = endMs ? endMs + 24 * 60 * 60 * 1000 : null;
+            const isCompleted = endPlusOneMs ? nowMs > endPlusOneMs : false;
+            const isUpcoming = startMs ? nowMs < startMs : false;
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            const eventStartDate = start || (m.date ? new Date(m.date) : null);
+            const eventEndDate = end || (m.date_end ? new Date(m.date_end) : null);
+            const isTodayInEventPeriod = eventStartDate && eventEndDate ? (todayStart <= eventEndDate && todayEnd >= eventStartDate) : false;
+            const finalIsUpcoming = isCompleted ? false : (isTodayInEventPeriod ? false : isUpcoming);
+            return {
+              ...m,
+              id: m.meeting_key || m.meetingKey || m.id,
+              name: m.meeting_name || m.meeting_official_name || m.meetingName || m.name || '',
+              date: isCompleted ? (end ? end.toISOString() : (m.date_end || m.dateEnd || '')) : (start ? start.toISOString() : (m.date_start || m.dateStart || '')),
+              eventDate: start,
+              endDate: end,
+              countryFlag: m.country_flag || m.countryFlag || '',
+              venueName: m.circuit_short_name || m.circuitShortName || m.venueName || m.location || '',
+              isCompleted,
+              isUpcoming: finalIsUpcoming,
+              competitionWinners: {},
+              winnerName: m.winner || '',
+              winnerTeam: m.winner_team || m.winnerTeam || '',
+              winnerTeamColor: m.winner_team ? `#${getTeamColor(m.winner_team)}` : '#333333',
+            };
+          });
+          try { await AsyncStorage.setItem(MEETINGS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data: meetingsData })); } catch (e) {}
+        }
+
+        if (meetingsData && meetingsData.length > 0) {
+          setAllEvents(meetingsData);
+          setAllEventsLoaded(true);
+          const filtered = filterEventsByType(meetingsData, selectedType, now);
+          setResults(filtered);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      } catch (e) {
+        // if server fetch fails, fall back to existing calendar logic
+        console.warn('meetings fetch failed, falling back to calendar', e?.message || e);
+      }
 
       // Fetch calendar first (efficient approach)
       const calUrl =
@@ -1245,13 +1339,13 @@ const ResultsScreen = ({ route }) => {
       marginRight: 10,
     },
     countryFlag: {
-      width: 20,
+      width: 25,
       height: 14,
-      resizeMode: "cover",
+      resizeMode: "contain",
       marginRight: 8,
-      borderRadius: 2,
+      borderRadius: 0,
       backgroundColor: "#fff",
-      marginTop: -20,
+      marginTop: -17.5,
     },
     rightColumn: {
       alignItems: "flex-end",

@@ -214,7 +214,7 @@ app.get("/meetings", async (req, res) => {
           (d) => String(d.driver_number) === String(driverNum),
         );
         meeting.winner = driverObj
-          ? driverObj.broadcast_name || driverObj.full_name || driverObj.name
+          ? driverObj.full_name || driverObj.broadcast_name || driverObj.name
           : sr.driver_name || sr.name || null;
         meeting.winner_team = driverObj
           ? driverObj.team_name || driverObj.teamName || null
@@ -281,12 +281,11 @@ app.get("/meeting/:meeting_key", async (req, res) => {
       let winner_team = null;
       if (sr) {
         const driverNum = sr.driver_number || sr.driverNumber || sr.driver;
-        const driverObj = driversArr
-          .find
-          // intervals
-          ();
+        const driverObj = driversArr.find(
+          (d) => String(d.driver_number) === String(driverNum),
+        );
         winner = driverObj
-          ? driverObj.broadcast_name || driverObj.full_name || driverObj.name
+          ? driverObj.full_name || driverObj.broadcast_name || driverObj.name
           : sr.driver_name || sr.name || null;
         winner_team = driverObj
           ? driverObj.team_name || driverObj.teamName || null
@@ -298,8 +297,7 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     setCachingHeaders(res, TTL_6H);
     res.json({ meeting, sessions: enriched });
   } catch (e) {
-    res.status(502);
-    // location
+    res.status(502).json({ error: "Failed to fetch meeting", details: e.message });
   }
 });
 
