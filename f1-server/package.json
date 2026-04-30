@@ -1,0 +1,20 @@
+{
+  "name": "f1-server",
+  "version": "0.1.0",
+  "description": "F1 proxy/cache server for live-sports-tracker (ready for Railway)",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.4",
+    "compression": "^1.7.4",
+    "@msgpack/msgpack": "^2.7.0"
+  }
+}

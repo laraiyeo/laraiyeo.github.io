@@ -241,20 +241,20 @@ export class MLBService {
         if (startDate) {
           if (endDate && endDate !== startDate) {
             // Date range format
-            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log(
               "MLBService: Using date range format:",
               `${startDate} to ${endDate}`,
             );
           } else {
             // Single date format
-            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log("MLBService: Using single date format:", startDate);
           }
         } else {
           // Use adjusted date for "today"
           const today = this.getAdjustedDateForMLB();
-          url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+          url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
           console.log("MLBService: Using adjusted today date:", today);
         }
 
@@ -325,6 +325,7 @@ export class MLBService {
       date: game.gameDate,
       status: game.status?.detailedState || "Unknown",
       statusType: game.status?.statusCode || "U",
+      reason: game.status?.reason || null,
       season: {
         type: game.seriesDescription === "Regular Season" ? 1 : 3,
         slug: game.seriesDescription === "Regular Season" ? null : "postseason",

@@ -800,6 +800,8 @@ const MLBGridCard = ({
         game.statusType,
       ));
   const isScheduled = !isLive && !isFinished;
+  const isPostponed = game.status === "Postponed";
+  const reason = game.reason || game.statusReason || "";
 
   const inning = game.inning;
   const show = isFinished && game.statusType !== "DI" && inning != 9;
@@ -869,12 +871,19 @@ const MLBGridCard = ({
             {(game.status || "Final").slice(0, 9)}
             {show ? `/${inning}` : ""}
           </Text>
-        ) : (
+        ) : isPostponed ? (
           <Text
             style={[mlbGridStyles.statusText, { color: theme.text }]}
             numberOfLines={1}
           >
-            {time} <Text style={{ color: theme.textTertiary }}>{ampm}</Text>
+            PP · <Text style={{ color: theme.textTertiary }}>{reason}</Text>
+          </Text>
+        ) : (
+          <Text
+            style={[mlbGridStyles.statusText, { color: theme.text, fontWeight: "800" }]}
+            numberOfLines={1}
+          >
+            {time} <Text style={{ color: theme.textSecondary, fontWeight: "500" }}>{ampm}</Text>
           </Text>
         )}
         <LiveViewerBadge
@@ -931,7 +940,7 @@ const MLBGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
-                  style={mlbGridStyles.scoreLogoOverlay}
+                  style={[mlbGridStyles.scoreLogoOverlay, { opacity: isFinished && !awayWins ? 0.55 : 1}]}
                   resizeMode="contain"
                 />
               )}
@@ -940,7 +949,7 @@ const MLBGridCard = ({
           <Text
             style={[
               mlbGridStyles.teamAbbr,
-              { color: awayFav ? colors.primary : theme.text },
+              { color: awayFav ? colors.primary : theme.text, opacity: isFinished && !awayWins ? 0.55 : 1 },
             ]}
           >
             {awayFav ? "★ " : ""}
@@ -948,7 +957,7 @@ const MLBGridCard = ({
           </Text>
           {away.record ? (
             <Text
-              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}
+              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 }]}
             >
               {away.record}
             </Text>
@@ -1010,7 +1019,7 @@ const MLBGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
-                  style={mlbGridStyles.scoreLogoOverlay}
+                  style={[mlbGridStyles.scoreLogoOverlay, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
                   resizeMode="contain"
                 />
               )}
@@ -1019,7 +1028,7 @@ const MLBGridCard = ({
           <Text
             style={[
               mlbGridStyles.teamAbbr,
-              { color: homeFav ? colors.primary : theme.text },
+              { color: homeFav ? colors.primary : theme.text, opacity: isFinished && !homeWins ? 0.55 : 1 },
             ]}
           >
             {homeFav ? "★ " : ""}
@@ -1027,7 +1036,7 @@ const MLBGridCard = ({
           </Text>
           {home.record ? (
             <Text
-              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}
+              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 }]}
             >
               {home.record}
             </Text>
@@ -1356,6 +1365,8 @@ const ScoreboardSection = ({
                     "FR",
                   ].includes(game.statusType);
                 const isScheduled = !isLive && !isFinished;
+                const isPostponed = game.status === "Postponed";
+                const reason = game.reason || game.statusReason || "";
                 const awayProbable = getTeamProbablePitcher(game, "away");
                 const homeProbable = getTeamProbablePitcher(game, "home");
                 const awaySummary = getPitcherSummary(awayProbable);
@@ -1444,6 +1455,34 @@ const ScoreboardSection = ({
                             theme={theme}
                             colors={colors}
                           />
+                        ) : isPostponed ? (
+                          <>
+                            <Text
+                              style={[
+                                styles.statusLine1,
+                                {
+                                  color: isFinished
+                                    ? theme.textSecondary
+                                    : theme.text,
+                                  fontWeight: "700",
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              Post.
+                            </Text>
+                            {!!statusLine2 && (
+                              <Text
+                                style={[
+                                  styles.statusLine2,
+                                  { color: theme.textTertiary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {reason}
+                              </Text>
+                            )}
+                          </>
                         ) : (
                           <>
                             <Text
@@ -1453,7 +1492,7 @@ const ScoreboardSection = ({
                                   color: isFinished
                                     ? theme.textSecondary
                                     : theme.text,
-                                  fontWeight: "500",
+                                  fontWeight: "800",
                                 },
                               ]}
                               numberOfLines={1}
@@ -1484,7 +1523,7 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
-                                style={styles.teamLogoSmallImg}
+                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !awayWins ? 0.55 : 1 }]}
                                 resizeMode="contain"
                               />
                             ) : (
@@ -1496,6 +1535,7 @@ const ScoreboardSection = ({
                                       awayColor || colors.primary,
                                     justifyContent: "center",
                                     alignItems: "center",
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
                                   },
                                 ]}
                               >
@@ -1512,6 +1552,7 @@ const ScoreboardSection = ({
                                 {
                                   color: awayFav ? colors.primary : theme.text,
                                   fontWeight: awayWins ? "700" : "400",
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
                                 },
                               ]}
                               numberOfLines={1}
@@ -1523,7 +1564,7 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary },
+                                  { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 },
                                 ]}
                               >
                                 {away.record}
@@ -1553,7 +1594,7 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
-                                style={styles.teamLogoSmallImg}
+                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
                                 resizeMode="contain"
                               />
                             ) : (
@@ -1565,6 +1606,7 @@ const ScoreboardSection = ({
                                       homeColor || colors.primary,
                                     justifyContent: "center",
                                     alignItems: "center",
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
                                   },
                                 ]}
                               >
@@ -1581,6 +1623,7 @@ const ScoreboardSection = ({
                                 {
                                   color: homeFav ? colors.primary : theme.text,
                                   fontWeight: homeWins ? "700" : "400",
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
                                 },
                               ]}
                               numberOfLines={1}
@@ -1592,7 +1635,7 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary },
+                                  { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 },
                                 ]}
                               >
                                 {home.record}

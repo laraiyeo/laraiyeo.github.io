@@ -100,6 +100,7 @@ const TeamSide = ({
   score,
   side,
   isPre,
+  isFinished,
   isWinner,
   isLoser,
   record,
@@ -130,7 +131,7 @@ const TeamSide = ({
 
         <Image
           source={{ uri: logo }}
-          style={styles.teamLogo}
+          style={[styles.teamLogo, { opacity: isFinished ? isWinner ? 1 : 0.55 : 1 }]}
           contentFit="contain"
         />
 
@@ -160,7 +161,7 @@ const TeamSide = ({
           <Text
             style={[
               styles.teamName,
-              { color: isLoser ? theme.textSecondary : theme.text },
+              { color: theme.text, opacity: isFinished ? isWinner ? 1 : 0.55 : 1 },
             ]}
             numberOfLines={2}
           >
@@ -708,6 +709,7 @@ const normalizeGameData = (details, isDarkMode) => {
     let statusMain = "FT";
     let statusSub = "Final";
     let isPre = false;
+    let isFinished = false;
 
     if (state === "FUT" || state === "PRE") {
       const dt = new Date(gameDate || Date.now());
@@ -720,11 +722,12 @@ const normalizeGameData = (details, isDarkMode) => {
     } else if (state === "LIVE" || state === "CRIT") {
       statusMain = remaining || "0:00";
       statusSub = `${toOrdinal(periodNumber) || "1st"} Period`;
-    } else if (state === "OFF" || state === "FINAL" || state === "OVER") {
+    } else if (state === "OFF" || state === "FINAL" || state === "OVER" || state === "POST") {
       const { time, ampm } = formatLocalTime(gameDate);
       statusMain =
         "FT" + (periodType && periodType !== "REG" ? ` (${periodType})` : "");
       statusSub = `${time} ${ampm}`.trim();
+      isFinished = true;
     }
 
     const awayRecord =
@@ -744,6 +747,7 @@ const normalizeGameData = (details, isDarkMode) => {
       statusMain,
       statusSub,
       isPre,
+      isFinished,
       rawState: state,
       gameType: Number(landing?.gameType || 0),
       periodNumber,
@@ -987,7 +991,7 @@ const buildScorers = ({
     return a.secs - b.secs;
   };
 
-  const strengthLabel = (strength) => strength !== "EV" ? `, ${strength}` : "";
+  const strengthLabel = (strength) => strength !== "EV" ? ` · ${strength}` : "";
 
   const formatGoalMoment = (g) =>
     `${g.timeInPeriod} (${getScorerPeriodLabel(g.periodNumber, gameType)}${strengthLabel(g.strength)})`;
@@ -3747,11 +3751,6 @@ const LivePlaySection = ({ game, theme, colors, onPlayerPress }) => {
         <Text style={[styles.livePlayHeaderTitle, { color: theme.text }]}>
           Live Play
         </Text>
-        <Text
-          style={[styles.livePlayHeaderCount, { color: theme.textSecondary }]}
-        >
-          LIVE
-        </Text>
       </View>
 
       {!activeRow ? (
@@ -4865,7 +4864,7 @@ const EventsSection = ({
                                   {")"}
                                   {event.strength && event.strength !== "EV" && (
                                   <Text style={{ fontWeight: "700" }}>
-                                    {" "} · {event.strength}
+                                     {" "}· {event.strength}
                                   </Text>
                                   )}
                                 </>
@@ -6427,14 +6426,14 @@ const SeriesMatchCard = ({
   const rightScore = toNullableScore(rightTeam?.score);
   const hasScore = leftScore != null && rightScore != null;
 
-  const leftWon = hasScore && leftScore > rightScore;
-  const rightWon = hasScore && rightScore > leftScore;
-
   const startTime = match?.startTimeUTC || match?.gameDate || "";
   const gameState = match?.gameState || "";
   const live =
     gameState === "LIVE" || gameState === "CRIT" || gameState === "IN";
   const { time, ampm } = formatLocalTime(startTime);
+
+  const leftWon = hasScore && !live && leftScore > rightScore;
+  const rightWon = hasScore && !live && rightScore > leftScore;
 
   let topDate = "";
   try {
@@ -6539,7 +6538,7 @@ const SeriesMatchCard = ({
             {leftLogoUri ? (
               <Image
                 source={{ uri: leftLogoUri }}
-                style={seriesStyles.matchTeamLogo}
+                style={[seriesStyles.matchTeamLogo, { opacity: !hasScore ? 1 : leftWon ? 1 : 0.55 }]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -6563,8 +6562,9 @@ const SeriesMatchCard = ({
                 style={[
                   seriesStyles.matchTeamName,
                   {
-                    color: leftWon ? theme.text : theme.textSecondary,
-                    fontWeight: leftWon ? "700" : "500",
+                    color: theme.text,
+                    opacity: !hasScore ? 1 : leftWon ? 1 : 0.55,
+                    fontWeight: !hasScore ? 1 : leftWon ? "700" : "500",
                   },
                 ]}
                 numberOfLines={2}
@@ -6612,6 +6612,7 @@ const SeriesMatchCard = ({
                           ? theme.text
                           : theme.textSecondary,
                       fontWeight: leftWon ? "800" : "500",
+                      opacity: leftWon ? 1 : 0.55,
                     },
                   ]}
                 >
@@ -6635,6 +6636,7 @@ const SeriesMatchCard = ({
                           ? theme.text
                           : theme.textSecondary,
                       fontWeight: rightWon ? "800" : "500",
+                      opacity: rightWon ? 1 : 0.55,
                     },
                   ]}
                 >
@@ -6675,8 +6677,9 @@ const SeriesMatchCard = ({
                   seriesStyles.matchTeamName,
                   seriesStyles.matchTeamNameAway,
                   {
-                    color: rightWon ? theme.text : theme.textSecondary,
-                    fontWeight: rightWon ? "700" : "500",
+                    color: theme.text,
+                    fontWeight: !hasScore ? 1 : rightWon ? "700" : "500",
+                    opacity: !hasScore ? 1 : rightWon ? 1 : 0.55,
                   },
                 ]}
                 numberOfLines={2}
@@ -6687,7 +6690,7 @@ const SeriesMatchCard = ({
             {rightLogoUri ? (
               <Image
                 source={{ uri: rightLogoUri }}
-                style={seriesStyles.matchTeamLogo}
+                style={[seriesStyles.matchTeamLogo, { opacity: !hasScore ? 1 : rightWon ? 1 : 0.55 }]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -11395,6 +11398,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
   const homeWins = (game?.home?.score || 0) > (game?.away?.score || 0);
   const awayWins = (game?.away?.score || 0) > (game?.home?.score || 0);
+  const isFinished = game.isFinished || false;
   const stickyThreshold = headerH > 0 ? headerH - 40 : 120;
   const stickyOpacity = scrollY.interpolate({
     inputRange: [stickyThreshold, stickyThreshold + 40],
@@ -11446,6 +11450,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               score={game.away.score}
               side="away"
               isPre={game.isPre}
+              isFinished={game.isFinished}
               isWinner={awayWins}
               isLoser={homeWins}
               record={game?.away?.record}
@@ -11521,6 +11526,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               score={game.home.score}
               side="home"
               isPre={game.isPre}
+              isFinished={game.isFinished}
               isWinner={homeWins}
               isLoser={awayWins}
               record={game?.home?.record}
@@ -11603,11 +11609,11 @@ const NHLGameDetailsScreen = ({ route }) => {
             <View style={styles.miniSide}>
               <Image
                 source={{ uri: awayLogo }}
-                style={styles.miniLogo}
+                style={[styles.miniLogo, { opacity: isFinished ? awayWins ? 1 : 0.55 : 1 }]}
                 contentFit="contain"
               />
               <Text
-                style={[styles.miniAbbr, { color: theme.text }]}
+                style={[styles.miniAbbr, { color: theme.text, opacity: isFinished ? awayWins ? 1 : 0.55 : 1 }]}
                 numberOfLines={1}
               >
                 {game?.away?.abbreviation || "AWY"}
@@ -11653,14 +11659,14 @@ const NHLGameDetailsScreen = ({ route }) => {
                 </Text>
               )}
               <Text
-                style={[styles.miniAbbr, { color: theme.text }]}
+                style={[styles.miniAbbr, { color: theme.text, opacity: isFinished ? homeWins ? 1 : 0.55 : 1 }]}
                 numberOfLines={1}
               >
                 {game?.home?.abbreviation || "HME"}
               </Text>
               <Image
                 source={{ uri: homeLogo }}
-                style={styles.miniLogo}
+                style={[styles.miniLogo, { opacity: isFinished ? homeWins ? 1 : 0.55 : 1 }]}
                 contentFit="contain"
               />
             </View>

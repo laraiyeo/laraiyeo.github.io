@@ -1,5 +1,6 @@
 ﻿import React, {
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   useRef,
@@ -10,6 +11,7 @@ import {
   Text,
   ScrollView,
   Animated,
+  Easing,
   FlatList,
   Modal,
   PanResponder,
@@ -20,6 +22,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Alert,
+  Image as RNImage,
 } from "react-native";
 import { Image } from "expo-image";
 import Svg, {
@@ -61,6 +64,9 @@ const RUN_IT_BACK_SPEED_OPTIONS = [
   { label: "Reverse 1.5x", value: -1.5 },
   { label: "Reverse 2x", value: -2 },
 ];
+
+const AnimatedBaseballImage = Animated.createAnimatedComponent(RNImage);
+const BASEBALL_SPRITE = require("../../../assets/baseball-1.png");
 
 // ─── Ordinal helper ───────────────────────────────────────────────────────────
 const toOrdinal = (n) => {
@@ -143,20 +149,20 @@ const TeamColumn = ({
           <Image
             cachePolicy="memory-disk"
             source={{ uri: logo }}
-            style={styles.teamLogo}
+            style={[styles.teamLogo, { opacity: isFinished ? isWinner ? 1 : 0.55 : 1 }]}
             resizeMode="contain"
           />
         ) : (
           <View
             style={[
               styles.teamLogoPlaceholder,
-              { backgroundColor: theme.surfaceSecondary },
+              { backgroundColor: theme.surfaceSecondary, opacity: isWinner ? 0.6 : 0.3 },
             ]}
           >
             <Text
               style={[
                 styles.teamLogoPlaceholderText,
-                { color: theme.textSecondary },
+                { color: theme.textSecondary, opacity: isWinner ? 0.8 : 0.5 },
               ]}
             >
               {(team?.name || "?").charAt(0).toUpperCase()}
@@ -164,7 +170,7 @@ const TeamColumn = ({
           </View>
         )}
         <Text
-          style={[styles.teamName, { color: theme.text }]}
+          style={[styles.teamName, { color: theme.text, opacity: isFinished ? isWinner ? 1 : 0.55 : 1 }]}
           numberOfLines={2}
         >
           {team?.name || "—"}
@@ -186,6 +192,34 @@ const resolvePlayer = (playersMap, id) => {
   return (
     playersMap[`ID${id}`] ?? playersMap[String(id)] ?? playersMap[id] ?? null
   );
+};
+
+const getPitchHandCode = (playersMap, allBsPlayers, pitcherId) => {
+  if (pitcherId == null) return "R";
+  const player = resolvePlayer(playersMap, pitcherId);
+  const bsPlayer = allBsPlayers?.[`ID${pitcherId}`] ?? null;
+  const rawCode =
+    player?.pitchHand?.code ??
+    player?.pitchingHand?.code ??
+    bsPlayer?.person?.pitchHand?.code ??
+    bsPlayer?.person?.pitchingHand?.code ??
+    bsPlayer?.pitchHand?.code ??
+    bsPlayer?.pitchingHand?.code ??
+    "R";
+
+  return String(rawCode || "R")
+    .toUpperCase()
+    .charAt(0);
+};
+
+const resolvePitcherIdFromPlay = (play, fallbackPitcherId = null) => {
+  const directId = play?.matchup?.pitcher?.id;
+  if (directId != null) return directId;
+
+  const eventId = [...(play?.playEvents ?? [])]
+    .reverse()
+    .find((ev) => ev?.matchup?.pitcher?.id != null)?.matchup?.pitcher?.id;
+  return eventId ?? fallbackPitcherId;
 };
 
 const getMlbSeriesCacheKey = ({ year, homeTeamId, awayTeamId }) => {
@@ -2918,153 +2952,811 @@ const pdStyles = StyleSheet.create({
 
 // ─── Pitch call-code → color ─────────────────────────────────────────────────
 const getPitchColor = (callCode) => {
-  if (["X", "E", "H", "D"].includes(callCode)) return "#2196F3"; // in play
-  if (["B", "D", "*B"].includes(callCode)) return "#4CAF50"; // ball
+  const code = String(callCode ?? "").toUpperCase();
+  if (["X", "E", "H", "D"].includes(code)) return "#2196F3"; // in play
+  if (["B", "*B"].includes(code)) return "#4CAF50"; // ball
   return "#f44336"; // strike / foul
 };
 
+const getPitchOutcomeType = (callCode) => {
+  const code = String(callCode ?? "").toUpperCase();
+  if (["X", "E", "H", "D"].includes(code)) return "inPlay";
+  if (["B", "*B"].includes(code)) return "ball";
+  if (["C", "S", "F", "T", "L", "W"].includes(code)) return "strike";
+  return "other";
+};
+
+const getPitchFilterLabel = (callCode, counters) => {
+  const outcome = getPitchOutcomeType(callCode);
+  if (outcome === "ball") {
+    counters.ball += 1;
+    return `Ball ${counters.ball}`;
+  }
+  if (outcome === "strike") {
+    counters.strike += 1;
+    return `Strike ${counters.strike}`;
+  }
+  if (outcome === "inPlay") {
+    counters.inPlay += 1;
+    return "In Play";
+  }
+
+  counters.pitch += 1;
+  return `Pitch ${counters.pitch}`;
+};
+
+const clampNumber = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const getPitchFlightDurationMs = (pitch) => {
+  const start = Number(pitch?.pitchData?.startSpeed);
+  const end = Number(pitch?.pitchData?.endSpeed);
+  const hasStart = Number.isFinite(start);
+  const hasEnd = Number.isFinite(end);
+  const avg = hasStart && hasEnd ? (start + end) / 2 : hasStart ? start : 90;
+  const decel = hasStart && hasEnd ? Math.max(0, start - end) : 0;
+
+  return clampNumber(Math.round(1000 - avg * 6 + decel * 4), 260, 920);
+};
+
+const getPitchSpinDegrees = (pitch, durationMs) => {
+  const spinRate =
+    Number(
+      pitch?.pitchData?.breaks?.spinRate ??
+        pitch?.pitchData?.spinRate ??
+        pitch?.details?.spinRate,
+    ) * 0.4;
+  if (!Number.isFinite(spinRate) || spinRate <= 0) {
+    return 288;
+  }
+
+  const flightSec = durationMs / 1000;
+  const rotations = (spinRate / 60) * flightSec;
+  return Math.max(216, Math.round(rotations * 360 * 0.4));
+};
+
 // ─── Strike zone visualizer ───────────────────────────────────────────────────
-const StrikeZoneView = ({ pitches, theme, animatedIndex, animTrigger }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+const StrikeZoneView = ({
+  pitches = [],
+  theme,
+  animatedIndex = null,
+  animTrigger = null,
+  animateAllOnTrigger = false,
+  visiblePitchIndices = null,
+  pitcherHandCode = "R",
+  size = 160,
+  flashOnce = true,
+  selectedPitchFilter = "all",
+  isShareCard = false,
+}) => {
+  const chartSize = Math.max(110, Number(size) || 160);
+  const containerW = chartSize;
+  const containerH = Math.round(chartSize * 1.16);
+  const strikeW = Math.round(containerW * 0.52);
+  const strikeH = Math.round(containerH * 0.5);
+  const strikeLeft = Math.round((containerW - strikeW) / 2);
+  const strikeTop = Math.round(containerH * 0.15);
+  const dotSize = Math.max(14, Math.round(chartSize * 0.125));
+  const plateW = Math.round(strikeW * 0.48);
+  const plateH = Math.round(plateW * 0.72);
+  const plateSpacing = isShareCard ? 17 : 17;
+
+  const animStatesRef = useRef({});
+  const launchPointsRef = useRef({});
+  const activeAnimationsRef = useRef([]);
+  const lastAnimRunKeyRef = useRef("");
+  const [arrivedMap, setArrivedMap] = useState({});
+  const trailPointsRef = useRef({
+    live: {},
+    committed: {},
+  });
+  const [, forceUpdate] = useState(0);
+  const rafRef = useRef(null);
+
+  const lastFilterRef = useRef(selectedPitchFilter);
 
   useEffect(() => {
-    if (animatedIndex == null || animTrigger == null) return;
+    if (lastFilterRef.current !== selectedPitchFilter) {
+      // 🔥 Clear ALL committed trails on filter switch
+      trailPointsRef.current.committed = {};
 
-    // Reset to baseline
-    scaleAnim.stopAnimation();
-    overlayOpacity.stopAnimation();
-    scaleAnim.setValue(1);
-    overlayOpacity.setValue(0);
+      // Optional but recommended (prevents ghost trails mid-animation)
+      trailPointsRef.current.live = {};
 
-    // Phase 1: pop out → shrink back → slow pulse x3
-    Animated.sequence([
-      // Expand
-      Animated.timing(scaleAnim, {
-        toValue: 2.4,
-        duration: 350,
-        useNativeDriver: true,
+      lastFilterRef.current = selectedPitchFilter;
+    }
+  }, [selectedPitchFilter]);
+
+  const avgTop = useMemo(
+    () =>
+      pitches.reduce((s, p) => s + (p?.pitchData?.strikeZoneTop || 3.5), 0) /
+      (pitches.length || 1),
+    [pitches],
+  );
+
+  const avgBot = useMemo(
+    () =>
+      pitches.reduce((s, p) => s + (p?.pitchData?.strikeZoneBottom || 1.5), 0) /
+      (pitches.length || 1),
+    [pitches],
+  );
+
+  const isFilterMode = selectedPitchFilter !== "all";
+
+  const renderIndices = useMemo(() => {
+    const all = Array.from({ length: pitches.length }, (_, i) => i);
+    if (
+      !Array.isArray(visiblePitchIndices) ||
+      visiblePitchIndices.length === 0
+    ) {
+      return all;
+    }
+    return visiblePitchIndices.filter(
+      (i) => Number.isInteger(i) && i >= 0 && i < pitches.length,
+    );
+  }, [pitches.length, visiblePitchIndices]);
+
+  const targetIndices = useMemo(() => {
+    if (animateAllOnTrigger) return renderIndices;
+    if (animatedIndex != null && renderIndices.includes(animatedIndex)) {
+      return [animatedIndex];
+    }
+    return [];
+  }, [animateAllOnTrigger, animatedIndex, renderIndices]);
+
+  const targetIndicesKey = useMemo(
+    () => targetIndices.join(","),
+    [targetIndices],
+  );
+
+  const animationRunKey = useMemo(() => {
+    if (animTrigger == null || targetIndices.length === 0) return "";
+    return [
+      String(animTrigger),
+      String(pitcherHandCode || "R"),
+      flashOnce ? "1" : "0",
+      String(chartSize),
+      targetIndicesKey,
+    ].join("|");
+  }, [
+    animTrigger,
+    pitcherHandCode,
+    flashOnce,
+    chartSize,
+    targetIndices.length,
+    targetIndicesKey,
+  ]);
+
+  const getFinalPoint = (pitch) => {
+    const d = pitch?.pitchData?.coordinates;
+    const plateTime = pitch?.pitchData?.plateTime;
+
+    if (!d || plateTime == null) return null;
+
+    const { x0, z0, vX0, vY0, vZ0, aX, aY, aZ } = d;
+
+    if ([x0, z0, vX0, vY0, vZ0, aX, aY, aZ].some((v) => v == null)) return null;
+
+    const t = plateTime;
+
+    return {
+      x: x0 + vX0 * t + 0.5 * aX * t * t,
+      y: vY0 * t + 0.5 * aY * t * t,
+      z: z0 + vZ0 * t + 0.5 * aZ * t * t,
+    };
+  };
+
+  const projectToStrikeZone = (p) => {
+    if (!p) return null;
+
+    const depthScale = 1 - (p.y / 60) * 0.5;
+
+    // --- match HTML vertical system ---
+    const zoneHeightFt = avgTop - avgBot;
+
+    // normalize to 0–1
+    const zRatio = (p.z - avgBot) / zoneHeightFt;
+
+    // 👇 compress vertical spread slightly (like your HTML does visually)
+    const VERTICAL_TUNE = 0.6; // try 0.8–0.95
+
+    const Y_OFFSET = -25;
+
+    const y =
+      strikeTop +
+      strikeH -
+      zRatio * strikeH * VERTICAL_TUNE * depthScale +
+      Y_OFFSET;
+
+    const PLATE_WIDTH_FT = 20 / 12; // 1.67 ft
+
+    const xRatio = p.x / (PLATE_WIDTH_FT / 2);
+    // now ~ -1 to 1 across the plate
+
+    const x =
+      strikeLeft + strikeW / 2 + xRatio * (strikeW / 2) * 0.75 * depthScale;
+
+    return {
+      x: clampNumber(x - dotSize / 2, 2, containerW - dotSize),
+      y: clampNumber(y - dotSize / 2, 2, containerH - dotSize),
+    };
+  };
+
+  const pitchPositions = useMemo(
+    () =>
+      pitches.map((pitch) => {
+        const finalPoint = getFinalPoint(pitch);
+        return projectToStrikeZone(finalPoint);
       }),
-      // Shrink back to normal
-      Animated.timing(scaleAnim, {
-        toValue: 1.0,
-        duration: 280,
+    [
+      pitches,
+      strikeH,
+      strikeW,
+      strikeLeft,
+      strikeTop,
+      containerW,
+      containerH,
+      dotSize,
+    ],
+  );
+
+  const getAnimState = useCallback((idx) => {
+    if (!animStatesRef.current[idx]) {
+      animStatesRef.current[idx] = {
+        travel: new Animated.Value(1),
+        spinProgress: new Animated.Value(1),
+        ballScale: new Animated.Value(1),
+        dotScale: new Animated.Value(1),
+        spinDegrees: 720,
+      };
+    }
+    return animStatesRef.current[idx];
+  }, []);
+
+  const stopRunningAnimations = useCallback(() => {
+    activeAnimationsRef.current.forEach((anim) => anim?.stop?.());
+    activeAnimationsRef.current = [];
+    if (!isFilterMode) {
+      trailPointsRef.current.live = {};
+      trailPointsRef.current.committed = {};
+    }
+    Object.values(animStatesRef.current).forEach((state) => {
+      state.travel.stopAnimation();
+      state.spinProgress.stopAnimation();
+      state.ballScale.stopAnimation();
+      state.dotScale.stopAnimation();
+      state.travel.removeAllListeners();
+    });
+  }, []);
+
+  useEffect(() => () => stopRunningAnimations(), [stopRunningAnimations]);
+
+  useEffect(() => {
+    if (!animationRunKey || targetIndices.length === 0) return;
+
+    // 🚫 prevent rerun unless truly new animation
+    if (lastAnimRunKeyRef.current === animationRunKey) return;
+    lastAnimRunKeyRef.current = animationRunKey;
+
+    stopRunningAnimations();
+
+    // ✅ ADD THESE 2 LINES RIGHT HERE
+    launchPointsRef.current = {};
+    const visibleSet = new Set(renderIndices);
+
+    Object.keys(trailPointsRef.current).forEach((key) => {
+      const idx = Number(key);
+
+      // ❌ remove trails ONLY if pitch is no longer visible
+      if (!visibleSet.has(idx)) {
+        delete trailPointsRef.current.live[idx];
+      }
+    });
+
+    setArrivedMap((prev) => {
+      const next = {};
+
+      // ✅ keep ALL previous dots as arrived
+      Object.keys(prev).forEach((k) => {
+        next[k] = true;
+      });
+
+      // ✅ only new animated ones are false
+      targetIndices.forEach((idx) => {
+        next[idx] = false;
+      });
+
+      return next;
+    });
+
+    const isLefty = String(pitcherHandCode || "R")
+      .toUpperCase()
+      .startsWith("L");
+
+    targetIndices.forEach((idx, order) => {
+      const pos = pitchPositions[idx];
+      if (!pos) return;
+
+      const state = getAnimState(idx);
+      const spread =
+        targetIndices.length > 1
+          ? ((order % 5) - 2) * Math.max(2, dotSize * 0.15)
+          : 0;
+
+      const startX = !isLefty
+        ? containerW - dotSize * 1.05 - spread
+        : dotSize * 0.05 + spread;
+      const startY = strikeTop + strikeH * 0.5;
+
+      launchPointsRef.current[idx] = { x: startX, y: startY };
+
+      const durationMs = getPitchFlightDurationMs(pitches[idx]);
+      state.spinDegrees = getPitchSpinDegrees(pitches[idx], durationMs);
+
+      // ✅ ADD THESE FIRST (critical)
+      state.travel.stopAnimation();
+      state.spinProgress.stopAnimation();
+      state.ballScale.stopAnimation();
+      state.dotScale.stopAnimation();
+
+      // then reset
+      state.travel.setValue(0);
+      state.spinProgress.setValue(0);
+      state.ballScale.setValue(2.2);
+      state.dotScale.setValue(1);
+
+      const travelAnim = Animated.timing(state.travel, {
+        toValue: 1,
+        duration: durationMs,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
-      }),
-      // 3 slow dark pulses (~1 s each = 3 s total)
-      Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(scaleAnim, {
-              toValue: 1.28,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleAnim, {
-              toValue: 1.0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(overlayOpacity, {
-              toValue: 0.55,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(overlayOpacity, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-        { iterations: 3 },
-      ),
-    ]).start();
-  }, [animTrigger]);
+      });
+      const spinAnim = Animated.timing(state.spinProgress, {
+        toValue: 1,
+        duration: durationMs,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      });
+      const sizeAnim = Animated.timing(state.ballScale, {
+        toValue: 1,
+        duration: durationMs,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      });
+
+      const travelPack = Animated.parallel([travelAnim, spinAnim, sizeAnim], {
+        stopTogether: false,
+      });
+      activeAnimationsRef.current.push(travelPack);
+      travelPack.start(({ finished }) => {
+        if (!finished) return;
+
+        setArrivedMap((prev) => ({ ...prev, [idx]: true }));
+
+        // 🔵 FILTER MODE → KEEP TRAIL
+        if (isFilterMode) {
+          const liveTrail = trailPointsRef.current.live[idx];
+
+          if (liveTrail?.points?.length) {
+            trailPointsRef.current.committed[idx] = {
+              points: [...liveTrail.points], // 🔥 SNAPSHOT COPY
+            };
+          }
+
+          return;
+        }
+
+        // 🟢 NORMAL MODE → REMOVE TRAIL AFTER FINISH (keep only dot)
+        state.dotScale.setValue(1.32);
+        const pulse = Animated.timing(state.dotScale, {
+          toValue: 1,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        });
+
+        activeAnimationsRef.current.push(pulse);
+        pulse.start();
+      });
+      trailPointsRef.current.live[idx] = {
+        points: [],
+        lastT: 0,
+      };
+
+      const pitch = pitches[idx];
+
+      const MANUAL_BREAK_X = pitch?.pitchData?.breaks?.breakHorizontal ?? 0;
+      const MANUAL_BREAK_Y = pitch?.pitchData?.breaks?.breakVertical ?? 0;
+
+      const launch = { x: startX, y: startY }; // 👈 define it here
+
+      state.travel.addListener(({ value }) => {
+        const t = value;
+
+        // ✅ HARD SAFETY INIT
+        if (!trailPointsRef.current.live[idx]) {
+          trailPointsRef.current.live[idx] = {
+            points: [],
+            lastT: 0,
+          };
+        }
+
+        const trailData = trailPointsRef.current.live[idx];
+        const trail = trailData.points;
+
+        if (!Array.isArray(trail)) {
+          trailData.points = [];
+        }
+
+        if (typeof trailData.lastT !== "number") {
+          trailData.lastT = 0;
+        }
+
+        if (t > 1) return;
+
+        if (t - trailData.lastT < 0.01) return;
+        trailData.lastT = t;
+
+        const baseX = launch.x + (pos.x - launch.x) * t;
+        const baseY = launch.y + (pos.y - launch.y) * t;
+
+        const curveFactor = 4 * t * (1 - t);
+
+        const x = baseX + MANUAL_BREAK_X * curveFactor;
+        const y = baseY + MANUAL_BREAK_Y * curveFactor;
+
+        trail.push({ x, y });
+      });
+    });
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const render = () => {
+      forceUpdate((v) => v + 1);
+      rafRef.current = requestAnimationFrame(render);
+    };
+
+    rafRef.current = requestAnimationFrame(render);
+  }, [
+    animationRunKey,
+    targetIndices,
+    containerW,
+    dotSize,
+    flashOnce,
+    getAnimState,
+    pitchPositions,
+    pitcherHandCode,
+    pitches,
+    stopRunningAnimations,
+    strikeTop,
+  ]);
 
   return (
     <View
       style={[
         modalStyles.strikeZoneContainer,
-        { backgroundColor: theme.background, borderColor: theme.border },
+        {
+          width: containerW,
+          height: containerH,
+          backgroundColor: theme.background,
+          borderColor: theme.border,
+        },
       ]}
     >
-      {/* inner zone rectangle */}
       <View
         style={[
           modalStyles.strikeZoneOutline,
-          { borderColor: theme.textTertiary },
+          {
+            width: strikeW,
+            height: strikeH,
+            left: strikeLeft,
+            top: strikeTop,
+            borderColor: theme.textTertiary,
+          },
         ]}
       />
-      {pitches.map((pitch, i) => {
-        const coords = pitch?.pitchData?.coordinates;
-        if (!coords || coords.pX == null || coords.pZ == null) return null;
 
-        const xPct = ((coords.pX + 2.0) / 3.75) * 100;
-        const szTop = pitch.pitchData?.strikeZoneTop;
-        const szBot = pitch.pitchData?.strikeZoneBottom;
-        const yPct =
-          szTop && szBot
-            ? ((szTop - coords.pZ) / (szTop - szBot)) * 60 + 20
-            : 50;
+      {[1 / 3, 2 / 3].map((ratio) => (
+        <View
+          key={`v-${ratio}`}
+          style={[
+            modalStyles.szGridLineVertical,
+            {
+              left: strikeLeft + strikeW * ratio,
+              top: strikeTop,
+              height: strikeH,
+              borderLeftColor: theme.textTertiary,
+            },
+          ]}
+        />
+      ))}
 
-        const finalX = (Math.max(5, Math.min(95, xPct)) / 100) * 145 - 5;
-        const finalY = (Math.max(5, Math.min(95, yPct)) / 100) * 125 + 5;
+      {[1 / 3, 2 / 3].map((ratio) => (
+        <View
+          key={`h-${ratio}`}
+          style={[
+            modalStyles.szGridLineHorizontal,
+            {
+              top: strikeTop + strikeH * ratio,
+              left: strikeLeft,
+              width: strikeW,
+              borderTopColor: theme.textTertiary,
+            },
+          ]}
+        />
+      ))}
+
+      <View
+        pointerEvents="none"
+        style={[
+          modalStyles.szPlateWrap,
+          {
+            width: plateW,
+            height: plateH,
+            left: containerW / 2 - plateW / 2 - 17,
+          },
+        ]}
+      >
+        <Svg width={200} height={plateH} viewBox="0 0 100 78">
+          <Path
+            d="M 100 10 L 190 30 L 180 70 L 20 70 L 10 30 Z"
+            fill={theme.surfaceSecondary ?? "rgba(255,255,255,0.06)"}
+            stroke={theme.textTertiary}
+            strokeWidth="6"
+          />
+        </Svg>
+      </View>
+
+      {renderIndices.map((i) => {
+        const pitch = pitches[i];
+        const pos = pitchPositions[i];
+
+        if (!pitch || !pos) return null;
+
         const color = getPitchColor(pitch?.details?.call?.code);
-        const isAnimated = i === animatedIndex;
+        const state = getAnimState(i);
+        const launch = launchPointsRef.current[i];
+        const isAnimating = targetIndices.includes(i);
+        const isStaticMode = targetIndices.length === 0;
+        const isArrived = isAnimating ? arrivedMap[i] === true : true;
 
-        if (isAnimated) {
-          return (
-            <Animated.View
-              key={i}
-              style={[
-                modalStyles.pitchDot,
-                {
-                  backgroundColor: color,
-                  borderColor: color,
-                  left: finalX,
-                  top: finalY,
-                  transform: [{ scale: scaleAnim }],
-                  zIndex: 20,
-                },
-              ]}
-            >
-              <Text style={modalStyles.pitchNum}>{i + 1}</Text>
-              {/* Dark pulse overlay */}
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: 10,
-                  backgroundColor: "rgba(0,0,0,0.55)",
-                  opacity: overlayOpacity,
-                }}
-                pointerEvents="none"
-              />
-            </Animated.View>
-          );
+        // ✅ Only block rendering if it's actively animating AND missing launch
+        if (isAnimating && !launch) return null;
+        // ✅ Provide a safe fallback for non-animating pitches
+        const safeLaunch = isAnimating ? launch : pos;
+        const spinRotate = state.spinProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0deg", `${state.spinDegrees || 720}deg`],
+        });
+
+        const spinDir = pitch?.pitchData?.breaks?.spinDirection ?? 90;
+        const radians = (spinDir * Math.PI) / 180;
+
+        const spinTiltX = Math.cos(radians);
+        const spinTiltY = Math.sin(radians);
+
+        const MANUAL_BREAK_X = pitch?.pitchData?.breaks?.breakHorizontal ?? 0;
+        const MANUAL_BREAK_Y = pitch?.pitchData?.breaks?.breakVertical ?? 0;
+
+        const baseY = state.travel.interpolate({
+          inputRange: [0, 1],
+          outputRange: [safeLaunch.y - pos.y, 0],
+        });
+
+        const arcY = state.travel.interpolate({
+          inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+          outputRange: [
+            0, 0.36, 0.64, 0.84, 0.96, 1, 0.96, 0.84, 0.64, 0.36, 0,
+          ].map((v) => v * MANUAL_BREAK_Y),
+        });
+
+        const translateY = Animated.add(baseY, arcY);
+
+        const baseX = state.travel.interpolate({
+          inputRange: [0, 1],
+          outputRange: [safeLaunch.x - pos.x, 0],
+        });
+
+        const arcX = state.travel.interpolate({
+          inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+          outputRange: [
+            0, 0.36, 0.64, 0.84, 0.96, 1, 0.96, 0.84, 0.64, 0.36, 0,
+          ].map((v) => v * MANUAL_BREAK_X),
+        });
+
+        const translateX = Animated.add(baseX, arcX);
+
+        const showLiveAnimation = !isArrived && !isStaticMode;
+
+        const showTrail =
+          showLiveAnimation ||
+          (isFilterMode &&
+            (trailPointsRef.current.committed[i]?.points?.length > 0 ||
+              trailPointsRef.current.live[i]?.points?.length > 0));
+
+        if (isFilterMode) {
+          // FILTER MODE (trail persists + dot shows after)
+          if (showLiveAnimation || showTrail) {
+            const showBall = showLiveAnimation;
+            const showDot = isArrived;
+
+            const liveTrail = trailPointsRef.current.live[i]?.points || [];
+            const committedTrail =
+              trailPointsRef.current.committed[i]?.points || [];
+
+            const trail =
+              committedTrail.length > 0 ? committedTrail : liveTrail;
+
+            return (
+              <>
+                {/* TRAIL */}
+                {trail.map((p, idx2) => {
+                  const alpha = idx2 / trail.length;
+
+                  return (
+                    <View
+                      key={`trail-${i}-${idx2}`}
+                      style={{
+                        position: "absolute",
+                        left: p.x + dotSize * 0.35,
+                        top: p.y + dotSize * 0.35,
+                        width: 5,
+                        height: 5,
+                        borderRadius: 2,
+                        backgroundColor: color,
+                        opacity: alpha * 1.5,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* BALL */}
+                {showBall && (
+                  <Animated.View
+                    key={`ball-${i}`}
+                    style={[
+                      modalStyles.animatedBall,
+                      {
+                        left: pos.x,
+                        top: pos.y,
+                        width: dotSize,
+                        height: dotSize,
+                        transform: [
+                          { translateX },
+                          { translateY },
+                          { rotate: spinRotate },
+                          { scale: state.ballScale },
+                        ],
+                      },
+                    ]}
+                  >
+                    <AnimatedBaseballImage
+                      source={BASEBALL_SPRITE}
+                      style={{ width: dotSize, height: dotSize }}
+                      resizeMode="contain"
+                    />
+                  </Animated.View>
+                )}
+
+                {/* DOT */}
+                {showDot && (
+                  <Animated.View
+                    key={`dot-${i}`}
+                    style={[
+                      modalStyles.pitchDot,
+                      {
+                        width: dotSize,
+                        height: dotSize,
+                        borderRadius: dotSize / 2,
+                        backgroundColor: color,
+                        borderColor: color,
+                        left: pos.x,
+                        top: pos.y,
+                        transform: [{ scale: state.dotScale }],
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        modalStyles.pitchNum,
+                        {
+                          fontSize: Math.max(8, Math.round(dotSize * 0.5)),
+                        },
+                      ]}
+                    >
+                      {i + 1}
+                    </Text>
+                  </Animated.View>
+                )}
+              </>
+            );
+          }
+        } else {
+          // NORMAL MODE (NO trail persistence)
+          if (showLiveAnimation) {
+            const liveTrail = trailPointsRef.current.live[i]?.points || [];
+
+            return (
+              <>
+                {/* TRAIL (only while animating) */}
+                {liveTrail.map((p, idx2) => {
+                  const alpha = idx2 / liveTrail.length;
+
+                  return (
+                    <View
+                      key={`trail-${i}-${idx2}`}
+                      style={{
+                        position: "absolute",
+                        left: p.x + dotSize * 0.35,
+                        top: p.y + dotSize * 0.35,
+                        width: 5,
+                        height: 5,
+                        borderRadius: 2,
+                        backgroundColor: color,
+                        opacity: alpha * 1.5,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* BALL */}
+                <Animated.View
+                  key={`ball-${i}`}
+                  style={[
+                    modalStyles.animatedBall,
+                    {
+                      left: pos.x,
+                      top: pos.y,
+                      width: dotSize,
+                      height: dotSize,
+                      transform: [
+                        { translateX },
+                        { translateY },
+                        { rotate: spinRotate },
+                        { scale: state.ballScale },
+                      ],
+                    },
+                  ]}
+                >
+                  <AnimatedBaseballImage
+                    source={BASEBALL_SPRITE}
+                    style={{ width: dotSize, height: dotSize }}
+                    resizeMode="contain"
+                  />
+                </Animated.View>
+              </>
+            );
+          }
         }
 
+        // ✅ FALLBACK (always runs correctly now)
         return (
-          <View
-            key={i}
+          <Animated.View
+            key={`dot-${i}`}
             style={[
               modalStyles.pitchDot,
               {
+                width: dotSize,
+                height: dotSize,
+                borderRadius: dotSize / 2,
                 backgroundColor: color,
                 borderColor: color,
-                left: finalX,
-                top: finalY,
+                left: pos.x,
+                top: pos.y,
+                transform: [{ scale: state.dotScale }],
               },
             ]}
           >
-            <Text style={modalStyles.pitchNum}>{i + 1}</Text>
-          </View>
+            <Text
+              style={[
+                modalStyles.pitchNum,
+                {
+                  fontSize: Math.max(8, Math.round(dotSize * 0.5)),
+                },
+              ]}
+            >
+              {i + 1}
+            </Text>
+          </Animated.View>
         );
       })}
     </View>
@@ -3542,7 +4234,7 @@ const ShareCardModal = ({
   const homeScore = play?.result?.homeScore;
 
   const batterId = play?.matchup?.batter?.id;
-  const pitcherId = play?.matchup?.pitcher?.id;
+  const pitcherId = resolvePitcherIdFromPlay(play);
   const batterInfo = resolvePlayer(playersMap, batterId);
   const pitcherInfo = resolvePlayer(playersMap, pitcherId);
   const description =
@@ -3555,6 +4247,7 @@ const ShareCardModal = ({
     ...(boxscore?.teams?.away?.players ?? {}),
     ...(boxscore?.teams?.home?.players ?? {}),
   };
+  const pitchHandCode = getPitchHandCode(playersMap, allBsPlayers, pitcherId);
   const batterBatting = allBsPlayers[`ID${batterId}`]?.stats?.batting ?? {};
   const pitcherPitching = allBsPlayers[`ID${pitcherId}`]?.stats?.pitching ?? {};
 
@@ -3720,7 +4413,15 @@ const ShareCardModal = ({
               {/* Left – pitch locations + hit data */}
               <View style={scStyles.cardLeft}>
                 {pitches.length > 0 ? (
-                  <StrikeZoneView pitches={pitches} theme={theme} size={120} />
+                  <StrikeZoneView
+                    pitches={pitches}
+                    theme={theme}
+                    size={150}
+                    pitcherHandCode={pitchHandCode}
+                    animateAllOnTrigger={false}
+                    animatedIndex={null}
+                    isShareCard={true}
+                  />
                 ) : (
                   <View
                     style={[scStyles.noPitchBox, { borderColor: theme.border }]}
@@ -4138,6 +4839,84 @@ const PlayDetailModal = ({
     }),
   ).current;
 
+  const lastPitchVizSignatureRef = useRef("");
+  const playEvents = useMemo(() => play?.playEvents ?? [], [play]);
+  const pitches = useMemo(
+    () => playEvents.filter((e) => e?.pitchData?.coordinates?.pX != null),
+    [playEvents],
+  );
+  const [selectedPitchFilter, setSelectedPitchFilter] = useState("all");
+  const [pitchVizTrigger, setPitchVizTrigger] = useState(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    lastPitchVizSignatureRef.current = "";
+    setSelectedPitchFilter("all");
+  }, [
+    visible,
+    play?.about?.atBatIndex,
+    play?.about?.inning,
+    play?.about?.isTopInning,
+  ]);
+
+  const pitchFilterOptions = useMemo(() => {
+    const counters = { ball: 0, strike: 0, inPlay: 0, pitch: 0 };
+    const options = pitches.map((pitch, idx) => {
+      const callCode = pitch?.details?.call?.code;
+      return {
+        key: `pitch-${idx}`,
+        value: idx,
+        number: idx + 1,
+        color: getPitchColor(callCode),
+        label: getPitchFilterLabel(callCode, counters),
+      };
+    });
+
+    return [
+      {
+        key: "all",
+        value: "all",
+        number: "A",
+        color: theme.border,
+        label: "All",
+      },
+      ...options,
+    ];
+  }, [pitches, theme.border]);
+
+  const visiblePitchIndices = useMemo(() => {
+    if (selectedPitchFilter === "all") {
+      return Array.from({ length: pitches.length }, (_, idx) => idx);
+    }
+    return Number.isInteger(selectedPitchFilter) ? [selectedPitchFilter] : [];
+  }, [pitches.length, selectedPitchFilter]);
+
+  const pitchAnimationSignature = useMemo(
+    () =>
+      visiblePitchIndices
+        .map((idx) => {
+          const pitch = pitches[idx];
+          if (!pitch) return null;
+          const code = pitch?.details?.call?.code ?? "";
+          const start = pitch?.pitchData?.startSpeed ?? "";
+          const end = pitch?.pitchData?.endSpeed ?? "";
+          return `${idx}:${code}:${start}:${end}`;
+        })
+        .filter(Boolean)
+        .join("|"),
+    [pitches, visiblePitchIndices],
+  );
+
+  useEffect(() => {
+    if (!visible || !pitchAnimationSignature) return;
+
+    const nextSig = `${selectedPitchFilter}:${pitchAnimationSignature}`;
+    if (lastPitchVizSignatureRef.current === nextSig) return;
+    lastPitchVizSignatureRef.current = nextSig;
+
+    setPitchVizTrigger((k) => k + 1);
+  }, [pitchAnimationSignature, selectedPitchFilter, visible]);
+
   if (!play) return null;
 
   const isTop = play?.about?.isTopInning !== false;
@@ -4153,7 +4932,7 @@ const PlayDetailModal = ({
 
   // Resolve batter + pitcher from playersMap
   const batterId = play?.matchup?.batter?.id;
-  const pitcherId = play?.matchup?.pitcher?.id;
+  const pitcherId = resolvePitcherIdFromPlay(play);
   const batterInfo = resolvePlayer(playersMap, batterId);
   const pitcherInfo = resolvePlayer(playersMap, pitcherId);
   const description =
@@ -4171,6 +4950,7 @@ const PlayDetailModal = ({
   };
   const batterBs = allBsPlayers[`ID${batterId}`] ?? null;
   const pitcherBs = allBsPlayers[`ID${pitcherId}`] ?? null;
+  const pitchHandCode = getPitchHandCode(playersMap, allBsPlayers, pitcherId);
   const batterBatting = batterBs?.stats?.batting ?? {};
   const pitcherPitching = pitcherBs?.stats?.pitching ?? {};
 
@@ -4218,11 +4998,6 @@ const PlayDetailModal = ({
     if (["C", "S", "F", "T", "L", "W"].includes(code ?? "")) return "#f44336";
     return theme.border;
   };
-
-  const playEvents = play?.playEvents ?? [];
-  const pitches = playEvents.filter(
-    (e) => e?.pitchData?.coordinates?.pX != null,
-  );
 
   return (
     <Modal
@@ -4518,15 +5293,89 @@ const PlayDetailModal = ({
               <Text
                 style={[
                   modalStyles.zoneSectionTitle,
-                  { color: theme.textSecondary },
+                  {
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginBottom: 20,
+                  },
                 ]}
               >
                 Pitch Locations
               </Text>
 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={modalStyles.pitchFilterScroll}
+                contentContainerStyle={modalStyles.pitchFilterScrollContent}
+              >
+                {pitchFilterOptions.map((opt) => {
+                  const active = selectedPitchFilter === opt.value;
+                  const badgeTextColor =
+                    typeof opt.color === "string" && opt.color.startsWith("#")
+                      ? getTextOnColor(opt.color)
+                      : "#fff";
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      activeOpacity={0.8}
+                      onPress={() => setSelectedPitchFilter(opt.value)}
+                      style={[
+                        modalStyles.pitchFilterBtn,
+                        {
+                          borderColor: opt.color,
+                          backgroundColor: active
+                            ? (theme.surfaceSecondary ?? theme.background)
+                            : "transparent",
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          modalStyles.pitchFilterNumber,
+                          { backgroundColor: opt.color },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            modalStyles.pitchFilterNumberText,
+                            { color: badgeTextColor },
+                          ]}
+                        >
+                          {opt.number}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          modalStyles.pitchFilterText,
+                          {
+                            color: theme.text,
+                            opacity: active ? 1 : 0.86,
+                          },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
               {/* Chart row: strike zone left, hit data right */}
               <View style={modalStyles.zoneRow}>
-                <StrikeZoneView pitches={pitches} theme={theme} />
+                <StrikeZoneView
+                  pitches={pitches}
+                  theme={theme}
+                  visiblePitchIndices={visiblePitchIndices}
+                  pitcherHandCode={pitchHandCode}
+                  animateAllOnTrigger={selectedPitchFilter === "all"}
+                  animatedIndex={
+                    selectedPitchFilter === "all" ? null : selectedPitchFilter
+                  }
+                  animTrigger={pitchVizTrigger}
+                  selectedPitchFilter={selectedPitchFilter}
+                  isFilterMode={selectedPitchFilter !== "all"} // ✅ ADD THIS
+                />
 
                 {/* Hit data — only when present in any playEvent */}
                 {(() => {
@@ -4787,14 +5636,46 @@ const modalStyles = StyleSheet.create({
   },
   // ── pitch chart ──
   zoneSection: {
-    alignItems: "center",
+    alignItems: "stretch",
     marginBottom: 16,
     paddingHorizontal: 20,
   },
   zoneRow: {
     flexDirection: "row",
     alignItems: "flex-start",
+    justifyContent: "center",
     gap: 12,
+  },
+  pitchFilterScroll: {
+    marginBottom: 10,
+  },
+  pitchFilterScrollContent: {
+    paddingRight: 8,
+    gap: 8,
+  },
+  pitchFilterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  pitchFilterNumber: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pitchFilterNumberText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  pitchFilterText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   hitDataPanel: {
     flex: 1,
@@ -4835,29 +5716,41 @@ const modalStyles = StyleSheet.create({
     marginBottom: 10,
   },
   strikeZoneContainer: {
-    width: 160,
-    height: 160,
     position: "relative",
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    overflow: "hidden",
   },
   strikeZoneOutline: {
     position: "absolute",
-    width: 70,
-    height: 80,
     borderWidth: 2,
     backgroundColor: "rgba(128,128,128,0.06)",
-    borderRadius: 2,
-    top: "50%",
-    left: "50%",
-    marginLeft: -35,
-    marginTop: -40,
+    borderRadius: 3,
+  },
+  szGridLineVertical: {
+    position: "absolute",
+    borderLeftWidth: 1,
+    opacity: 0.45,
+  },
+  szGridLineHorizontal: {
+    position: "absolute",
+    borderTopWidth: 1,
+    opacity: 0.45,
+  },
+  szPlateWrap: {
+    position: "absolute",
+    bottom: -2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  animatedBall: {
+    position: "absolute",
+    zIndex: 30,
+    justifyContent: "center",
+    alignItems: "center",
   },
   pitchDot: {
     position: "absolute",
-    width: 20,
-    height: 20,
-    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: "#fff",
     justifyContent: "center",
@@ -7095,7 +7988,10 @@ const CurrentAtBatBubble = ({
   const outs = currentPlay?.count?.outs ?? 0;
 
   const batterId = currentPlay?.matchup?.batter?.id;
-  const pitcherId = currentPlay?.matchup?.pitcher?.id;
+  const pitcherId = resolvePitcherIdFromPlay(
+    currentPlay,
+    linescore?.offense?.pitcher?.id,
+  );
   const batterInfo = batterId ? resolvePlayer(playersMap, batterId) : null;
   const pitcherInfo = pitcherId ? resolvePlayer(playersMap, pitcherId) : null;
 
@@ -7103,6 +7999,7 @@ const CurrentAtBatBubble = ({
     ...(boxscore?.teams?.away?.players ?? {}),
     ...(boxscore?.teams?.home?.players ?? {}),
   };
+  const pitchHandCode = getPitchHandCode(playersMap, allBsPlayers, pitcherId);
   const batterBatting = allBsPlayers[`ID${batterId}`]?.stats?.batting ?? {};
   const pitcherPitching = allBsPlayers[`ID${pitcherId}`]?.stats?.pitching ?? {};
 
@@ -7389,6 +8286,9 @@ const CurrentAtBatBubble = ({
             theme={theme}
             animatedIndex={pitches.length - 1}
             animTrigger={animTrigger}
+            pitcherHandCode={pitchHandCode}
+            animateAllOnTrigger={false}
+            flashOnce
           />
           <View style={cabStyles.legend}>
             {[
@@ -8088,6 +8988,8 @@ const SeriesGameCard = ({
   const homeWin = hasScores && homeScore > awayScore;
   const awayWin = hasScores && awayScore > homeScore;
 
+  const opacity = hasScores && isFinished;
+
   const homeLogo = WBCService.getTeamLogo(homeInfo?.id, isDarkMode);
   const awayLogo = WBCService.getTeamLogo(awayInfo?.id, isDarkMode);
 
@@ -8220,7 +9122,7 @@ const SeriesGameCard = ({
             {awayLogo ? (
               <Image
                 source={{ uri: awayLogo }}
-                style={seriesStyles.matchTeamLogo}
+                style={[seriesStyles.matchTeamLogo, { opacity: !opacity ? 1 : awayWin ? 1 : 0.55 }]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -8233,7 +9135,7 @@ const SeriesGameCard = ({
                 ]}
               >
                 <Text
-                  style={[seriesStyles.logoFallbackText, { color: theme.text }]}
+                  style={[seriesStyles.logoFallbackText, { color: theme.text, opacity: !opacity ? 1 : awayWin ? 1 : 0.55 }]}
                 >
                   {String(awayInfo?.abbreviation || "A").charAt(0)}
                 </Text>
@@ -8247,6 +9149,7 @@ const SeriesGameCard = ({
                   {
                     color: awayWin ? theme.text : theme.textSecondary,
                     fontWeight: awayWin ? "700" : "500",
+                    opacity: !opacity ? 1 : awayWin ? 1 : 0.55,
                   },
                 ]}
                 numberOfLines={2}
@@ -8259,6 +9162,7 @@ const SeriesGameCard = ({
                   {
                     color: theme.textTertiary,
                     fontWeight: "500",
+                    opacity: !opacity ? 1 : awayWin ? 1 : 0.55,
                   },
                 ]}
                 numberOfLines={1}
@@ -8298,6 +9202,7 @@ const SeriesGameCard = ({
                           ? theme.text
                           : theme.textSecondary,
                       fontWeight: awayWin ? "800" : "500",
+                      opacity: !opacity ? 1 : awayWin ? 1 : 0.55,
                     },
                   ]}
                 >
@@ -8325,6 +9230,7 @@ const SeriesGameCard = ({
                           ? theme.text
                           : theme.textSecondary,
                       fontWeight: homeWin ? "800" : "500",
+                      opacity: !opacity ? 1 : homeWin ? 1 : 0.55,
                     },
                   ]}
                 >
@@ -8367,6 +9273,7 @@ const SeriesGameCard = ({
                   {
                     color: homeWin ? theme.text : theme.textSecondary,
                     fontWeight: homeWin ? "700" : "500",
+                    opacity: !opacity ? 1 : homeWin ? 1 : 0.55,
                   },
                 ]}
                 numberOfLines={2}
@@ -8379,6 +9286,7 @@ const SeriesGameCard = ({
                   {
                     color: theme.textTertiary,
                     fontWeight: "500",
+                    opacity: !opacity ? 1 : homeWin ? 1 : 0.55,
                   },
                 ]}
                 numberOfLines={1}
@@ -8391,7 +9299,7 @@ const SeriesGameCard = ({
             {homeLogo ? (
               <Image
                 source={{ uri: homeLogo }}
-                style={seriesStyles.matchTeamLogo}
+                style={[seriesStyles.matchTeamLogo, { opacity: !opacity ? 1 : homeWin ? 1 : 0.55 }]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -8593,12 +9501,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [mainTabKey, setMainTabKey] = useState(0);
   const [cabSelectedPlayer, setCabSelectedPlayer] = useState(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const mainPitchAnimSignatureRef = useRef(null);
 
-  // Increment mainTabKey every time the Main tab becomes active so the
-  // CurrentAtBatBubble pitch animation re-triggers.
   useEffect(() => {
-    if (activeTab === "Main") {
-      setMainTabKey((k) => k + 1);
+    if (activeTab !== "Main") {
+      mainPitchAnimSignatureRef.current = null;
     }
   }, [activeTab]);
 
@@ -8818,6 +9725,47 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const displayedCurrentPlay = runItBackActive
     ? runItBackCurrentPlay
     : currentPlay;
+
+  const displayedPitchAnimSignature = useMemo(() => {
+    if (!displayedCurrentPlay) return "no-play";
+
+    const atBatKey =
+      displayedCurrentPlay?.about?.atBatIndex ??
+      displayedCurrentPlay?.about?.inning ??
+      "na";
+    const pitchEvents = (displayedCurrentPlay?.playEvents ?? []).filter(
+      (e) => e?.pitchData?.coordinates?.pX != null,
+    );
+    if (pitchEvents.length === 0) {
+      return `${atBatKey}:0`;
+    }
+
+    const lastPitch = pitchEvents[pitchEvents.length - 1];
+    const code = lastPitch?.details?.call?.code ?? "";
+    const start = lastPitch?.pitchData?.startSpeed ?? "";
+    const end = lastPitch?.pitchData?.endSpeed ?? "";
+    const pitchNum =
+      lastPitch?.pitchNumber ?? lastPitch?.pitchData?.pitchNumber ?? "";
+
+    return `${atBatKey}:${pitchEvents.length}:${pitchNum}:${code}:${start}:${end}`;
+  }, [displayedCurrentPlay]);
+
+  useEffect(() => {
+    if (activeTab !== "Main") return;
+
+    const signature =
+      `${displayedPitchAnimSignature}:` +
+      `${runItBackActive ? `replay-${runItBackCursor}` : "live"}`;
+    if (mainPitchAnimSignatureRef.current === signature) return;
+
+    mainPitchAnimSignatureRef.current = signature;
+    setMainTabKey((k) => k + 1);
+  }, [
+    activeTab,
+    displayedPitchAnimSignature,
+    runItBackActive,
+    runItBackCursor,
+  ]);
 
   const displayedAwayScore =
     runItBackActive && displayedCurrentPlay?.result?.awayScore != null
@@ -9632,11 +10580,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   source={{
                     uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                   }}
-                  style={styles.miniLogo}
+                  style={[styles.miniLogo, { opacity: isGameFinished ? (runItBackActive ? displayedAwayWinner : awayWinner) ? 1 : 0.55 : 1 }]}
                   resizeMode="contain"
                 />
               ) : null}
-              <Text style={[styles.miniAbbr, { color: awayColor }]}>
+              <Text style={[styles.miniAbbr, { color: awayColor, opacity: isGameFinished ? (runItBackActive ? displayedAwayWinner : awayWinner) ? 1 : 0.55 : 1 }]}>
                 {awayTeam?.abbreviation ?? ""}
               </Text>
               <Text
@@ -9747,7 +10695,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
               >
                 {displayedHomeScore ?? ""}
               </Text>
-              <Text style={[styles.miniAbbr, { color: homeColor }]}>
+              <Text style={[styles.miniAbbr, { color: homeColor, opacity: isGameFinished ? (runItBackActive ? displayedHomeWinner : homeWinner) ? 1 : 0.55 : 1 }]}>
                 {homeTeam?.abbreviation ?? ""}
               </Text>
               {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
@@ -9756,7 +10704,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   source={{
                     uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                   }}
-                  style={styles.miniLogo}
+                  style={[styles.miniLogo, { opacity: isGameFinished ? (runItBackActive ? displayedHomeWinner : homeWinner) ? 1 : 0.55 : 1 }]}
                   resizeMode="contain"
                 />
               ) : null}

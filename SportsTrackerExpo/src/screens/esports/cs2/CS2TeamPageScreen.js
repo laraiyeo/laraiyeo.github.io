@@ -451,23 +451,29 @@ const CS2TeamPageScreen = ({ route }) => {
       day: 'numeric' 
     });
 
+    const status = match.status?.toLowerCase() || 'unknown';
+
     // Determine which team is our team and which is opponent
     const isTeam1 = match.team1_id === teamData?.id;
     const ourTeam = {
       id: teamData?.id,
       name: teamData?.name || teamName,
       logo: teamData?.image_url,
-      score: isTeam1 ? match.team1_score : match.team2_score
+      score: isTeam1 ? match.team1_score : match.team2_score,
+      winner: match.winner_team_id === teamData?.id
     };
     const opponentTeam = {
       id: isTeam1 ? match.team2_id : match.team1_id,
       name: isTeam1 ? match.team2?.name : match.team1?.name,
       logo: isTeam1 ? match.team2?.image_url : match.team1?.image_url,
-      score: isTeam1 ? match.team2_score : match.team1_score
+      score: isTeam1 ? match.team2_score : match.team1_score,
+      winner: match.winner_team_id && match.winner_team_id !== teamData?.id
     };
 
     // Determine if our team won
     const ourTeamWon = ourTeam.score > opponentTeam.score;
+
+    const scoreAvailable = status === 'finished';
 
     const handleMatchPress = () => {
       console.log('=== MATCH PRESS DEBUG ===');
@@ -502,7 +508,7 @@ const CS2TeamPageScreen = ({ route }) => {
             <TeamLogo
               logoUrl={ourTeam.logo}
               size={32}
-              style={[styles.matchTeamLogo, { opacity: ourTeamWon ? 1 : 0.5, backgroundColor: theme.background }]}
+              style={[styles.matchTeamLogo, { opacity: scoreAvailable ? ourTeamWon ? 1 : 0.5 : 1, backgroundColor: theme.background }]}
               iconStyle={styles.matchTeamLogo}
             />
             <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
@@ -520,8 +526,8 @@ const CS2TeamPageScreen = ({ route }) => {
                   <Text style={[
                     styles.score, 
                     { 
-                      color: ourTeamWon ? colors.primary : theme.textSecondary,
-                      fontWeight: ourTeamWon ? 'bold' : '600'
+                      color: scoreAvailable ? ourTeamWon ? colors.primary : theme.textSecondary : colors.primary,
+                      fontWeight: scoreAvailable ? ourTeamWon ? 'bold' : '600' : 'bold'
                     }
                   ]}>
                     {ourTeam.score}
@@ -530,8 +536,8 @@ const CS2TeamPageScreen = ({ route }) => {
                   <Text style={[
                     styles.score, 
                     { 
-                      color: !ourTeamWon ? colors.primary : theme.textSecondary,
-                      fontWeight: !ourTeamWon ? 'bold' : '600'
+                      color: scoreAvailable ? !ourTeamWon ? colors.primary : theme.textSecondary : colors.primary,
+                      fontWeight: scoreAvailable ? !ourTeamWon ? 'bold' : '600' : 'bold'
                     }
                   ]}>
                     {opponentTeam.score}
@@ -546,7 +552,7 @@ const CS2TeamPageScreen = ({ route }) => {
             <TeamLogo
               logoUrl={opponentTeam.logo}
               size={32}
-              style={[styles.matchTeamLogo, { opacity: !ourTeamWon ? 1 : 0.5, backgroundColor: theme.background }]}
+              style={[styles.matchTeamLogo, { opacity: scoreAvailable ? !ourTeamWon ? 1 : 0.5 : 1, backgroundColor: theme.background }]}
               iconStyle={styles.matchTeamLogo}
             />
             <Text style={[styles.teamName, styles.teamNameRight, { color: theme.text }]} numberOfLines={1}>

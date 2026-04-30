@@ -12,6 +12,8 @@ import {
 import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import { NHLService } from "../../services/NHLService";
@@ -766,7 +768,7 @@ const NHLGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
-                  style={nhlGridStyles.scoreLogoOverlay}
+                  style={[nhlGridStyles.scoreLogoOverlay, { opacity: isFinished && !awayWins ? 0.55 : 1}]}
                   contentFit="contain"
                 />
               )}
@@ -775,7 +777,7 @@ const NHLGridCard = ({
           <Text
             style={[
               nhlGridStyles.teamAbbr,
-              { color: awayFav ? colors.primary : theme.text },
+              { color: awayFav ? colors.primary : theme.text, opacity: isFinished && !awayWins ? 0.55 : 1 },
             ]}
           >
             {awayFav ? "★ " : ""}
@@ -783,7 +785,7 @@ const NHLGridCard = ({
           </Text>
           {awayRecord && (
             <Text
-              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary }]}
+              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 }]}
             >
               {awayRecord}
             </Text>
@@ -837,7 +839,7 @@ const NHLGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
-                  style={nhlGridStyles.scoreLogoOverlay}
+                  style={[nhlGridStyles.scoreLogoOverlay, { opacity: isFinished && !homeWins ? 0.55 : 1}]}
                   contentFit="contain"
                 />
               )}
@@ -846,7 +848,7 @@ const NHLGridCard = ({
           <Text
             style={[
               nhlGridStyles.teamAbbr,
-              { color: homeFav ? colors.primary : theme.text },
+              { color: homeFav ? colors.primary : theme.text, opacity: isFinished && !homeWins ? 0.55 : 1 },
             ]}
           >
             {homeFav ? "★ " : ""}
@@ -854,7 +856,7 @@ const NHLGridCard = ({
           </Text>
           {homeRecord && (
             <Text
-              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary }]}
+              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 }]}
             >
               {homeRecord}
             </Text>
@@ -1153,7 +1155,7 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
-                                style={styles.teamLogoSmallImg}
+                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !awayWins ? 0.55 : 1 }]}
                                 contentFit="contain"
                               />
                             ) : (
@@ -1165,6 +1167,7 @@ const ScoreboardSection = ({
                                       awayColor || colors.primary,
                                     justifyContent: "center",
                                     alignItems: "center",
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
                                   },
                                 ]}
                               >
@@ -1189,6 +1192,7 @@ const ScoreboardSection = ({
                                 {
                                   color: awayFav ? colors.primary : theme.text,
                                   fontWeight: awayWins ? "700" : "400",
+                                  opacity: awayWins ? 1 : isFinished ? 0.55 : 1,
                                 },
                               ]}
                               numberOfLines={1}
@@ -1200,7 +1204,7 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary },
+                                  { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -1230,7 +1234,7 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
-                                style={styles.teamLogoSmallImg}
+                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
                                 contentFit="contain"
                               />
                             ) : (
@@ -1242,6 +1246,7 @@ const ScoreboardSection = ({
                                       homeColor || colors.primary,
                                     justifyContent: "center",
                                     alignItems: "center",
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
                                   },
                                 ]}
                               >
@@ -1266,6 +1271,7 @@ const ScoreboardSection = ({
                                 {
                                   color: homeFav ? colors.primary : theme.text,
                                   fontWeight: homeWins ? "700" : "400",
+                                  opacity: homeWins ? 1 : isFinished ? 0.55 : 1,
                                 },
                               ]}
                               numberOfLines={1}
@@ -1277,7 +1283,7 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary },
+                                  { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -1362,6 +1368,7 @@ const ScoreboardSection = ({
 
 const NHLScoreboardScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
   const { isFavorite } = useFavorites();
 
   const [groups, setGroups] = useState([]);
@@ -1627,6 +1634,19 @@ const NHLScoreboardScreen = ({ navigation }) => {
 
         <View style={[styles.bottomPadding, { height: 40 }]} />
       </ScrollView>
+      {!isPro && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

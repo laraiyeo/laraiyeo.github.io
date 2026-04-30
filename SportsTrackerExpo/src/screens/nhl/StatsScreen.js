@@ -64,6 +64,10 @@ const getEdgeTitleFromUrl = (url) => {
     .filter(Boolean)
     .filter((w) => !banned.has(w.toLowerCase()));
 
+if (slug.includes("save-pctg")) return "Save Pctg (900+)";
+if (slug.includes("5v5")) return "5v5 Save Pctg";
+if (slug.includes("goalie-shot-location")) return "Shot Location Save Pctg";
+
   if (words.length === 0) return fmtLabel(slug);
   return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 };
@@ -288,18 +292,25 @@ const extractMetric = (row) => {
 };
 
 const parseCategoryTitle = (entry) => {
-  const url = String(entry?.url || "");
+  const rawUrl = String(entry?.url || "");
+  const url = rawUrl.split("?")[0];
+
   const edgeTitle = getEdgeTitleFromUrl(url);
   if (edgeTitle) return edgeTitle;
 
   const parts = url.split("/").filter(Boolean);
   const last = parts[parts.length - 1] || "";
-  const prev = parts[parts.length - 2] || "";
+
+  if (last.toLowerCase() === "gaa") {
+    return "Goals Against Average";
+  }
+
+  if (last.toLowerCase() === "savepctg") {
+    return "Save Pctg";
+  }
 
   if (url.includes("/leaders/")) {
-    const segment =
-      parts.find((p, idx) => parts[idx - 1] === "leaders") || last;
-    return fmtLabel(segment);
+    return fmtLabel(last);
   }
 
   return fmtLabel(last || `Category ${entry?.id || ""}`);
@@ -426,7 +437,7 @@ const StatsScreen = ({ route }) => {
           const isEdge = String(entry?.url || "").includes("/edge/");
           nextAthleteSections[sectionForEntry(entry)].push({
             id: String(entry?.id || entry?.url || Math.random()),
-            title: parseCategoryTitle(entry),
+            title: parseCategoryTitle(entry) + "",
             leaders,
             isEdge,
             edgeKind,
@@ -738,7 +749,10 @@ const StatsScreen = ({ route }) => {
       <TouchableOpacity
         style={[
           styles.modalItem,
-          { backgroundColor: theme.surface, borderColor: item?.teamColor || theme.border },
+          {
+            backgroundColor: theme.surface,
+            borderColor: item?.teamColor || theme.border,
+          },
         ]}
         onPress={() => (isAthlete ? onPressAthlete(item) : onPressTeam(item))}
       >
@@ -776,10 +790,10 @@ const StatsScreen = ({ route }) => {
           <View style={styles.modalPlayerInfo}>
             <View style={styles.modalNameRow}>
               {isAthlete ? (
-              <Image
-                source={{ uri: getNhlSvgLogoUrl(item?.teamAbbr, isDarkMode) }}
-                style={styles.modalTeamLogo}
-              />
+                <Image
+                  source={{ uri: getNhlSvgLogoUrl(item?.teamAbbr, isDarkMode) }}
+                  style={styles.modalTeamLogo}
+                />
               ) : null}
               <Text
                 allowFontScaling={false}
@@ -932,20 +946,20 @@ const StatsScreen = ({ route }) => {
           ? renderAthleteSections()
           : teamCategories.map((category) => renderCategory(category, "TEAMS"))}
       </ScrollView>
-      
-        {!isPro && (
-            <View
-            style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                alignItems: "center",
-            }}
-            >
-            <BannerAdWrapper />
-            </View>
-        )}
+
+      {!isPro && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
+          <BannerAdWrapper />
+        </View>
+      )}
 
       <Modal
         visible={modalVisible}
@@ -1264,7 +1278,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginRight: -8
+    marginRight: -8,
   },
   edgeStatCard: {
     width: "31%",
