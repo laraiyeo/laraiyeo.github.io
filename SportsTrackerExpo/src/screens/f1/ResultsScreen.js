@@ -23,7 +23,7 @@ import Svg, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
-const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
+const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
 const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 function parseGmtOffset(gmt) {
@@ -844,18 +844,18 @@ const ResultsScreen = ({ route }) => {
   const getTeamColor = (constructorName) => {
     if (!constructorName) return "333333";
     const colorMap = {
-      Mercedes: "27F4D2",
-      "Red Bull": "3671C6",
-      Ferrari: "E8002D",
-      McLaren: "FF8000",
-      Alpine: "FF87BC",
-      "Racing Bulls": "6692FF",
+      Mercedes: "00D7B6",
+      "Red Bull": "4781D7",
+      Ferrari: "ED1131",
+      McLaren: "F47600",
+      Alpine: "00A1E8",
+      "Racing Bulls": "6C98FF",
       "Aston Martin": "229971",
-      Williams: "64C4FF",
+      Williams: "1878D8",
       Sauber: "52E252",
-      Haas: "B6BABD",
-      Audi: "DB0303",
-      Cadillac: "A2AAAD",
+      Haas: "9C9FA2",
+      Audi: "F50537",
+      Cadillac: "909090",
     };
     return colorMap[constructorName] || "333333";
   };
@@ -1890,7 +1890,7 @@ const ResultsScreen = ({ route }) => {
       height: 14,
       resizeMode: "contain",
       marginRight: 8,
-      borderRadius: 0,
+      borderRadius: 2,
       backgroundColor: "#fff",
       marginTop: -17.5,
     },

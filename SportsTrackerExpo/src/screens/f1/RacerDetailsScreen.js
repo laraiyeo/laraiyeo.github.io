@@ -1,1062 +1,1510 @@
-import React, { useState, useEffect } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Image,
   ActivityIndicator,
+  TouchableOpacity,
   RefreshControl,
-  Alert,
-  FlatList
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useWindowDimensions } from 'react-native';
+  Animated,
+} from "react-native";
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+  Line as SvgLine,
+  Path as SvgPath,
+  Circle as SvgCircle,
+  Text as SvgText,
+} from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "../../context/ThemeContext";
+
+const DRIVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
+const CACHE_TTL = 60 * 60 * 1000;
+const TABS = ["Main", "Season Stats"];
+const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
+
+const ST_CHART_H = 180;
+const ST_PAD = { top: 24, bottom: 28, left: 28, right: 10 };
+
+const formatColor = (color) => {
+  if (!color) return "#888888";
+  return color.startsWith("#") ? color : `#${color}`;
+};
+
+const normalizeTeamName = (raw) => {
+  if (!raw) return raw;
+  const s = raw.toLowerCase();
+  if (s.includes("red bull")) return "Red Bull";
+  if (s.includes("haas")) return "Haas";
+  if (s.includes("ferrari")) return "Ferrari";
+  if (s.includes("mclaren")) return "McLaren";
+  if (s.includes("mercedes")) return "Mercedes";
+  if (s.includes("alpine")) return "Alpine";
+  if (s.includes("racing bulls")) return "Racing Bulls";
+  if (s.includes("audi")) return "Audi";
+  if (s.includes("cadillac")) return "Cadillac";
+  if (s.includes("williams")) return "Williams";
+  if (s.includes("aston")) return "Aston Martin";
+  return raw
+    .replace(/ F1 Team$/i, "")
+    .replace(/ Racing$/i, "")
+    .trim();
+};
+
+const getConstructorLogo = (constructorName, isDarkMode) => {
+  if (!constructorName) return "";
+  const nameMap = {
+    McLaren: "mclaren",
+    Ferrari: "ferrari",
+    "Red Bull": "redbullracing",
+    Mercedes: "mercedes",
+    "Aston Martin": "astonmartin",
+    Alpine: "alpine",
+    Williams: "williams",
+    RB: "rb",
+    Haas: "haas",
+    Sauber: "kicksauber",
+  };
+  const blackLogoConstructors = ["Williams", "Alpine", "Mercedes", "Sauber"];
+  const logoColor =
+    isDarkMode || !blackLogoConstructors.includes(constructorName)
+      ? "logowhite"
+      : "logoblack";
+  const logoName =
+    nameMap[constructorName] ||
+    constructorName.toLowerCase().replace(/\s+/g, "");
+  const currentYear = new Date().getFullYear();
+  return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
+};
+
+const getTextOnColor = (hex) => {
+  if (!hex) return "#fff";
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000" : "#fff";
+};
+
+const countryColorMap = {
+  bahrain: "#CE1126",
+  australia: "#012169",
+  china: "#DE2910",
+  japan: "#FFFFFF",
+  "saudi arabia": "#006C35",
+  "united states": "#3C3B6E",
+  canada: "#FF0000",
+  monaco: "#CE1126",
+  spain: "#AA151B",
+  austria: "#ED2939",
+  "united kingdom": "#012169",
+  belgium: "#000000",
+  hungary: "#CE2939",
+  netherlands: "#FF7900",
+  italy: "#009246",
+  azerbaijan: "#00B5E2",
+  singapore: "#EF3340",
+  mexico: "#006847",
+  brazil: "#009C3B",
+  qatar: "#8A1538",
+  "united arab emirates": "#00732F",
+};
+
+const getCountryColor = (countryName) => {
+  if (!countryName) return null;
+  const normalized = countryName
+    .toString()
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "")
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (countryColorMap[normalized]) return countryColorMap[normalized];
+
+  for (const k of Object.keys(countryColorMap)) {
+    if (normalized.includes(k)) return countryColorMap[k];
+  }
+
+  if (
+    normalized === "usa" ||
+    normalized === "u.s.a" ||
+    normalized.includes("united states")
+  )
+    return countryColorMap["united states"];
+  if (normalized === "uae" || normalized.includes("united arab emirates"))
+    return countryColorMap["united arab emirates"];
+
+  return null;
+};
+
+const formatDuration = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "--";
+  }
+  const totalSeconds = Number(value);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const ms = Math.round((totalSeconds - Math.floor(totalSeconds)) * 100);
+
+  const mStr = String(minutes).padStart(2, "0");
+  const sStr = String(seconds).padStart(2, "0");
+  const msStr = String(ms).padStart(2, "0");
+
+  if (hours > 0) {
+    const hStr = String(hours).padStart(2, "0");
+    return `${hStr}:${mStr}:${sStr}.${msStr}`;
+  }
+
+  // No hours -> show mm:ss.ms
+  return `${mStr}:${sStr}.${msStr}`;
+};
+
+const StandingsTracker = ({
+  championship,
+  maps,
+  theme,
+  accentColor,
+  onSelectedChange,
+}) => {
+  const points = useMemo(() => {
+    const champs = (championship || []).map((c, idx) => ({
+      pos: Number.isFinite(Number(c.position_current))
+        ? Number(c.position_current)
+        : null,
+      pts: Number.isFinite(Number(c.points_current))
+        ? Number(c.points_current)
+        : null,
+      meeting_key: c.meeting_key,
+      session_key: c.session_key,
+      // meeting/session names from maps (maps keys are strings but numeric access works too)
+      meetingName:
+        maps?.meetings?.[c.meeting_key] ||
+        maps?.meetings?.[String(c.meeting_key)] ||
+        null,
+      sessionName:
+        maps?.sessions?.[c.session_key] ||
+        maps?.sessions?.[String(c.session_key)] ||
+        null,
+    }));
+
+    // count occurrences of meeting_key
+    const meetingCounts = champs.reduce((acc, it) => {
+      const k = String(it.meeting_key ?? "");
+      acc[k] = (acc[k] || 0) + 1;
+      return acc;
+    }, {});
+
+    return champs
+      .map((c, idx) => {
+        const k = String(c.meeting_key ?? "");
+        const repeated = meetingCounts[k] > 1;
+        return {
+          pos: c.pos,
+          pts: c.pts,
+          meeting_key: c.meeting_key,
+          session_key: c.session_key,
+          meetingName: c.meetingName,
+          sessionName: c.sessionName,
+          // always keep the round label for the graph (R1, R2...)
+          roundLabel: `R${idx + 1}`,
+          // label used in the center/selected area (prefer meeting name)
+          label: c.meetingName || `R${idx + 1}`,
+          // only show meeting/session under R# when the meeting repeats
+          showMeeting: repeated,
+          sessionLabel: repeated ? c.sessionName || "" : "",
+        };
+      })
+      .filter((p) => p.pos !== null);
+  }, [championship, maps]);
+
+  const n = points.length;
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [chartW, setChartW] = useState(300);
+
+  useEffect(() => {
+    if (n > 0) setSelectedIdx(n - 1);
+  }, [n]);
+
+  if (n === 0) return null;
+
+  const positions = points.map((p) => p.pos);
+  let minPos = Math.min(...positions);
+  let maxPos = Math.max(...positions);
+  if (minPos === maxPos) {
+    minPos = Math.max(1, minPos - 1);
+    maxPos = maxPos + 1;
+  }
+
+  const innerW = Math.max(chartW - ST_PAD.left - ST_PAD.right, 1);
+  const innerH = ST_CHART_H - ST_PAD.top - ST_PAD.bottom;
+
+  const xFor = (i) =>
+    ST_PAD.left + (n > 1 ? (i / (n - 1)) * innerW : innerW / 2);
+  const yFor = (pos) =>
+    ST_PAD.top + ((pos - minPos) / (maxPos - minPos)) * innerH;
+
+  const linePath =
+    n > 0
+      ? points
+          .map(
+            (pt, i) =>
+              `${i === 0 ? "M" : "L"}${xFor(i).toFixed(1)},${yFor(pt.pos).toFixed(1)}`,
+          )
+          .join(" ")
+      : "";
+
+  const selected = points[selectedIdx] ?? null;
+  useEffect(() => {
+    if (onSelectedChange) {
+      onSelectedChange(selected, selectedIdx);
+    }
+  }, [onSelectedChange, selected, selectedIdx]);
+
+  const badgeCy = selected ? Math.max(yFor(selected.pos) - 14, 12) : 0;
+
+  const tickCount = Math.min(6, maxPos - minPos + 1);
+  const ticks = Array.from({ length: tickCount }, (_, i) => {
+    const v = minPos + ((maxPos - minPos) * i) / (tickCount - 1 || 1);
+    return Math.round(v);
+  });
+
+  return (
+    <View
+      style={[
+        styles.trackerCard,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={styles.trackerHeaderRow}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.trackerTitle, { color: theme.text }]}
+        >
+          STANDINGS TRACKER
+        </Text>
+        {selected && (
+          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <Text
+              allowFontScaling={false}
+              style={{ color: accentColor, fontSize: 13, fontWeight: "800" }}
+            >
+              {selected.pts}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={{
+                color: theme.text,
+                fontSize: 11,
+                fontWeight: "600",
+                marginLeft: 4,
+              }}
+            >
+              POINTS
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View
+        onLayout={(e) => setChartW(e.nativeEvent.layout.width)}
+        style={{ height: ST_CHART_H, marginHorizontal: 4 }}
+      >
+        {chartW > 0 && n > 0 && (
+          <Svg width={chartW} height={ST_CHART_H}>
+            <Defs>
+              <SvgLinearGradient
+                id="standingsFill"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <Stop offset="0%" stopColor={accentColor} stopOpacity="0.22" />
+                <Stop
+                  offset="100%"
+                  stopColor={accentColor}
+                  stopOpacity="0.22"
+                />
+              </SvgLinearGradient>
+            </Defs>
+
+            <SvgLine
+              x1={ST_PAD.left}
+              y1={ST_PAD.top - 4}
+              x2={ST_PAD.left}
+              y2={ST_CHART_H - ST_PAD.bottom}
+              stroke={theme.border}
+              strokeWidth={1}
+            />
+            <SvgLine
+              x1={ST_PAD.left}
+              y1={ST_CHART_H - ST_PAD.bottom}
+              x2={chartW - ST_PAD.right}
+              y2={ST_CHART_H - ST_PAD.bottom}
+              stroke={theme.border}
+              strokeWidth={1}
+            />
+
+            {ticks.map((v) => (
+              <React.Fragment key={`posTick-${v}`}>
+                <SvgLine
+                  x1={ST_PAD.left}
+                  y1={yFor(v)}
+                  x2={chartW - ST_PAD.right}
+                  y2={yFor(v)}
+                  stroke={theme.border}
+                  strokeWidth={0.7}
+                  strokeDasharray="3,4"
+                />
+                <SvgText
+                  x={ST_PAD.left - 4}
+                  y={yFor(v) + 4}
+                  textAnchor="end"
+                  fontSize={9}
+                  fill={theme.textTertiary ?? theme.textSecondary}
+                >
+                  {v}
+                </SvgText>
+              </React.Fragment>
+            ))}
+
+            <SvgPath
+              d={linePath}
+              fill="none"
+              stroke={accentColor}
+              strokeWidth={2}
+            />
+
+            {points.map((pt, i) => {
+              const isSel = i === selectedIdx;
+              return (
+                <SvgCircle
+                  key={`posPt-${i}`}
+                  cx={xFor(i)}
+                  cy={yFor(pt.pos)}
+                  r={isSel ? 8 : 4.5}
+                  fill={isSel ? accentColor : theme.surface}
+                  stroke={accentColor}
+                  strokeWidth={isSel ? 0 : 1.5}
+                  onPress={() => setSelectedIdx(i)}
+                />
+              );
+            })}
+
+            {selected && (
+              <React.Fragment>
+                <SvgCircle
+                  cx={xFor(selectedIdx)}
+                  cy={badgeCy}
+                  r={11}
+                  fill={accentColor}
+                />
+                <SvgText
+                  x={xFor(selectedIdx)}
+                  y={badgeCy}
+                  dx={-0.5}
+                  textAnchor="middle"
+                  alignmentBaseline="middle"
+                  dominantBaseline="central"
+                  fontSize={9}
+                  fontWeight="700"
+                  fill={getTextOnColor(accentColor)}
+                >
+                  {`P${selected.pos}`}
+                </SvgText>
+              </React.Fragment>
+            )}
+
+            {points.map((pt, i) => {
+              const isFirst = i === 0;
+              const isLast = i === n - 1;
+              if (!isFirst && !isLast) return null;
+
+              const roundLabel = pt.roundLabel || pt.label;
+              const meetingName = pt.showMeeting ? pt.meetingName : null;
+              const sessionLabel = pt.sessionLabel;
+
+              return (
+                <React.Fragment key={`posLabel-${i}`}>
+                  <SvgText
+                    x={xFor(i)}
+                    y={ST_CHART_H - ST_PAD.bottom + 10}
+                    textAnchor={i === 0 ? "start" : "end"}
+                    fontSize={9}
+                    fontWeight="700"
+                    fill={theme.textTertiary ?? theme.textSecondary}
+                  >
+                    {roundLabel}
+                  </SvgText>
+                  {meetingName ? (
+                    <SvgText
+                      x={xFor(i)}
+                      y={ST_CHART_H - ST_PAD.bottom + 22}
+                      textAnchor={i === 0 ? "start" : "end"}
+                      fontSize={8}
+                      fill={theme.textSecondary}
+                    >
+                      {meetingName}
+                    </SvgText>
+                  ) : null}
+                  {sessionLabel ? (
+                    <SvgText
+                      x={xFor(i)}
+                      y={ST_CHART_H - ST_PAD.bottom + 32}
+                      textAnchor={i === 0 ? "start" : "end"}
+                      fontSize={8}
+                      fill={theme.textSecondary}
+                    >
+                      {sessionLabel}
+                    </SvgText>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </Svg>
+        )}
+      </View>
+
+      <View style={[styles.trackerNavRow, { borderTopColor: theme.border }]}>
+        <TouchableOpacity
+          onPress={() => setSelectedIdx((v) => Math.max(0, v - 1))}
+          disabled={selectedIdx === 0}
+          style={styles.trackerNavBtn}
+          activeOpacity={0.6}
+        >
+          <Text
+            style={{
+              color: selectedIdx === 0 ? theme.border : theme.text,
+              fontSize: 34,
+              lineHeight: 40,
+            }}
+          >
+            ‹
+          </Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <View style={{ alignItems: "center" }}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.trackerNavText, { color: theme.text }]}
+            >
+              {selected.meetingName}
+            </Text>
+            {selected && selected.sessionLabel ? (
+              <Text
+                allowFontScaling={false}
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 12,
+                  marginTop: 2,
+                }}
+              >
+                {selected.sessionLabel}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        <TouchableOpacity
+          onPress={() => setSelectedIdx((v) => Math.min(n - 1, v + 1))}
+          disabled={selectedIdx === n - 1}
+          style={styles.trackerNavBtn}
+          activeOpacity={0.6}
+        >
+          <Text
+            style={{
+              color: selectedIdx === n - 1 ? theme.border : theme.text,
+              fontSize: 34,
+              lineHeight: 40,
+            }}
+          >
+            ›
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 const RacerDetailsScreen = ({ route }) => {
-  const { racerId, racerName, teamColor } = route.params || {};
   const { theme, colors, isDarkMode } = useTheme();
-  const navigation = useNavigation();
-  const { width } = useWindowDimensions();
+  const driverNumber =
+    route?.params?.racerId ?? route?.params?.driverNumber ?? null;
+  const driverName =
+    route?.params?.racerName ?? route?.params?.driverName ?? "";
 
-  const [selectedTab, setSelectedTab] = useState('STATS');
-  const [racerData, setRacerData] = useState(null);
-  const [raceLog, setRaceLog] = useState([]);
+  const [activeTab, setActiveTab] = useState("Main");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [driverData, setDriverData] = useState(null);
+  const [headerHeight, setHeaderHeight] = useState(160);
+  const [meetingsCache, setMeetingsCache] = useState([]);
+  const [selectedPoint, setSelectedPoint] = useState(null);
 
-  const tabs = [
-    { key: 'STATS', name: 'Stats' },
-    { key: 'RACE_LOG', name: 'Race Log' }
-  ];
+  const scrollY = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    navigation.setOptions({
-      title: racerName || 'Racer Details',
-      headerStyle: {
-        backgroundColor: colors.primary,
-      },
-      headerTintColor: '#fff',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
-    });
-  }, [navigation, racerName, colors.primary]);
+  const cacheKey = driverNumber ? `f1:driver:${driverNumber}` : null;
 
-  useEffect(() => {
-    fetchRacerDetails();
-  }, [racerId]);
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (!driverNumber) return;
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
-  // Helper function to normalize URLs to HTTPS and handle timeouts
-  const normalizeUrl = (url) => {
-    if (!url) return url;
-    return url.replace(/^http:\/\//, 'https://');
-  };
-
-  const fetchWithTimeout = async (url, timeoutMs = 10000) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    try {
-      const response = await fetch(normalizeUrl(url), {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${timeoutMs}ms`);
-      }
-      throw error;
-    }
-  };
-
-  const fetchRacerDetails = async () => {
-    try {
-      setLoading(true);
-      
-      await Promise.all([
-        fetchRacerStats(),
-        fetchRacerRaceLog()
-      ]);
-      
-    } catch (error) {
-      console.error('Error fetching racer details:', error);
-      Alert.alert('Error', 'Failed to fetch racer details');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchRacerStats = async () => {
-    try {
-      // Prefer the athlete records endpoint which contains headshot, team, and stats
-      const currentYear = new Date().getFullYear();
-      const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
-      const apiResponse = await fetchWithTimeout(url, 10000);
-      
-      if (!apiResponse.ok) {
-        throw new Error(`HTTP ${apiResponse.status}`);
-      }
-      
-      const data = await apiResponse.json();
-      
-      // Validate that we have relevant data
-      console.log('Validating F1 racer records data:', data);
-      if (!(data && (data.records || data.athlete || data.stats))) {
-        throw new Error('No racer records data found');
-      }
-      
-      const response = { data, year: currentYear };
-      const records = response?.data || response;
-
-      // Debug logging to see response structure
-      console.log(`[RacerDetails] ESPN records for ${racerId}:`, JSON.stringify(records, null, 2));
-
-      // records may include an athlete object and records[0] with stats, or stats directly
-      const recordItem = records?.records?.[0] || records;
-      const athlete = records?.athlete || recordItem?.athlete || { id: racerId, displayName: racerName };
-      
-      // If records has stats directly, use those
-      const statsArray = records?.stats || recordItem?.stats || recordItem?.statistics || [];
-
-      // Extract team info from recordItem or fallback to provided teamColor
-      let teamName = 'Unknown Team';
-      let teamColorHex = teamColor || '#000000';
-      
-      // Try multiple sources for team info
-      if (recordItem?.team) {
-        teamName = recordItem.team.displayName || recordItem.team.name || teamName;
-        if (recordItem.team.color) {
-          teamColorHex = recordItem.team.color.startsWith('#') ? recordItem.team.color : `#${recordItem.team.color}`;
-        }
-      } else if (athlete?.team) {
-        teamName = athlete.team.displayName || athlete.team.name || teamName;
-        if (athlete.team.color) {
-          teamColorHex = athlete.team.color.startsWith('#') ? athlete.team.color : `#${athlete.team.color}`;
-        }
-      } else if (records?.team) {
-        teamName = records.team.displayName || records.team.name || teamName;
-        if (records.team.color) {
-          teamColorHex = records.team.color.startsWith('#') ? records.team.color : `#${records.team.color}`;
-        }
-      }
-      
-      // Try extra fallbacks when team name isn't present but color is
-      if ((!teamName || teamName === 'Unknown Team') && teamColorHex) {
-        // Check alternative team fields
-        const altTeamName = recordItem?.team?.shortName || recordItem?.team?.abbr || recordItem?.team?.organization?.displayName || athlete?.team?.shortName || athlete?.team?.abbr || records?.team?.shortName;
-        if (altTeamName) teamName = altTeamName;
-
-        // Map known team colors to team names as a last resort
-        const COLOR_TO_TEAM = {
-          '#27f4d2': 'Mercedes',
-          '#3671c6': 'Red Bull',
-          '#e8002d': 'Ferrari',
-          '#ff8000': 'McLaren',
-          '#ff87bc': 'Alpine',
-          '#6692ff': 'Racing Bulls',
-          '#64c4ff': 'Williams',
-          '#52e252': 'Sauber',
-          '#b6babd': 'Haas',
-          '#db0303': 'Audi',
-          '#a2aaad': 'Cadillac',
-        };
-
-        const normalized = (teamColorHex || '').toLowerCase();
-        if (COLOR_TO_TEAM[normalized]) {
-          teamName = COLOR_TO_TEAM[normalized];
-        }
-      }
-
-      console.log(`[RacerDetails] Extracted team: ${teamName}, color: ${teamColorHex}`);
-
-      // Try to get headshot from athlete info if present; otherwise use ESPN headshot URL
-      let headshotUrl = buildESPNHeadshotUrl(athlete.id);
-      if (athlete?.images && Array.isArray(athlete.images)) {
-        const img = athlete.images.find(i => i && (i.rel === 'full' || i.rel === 'profile' || i.type === 'headshot')) || athlete.images[0];
-        if (img?.url) headshotUrl = img.url;
-      }
-
-      // Helper to extract a named stat from the stats array
-      const statValue = (name) => {
-        return statsArray?.find(s => s.name === name)?.displayValue
-          || recordItem?.stats?.find(s => s.name === name)?.displayValue
-          || recordItem?.statistics?.find(s => s.name === name)?.displayValue
-          || '0';
-      };
-
-      // Position might be present on the record or elsewhere; default to 0
-      const position = recordItem?.position || 0;
-
-      setRacerData({
-        id: athlete.id,
-        name: athlete.displayName || athlete.name || racerName,
-        firstName: athlete.firstName || '',
-        lastName: athlete.lastName || '',
-        nationality: athlete.citizenship || athlete.nationality || '',
-        birthDate: athlete.dateOfBirth || athlete.birthDate || '',
-        headshot: headshotUrl,
-        team: {
-          name: teamName,
-          color: teamColorHex
-        },
-        position: position || 0,
-        rank: statValue('rank'),
-        points: statValue('championshipPts'),
-        wins: statValue('wins'),
-        podiums: statValue('top5'),
-        polePositions: statValue('poles'),
-        starts: statValue('starts'),
-        dnfs: statValue('dnf'),
-        top10: statValue('top10')
-      });
-
-    } catch (error) {
-      console.error('Error fetching racer stats (records endpoint):', error);
-      // Fallback: attempt previous approach via standings endpoint
       try {
-        const currentYear = new Date().getFullYear();
-        const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`;
-        const apiResponse = await fetchWithTimeout(url, 10000);
-        
-        if (!apiResponse.ok) {
-          throw new Error(`HTTP ${apiResponse.status}`);
-        }
-        
-        const standingsData = await apiResponse.json();
-        
-        // Validate that we have relevant data
-        console.log('Validating F1 driver standings data:', standingsData);
-        if (!(standingsData.standings && standingsData.standings.length > 0)) {
-          throw new Error('No driver standings data found');
-        }
-        
-        const response = { data: standingsData, year: currentYear };
-        const data = response?.data || response;
-        if (data?.standings) {
-          const driverStanding = data.standings.find(standing => {
-            return standing.athlete?.id === racerId || 
-                   standing.athlete?.displayName === racerName ||
-                   standing.athlete?.name === racerName;
-          });
-          if (driverStanding) {
-            const athleteResponse = await fetchWithTimeout(driverStanding.athlete.$ref, 8000);
-            const athleteData = await athleteResponse.json();
-            const position = data.standings.findIndex(s => s.athlete?.id === racerId) + 1;
-            setRacerData({
-              id: athleteData.id,
-              name: athleteData.displayName || athleteData.name,
-              firstName: athleteData.firstName || '',
-              lastName: athleteData.lastName || '',
-              nationality: athleteData.citizenship || '',
-              birthDate: athleteData.dateOfBirth || '',
-              headshot: buildESPNHeadshotUrl(athleteData.id),
-              team: {
-                name: 'Unknown Team',
-                color: teamColor || '#000000'
-              },
-              position: position || 0,
-              rank: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'rank')?.displayValue || '0',
-              points: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'championshipPts')?.displayValue || '0',
-              wins: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'wins')?.displayValue || '0',
-              podiums: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'top5')?.displayValue || '0',
-              polePositions: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'poles')?.displayValue || '0',
-              starts: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'starts')?.displayValue || '0',
-              dnfs: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'dnf')?.displayValue || '0',
-              top10: driverStanding.records?.[0]?.stats?.find(stat => stat.name === 'top10')?.displayValue || '0',
-            });
+        if (!isRefresh && cacheKey) {
+          const raw = await AsyncStorage.getItem(cacheKey);
+          if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached?.ts && Date.now() - cached.ts < CACHE_TTL) {
+              setDriverData(cached.data);
+              setLoading(false);
+              return;
+            }
           }
+        }
+
+        const resp = await fetch(`${DRIVER_BASE}/driver/${driverNumber}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const payload = await resp.json();
+        const data = payload?.data ?? payload;
+        setDriverData(data);
+        if (cacheKey) {
+          await AsyncStorage.setItem(
+            cacheKey,
+            JSON.stringify({ ts: Date.now(), data }),
+          );
         }
       } catch (err) {
-        console.error('Fallback error fetching racer stats:', err);
+        console.warn("[RacerDetailsScreen] Failed to load driver", err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    }
-  };
+    },
+    [cacheKey, driverNumber],
+  );
 
-  const fetchRacerRaceLog = async () => {
-    try {
-      const currentYear = new Date().getFullYear();
-      
-      // Use direct eventlog URL instead of fetching athlete data first
-      const eventLogUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/athletes/${racerId}/eventlog?lang=en&region=us&limit=50`;
-      console.log(`[RacerDetails] Fetching eventLog directly:`, eventLogUrl);
-      
-      // Fetch the eventLog to get list of events with timeout
-      const eventLogResponse = await fetchWithTimeout(eventLogUrl, 15000);
-      if (!eventLogResponse.ok) {
-        throw new Error(`EventLog fetch failed: HTTP ${eventLogResponse.status}`);
-      }
-      const eventLogData = await eventLogResponse.json();
-      
-      console.log(`[RacerDetails] EventLog data:`, JSON.stringify(eventLogData, null, 2));
-      
-      if (!eventLogData?.events?.items) {
-        console.warn(`[RacerDetails] No events found in eventLog`);
-        return;
-      }
-      
-      const raceLogData = [];
-      const events = eventLogData.events.items.slice(0, 24); // Get last 24 events
-      
-      // Process events concurrently instead of sequentially for better performance and reliability
-      const eventPromises = events.map(async (eventItem) => {
-        try {
-          // Only process events that have been played
-          if (!eventItem.played) return null;
-          
-          // Fetch the event details with timeout
-          const eventResponse = await fetchWithTimeout(eventItem.event.$ref, 8000);
-          if (!eventResponse.ok) {
-            console.warn(`Failed to fetch event ${eventItem.eventId}: HTTP ${eventResponse.status}`);
-            return null;
-          }
-          const eventData = await eventResponse.json();
+  useEffect(() => {
+    load(false);
+  }, [load]);
 
-          if (!eventData.venues || !eventData.venues[0]?.$ref) {
-            console.warn(`No venue data for event ${eventItem.eventId}`);
-            return null;
-          }
-
-          const venueResponse = await fetchWithTimeout(eventData.venues[0].$ref, 8000);
-          if (!venueResponse.ok) {
-            console.warn(`Failed to fetch venue for event ${eventItem.eventId}: HTTP ${venueResponse.status}`);
-            return null;
-          }
-          const venueData = await venueResponse.json();
-
-          // Fetch the statistics for this specific event and athlete
-          if (eventItem.statistics?.$ref) {
-            const statsResponse = await fetchWithTimeout(eventItem.statistics.$ref, 8000);
-            if (!statsResponse.ok) {
-              console.warn(`Failed to fetch stats for event ${eventItem.eventId}: HTTP ${statsResponse.status}`);
-              return null;
-            }
-            const statsData = await statsResponse.json();
-            
-            console.log(`[RacerDetails] Stats for event ${eventItem.eventId}:`, JSON.stringify(statsData, null, 2));
-            
-            // Extract the required stats from the statistics structure (like c3.txt)
-            const stats = statsData?.splits?.categories?.[0]?.stats || [];
-            
-            const findStat = (statName) => {
-              const stat = stats.find(s => s.name === statName);
-              return stat?.displayValue || stat?.value || '';
-            };
-            
-            const lapsCompleted = findStat('lapsCompleted');
-            const behindLaps = findStat('behindLaps');
-            const totalTime = findStat('totalTime') || findStat('time');
-            const place = findStat('place');
-            
-            // Prefer endDate for sorting if available, fall back to start date
-            const sortDate = eventData.endDate || eventData.date;
-            return {
-              id: eventItem.eventId,
-              name: eventData.name || 'Unknown Race',
-              date: `${formatEventDate(eventData.date)}\n${formatEventDate(eventData.endDate)}`,
-              sortDate,
-              venue: venueData.fullName || 'Unknown Venue',
-              countryFlag: venueData.countryFlag?.href || '',
-              racerName: racerName,
-              lapsCompleted: lapsCompleted || '-',
-              behindOrTotal: behindLaps ? `+${behindLaps} Laps` : totalTime ? totalTime : '-',
-              place: place || '-'
-            };
-          }
-          return null;
-        } catch (eventError) {
-          console.error(`Error processing event ${eventItem.eventId}:`, eventError);
-          return null;
+  useEffect(() => {
+    const loadMeetingsCache = async () => {
+      try {
+        const cached = await AsyncStorage.getItem(MEETINGS_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const data = Array.isArray(parsed?.data)
+            ? parsed.data
+            : Array.isArray(parsed)
+              ? parsed
+              : [];
+          setMeetingsCache(data);
         }
-      });
-
-      // Wait for all event promises to complete
-      const eventResults = await Promise.all(eventPromises);
-      
-      // Filter out null results and add to race log data
-      const validEvents = eventResults.filter(event => event !== null);
-      raceLogData.push(...validEvents);
-      
-  // Sort by sortDate (most recent first). sortDate prefers endDate when available
-  raceLogData.sort((a, b) => new Date(b.sortDate || b.date) - new Date(a.sortDate || a.date));
-      setRaceLog(raceLogData);
-      
-      console.log(`[RacerDetails] Final race log data:`, JSON.stringify(raceLogData, null, 2));
-      
-    } catch (error) {
-      console.error('Error fetching race log:', error);
-    }
-  };
-
-  // Build ESPN headshot URL
-  const buildESPNHeadshotUrl = (athleteId) => {
-    if (!athleteId) return null;
-    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png&w=200`;
-  };
-
-  // Racer header image with fallback to initials (mirrors DriverImage behavior)
-  const RacerHeaderImage = ({ racer, teamColor }) => {
-    const [imageError, setImageError] = useState(false);
-    const headshot = racer?.headshot;
-
-    useEffect(() => {
-      setImageError(false);
-    }, [headshot]);
-
-    if (!headshot || imageError) {
-      return (
-        <View style={[styles.racerHeaderImagePlaceholder, { backgroundColor: racer?.team?.color || teamColor || theme.border }]}> 
-          <Text allowFontScaling={false} style={styles.racerHeaderInitials}>
-            {getInitials(racer?.firstName || '', racer?.lastName || '', racer?.name || racerName || '')}
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <Image
-        source={{ uri: headshot }}
-        style={[styles.racerHeaderImage, { borderColor: racer?.team?.color || teamColor || theme.border, backgroundColor: (racer?.team?.color || teamColor || theme.border) + '50' }]}
-        onError={() => setImageError(true)}
-      />
-    );
-  };
-
-  // Helper to get initials
-  const getInitials = (firstName = '', lastName = '', fullName = '') => {
-    const first = firstName?.trim()?.[0] || '';
-    const last = lastName?.trim()?.[0] || '';
-    
-    if (first && last) {
-      return (first + last).toUpperCase();
-    }
-    
-    // Fallback to splitting fullName if firstName/lastName not available
-    if (fullName) {
-      const nameParts = fullName.trim().split(' ');
-      if (nameParts.length >= 2) {
-        return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
-      } else if (nameParts.length === 1) {
-        return nameParts[0].substring(0, 2).toUpperCase();
+      } catch (err) {
+        console.warn("[RacerDetailsScreen] Failed to read meetings cache", err);
       }
-    }
-    
-    return '--';
-  };
-
-  const formatEventDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return '';
-    const weekday = d.toLocaleString('en-US', { weekday: 'short' });
-    const month = d.toLocaleString('en-US', { month: 'short' });
-    const day = d.getDate();
-    const hours = d.getHours();
-    return `${weekday}, ${month} ${day}`;
-  };
-
-  // Helper to format age from birth date
-  const getAge = (birthDate) => {
-    if (!birthDate) return '';
-    const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
-    return age > 0 ? `${age} years` : '';
-  };
-
-  // Build team logo URL with dark/light variants like StandingsScreen
-  const getTeamLogo = (teamName) => {
-    if (!teamName) return '';
-
-    const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari',
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
     };
 
-    const logoName = nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '');
-    const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    const currentYear = new Date().getFullYear(); // Use current year for logos
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
-  };
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchRacerDetails();
+    loadMeetingsCache();
   }, []);
 
-  const renderStatsTab = () => (
-    <View style={styles.tabContent}>
-      {racerData ? (
-        <>
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.rank}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Rank
-              </Text>
-            </View>
+  const driver = driverData?.driver ?? null;
+  const championship = driverData?.championship ?? [];
+  const sessionResults = driverData?.session_result ?? [];
+  const accentColor = formatColor(driver?.team_colour ?? colors.primary);
+  const teamName = normalizeTeamName(driver?.team_name ?? "");
+  const teamLogoUrl = teamName
+    ? getConstructorLogo(teamName, isDarkMode)
+    : null;
 
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.points}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Championship Points
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.wins}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Wins
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.podiums}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Top 5 Finishes
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.top10}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Top 10 Finishes
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.polePositions}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Pole Positions
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.starts}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Starts
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-                {racerData.dnfs}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-                DNF{racerData.dnfs === '1' ? '' : 's'}
-              </Text>
-            </View>
-          </View>
-        </>
-      ) : (
-        <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>
-          No racer data available
-        </Text>
-      )}
-    </View>
-  );
+  const selectedMeeting = useMemo(() => {
+    const key = selectedPoint?.meeting_key;
+    if (!key) return null;
+    return meetingsCache.find(
+      (m) => String(m.meeting_key ?? m.meetingKey ?? m.id) === String(key),
+    );
+  }, [meetingsCache, selectedPoint]);
 
-  const renderRaceLogTab = () => (
-    <View style={styles.tabContent}>
-      {raceLog.length > 0 ? (
-        <FlatList
-          data={raceLog}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={[styles.raceLogItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={() => navigation.navigate('F1RaceDetails', { 
-                raceId: item.id,
-                eventId: item.id,
-                raceName: item.name,
-                raceDate: item.sortDate || item.date,
-                sport: 'f1'
-              })}
-            >
-              <View style={styles.raceHeader}>
-                <View style={styles.raceInfo}>
-                  <Text allowFontScaling={false} style={[styles.raceName, { color: theme.text }]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {item.countryFlag ? (
-                      <Image
-                        source={{ uri: item.countryFlag }}
-                        style={{ width: 20, height: 20, marginRight: 6 }}
-                        resizeMode="contain"
-                      />
-                    ) : null}
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.raceVenue, { color: theme.textSecondary }]}
-                      numberOfLines={1}
-                    >
-                      {item.venue}
-                    </Text>
-                  </View>
-                </View>
-                <Text allowFontScaling={false} style={[styles.raceDate, { color: theme.textSecondary }]}>
-                  {item.date}
-                </Text>
-              </View>
-              
-              {/* Racer name and stats section */}
-              <View style={{ paddingTop: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  {/* Team logo next to racer name */}
-                  <Image
-                    source={{ uri: getTeamLogo(racerData?.team?.name) }}
-                    style={styles.raceLogTeamLogo}
-                    onError={() => { /* ignore failures, keep name visible */ }}
-                  />
-                  <Text allowFontScaling={false} style={[styles.racerNameInLog, { color: theme.text, marginLeft: 8 }]}>
-                    {item.racerName}
-                  </Text>
-                </View>
-                
-                <View style={[styles.resultRow, { marginTop: 8 }]}>
-                  <View style={styles.resultItem}>
-                    <Text allowFontScaling={false} style={[styles.resultLabel, { color: theme.textSecondary }]}>
-                      Laps
-                    </Text>
-                    <Text allowFontScaling={false} style={[styles.resultValue, { color: theme.text }]}>
-                      {item.lapsCompleted}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.resultItem}>
-                    <Text allowFontScaling={false} style={[styles.resultLabel, { color: theme.textSecondary }]}>
-                      Time
-                    </Text>
-                    <Text allowFontScaling={false} style={[styles.resultValue, { color: theme.text }]}>
-                      {item.behindOrTotal}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.resultItem}>
-                    <Text allowFontScaling={false} style={[styles.resultLabel, { color: theme.textSecondary }]}>
-                      Place
-                    </Text>
-                    <Text allowFontScaling={false} style={[styles.resultValue, { color: theme.text }]}>
-                      {item.place}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
-        <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>
-          No race log data available
-        </Text>
-      )}
-    </View>
-  );
+  const selectedCountryColor =
+    getCountryColor(
+      selectedMeeting?.country_name || selectedMeeting?.countryName,
+    ) || accentColor;
 
-  const renderTabContent = () => {
-    switch (selectedTab) {
-      case 'STATS':
-        return renderStatsTab();
-      case 'RACE_LOG':
-        return renderRaceLogTab();
-      default:
-        return renderStatsTab();
+  const selectedMeetingSessions = useMemo(() => {
+    if (!selectedPoint?.meeting_key) return [];
+    const key = String(selectedPoint.meeting_key);
+    return sessionResults.filter(
+      (s) => String(s.meeting_key ?? s.meetingKey) === key,
+    );
+  }, [selectedPoint, sessionResults]);
+
+  const initials = useMemo(() => {
+    const first = driver?.first_name?.[0] ?? "";
+    const last = driver?.last_name?.[0] ?? "";
+    return (
+      (first + last).toUpperCase() ||
+      driverName?.slice(0, 2).toUpperCase() ||
+      "--"
+    );
+  }, [driver?.first_name, driver?.last_name, driverName]);
+
+  // Season stats computations
+  const seasonStats = useMemo(() => {
+    const lastChamp = championship && championship.length ? championship[championship.length - 1] : null;
+    const points = lastChamp ? (lastChamp.points_current ?? lastChamp.points ?? 0) : 0;
+    const place = lastChamp ? (lastChamp.position_current ?? lastChamp.position ?? null) : null;
+
+    const results = Array.isArray(sessionResults) ? sessionResults : [];
+    const mapsSessions = driverData?.maps?.sessions || {};
+    const sessionLabelFor = (skey) => mapsSessions?.[skey] || mapsSessions?.[String(skey)] || "";
+    const isRaceSession = (s) => {
+      const lbl = (sessionLabelFor(s) || "").toString().toLowerCase();
+      return lbl.includes("race");
+    };
+
+    let wins = 0;
+    let podiums = 0;
+    let dnCount = 0;
+    const startVals = [];
+
+    results.forEach((r) => {
+      const pos = Number.isFinite(Number(r.position)) ? Number(r.position) : null;
+      if (pos === 1 && isRaceSession(r.session_key)) wins++;
+      if (pos !== null && pos <= 3 && isRaceSession(r.session_key)) podiums++;
+
+      // starting grid detection (try common fields)
+      const gridCandidates = [r.starting_grid, r.grid, r.grid_position, r.starting_position, r.start_position];
+      for (const g of gridCandidates) {
+        if (g !== null && g !== undefined && g !== "" && !Number.isNaN(Number(g))) {
+          startVals.push(Number(g));
+          break;
+        }
+      }
+
+      const status = (r.status || "").toString().toLowerCase();
+      if (r.dnf || r.dns || r.dsq || status.includes("dnf") || status.includes("dns") || status.includes("dsq")) {
+        dnCount++;
+      }
+    });
+
+    // include starting_grid array if present (prefer explicit starting grid data)
+    const sg = Array.isArray(driverData?.starting_grid) ? driverData.starting_grid : [];
+    if (sg.length) {
+      sg.forEach((g) => {
+        const p = g.position ?? g.pos ?? g.position_current ?? null;
+        if (p !== null && p !== undefined && !Number.isNaN(Number(p))) {
+          startVals.push(Number(p));
+        }
+      });
     }
-  };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    racerHeaderSection: {
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-    racerHeaderContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 20,
-    },
-    racerHeaderImageContainer: {
-      marginRight: 16,
-    },
-    racerHeaderImage: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      borderWidth: 3,
-    },
-    racerHeaderImagePlaceholder: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    racerHeaderInitials: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#fff',
-    },
-    racerHeaderInfo: {
-      flex: 1,
-    },
-    racerHeaderName: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 4,
-    },
-    racerHeaderTeam: {
-      fontSize: 16,
-      marginBottom: 2,
-    },
-    racerHeaderNationality: {
-      fontSize: 14,
-      marginBottom: 8,
-    },
-    racerHeaderColorBar: {
-      height: 4,
-      width: 120,
-      borderRadius: 2,
-    },
-    racerHeaderPosition: {
-      alignItems: 'center',
-      paddingLeft: 16,
-    },
-    racerHeaderPositionNumber: {
-      fontSize: 32,
-      fontWeight: 'bold',
-    },
-    racerHeaderPositionLabel: {
-      fontSize: 12,
-      marginTop: 4,
-    },
-    teamLogo: {
-      width: 56,
-      height: 56,
-      resizeMode: 'contain',
-      borderRadius: 8,
-    },
-    teamLogoPlaceholder: {
-      width: 56,
-      height: 56,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    tabContainer: {
-      flexDirection: 'row',
-      backgroundColor: theme.surface,
-      marginHorizontal: 20,
-      marginVertical: 15,
-      borderRadius: 8,
-      padding: 4,
-    },
-    tabButton: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderRadius: 6,
-    },
-    activeTabButton: {
-      backgroundColor: colors.primary,
-    },
-    tabButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    activeTabButtonText: {
-      color: '#fff',
-    },
-    inactiveTabButtonText: {
-      color: theme.textSecondary,
-    },
-    tabContent: {
-      flex: 1,
-      paddingHorizontal: 20,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: 10,
-      fontSize: 16,
-      color: theme.textSecondary,
-    },
-    statsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-    },
-    statCard: {
-      width: (width - 60) / 2,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 16,
-      borderWidth: 1,
-      alignItems: 'center',
-    },
-    statValue: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      marginBottom: 4,
-    },
-    statLabel: {
-      fontSize: 12,
-      textAlign: 'center',
-    },
-    raceLogItem: {
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-    },
-    raceHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 12,
-    },
-    raceInfo: {
-      flex: 1,
-      marginRight: 12,
-    },
-    raceName: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 2,
-    },
-    racerNameInLog: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 4,
-    },
-    raceLogTeamLogo: {
-      width: 28,
-      height: 28,
-      resizeMode: 'contain',
-      borderRadius: 4,
-      backgroundColor: 'transparent'
-    },
-    raceVenue: {
-      fontSize: 12,
-    },
-    raceDate: {
-      fontSize: 12,
-      textAlign: 'right',
-    },
-    raceResults: {
-      gap: 8,
-    },
-    resultRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    resultItem: {
-      flex: 1,
-      alignItems: 'center',
-    },
-    resultLabel: {
-      fontSize: 10,
-      marginBottom: 2,
-    },
-    resultValue: {
-      fontSize: 14,
-      fontWeight: 'bold',
-    },
-    placeholderText: {
-      fontSize: 16,
-      textAlign: 'center',
-      marginTop: 40,
-    },
-  });
+    const avgStart = startVals.length ? startVals.reduce((a, b) => a + b, 0) / startVals.length : null;
+
+    return {
+      points,
+      place,
+      wins,
+      podiums,
+      avgStart: avgStart ? Number(avgStart.toFixed(2)) : null,
+      avgStartCount: startVals.length,
+      dnCount,
+    };
+  }, [championship, sessionResults, driverData]);
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.tabContainer}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.tabButton,
-                selectedTab === tab.key && styles.activeTabButton,
-              ]}
-              onPress={() => setSelectedTab(tab.key)}
-            >
-              <Text allowFontScaling={false}
-                style={[
-                  styles.tabButtonText,
-                  selectedTab === tab.key
-                    ? styles.activeTabButtonText
-                    : styles.inactiveTabButtonText,
-                ]}
-              >
-                {tab.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={styles.loadingText}>Loading Racer Details...</Text>
-        </View>
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const renderRacerHeader = () => (
-    <View style={[styles.racerHeaderSection, { backgroundColor: theme.surface }]}>
-      <View style={styles.racerHeaderContent}>
-        <View style={styles.racerHeaderImageContainer}>
-          <RacerHeaderImage racer={racerData} teamColor={teamColor} />
-        </View>
-        
-        <View style={styles.racerHeaderInfo}>
-          <Text allowFontScaling={false} style={[styles.racerHeaderName, { color: theme.text }]}>
-            {racerData?.name || racerName || 'Racer'}
-          </Text>
-          <Text allowFontScaling={false} style={[styles.racerHeaderTeam, { color: theme.textSecondary }]}>
-            {racerData?.team?.name || racerData?.team?.displayName || 'Unknown Team'}
-          </Text>
-          {racerData?.team?.name && (
-            <View style={{ height: 3, width: 120, marginTop: 6, backgroundColor: racerData.team.color }} />
-          )}
-          {racerData?.nationality && (
-            <Text allowFontScaling={false} style={[styles.racerHeaderNationality, { color: theme.textSecondary }]}>
-              {racerData.nationality} {racerData.birthDate && `• ${getAge(racerData.birthDate)}`}
-            </Text>
-          )}
-          {racerData?.team?.color && (
-            <View style={[styles.racerHeaderColorBar, { backgroundColor: racerData.team.color }]} />
-          )}
-        </View>
-        
-        {(
-          (() => {
-            const teamName = racerData?.team?.name || racerData?.team?.displayName || '';
-            const logoUrl = getTeamLogo(teamName);
-            if (teamName && logoUrl) {
-              return (
-                <View style={styles.racerHeaderPosition}>
-                  <Image source={{ uri: logoUrl }} style={styles.teamLogo} />
-                </View>
-              );
-            }
-            // Fallback to position number or initials
-            if (racerData?.position) {
-              return (
-                <View style={styles.racerHeaderPosition}>
-                  <Text allowFontScaling={false} style={[styles.racerHeaderPositionNumber, { color: theme.text }]}>
-                    {racerData.position}
-                  </Text>
-                  <Text allowFontScaling={false} style={[styles.racerHeaderPositionLabel, { color: theme.textSecondary }]}>
-                    POSITION
-                  </Text>
-                </View>
-              );
-            }
-            return (
-              <View style={styles.racerHeaderPosition}>
-                <View style={[styles.teamLogoPlaceholder, { backgroundColor: racerData?.team?.color || teamColor || theme.border }]}>
-                  <Text allowFontScaling={false} style={[styles.racerHeaderPositionNumber, { color: '#fff' }]}>
-                    {getInitials(racerData?.firstName || '', racerData?.lastName || '', racerData?.name || racerName || '')}
-                  </Text>
-                </View>
-              </View>
-            );
-          })()
-        )}
-      </View>
-    </View>
-  );
+  const threshold = Math.max(headerHeight - 40, 80);
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 60],
+    extrapolate: "clamp",
+  });
 
   return (
-    <View style={styles.container}>
-      {renderRacerHeader()}
-      
-      <View style={styles.tabContainer}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tabButton,
-              selectedTab === tab.key && styles.activeTabButton,
-            ]}
-            onPress={() => setSelectedTab(tab.key)}
-          >
-            <Text allowFontScaling={false}
-              style={[
-                styles.tabButtonText,
-                selectedTab === tab.key
-                  ? styles.activeTabButtonText
-                  : styles.inactiveTabButtonText,
-              ]}
-            >
-              {tab.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      
-      <ScrollView
-        style={{ flex: 1 }}
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        stickyHeaderIndices={[1]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            onRefresh={() => load(true)}
+            tintColor={accentColor}
           />
         }
-        showsVerticalScrollIndicator={false}
       >
-        {renderTabContent()}
-      </ScrollView>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: `${accentColor}22`,
+              borderBottomColor: accentColor,
+            },
+          ]}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <View style={styles.headerMain}>
+            <View
+              style={[
+                styles.headerHeadshotWrap,
+                { backgroundColor: `${accentColor}30` },
+              ]}
+            >
+              {driver?.headshot_url ? (
+                <Image
+                  source={{ uri: driver.headshot_url }}
+                  style={styles.headerHeadshot}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.headerInitials,
+                    { color: getTextOnColor(accentColor) },
+                  ]}
+                >
+                  {initials}
+                </Text>
+              )}
+            </View>
+            <View style={styles.headerTextBlock}>
+              <Text
+                style={[styles.headerName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {driver?.full_name ?? driverName ?? `#${driverNumber ?? ""}`}
+              </Text>
+              <Text
+                style={[styles.headerTeam, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {driver?.team_name ?? "Team"}
+              </Text>
+            </View>
+            {teamLogoUrl ? (
+              <Image
+                source={{ uri: teamLogoUrl }}
+                style={styles.headerTeamBadge}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+
+        <View style={{ backgroundColor: theme.surface }}>
+          <Animated.View
+            style={{
+              height: stickyMiniHeight,
+              opacity: stickyOpacity,
+              overflow: "hidden",
+            }}
+          >
+            <Svg
+              style={StyleSheet.absoluteFill}
+              width="100%"
+              height={60}
+              pointerEvents="none"
+            >
+              <Defs>
+                <SvgLinearGradient
+                  id="f1MiniGrad"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <Stop
+                    offset="0%"
+                    stopColor={theme.surfaceSecondary ?? theme.surface}
+                    stopOpacity="1"
+                  />
+                  <Stop
+                    offset="55%"
+                    stopColor={theme.surfaceSecondary ?? theme.surface}
+                    stopOpacity="1"
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor={accentColor}
+                    stopOpacity="0.65"
+                  />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill="url(#f1MiniGrad)" />
+            </Svg>
+            <View style={styles.stickyMiniContent}>
+              <View
+                style={[
+                  styles.stickyMiniHeadshotWrap,
+                  { backgroundColor: `${accentColor}30` },
+                ]}
+              >
+                {driver?.headshot_url ? (
+                  <Image
+                    source={{ uri: driver.headshot_url }}
+                    style={styles.stickyMiniHeadshot}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.stickyMiniInitials,
+                      { color: getTextOnColor(accentColor) },
+                    ]}
+                  >
+                    {initials}
+                  </Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.stickyMiniName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {driver?.full_name ?? driverName ?? `#${driverNumber ?? ""}`}
+                </Text>
+                <Text
+                  style={[
+                    styles.stickyMiniTeam,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {driver?.team_name ?? "Team"}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+
+          <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
+            <View style={styles.tabBarContent}>
+              {TABS.map((tab) => {
+                const isActive = activeTab === tab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={styles.tabBarBtn}
+                    onPress={() => setActiveTab(tab)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.tabBarText,
+                        { color: isActive ? accentColor : theme.textSecondary },
+                      ]}
+                    >
+                      {tab}
+                    </Text>
+                    {isActive ? (
+                      <View
+                        style={[
+                          styles.tabBarIndicator,
+                          { backgroundColor: accentColor },
+                        ]}
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        <View style={{ paddingBottom: 28 }}>
+          <View style={{ display: activeTab === "Main" ? "flex" : "none" }}>
+            <StandingsTracker
+              championship={championship}
+              maps={driverData?.maps}
+              theme={theme}
+              accentColor={accentColor}
+              onSelectedChange={setSelectedPoint}
+            />
+
+            {selectedMeeting ? (
+              <View
+                style={[
+                  styles.raceCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Svg
+                  style={StyleSheet.absoluteFill}
+                  width="100%"
+                  height="100%"
+                  pointerEvents="none"
+                >
+                  <Defs>
+                    <SvgLinearGradient
+                      id="raceGrad"
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
+                      <Stop
+                        offset="0%"
+                        stopColor={selectedCountryColor}
+                        stopOpacity="0.35"
+                      />
+                      <Stop
+                        offset="100%"
+                        stopColor={selectedCountryColor}
+                        stopOpacity="0"
+                      />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" fill="url(#raceGrad)" />
+                </Svg>
+
+                <View style={styles.raceHeader}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.raceTitle, { color: theme.text }]}
+                    numberOfLines={2}
+                  >
+                    {selectedMeeting.meeting_official_name ||
+                      selectedMeeting.meeting_name ||
+                      selectedMeeting.meetingName ||
+                      selectedMeeting.name ||
+                      selectedPoint?.meetingName ||
+                      "Race"}
+                  </Text>
+                  <View style={styles.raceMetaRow}>
+                    {selectedMeeting.country_flag ? (
+                      <Image
+                        source={{ uri: selectedMeeting.country_flag }}
+                        style={styles.raceFlag}
+                      />
+                    ) : null}
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.raceMetaText,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedMeeting.location ||
+                        selectedMeeting.location_name ||
+                        ""}
+                      {selectedMeeting.country_code
+                        ? `, ${selectedMeeting.country_code}`
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[styles.raceDivider, { borderTopColor: theme.border }]}
+                />
+
+                {selectedMeetingSessions.map((s, idx) => {
+                  const sessionName =
+                    driverData?.maps?.sessions?.[s.session_key] ||
+                    driverData?.maps?.sessions?.[String(s.session_key)] ||
+                    s.session_name ||
+                    "Session";
+
+                  const hasMultiDuration = Array.isArray(s.duration);
+                  const statusText = s.dnf
+                    ? "DNF"
+                    : s.dns
+                      ? "DNS"
+                      : s.dsq
+                        ? "DSQ"
+                        : null;
+
+                  return (
+                    <React.Fragment key={`${s.session_key || idx}`}>
+                      {idx !== 0 ? (
+                        <View
+                          style={[
+                            styles.sectionDivider,
+                            { borderTopColor: theme.border },
+                          ]}
+                        />
+                      ) : null}
+                      <View style={styles.raceSessionRow}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.raceSessionName,
+                            { color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {sessionName}
+                        </Text>
+
+                        <View style={styles.raceMetrics}>
+                          {hasMultiDuration ? (
+                            <>
+                              <View style={styles.raceMetricsRow}>
+                                {[0, 1, 2].map((i) => {
+                                  const val = s.duration?.[i];
+                                  const out = val === null || val === undefined;
+                                  return (
+                                    <View
+                                      key={`qual-${i}`}
+                                      style={styles.raceMetricCell}
+                                    >
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.raceMetricLabel,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {`QUAL ${i + 1}`}
+                                      </Text>
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.raceMetricValue,
+                                          {
+                                            color: out
+                                              ? theme.error
+                                              : theme.text,
+                                          },
+                                        ]}
+                                      >
+                                        {out ? "OUT" : formatDuration(val)}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                              <View style={styles.raceMetricsRow}>
+                                <View
+                                  style={[styles.raceMetricCell, { flex: 1 }]}
+                                >
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    LAPS
+                                  </Text>
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {s.number_of_laps ?? "--"}
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[styles.raceMetricCell, { flex: 1 }]}
+                                >
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    PLACE
+                                  </Text>
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {s.position ?? "--"}
+                                  </Text>
+                                </View>
+                              </View>
+                            </>
+                          ) : (
+                            <View style={styles.raceMetricsRow}>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  LAPS
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {s.number_of_laps ?? "--"}
+                                </Text>
+                              </View>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  TIME
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    {
+                                      color: statusText
+                                        ? theme.error
+                                        : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {statusText
+                                    ? statusText
+                                    : formatDuration(s.duration)}
+                                </Text>
+                              </View>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  PLACE
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {s.position ?? "--"}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </React.Fragment>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ display: activeTab === "Season Stats" ? "flex" : "none" }}>
+            <View style={{ paddingHorizontal: 12, paddingBottom: 28 }}>
+              <View style={styles.seasonGridContainer}>
+                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>POINTS</Text>
+                  <Text style={[styles.bubbleValue, { color: accentColor }]}>{seasonStats.points}</Text>
+                </View>
+                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>PLACE</Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.place ?? "--"}</Text>
+                </View>
+                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>WINS</Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.wins}</Text>
+                </View>
+                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>PODIUM</Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.podiums}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.seasonStatRow, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                <Text style={[styles.seasonStatLabel, { color: theme.textSecondary }]}>Average Starting Grid</Text>
+                <Text style={[styles.seasonStatValue, { color: theme.text }]}>{seasonStats.avgStart !== null ? `${seasonStats.avgStart} (${seasonStats.avgStartCount})` : "--"}</Text>
+              </View>
+
+              <View style={[styles.seasonStatRow, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+                <Text style={[styles.seasonStatLabel, { color: theme.textSecondary }]}>DNF / DNS / DSQ</Text>
+                <Text style={[styles.seasonStatValue, { color: theme.error }]}>{seasonStats.dnCount}</Text>
+              </View>
+            </View>
+          </View>
+
+          {!(activeTab === "Main" || activeTab === "Season Stats") ? (
+            <View style={styles.placeholderWrap}>
+              <Text
+                style={[styles.placeholderText, { color: theme.textSecondary }]}
+              >
+                {activeTab} content coming soon.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </Animated.ScrollView>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  header: {
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 2,
+  },
+  headerMain: { flexDirection: "row", alignItems: "center" },
+  headerHeadshotWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginRight: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  headerHeadshot: { width: 72, height: 72, borderRadius: 36 },
+  headerInitials: { fontSize: 26, fontWeight: "800" },
+  headerTextBlock: { flex: 1 },
+  headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
+  headerTeam: { fontSize: 13, fontWeight: "600" },
+  headerTeamBadge: {
+    width: 44,
+    height: 44,
+    marginLeft: 10,
+    opacity: 0.85,
+  },
+  stickyMiniContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  stickyMiniHeadshotWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  stickyMiniHeadshot: { width: 50, height: 50, borderRadius: 25 },
+  stickyMiniInitials: { fontSize: 13, fontWeight: "800" },
+  stickyMiniName: { fontSize: 15, fontWeight: "700" },
+  stickyMiniTeam: { fontSize: 11, fontWeight: "500", marginTop: 1 },
+  tabBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  tabBarContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 6,
+  },
+  tabBarBtn: {
+    alignItems: "center",
+    paddingVertical: 11,
+    flex: 1,
+    position: "relative",
+  },
+  tabBarText: { fontSize: 15, fontWeight: "600" },
+  tabBarIndicator: {
+    position: "absolute",
+    bottom: 0,
+    left: 12,
+    right: 12,
+    height: 2.5,
+    borderRadius: 2,
+  },
+  trackerCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  trackerHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  trackerTitle: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
+  trackerNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+  },
+  trackerNavBtn: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trackerNavText: { fontSize: 16, fontWeight: "700" },
+  raceCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  raceHeader: {
+    paddingTop: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    alignItems: "center",
+  },
+  raceTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  raceMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  raceFlag: {
+    width: 25,
+    height: 14,
+    resizeMode: "contain",
+    borderRadius: 2,
+    backgroundColor: "#fff",
+  },
+  raceMetaText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  raceDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+  },
+  sectionDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 22,
+    marginTop: 6,
+  },
+  raceSessionRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  raceSessionName: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  raceMetrics: {
+    gap: 8,
+  },
+  raceMetricsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  raceMetricCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  raceMetricLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  raceMetricValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  placeholderWrap: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  placeholderText: { fontSize: 14, fontWeight: "600" },
+  seasonGridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  seasonBubble: {
+    width: "48%",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  bubbleLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  bubbleValue: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  seasonStatRow: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  seasonStatLabel: { fontSize: 13, fontWeight: "700" },
+  seasonStatValue: { fontSize: 14, fontWeight: "800" },
+});
 
 export default RacerDetailsScreen;

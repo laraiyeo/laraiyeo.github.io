@@ -395,8 +395,11 @@ app.get("/driver/:driver_number", async (req, res) => {
         }
         for (const s of sessionsArr) {
           if (s?.session_key && sessionKeys.has(String(s.session_key))) {
-            sessionsMap[String(s.session_key)] =
-              s.session_name || s.name || null;
+            sessionsMap[String(s.session_key)] = {
+              name: s.session_name || s.name || null,
+              date_start: s.date_start || s.dateStart || null,
+              date_end: s.date_end || s.dateEnd || null,
+            };
           }
         }
 
@@ -513,8 +516,11 @@ app.get("/team/:team_name", async (req, res) => {
         }
         for (const s of sessionsArr) {
           if (s?.session_key && sessionKeys.has(String(s.session_key))) {
-            sessionsMap[String(s.session_key)] =
-              s.session_name || s.name || null;
+            sessionsMap[String(s.session_key)] = {
+              name: s.session_name || s.name || null,
+              date_start: s.date_start || s.dateStart || null,
+              date_end: s.date_end || s.dateEnd || null,
+            };
           }
         }
 
@@ -1051,7 +1057,61 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
 app.get("/session", async (req, res) => {
   try {
-    const sessionKey = req.query.session_key || req.query.s || null;
+    // support either session_key or meeting_key
+    let sessionKey = req.query.session_key || req.query.s || null;
+    const meetingKey = req.query.meeting_key || req.query.m || null;
+
+    // if meeting_key provided, choose a session for that meeting based on cached sessions
+    if (!sessionKey && meetingKey) {
+      const sessionsGlobal = cache.get("sessions")?.data || [];
+      const arr = normalizeArray(sessionsGlobal).filter(
+        (s) => String(s.meeting_key || s.meetingKey || "") === String(meetingKey),
+      );
+      if (arr.length === 0)
+        return res.status(404).json({ error: "no sessions found for meeting" });
+
+      const now = Date.now();
+      // parse dates safely
+      const parseStart = (s) => {
+        const d = s.date_start || s.dateStart || s.start || null;
+        const t = d ? new Date(d).getTime() : NaN;
+        return Number.isFinite(t) ? t : null;
+      };
+      const parseEnd = (s) => {
+        const d = s.date_end || s.dateEnd || s.end || null;
+        const t = d ? new Date(d).getTime() : NaN;
+        return Number.isFinite(t) ? t : null;
+      };
+
+      // 1) pick session where now is between start and end
+      let inProgress = arr.find((s) => {
+        const st = parseStart(s);
+        const en = parseEnd(s);
+        return st !== null && en !== null && now >= st && now <= en;
+      });
+
+      // 2) pick next future session (earliest start > now)
+      if (!inProgress) {
+        const future = arr
+          .map((s) => ({ s, st: parseStart(s) }))
+          .filter((x) => x.st !== null && x.st > now)
+          .sort((a, b) => a.st - b.st);
+        if (future.length > 0) inProgress = future[0].s;
+      }
+
+      // 3) fallback to last session (latest end or latest start)
+      if (!inProgress) {
+        const withEnd = arr
+          .map((s) => ({ s, en: parseEnd(s), st: parseStart(s) }))
+          .sort((a, b) => (b.en || b.st || 0) - (a.en || a.st || 0));
+        inProgress = withEnd.length > 0 ? withEnd[0].s : null;
+      }
+
+      sessionKey = inProgress ? inProgress.session_key || inProgress.sessionKey || null : null;
+      if (!sessionKey)
+        return res.status(404).json({ error: "could not determine session_key for meeting" });
+    }
+
     if (!sessionKey)
       return res.status(400).json({ error: "session_key required" });
     const cacheKey = `session:${sessionKey}`;
@@ -1110,29 +1170,78 @@ app.get("/session", async (req, res) => {
 // Path-style session route: /session/:session_key/:status?
 app.get("/session/:session_key/:status?", async (req, res) => {
   try {
-    const sessionKey = req.params.session_key;
+    let sessionKey = req.params.session_key;
     const status = req.params.status || null;
-    if (!sessionKey)
-      return res.status(400).json({ error: "session_key required" });
+    if (!sessionKey) return res.status(400).json({ error: "session_key required" });
     const cacheKey = `session:${sessionKey}`;
 
-    // try to find session object in cache
+    // try to find session object in cache by session_key first
     let sessionObj = null;
     const sessionsGlobal = cache.get("sessions")?.data;
     if (sessionsGlobal) {
       const arr = normalizeArray(sessionsGlobal);
-      sessionObj = arr.find(
-        (s) => String(s.session_key) === String(sessionKey),
-      );
+      sessionObj = arr.find((s) => String(s.session_key) === String(sessionKey));
     }
+
+    // if not found by session_key, treat the provided param as a meeting_key and try to pick a session
     if (!sessionObj) {
-      const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
-      const { data } = await getCachedWithTTL(
-        path,
-        `${BASE_URL}${path}`,
-        TTL_6H,
-      ).catch(() => ({ data: null }));
-      sessionObj = normalizeArray(data)[0] || null;
+      // ensure we have sessions cached (may fetch)
+      const allSessionsData = sessionsGlobal || (await getCachedWithTTL("sessions", `${BASE_URL}sessions`, TTL_6H).catch(() => ({ data: null }))).data || [];
+      const sessArr = normalizeArray(allSessionsData).filter(
+        (s) => String(s.meeting_key || s.meetingKey || "") === String(sessionKey),
+      );
+
+      if (sessArr.length > 0) {
+        const now = Date.now();
+        const parseStart = (s) => {
+          const d = s.date_start || s.dateStart || s.start || null;
+          const t = d ? new Date(d).getTime() : NaN;
+          return Number.isFinite(t) ? t : null;
+        };
+        const parseEnd = (s) => {
+          const d = s.date_end || s.dateEnd || s.end || null;
+          const t = d ? new Date(d).getTime() : NaN;
+          return Number.isFinite(t) ? t : null;
+        };
+
+        // prefer session where now is within start..end
+        let chosen = sessArr.find((s) => {
+          const st = parseStart(s);
+          const en = parseEnd(s);
+          return st !== null && en !== null && now >= st && now <= en;
+        });
+
+        if (!chosen) {
+          // next future session
+          const future = sessArr
+            .map((s) => ({ s, st: parseStart(s) }))
+            .filter((x) => x.st !== null && x.st > now)
+            .sort((a, b) => a.st - b.st);
+          if (future.length > 0) chosen = future[0].s;
+        }
+
+        if (!chosen) {
+          const withEnd = sessArr
+            .map((s) => ({ s, en: parseEnd(s), st: parseStart(s) }))
+            .sort((a, b) => (b.en || b.st || 0) - (a.en || a.st || 0));
+          chosen = withEnd.length > 0 ? withEnd[0].s : null;
+        }
+
+        sessionKey = chosen ? chosen.session_key || chosen.sessionKey || null : null;
+        if (sessionKey) {
+          // now fetch sessionObj by sessionKey
+          const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
+          const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, TTL_6H).catch(() => ({ data: null }));
+          sessionObj = normalizeArray(data)[0] || null;
+        }
+      }
+
+      // if still not found, try the original session_key fetch as fallback
+      if (!sessionObj && !sessionsGlobal) {
+        const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
+        const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, TTL_6H).catch(() => ({ data: null }));
+        sessionObj = normalizeArray(data)[0] || null;
+      }
     }
 
     const ttl = computeSessionTTLFromDates(

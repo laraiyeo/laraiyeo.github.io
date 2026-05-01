@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,10 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+  TouchableOpacity,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "../../context/ThemeContext";
 
 const VehiclesScreen = () => {
   const { theme, colors } = useTheme();
@@ -20,51 +21,56 @@ const VehiclesScreen = () => {
   // Team color mapping (same as teams.js)
   const getTeamColor = (constructorName) => {
     const colorMap = {
-      'Mercedes': '#27F4D2',
-      'Red Bull': '#3671C6',
-      'Ferrari': '#E8002D',
-      'McLaren': '#FF8000',
-      'Alpine': '#FF87BC',
-      'Racing Bulls': '#6692FF',
-      'Aston Martin': '#229971',
-      'Williams': '#64C4FF',
-      'Sauber': '#52E252',
-      'Haas': '#B6BABD',
-      'Audi': "#DB0303",
-      'Cadillac': "#A2AAAD",
+      Mercedes: "#00D7B6",
+      "Red Bull": "#4781D7",
+      Ferrari: "#ED1131",
+      McLaren: "#F47600",
+      Alpine: "#00A1E8",
+      "Racing Bulls": "#6C98FF",
+      "Aston Martin": "#229971",
+      Williams: "#1878D8",
+      Sauber: "#52E252",
+      Haas: "#9C9FA2",
+      Audi: "#F50537",
+      Cadillac: "#909090",
     };
-    
-    return colorMap[constructorName] || '#000000';
+
+    return colorMap[constructorName] || "#000000";
   };
 
   // Get constructor logo (same as teams.js)
   const getConstructorLogo = (constructorName, forceWhite = false) => {
     if (!constructorName) {
-      console.error('Constructor name is undefined in getConstructorLogo');
-      return '';
+      console.error("Constructor name is undefined in getConstructorLogo");
+      return "";
     }
-    
+
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari', 
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
 
-    const blackLogoConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber'];
-    const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
+    const blackLogoConstructors = ["Williams", "Alpine", "Mercedes", "Sauber"];
+    const logoColor =
+      forceWhite || !blackLogoConstructors.includes(constructorName)
+        ? "logowhite"
+        : "logoblack";
 
-    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    
+    const logoName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
+
     // Use current year for logo URLs
     const currentYear = new Date().getFullYear();
-    
+
     // Return current year URL
     return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
   };
@@ -72,117 +78,185 @@ const VehiclesScreen = () => {
   // Get constructor car (same as teams.js)
   const getConstructorCar = (constructorName) => {
     if (!constructorName) {
-      console.error('Constructor name is undefined in getConstructorCar');
-      return '';
+      console.error("Constructor name is undefined in getConstructorCar");
+      return "";
     }
-    
+
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari', 
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
-    
-    const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    
+
+    const carName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
+
     // Use current year for car URLs
     const currentYear = new Date().getFullYear();
-    
+
     // Return current year URL
     return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${currentYear}/${carName}/${currentYear}${carName}carright.webp`;
   };
 
-  // Fetch constructors data
-  const fetchConstructors = async () => {
-    try {
-      setLoading(true);
-      const currentYear = new Date().getFullYear();
-      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const standingsRawData = await response.json();
-      
-      // Validate that we have relevant data
-      console.log('Validating F1 constructor standings data for vehicles:', standingsRawData);
-      const standings = standingsRawData?.standings || standingsRawData?.data?.standings;
-      if (!(standings && standings.length > 0)) {
-        throw new Error('No constructor standings data found');
-      }
-      
-      const data = { data: standingsRawData, year: currentYear };
-      
-      console.log('[VehiclesScreen] data:', data ? 'exists' : 'null');
-      const standingsData = data?.standings || data?.data?.standings;
-      console.log('[VehiclesScreen] standingsData:', standingsData ? `array with ${standingsData.length} items` : 'null/undefined');
-      
-      if (standingsData && standingsData.length > 0) {
-        console.log(`[VehiclesScreen] Processing ${standingsData.length} constructors`);
-        // Process each constructor
-        const constructorPromises = standingsData.map(async (standing, index) => {
-          try {
-            // Use the same approach as StandingsScreen - fetch manufacturer details from $ref
-            if (standing.manufacturer && standing.manufacturer.$ref) {
-              const manufacturerResponse = await fetch(standing.manufacturer.$ref.replace('http://', 'https://'));
-              const manufacturerData = await manufacturerResponse.json();
-              
-              // Extract stats from the records array (same as StandingsScreen)
-              const stats = standing.records?.[0]?.stats || [];
-              const points = stats.find(stat => stat.name === 'points')?.displayValue || '0';
-              const wins = stats.find(stat => stat.name === 'wins')?.displayValue || '0';
-              
-              return {
-                id: manufacturerData.id || null,
-                name: manufacturerData.displayName || manufacturerData.name || 'Unknown Constructor',
-                rank: index + 1, // Use index + 1 as rank since standings are already sorted
-                points: parseInt(points) || 0,
-                wins: parseInt(wins) || 0,
-              };
-            }
+  // Note: ESPN constructor fetch removed - use shared standings cache only
 
-            // Fallback for unexpected structure
-            console.error('Unexpected standing structure - no manufacturer.$ref found:', standing);
-            return {
-              id: null,
-              name: 'Unknown Constructor',
-              rank: index + 1,
-              points: 0,
-              wins: 0,
-            };
-          } catch (error) {
-            console.error('Error fetching constructor details:', error, 'standing:', standing);
-            return null;
-          }
-        });
-        
-        const constructorResults = await Promise.all(constructorPromises);
-        const validConstructors = constructorResults.filter(c => c !== null);
-        
-        console.log(`[VehiclesScreen] Successfully processed ${validConstructors.length} valid constructors`);
-        console.log('[VehiclesScreen] Sample constructor data:', validConstructors[0]);
-        // Already sorted by API standings order, no need to re-sort
-        setConstructors(validConstructors);
-        console.log('[VehiclesScreen] Set constructors in state');
+  // Shared standings cache constants
+  const STANDINGS_URL =
+    "https://laraiyeogithubio-production-ed10.up.railway.app/standings";
+  const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
+  const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
+
+  const normalizeTeamName = (raw) => {
+    if (!raw) return raw;
+    const s = raw.toLowerCase();
+    if (s.includes("red bull")) return "Red Bull";
+    if (s.includes("haas")) return "Haas";
+    if (s.includes("ferrari")) return "Ferrari";
+    if (s.includes("mclaren")) return "McLaren";
+    if (s.includes("mercedes")) return "Mercedes";
+    if (s.includes("alpine")) return "Alpine";
+    if (s.includes("racing bulls")) return "Racing Bulls";
+    if (s.includes("audi")) return "Audi";
+    if (s.includes("cadillac")) return "Cadillac";
+    if (s.includes("williams")) return "Williams";
+    if (s.includes("aston")) return "Aston Martin";
+    // Fallback: strip common suffixes
+    return raw
+      .replace(/ F1 Team$/i, "")
+      .replace(/ Racing$/i, "")
+      .trim();
+  };
+
+  const fetchSharedStandings = async () => {
+    try {
+      // Try cache first
+      const raw = await AsyncStorage.getItem(F1_STANDINGS_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.ts && Date.now() - parsed.ts < F1_STANDINGS_TTL) {
+          console.log("[VehiclesScreen] Using cached standings");
+          // Normalize wrapper shapes (some payloads are { source, data: { teams: [...] } })
+          const cached = parsed.data;
+          return cached?.data ?? cached;
+        }
       }
+
+      // Not cached or expired — fetch from shared standings URL
+      console.log(
+        "[VehiclesScreen] Fetching shared standings from",
+        STANDINGS_URL,
+      );
+      const resp = await fetch(STANDINGS_URL);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const payload = await resp.json();
+
+      // Normalize payload (some servers wrap under `data`)
+      const actual = payload?.data ?? payload;
+
+      // Cache the normalized payload with timestamp
+      try {
+        await AsyncStorage.setItem(
+          F1_STANDINGS_CACHE_KEY,
+          JSON.stringify({ ts: Date.now(), data: actual }),
+        );
+      } catch (e) {
+        console.warn("[VehiclesScreen] Failed to cache standings", e);
+      }
+
+      return actual;
     } catch (error) {
-      console.error('Error fetching constructors:', error);
-      Alert.alert('Error', 'Failed to load constructor data');
-    } finally {
-      setLoading(false);
+      console.warn("[VehiclesScreen] Error fetching shared standings:", error);
+      return null;
     }
   };
 
   useEffect(() => {
-    fetchConstructors();
+    let mounted = true;
+    const init = async () => {
+      setLoading(true);
+      const payload = await fetchSharedStandings();
+      if (mounted && payload && payload.teams && payload.teams.length > 0) {
+        // Map teams into the constructor-like state used in this screen
+        const normalizeTeamName = (raw) => {
+          if (!raw) return raw;
+          const s = raw.toLowerCase();
+          if (s.includes("red bull")) return "Red Bull";
+          if (s.includes("haas")) return "Haas";
+          if (s.includes("ferrari")) return "Ferrari";
+          if (s.includes("mclaren")) return "McLaren";
+          if (s.includes("mercedes")) return "Mercedes";
+          if (s.includes("alpine")) return "Alpine";
+          if (s.includes("racing bulls")) return "Racing Bulls";
+          if (s.includes("audi")) return "Audi";
+          if (s.includes("cadillac")) return "Cadillac";
+          if (s.includes("williams")) return "Williams";
+          if (s.includes("aston")) return "Aston Martin";
+          // Fallback: strip common suffixes
+          return raw
+            .replace(/ F1 Team$/i, "")
+            .replace(/ Racing$/i, "")
+            .trim();
+        };
+
+        const constructorList = payload.teams.map((t, idx) => {
+          const rawName = t.team_name || t.team || `Team ${idx + 1}`;
+          const lookup = normalizeTeamName(rawName);
+          return {
+            id: lookup || `team-${idx}`,
+            name: lookup,
+            displayName: rawName,
+            rank: t.position_current ?? t.position ?? idx + 1,
+            points: parseInt(t.points_current ?? t.points ?? 0) || 0,
+          };
+        });
+        setConstructors(constructorList);
+        setLoading(false);
+        return;
+      }
+
+      // If shared standings not available, stop loading and leave constructors empty
+      console.warn(
+        "[VehiclesScreen] Shared standings not available; not fetching ESPN source per config",
+      );
+      setConstructors([]);
+      setLoading(false);
+    };
+
+    init();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  const refreshStandings = async () => {
+    setLoading(true);
+    const payload = await fetchSharedStandings();
+    if (payload && payload.teams && payload.teams.length > 0) {
+      const constructorList = payload.teams.map((t, idx) => {
+        const rawName = t.team_name || t.team || `Team ${idx + 1}`;
+        const lookup = normalizeTeamName(rawName);
+        return {
+          id: lookup || `team-${idx}`,
+          name: lookup,
+          displayName: rawName,
+          rank: t.position_current ?? t.position ?? idx + 1,
+          points: parseInt(t.points_current ?? t.points ?? 0) || 0,
+        };
+      });
+      setConstructors(constructorList);
+    } else {
+      setConstructors([]);
+    }
+    setLoading(false);
+  };
 
   const getLogoUrl = (constructorName) => {
     return logoUrls[constructorName] || getConstructorLogo(constructorName);
@@ -195,81 +269,135 @@ const VehiclesScreen = () => {
   const handleLogoError = (constructorName) => {
     const currentYear = new Date().getFullYear();
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari', 
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
-    const blackLogoConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber'];
-    const logoColor = !blackLogoConstructors.includes(constructorName) ? 'logowhite' : 'logoblack';
-    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const blackLogoConstructors = ["Williams", "Alpine", "Mercedes", "Sauber"];
+    const logoColor = !blackLogoConstructors.includes(constructorName)
+      ? "logowhite"
+      : "logoblack";
+    const logoName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
     const fallbackUrl = `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
-    
-    setLogoUrls(prev => ({
+
+    setLogoUrls((prev) => ({
       ...prev,
-      [constructorName]: fallbackUrl
+      [constructorName]: fallbackUrl,
     }));
   };
 
   const handleCarError = (constructorName) => {
     const currentYear = new Date().getFullYear();
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari', 
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
-    const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const carName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
     const fallbackUrl = `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${currentYear}/${carName}/${currentYear}${carName}carright.webp`;
-    
-    setCarUrls(prev => ({
+
+    setCarUrls((prev) => ({
       ...prev,
-      [constructorName]: fallbackUrl
+      [constructorName]: fallbackUrl,
     }));
   };
 
   const renderConstructorCard = (constructor) => {
-    const teamColor = getTeamColor(constructor.name);
-    const logoUrl = getLogoUrl(constructor.name);
-    const carUrl = getCarUrlForConstructor(constructor.name);
+    const lookupName = constructor.name;
+    const teamColor = getTeamColor(lookupName);
+    const logoUrl = getLogoUrl(lookupName);
+    const carUrl = getCarUrlForConstructor(lookupName);
 
-    const blackTextConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber', 'Haas'];
-    const needsBlackText = blackTextConstructors.includes(constructor.name);
+    const blackTextConstructors = [
+      "Williams",
+      "Alpine",
+      "Mercedes",
+      "Sauber",
+      "Haas",
+    ];
+    const needsBlackText = blackTextConstructors.includes(lookupName);
+
+    const ordinal = (n) => {
+      const s = ["th", "st", "nd", "rd"],
+        v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
 
     return (
-      <View key={constructor.id} style={[styles.constructorCard, { backgroundColor: teamColor }]}>
+      <View
+        key={constructor.id}
+        style={[styles.constructorCard, { backgroundColor: teamColor }]}
+      >
         <View style={styles.cardHeader}>
-          <Image 
-            source={{ uri: logoUrl }} 
+          <Image
+            source={{ uri: logoUrl }}
             style={styles.teamLogo}
             resizeMode="contain"
             onError={() => handleLogoError(constructor.name)}
           />
+
           <View style={styles.teamInfo}>
-            <Text style={[styles.teamName, {color: needsBlackText ? '#000' : '#fff'}]}>{constructor.name}</Text>
-            <Text style={[styles.teamRank, {color: needsBlackText ? '#000' : '#fff'}]}>Championship Position: #{constructor.rank}</Text>
-            <View style={styles.statsRow}>
-              <Text style={[styles.statText, {color: needsBlackText ? '#000' : '#fff'}]}>Points: {constructor.points}</Text>
-              <Text style={[styles.statText, {color: needsBlackText ? '#000' : '#fff'}]}>Wins: {constructor.wins}</Text>
-            </View>
+            <Text
+              style={[
+                styles.teamName,
+                { color: needsBlackText ? "#000" : "#fff" },
+              ]}
+            >
+              {constructor.displayName}
+            </Text>
+            <Text
+              style={[
+                styles.teamRank,
+                { color: needsBlackText ? "#000" : "#fff" },
+              ]}
+            >
+              {ordinal(constructor.rank)} Place
+            </Text>
+          </View>
+
+          <View style={styles.rightCol}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.pointsValue,
+                { color: needsBlackText ? "#000" : "#fff" },
+              ]}
+            >
+              {constructor.points}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.pointsLabel,
+                { color: needsBlackText ? "#000" : "#fff" },
+              ]}
+            >
+              PTS
+            </Text>
           </View>
         </View>
-        
+
         <View style={styles.carContainer}>
-          <Image 
-            source={{ uri: carUrl }} 
+          <Image
+            source={{ uri: carUrl }}
             style={styles.carImage}
             resizeMode="contain"
             onError={() => handleCarError(constructor.name)}
@@ -281,25 +409,59 @@ const VehiclesScreen = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: theme.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading vehicles...</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>
+          Loading vehicles...
+        </Text>
       </View>
     );
   }
 
-  console.log(`[VehiclesScreen] Render - constructors.length: ${constructors.length}`);
-  console.log('[VehiclesScreen] Render - loading:', loading);
-  
+  if (!loading && constructors.length === 0) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: theme.background },
+        ]}
+      >
+        <Text style={[styles.emptyText, { color: theme.text }]}>
+          Standings not available
+        </Text>
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={refreshStandings}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  console.log(
+    `[VehiclesScreen] Render - constructors.length: ${constructors.length}`,
+  );
+  console.log("[VehiclesScreen] Render - loading:", loading);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headerText, { color: theme.text }]}>Formula 1 Vehicles</Text>
-        
+        <Text style={[styles.headerText, { color: theme.text }]}>
+          Formula 1 Vehicles
+        </Text>
+
         {constructors.map(renderConstructorCard)}
       </ScrollView>
     </View>
@@ -311,8 +473,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollContainer: {
     flex: 1,
@@ -322,8 +484,8 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 20,
   },
   loadingText: {
@@ -335,17 +497,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   teamLogo: {
@@ -358,32 +513,58 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
     marginBottom: 4,
   },
   teamRank: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     opacity: 0.9,
     marginBottom: 8,
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   statText: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   carContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   carImage: {
-    width: '100%',
+    width: "100%",
     height: 120,
+  },
+  rightCol: {
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pointsValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  pointsLabel: {
+    fontSize: 14,
+    marginTop: -2,
+  },
+  emptyText: {
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 });
 

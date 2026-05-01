@@ -1,25 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Image, 
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
   RefreshControl,
-  Alert
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
+  Alert,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
+import { useTheme } from "../../context/ThemeContext";
+import { useFavorites } from "../../context/FavoritesContext";
 
 const StandingsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigation = useNavigation();
-  
-  const [selectedType, setSelectedType] = useState('DRIVERS');
+
+  const [selectedType, setSelectedType] = useState("DRIVERS");
   const [driverStandings, setDriverStandings] = useState([]);
   const [constructorStandings, setConstructorStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,53 +34,73 @@ const StandingsScreen = ({ route }) => {
   const [logoUrls, setLogoUrls] = useState({});
 
   const standingTypes = [
-    { key: 'DRIVERS', name: 'Drivers' },
-    { key: 'CONSTRUCTORS', name: 'Constructors' }
+    { key: "DRIVERS", name: "Drivers" },
+    { key: "CONSTRUCTORS", name: "Constructors" },
   ];
 
   const constructorColors = {
-    'Mercedes': '#27F4D2',
-    'Red Bull': '#3671C6', 
-    'Ferrari': '#E8002D',
-    'McLaren': '#FF8000',
-    'Alpine': '#FF87BC',
-    'Racing Bulls': '#6692FF',
-    'Aston Martin': '#229971',
-    'Williams': '#64C4FF',
-    'Sauber': '#52E252',
-    'Haas': '#B6BABD',
-    'Audi': "#DB0303",
-    'Cadillac': "#A2AAAD",
+    Mercedes: "#00D7B6",
+    "Red Bull": "#4781D7",
+    Ferrari: "#ED1131",
+    McLaren: "#F47600",
+    Alpine: "#00A1E8",
+    "Racing Bulls": "#6C98FF",
+    "Aston Martin": "#229971",
+    Williams: "#1878D8",
+    Sauber: "#52E252",
+    Haas: "#9C9FA2",
+    Audi: "#F50537",
+    Cadillac: "#909090",
+  };
+
+  const normalizeTeamName = (raw) => {
+    if (!raw) return raw;
+    const s = raw.toLowerCase();
+    if (s.includes("red bull")) return "Red Bull";
+    if (s.includes("haas")) return "Haas";
+    if (s.includes("ferrari")) return "Ferrari";
+    if (s.includes("mclaren")) return "McLaren";
+    if (s.includes("mercedes")) return "Mercedes";
+    if (s.includes("alpine")) return "Alpine";
+    if (s.includes("racing bulls")) return "Racing Bulls";
+    if (s.includes("audi")) return "Audi";
+    if (s.includes("cadillac")) return "Cadillac";
+    if (s.includes("williams")) return "Williams";
+    if (s.includes("aston")) return "Aston Martin";
+    return raw
+      .replace(/ F1 Team$/i, "")
+      .replace(/ Racing$/i, "")
+      .trim();
   };
 
   // Helper to format color from API (adds # if missing)
   const formatColor = (color) => {
-    if (!color) return '#000000';
-    return color.startsWith('#') ? color : `#${color}`;
+    if (!color) return "#000000";
+    return color.startsWith("#") ? color : `#${color}`;
   };
 
   // Helper to get F1 team ID for favorites (use team name as ID for F1)
   const getF1TeamId = (teamName) => {
     if (!teamName) return null;
     // Use team name as ID for F1 since there's no consistent numeric ID
-    return `f1_${teamName.toLowerCase().replace(/\s+/g, '_')}`;
+    return `f1_${teamName.toLowerCase().replace(/\s+/g, "_")}`;
   };
 
   // Helper to handle team favorite toggle
   const handleTeamFavoriteToggle = async (teamName, teamColor) => {
     if (!teamName) return;
-    
+
     const teamId = getF1TeamId(teamName);
     try {
       await toggleFavorite({
         teamId: teamId,
         teamName: teamName,
-        sport: 'f1',
-        leagueCode: 'f1',
-        teamColor: teamColor
+        sport: "f1",
+        leagueCode: "f1",
+        teamColor: teamColor,
       });
     } catch (error) {
-      console.error('Error toggling F1 team favorite:', error);
+      console.error("Error toggling F1 team favorite:", error);
     }
   };
 
@@ -83,219 +110,142 @@ const StandingsScreen = ({ route }) => {
 
   const fetchStandings = async () => {
     try {
-      console.log('[StandingsScreen] Starting fetchStandings');
+      console.log("[StandingsScreen] Starting fetchStandings (cache-only)");
       setLoading(true);
-      
-      // Fetch both driver and constructor standings with current year
-      const currentYear = new Date().getFullYear();
-      
-      const [driversRawData, constructorsRawData] = await Promise.all([
-        (async () => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const data = await response.json();
-          
-          // Validate that we have relevant data
-          console.log('Validating F1 driver standings data:', data);
-          const standings = data?.standings || data?.data?.standings;
-          if (!(standings && standings.length > 0)) {
-            throw new Error('No driver standings data found');
-          }
-          
-          return { data, year: currentYear };
-        })(),
-        (async () => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const data = await response.json();
-          
-          // Validate that we have relevant data
-          console.log('Validating F1 constructor standings data:', data);
-          const standings = data?.standings || data?.data?.standings;
-          if (!(standings && standings.length > 0)) {
-            throw new Error('No constructor standings data found');
-          }
-          
-          return { data, year: currentYear };
-        })()
-      ]);
-      
-      const driversData = driversRawData;
-      const constructorsData = constructorsRawData;
-      
-      // Prepare driversWithDetails so constructors can reference it later
-      let driversWithDetails = [];
-      console.log('[StandingsScreen] driversData:', driversData ? 'exists' : 'null');
-      const driverStandingsData = driversData?.standings || driversData?.data?.standings;
-      console.log('[StandingsScreen] driverStandingsData:', driverStandingsData ? `array with ${driverStandingsData.length} items` : 'null/undefined');
-      
-      if (driverStandingsData && driverStandingsData.length > 0) {
-        console.log(`[StandingsScreen] Processing ${driverStandingsData.length} driver standings`);
-        // Process driver standings with team information
-        driversWithDetails = await Promise.all(
-          driverStandingsData.map(async (standing, index) => {
-            try {
-              console.log(`[StandingsScreen] Processing driver ${index + 1}/${driverStandingsData.length}`);
-              // Get athlete details first
-              const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
-              const athleteData = await athleteResponse.json();
-              
-              // Get team information from event log (following standings.js pattern)
-              let teamName = 'Unknown Team';
-              let teamColor = '#000000';
-              
-              try {
-                if (athleteData.eventLog && athleteData.eventLog.$ref) {
-                  // Fetch event log data
-                  const eventLogResponse = await fetch(convertToHttps(athleteData.eventLog.$ref));
-                  const eventLogData = await eventLogResponse.json();
-                  
-                  if (eventLogData.events?.items?.length > 0) {
-                    const items = eventLogData.events.items;
-                    let lastEvent = null;
 
-                    for (let i = items.length - 1; i >= 0; i--) {
-                      if (items[i].played === true) {
-                        lastEvent = items[i];
-                        break;
-                      }
-                    }
+      const STANDINGS_URL =
+        "https://laraiyeogithubio-production-ed10.up.railway.app/standings";
+      const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
+      const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
 
-                    if (lastEvent?.competitor?.$ref) {
-                      // Fetch competitor data to get team info
-                      const competitorResponse = await fetch(convertToHttps(lastEvent.competitor.$ref));
-                      const competitorData = await competitorResponse.json();
-                      
-                      if (competitorData.vehicle?.manufacturer) {
-                        teamName = competitorData.vehicle.manufacturer;
-                        teamColor = formatColor(constructorColors[teamName]) || '#000000';
-                      }
-                    }
-                  }
-                }
-                
-                // Fallback to vehicles array if eventLog approach fails
-                if (teamName === 'Unknown Team' && athleteData.vehicles && athleteData.vehicles.length > 0) {
-                  teamName = athleteData.vehicles[0].team || teamName;
-                  teamColor = formatColor(constructorColors[teamName]) || '#000000';
-                }
-              } catch (teamError) {
-                console.log('Could not fetch team data for driver:', athleteData.displayName);
-                // Final fallback to vehicles array
-                if (athleteData.vehicles && athleteData.vehicles.length > 0) {
-                  teamName = athleteData.vehicles[0].team || teamName;
-                  teamColor = formatColor(constructorColors[teamName]) || '#000000';
-                }
-              }
-              
-              return {
-                position: index + 1,
-                driver: {
-                  id: athleteData.id || null,
-                  name: athleteData.displayName || athleteData.name || 'Unknown Driver',
-                  firstName: athleteData.firstName || '',
-                  lastName: athleteData.lastName || '',
-                  nationality: athleteData.citizenship || '',
-                  headshot: buildESPNHeadshotUrl(athleteData.id) || athleteData.headshot?.href || null
-                },
-                team: {
-                  name: teamName,
-                  color: teamColor
-                },
-                points: standing.records?.[0]?.stats?.find(stat => stat.name === 'championshipPts')?.displayValue || '0',
-                wins: standing.records?.[0]?.stats?.find(stat => stat.name === 'wins')?.displayValue || '0',
-                podiums: standing.records?.[0]?.stats?.find(stat => stat.name === 'top5')?.displayValue || '0'
-              };
-            } catch (error) {
-              console.error(`Error processing driver standing ${index + 1}:`, error);
-              return {
-                position: index + 1,
-                driver: { name: 'Unknown Driver', id: null },
-                team: { name: 'Unknown Team', color: '#000000' },
-                points: '0',
-                wins: '0',
-                podiums: '0'
-              };
+      const fetchSharedStandings = async () => {
+        try {
+          const raw = await AsyncStorage.getItem(F1_STANDINGS_CACHE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.ts && Date.now() - parsed.ts < F1_STANDINGS_TTL) {
+              console.log("[StandingsScreen] Using cached standings");
+              return parsed.data?.data ?? parsed.data ?? parsed;
             }
-          })
-        );
-        
-        console.log(`[StandingsScreen] Successfully processed ${driversWithDetails.length} drivers`);
-        console.log('[StandingsScreen] Sample driver data:', driversWithDetails[0]);
-        setDriverStandings(driversWithDetails);
-        console.log('[StandingsScreen] Set driver standings in state');
-      }
-        
-      // Process constructor standings using already-fetched data
-      console.log('[StandingsScreen] constructorsData:', constructorsData ? 'exists' : 'null');
-      const constructorStandingsData = constructorsData?.standings || constructorsData?.data?.standings;
-      console.log('[StandingsScreen] constructorStandingsData:', constructorStandingsData ? `array with ${constructorStandingsData.length} items` : 'null/undefined');
-      
-      if (constructorStandingsData && constructorStandingsData.length > 0) {
-          console.log(`[StandingsScreen] Processing ${constructorStandingsData.length} constructor standings`);
-          const constructorsWithDetails = await Promise.all(
-            constructorStandingsData.map(async (standing, index) => {
-              try {
-                console.log(`[StandingsScreen] Processing constructor ${index + 1}/${constructorStandingsData.length}`);
-                // Get manufacturer details
-                const manufacturerResponse = await fetch(convertToHttps(standing.manufacturer.$ref));
-                const manufacturerData = await manufacturerResponse.json();
-                
-                const stats = standing.records?.[0]?.stats || [];
-                
-                return {
-                  position: index + 1,
-                  id: manufacturerData.id || null,
-                  name: manufacturerData.displayName || manufacturerData.name || 'Unknown Constructor',
-                  color: constructorColors[manufacturerData.displayName || manufacturerData.name] || '#000000',
-                  points: stats.find(stat => stat.name === 'points')?.displayValue || '0',
-                  wins: stats.find(stat => stat.name === 'wins')?.displayValue || '0',
-                  drivers: [] // Will be populated below
-                };
-              } catch (error) {
-                console.error(`Error processing constructor standing ${index + 1}:`, error);
-                return {
-                  position: index + 1,
-                  name: 'Unknown Constructor',
-                  color: '#000000',
-                  points: '0',
-                  wins: '0',
-                  drivers: []
-                };
-              }
-            })
+          }
+
+          console.log(
+            "[StandingsScreen] Fetching shared standings from",
+            STANDINGS_URL,
           );
-          
-          // Add drivers to each constructor
-          constructorsWithDetails.forEach(constructor => {
-            constructor.drivers = driversWithDetails
-              .filter(driver => driver.team.name === constructor.name)
-              .map(driver => driver.driver.name);
-          });
-          
-          console.log(`[StandingsScreen] Successfully processed ${constructorsWithDetails.length} constructors`);
-          console.log('[StandingsScreen] Sample constructor data:', constructorsWithDetails[0]);
-          setConstructorStandings(constructorsWithDetails);
-          console.log('[StandingsScreen] Set constructor standings in state');
+          const resp = await fetch(STANDINGS_URL);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const payload = await resp.json();
+          const actual = payload?.data ?? payload;
+          try {
+            await AsyncStorage.setItem(
+              F1_STANDINGS_CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), data: actual }),
+            );
+          } catch (e) {
+            console.warn(e);
+          }
+          return actual;
+        } catch (err) {
+          console.warn(
+            "[StandingsScreen] Error fetching shared standings",
+            err,
+          );
+          return null;
         }
-        console.log('[StandingsScreen] Finished processing all standings data');
+      };
+
+      const payload = await fetchSharedStandings();
+      if (!payload) {
+        console.warn("[StandingsScreen] No shared standings payload");
+        setDriverStandings([]);
+        setConstructorStandings([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // Map drivers
+      const driversArr = payload.drivers || payload.data?.drivers || [];
+      const driversMap = payload.drivers_map || payload.data?.drivers_map || {};
+      const driversByTeam =
+        payload.drivers_by_team || payload.data?.drivers_by_team || {};
+
+      const normalizedDrivers = driversArr.map((d) => {
+        const num = d.driver_number?.toString();
+        const map = driversMap?.[num] || {};
+        // find team
+        let teamNameRaw = null;
+        let membersForTeam = null;
+        for (const teamKey of Object.keys(driversByTeam || {})) {
+          const members = driversByTeam[teamKey] || {};
+          if (members && Object.prototype.hasOwnProperty.call(members, num)) {
+            teamNameRaw = teamKey;
+            membersForTeam = members;
+            break;
+          }
+        }
+        const lookup = normalizeTeamName(teamNameRaw) || null;
+        const teamColor = formatColor(constructorColors[lookup]) || "#000000";
+
+        return {
+          position: d.position_current ?? d.position ?? null,
+          driver: {
+            id: num,
+            name:
+              map.name ||
+              (membersForTeam ? membersForTeam[num] : null) ||
+              map ||
+              `#${num}`,
+            firstName: "",
+            lastName: "",
+            headshot: map.headshot_url || null,
+          },
+          team: {
+            name: lookup,
+            color: teamColor,
+          },
+          points: d.points_current ?? d.points ?? 0,
+        };
+      });
+
+      setDriverStandings(
+        normalizedDrivers.sort((a, b) => (a.position || 0) - (b.position || 0)),
+      );
+
+      // Map constructors
+      const teamsArr = payload.teams || payload.data?.teams || [];
+      const constructors = teamsArr.map((t) => {
+        const rawName = t.team_name || t.team || t.name;
+        const driversObj = driversByTeam[rawName] || {};
+        const driversList = Object.values(driversObj || {}).map((name) => name);
+        const lookup = normalizeTeamName(rawName);
+        return {
+          position: t.position_current ?? t.position ?? null,
+          id: lookup,
+          name: lookup,
+          displayName: rawName,
+          color: formatColor(constructorColors[lookup]) || "#000000",
+          points: t.points_current ?? t.points ?? 0,
+          drivers: driversList,
+        };
+      });
+
+      setConstructorStandings(
+        constructors.sort((a, b) => (a.position || 0) - (b.position || 0)),
+      );
     } catch (error) {
-      console.error('Error fetching F1 standings:', error);
-      Alert.alert('Error', 'Failed to fetch F1 standings');
+      console.error("Error fetching F1 standings (cache-based):", error);
+      Alert.alert("Error", "Failed to load standings");
     } finally {
-      console.log('[StandingsScreen] fetchStandings completed');
       setLoading(false);
       setRefreshing(false);
     }
   };
 
   const convertToHttps = (url) => {
-    if (url && url.startsWith('http://')) {
-      return url.replace('http://', 'https://');
+    if (url && url.startsWith("http://")) {
+      return url.replace("http://", "https://");
     }
     return url;
   };
@@ -307,33 +257,45 @@ const StandingsScreen = ({ route }) => {
   };
 
   // Helper to get initials from a name
-  const getInitials = (firstName = '', lastName = '') => {
-    const first = firstName?.trim()?.[0] || '';
-    const last = lastName?.trim()?.[0] || '';
-    return (first + last).toUpperCase() || '--';
+  const getInitials = (firstName = "", lastName = "") => {
+    const first = firstName?.trim()?.[0] || "";
+    const last = lastName?.trim()?.[0] || "";
+    return (first + last).toUpperCase() || "--";
   };
 
   // Component for driver image with fallback to initials
   const DriverImage = ({ driver, teamColor }) => {
     const [imageError, setImageError] = useState(false);
-    
+
     if (!driver.headshot || imageError) {
       return (
-        <View style={[
-          styles.driverImagePlaceholder, 
-          { backgroundColor: teamColor || theme.border }
-        ]}>
-          <Text allowFontScaling={false} style={[styles.driverInitials, { color: '#fff' }]}>
+        <View
+          style={[
+            styles.driverImagePlaceholder,
+            { backgroundColor: teamColor || theme.border },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.driverInitials, { color: "#fff" }]}
+          >
             {getInitials(driver.firstName, driver.lastName)}
           </Text>
         </View>
       );
     }
-    
+
     return (
       <Image
         source={{ uri: driver.headshot }}
-        style={[styles.driverImage, { backgroundColor: teamColor +'50' || theme.border, borderWidth: 1, borderColor: teamColor || theme.border }]}
+        style={[
+          styles.driverImage,
+          {
+            backgroundColor: teamColor + "50" || theme.border,
+            borderWidth: 1,
+            borderColor: teamColor || theme.border,
+          },
+        ]}
         onError={() => setImageError(true)}
       />
     );
@@ -347,74 +309,123 @@ const StandingsScreen = ({ route }) => {
   const renderDriverStanding = (standing) => (
     <TouchableOpacity
       key={`driver-${standing.position}`}
-      style={[styles.standingItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      style={[
+        styles.standingItem,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
       onPress={() => {
-        navigation.navigate('F1RacerDetails', {
+        navigation.navigate("F1RacerDetails", {
           racerId: standing.driver.id,
+          driverNumber: standing.driver.id,
+          driverName: standing.driver.name,
           racerName: standing.driver.name,
-          teamColor: standing.team.color
+          teamColor: standing.team.color,
         });
       }}
     >
+      <View style={styles.rightGradientOverlay} pointerEvents="none">
+        <Svg width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <SvgLinearGradient
+              id={`standingsGrad-driver-${standing.driver.id || "x"}`}
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+            >
+              <Stop
+                offset="0%"
+                stopColor={standing.team?.color || theme.surface}
+                stopOpacity="0"
+              />
+              <Stop
+                offset="100%"
+                stopColor={standing.team?.color || theme.surface}
+                stopOpacity="0.72"
+              />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect
+            width="100%"
+            height="100%"
+            fill={`url(#standingsGrad-driver-${standing.driver.id || "x"})`}
+          />
+        </Svg>
+      </View>
       <View style={styles.positionContainer}>
-        <Text allowFontScaling={false} style={[styles.position, { color: theme.text }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.position, { color: theme.textSecondary }]}
+        >
           {standing.position}
         </Text>
       </View>
-      
-      <View style={[styles.teamColorBar, { backgroundColor: standing.team.color }]} />
-      
+
       <View style={styles.driverInfo}>
-        <DriverImage driver={standing.driver} teamColor={standing.team?.color} />
-        
+        <DriverImage
+          driver={standing.driver}
+          teamColor={standing.team?.color}
+        />
+
         <View style={styles.driverDetails}>
-          <Text allowFontScaling={false} style={[styles.driverName, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.driverName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {standing.driver.name}
           </Text>
           <View style={styles.teamNameContainer}>
             {isFavorite(getF1TeamId(standing.team.name)) && (
-              <TouchableOpacity 
-                onPress={() => handleTeamFavoriteToggle(standing.team.name, standing.team.color)}
+              <TouchableOpacity
+                onPress={() =>
+                  handleTeamFavoriteToggle(
+                    standing.team.name,
+                    standing.team.color,
+                  )
+                }
                 activeOpacity={0.7}
                 style={styles.teamFavoriteButton}
               >
-                <Text allowFontScaling={false} style={[styles.teamFavoriteIcon, { color: colors.primary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamFavoriteIcon, { color: colors.primary }]}
+                >
                   ★
                 </Text>
               </TouchableOpacity>
             )}
-            <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(getF1TeamId(standing.team.name)) ? colors.primary : theme.textSecondary }]} numberOfLines={1}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamName,
+                {
+                  color: isFavorite(getF1TeamId(standing.team.name))
+                    ? colors.primary
+                    : theme.textSecondary,
+                },
+              ]}
+              numberOfLines={1}
+            >
               {standing.team.name}
             </Text>
           </View>
         </View>
       </View>
-      
+
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statValue, { color: theme.text }]}
+          >
             {standing.points}
           </Text>
-          <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statLabel, { color: theme.textSecondary }]}
+          >
             PTS
-          </Text>
-        </View>
-        
-        <View style={styles.statItem}>
-          <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-            {standing.wins}
-          </Text>
-          <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-            WINS
-          </Text>
-        </View>
-        
-        <View style={styles.statItem}>
-          <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
-            {standing.podiums}
-          </Text>
-          <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
-            TOP 5
           </Text>
         </View>
       </View>
@@ -422,83 +433,140 @@ const StandingsScreen = ({ route }) => {
   );
 
   const renderConstructorStanding = (standing) => (
-    <TouchableOpacity
+    <View
       key={`constructor-${standing.position}`}
-      style={[styles.standingItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      onPress={() => {
-        navigation.navigate('F1ConstructorDetails', {
-          constructorId: standing.id,
-          constructorName: standing.name,
-          constructorColor: standing.color
-        });
-      }}
+      style={[
+        styles.standingItem,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
     >
+      <View style={styles.rightGradientOverlay} pointerEvents="none">
+        <Svg width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <SvgLinearGradient
+              id={`standingsGrad-ctor-${standing.id || "x"}`}
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+            >
+              <Stop
+                offset="0%"
+                stopColor={standing.color || theme.surface}
+                stopOpacity="0"
+              />
+              <Stop
+                offset="100%"
+                stopColor={standing.color || theme.surface}
+                stopOpacity="0.72"
+              />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect
+            width="100%"
+            height="100%"
+            fill={`url(#standingsGrad-ctor-${standing.id || "x"})`}
+          />
+        </Svg>
+      </View>
       <View style={styles.positionContainer}>
-        <Text allowFontScaling={false} style={[styles.position, { color: theme.text }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.position, { color: theme.textSecondary }]}
+        >
           {standing.position}
         </Text>
       </View>
-      
-      <View style={[styles.teamColorBar, { backgroundColor: standing.color }]} />
-      
+
       <View style={styles.constructorInfo}>
         <ConstructorLogo name={standing.name} color={standing.color} />
-        
+
         <View style={styles.constructorDetails}>
           <View style={styles.constructorNameContainer}>
             {isFavorite(getF1TeamId(standing.name)) && (
-              <TouchableOpacity 
-                onPress={() => handleTeamFavoriteToggle(standing.name, standing.color)}
+              <TouchableOpacity
+                onPress={() =>
+                  handleTeamFavoriteToggle(standing.name, standing.color)
+                }
                 activeOpacity={0.7}
                 style={styles.constructorFavoriteButton}
               >
-                <Text allowFontScaling={false} style={[styles.constructorFavoriteIcon, { color: colors.primary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.constructorFavoriteIcon,
+                    { color: colors.primary },
+                  ]}
+                >
                   ★
                 </Text>
               </TouchableOpacity>
             )}
-            <Text allowFontScaling={false} style={[styles.constructorName, { color: isFavorite(getF1TeamId(standing.name)) ? colors.primary : theme.text }]} numberOfLines={1}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.constructorName,
+                {
+                  color: isFavorite(getF1TeamId(standing.name))
+                    ? colors.primary
+                    : theme.text,
+                },
+              ]}
+              numberOfLines={1}
+            >
               {standing.name}
             </Text>
           </View>
-          <Text allowFontScaling={false} style={[styles.driversText, { color: theme.textSecondary }]} numberOfLines={1}>
-            {standing.drivers.join(', ')}
+          <Text
+            allowFontScaling={false}
+            style={[styles.driversText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {standing.drivers.join(", ")}
           </Text>
         </View>
       </View>
-      
+
       <View style={styles.constructorStatsContainer}>
         <View style={styles.statItem}>
-          <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statValue, { color: theme.text }]}
+          >
             {standing.points}
           </Text>
-          <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statLabel, { color: theme.textSecondary }]}
+          >
             POINTS
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   // Build constructor logo URL using the same mapping as teams.js
   const getConstructorLogo = (constructorName, forceWhite = false) => {
-    if (!constructorName) return '';
+    if (!constructorName) return "";
 
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari',
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
 
-    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    const variant = isDarkMode ? 'logowhite' : 'logoblack';
+    const logoName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
+    const variant = isDarkMode ? "logowhite" : "logoblack";
     const currentYear = new Date().getFullYear();
     return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
   };
@@ -510,24 +578,26 @@ const StandingsScreen = ({ route }) => {
   const handleLogoError = (constructorName) => {
     const currentYear = new Date().getFullYear();
     const nameMap = {
-      'McLaren': 'mclaren',
-      'Ferrari': 'ferrari',
-      'Red Bull': 'redbullracing',
-      'Mercedes': 'mercedes',
-      'Aston Martin': 'astonmartin',
-      'Alpine': 'alpine',
-      'Williams': 'williams',
-      'RB': 'rb',
-      'Haas': 'haas',
-      'Sauber': 'kicksauber'
+      McLaren: "mclaren",
+      Ferrari: "ferrari",
+      "Red Bull": "redbullracing",
+      Mercedes: "mercedes",
+      "Aston Martin": "astonmartin",
+      Alpine: "alpine",
+      Williams: "williams",
+      RB: "rb",
+      Haas: "haas",
+      Sauber: "kicksauber",
     };
-    const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const variant = isDarkMode ? "logowhite" : "logoblack";
+    const logoName =
+      nameMap[constructorName] ||
+      constructorName.toLowerCase().replace(/\s+/g, "");
     const fallbackUrl = `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
-    
-    setLogoUrls(prev => ({
+
+    setLogoUrls((prev) => ({
       ...prev,
-      [constructorName]: fallbackUrl
+      [constructorName]: fallbackUrl,
     }));
   };
 
@@ -535,18 +605,30 @@ const StandingsScreen = ({ route }) => {
     const uri = getLogoUrl(name);
     if (!uri) {
       return (
-        <View style={[styles.constructorInitialsContainer, { backgroundColor: color }]}>
-          <Text allowFontScaling={false} style={[styles.constructorInitials, { color: '#fff' }]}>
-            {name.split(' ').map(word => word[0]).join('').substring(0, 2)}
+        <View
+          style={[
+            styles.constructorInitialsContainer,
+            { backgroundColor: color },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.constructorInitials, { color: "#fff" }]}
+          >
+            {name
+              .split(" ")
+              .map((word) => word[0])
+              .join("")
+              .substring(0, 2)}
           </Text>
         </View>
       );
     }
 
     return (
-      <Image 
-        source={{ uri }} 
-        style={styles.constructorLogoImage} 
+      <Image
+        source={{ uri }}
+        style={styles.constructorLogoImage}
         resizeMode="contain"
         onError={() => handleLogoError(name)}
       />
@@ -566,12 +648,12 @@ const StandingsScreen = ({ route }) => {
     },
     headerTitle: {
       fontSize: 24,
-      fontWeight: 'bold',
-      color: '#fff',
-      textAlign: 'center',
+      fontWeight: "bold",
+      color: "#fff",
+      textAlign: "center",
     },
     typeContainer: {
-      flexDirection: 'row',
+      flexDirection: "row",
       backgroundColor: theme.surface,
       marginHorizontal: 20,
       marginVertical: 15,
@@ -581,7 +663,7 @@ const StandingsScreen = ({ route }) => {
     typeButton: {
       flex: 1,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       borderRadius: 6,
     },
     activeTypeButton: {
@@ -589,10 +671,10 @@ const StandingsScreen = ({ route }) => {
     },
     typeButtonText: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     activeTypeButtonText: {
-      color: '#fff',
+      color: "#fff",
     },
     inactiveTypeButtonText: {
       color: theme.textSecondary,
@@ -603,8 +685,8 @@ const StandingsScreen = ({ route }) => {
     },
     loadingContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     loadingText: {
       marginTop: 10,
@@ -612,28 +694,22 @@ const StandingsScreen = ({ route }) => {
       color: theme.textSecondary,
     },
     standingItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       borderRadius: 12,
       padding: 16,
       marginBottom: 12,
-      borderWidth: 1,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
       elevation: 5,
+      overflow: "hidden",
     },
     positionContainer: {
       width: 30,
-      alignItems: 'center',
+      alignItems: "center",
+      marginRight: 10,
     },
     position: {
-      fontSize: 18,
-      fontWeight: 'bold',
+      fontSize: 12,
+      fontWeight: "600",
     },
     teamColorBar: {
       width: 4,
@@ -641,10 +717,17 @@ const StandingsScreen = ({ route }) => {
       borderRadius: 2,
       marginHorizontal: 12,
     },
+    rightGradientOverlay: {
+      position: "absolute",
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: "44%",
+    },
     driverInfo: {
       flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     driverImage: {
       width: 40,
@@ -656,12 +739,12 @@ const StandingsScreen = ({ route }) => {
       width: 40,
       height: 40,
       borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     driverInitials: {
       fontSize: 14,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     driverDetails: {
       flex: 1,
@@ -669,15 +752,15 @@ const StandingsScreen = ({ route }) => {
     },
     driverName: {
       fontSize: 16,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     teamName: {
       fontSize: 12,
       marginTop: 2,
     },
     teamNameContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       marginTop: 2,
     },
     teamFavoriteButton: {
@@ -687,11 +770,11 @@ const StandingsScreen = ({ route }) => {
     },
     teamFavoriteIcon: {
       fontSize: 12,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     constructorNameContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     constructorFavoriteButton: {
       paddingHorizontal: 4,
@@ -700,20 +783,20 @@ const StandingsScreen = ({ route }) => {
     },
     constructorFavoriteIcon: {
       fontSize: 14,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     statsContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     statItem: {
-      alignItems: 'center',
+      alignItems: "center",
       marginLeft: 16,
       minWidth: 35,
     },
     statValue: {
       fontSize: 16,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     statLabel: {
       fontSize: 10,
@@ -721,8 +804,8 @@ const StandingsScreen = ({ route }) => {
     },
     constructorInfo: {
       flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     constructorLogoImage: {
       width: 40,
@@ -732,12 +815,12 @@ const StandingsScreen = ({ route }) => {
       width: 40,
       height: 40,
       borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     constructorInitials: {
       fontSize: 14,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     constructorDetails: {
       flex: 1,
@@ -745,25 +828,25 @@ const StandingsScreen = ({ route }) => {
     },
     constructorName: {
       fontSize: 16,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     driversText: {
       fontSize: 12,
       marginTop: 2,
     },
     constructorStatsContainer: {
-      alignItems: 'center',
+      alignItems: "center",
     },
     emptyContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       paddingVertical: 40,
     },
     emptyText: {
       fontSize: 16,
       color: theme.textSecondary,
-      textAlign: 'center',
+      textAlign: "center",
     },
   });
 
@@ -780,7 +863,8 @@ const StandingsScreen = ({ route }) => {
               ]}
               onPress={() => setSelectedType(type.key)}
             >
-              <Text allowFontScaling={false}
+              <Text
+                allowFontScaling={false}
                 style={[
                   styles.typeButtonText,
                   selectedType === type.key
@@ -793,21 +877,30 @@ const StandingsScreen = ({ route }) => {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={styles.loadingText}>Loading F1 Standings...</Text>
+          <Text allowFontScaling={false} style={styles.loadingText}>
+            Loading F1 Standings...
+          </Text>
         </View>
       </View>
     );
   }
 
-  const currentStandings = selectedType === 'DRIVERS' ? driverStandings : constructorStandings;
-  
+  const currentStandings =
+    selectedType === "DRIVERS" ? driverStandings : constructorStandings;
+
   console.log(`[StandingsScreen] Render - selectedType: ${selectedType}`);
-  console.log(`[StandingsScreen] Render - driverStandings.length: ${driverStandings.length}`);
-  console.log(`[StandingsScreen] Render - constructorStandings.length: ${constructorStandings.length}`);
-  console.log(`[StandingsScreen] Render - currentStandings.length: ${currentStandings.length}`);
+  console.log(
+    `[StandingsScreen] Render - driverStandings.length: ${driverStandings.length}`,
+  );
+  console.log(
+    `[StandingsScreen] Render - constructorStandings.length: ${constructorStandings.length}`,
+  );
+  console.log(
+    `[StandingsScreen] Render - currentStandings.length: ${currentStandings.length}`,
+  );
 
   return (
     <View style={styles.container}>
@@ -821,7 +914,8 @@ const StandingsScreen = ({ route }) => {
             ]}
             onPress={() => setSelectedType(type.key)}
           >
-            <Text allowFontScaling={false}
+            <Text
+              allowFontScaling={false}
               style={[
                 styles.typeButtonText,
                 selectedType === type.key
@@ -834,7 +928,7 @@ const StandingsScreen = ({ route }) => {
           </TouchableOpacity>
         ))}
       </View>
-      
+
       <ScrollView
         style={styles.content}
         refreshControl={
@@ -848,7 +942,11 @@ const StandingsScreen = ({ route }) => {
         showsVerticalScrollIndicator={false}
       >
         {currentStandings.length > 0 ? (
-          currentStandings.map(selectedType === 'DRIVERS' ? renderDriverStanding : renderConstructorStanding)
+          currentStandings.map(
+            selectedType === "DRIVERS"
+              ? renderDriverStanding
+              : renderConstructorStanding,
+          )
         ) : (
           <View style={styles.emptyContainer}>
             <Text allowFontScaling={false} style={styles.emptyText}>
