@@ -682,7 +682,11 @@ const RaceDetailsScreen = () => {
                   const teamColorLocal =
                     (TEAM_COLORS && TEAM_COLORS[teamName]) || colors.primary;
 
-                  const winnerTime = Array.isArray(winnerRes.duration) ? winnerRes.duration[2] : winnerRes.duration ? winnerRes.duration : null;
+                  const winnerTime = Array.isArray(winnerRes.duration)
+                    ? winnerRes.duration[2]
+                    : winnerRes.duration
+                      ? winnerRes.duration
+                      : null;
 
                   return (
                     <View style={{ marginTop: -8, paddingHorizontal: 0 }}>
@@ -697,35 +701,38 @@ const RaceDetailsScreen = () => {
                           },
                         ]}
                       >
-                    <View style={styles.rightGradientOverlay} pointerEvents="none">
-                      <Svg width="100%" height="100%" pointerEvents="none">
-                        <Defs>
-                          <LinearGradient
-                            id={`sessionWinner-driver-${driverNumber || "x"}-${winnerRes.session_key || "y"}`}
-                            x1="0%"
-                            y1="0%"
-                            x2="100%"
-                            y2="0%"
-                          >
-                            <Stop
-                              offset="0%"
-                              stopColor={teamColorLocal || theme.surface}
-                              stopOpacity="0"
+                        <View
+                          style={styles.rightGradientOverlay}
+                          pointerEvents="none"
+                        >
+                          <Svg width="100%" height="100%" pointerEvents="none">
+                            <Defs>
+                              <LinearGradient
+                                id={`sessionWinner-driver-${driverNumber || "x"}-${winnerRes.session_key || "y"}`}
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                              >
+                                <Stop
+                                  offset="0%"
+                                  stopColor={teamColorLocal || theme.surface}
+                                  stopOpacity="0"
+                                />
+                                <Stop
+                                  offset="100%"
+                                  stopColor={teamColorLocal || theme.surface}
+                                  stopOpacity="0.45"
+                                />
+                              </LinearGradient>
+                            </Defs>
+                            <Rect
+                              width="100%"
+                              height="100%"
+                              fill={`url(#sessionWinner-driver-${driverNumber || "x"}-${winnerRes.session_key || "y"})`}
                             />
-                            <Stop
-                              offset="100%"
-                              stopColor={teamColorLocal || theme.surface}
-                              stopOpacity="0.45"
-                            />
-                          </LinearGradient>
-                        </Defs>
-                        <Rect
-                          width="100%"
-                          height="100%"
-                          fill={`url(#sessionWinner-driver-${driverNumber || "x"}-${winnerRes.session_key || "y"})`}
-                        />
-                      </Svg>
-                    </View>
+                          </Svg>
+                        </View>
                         <View style={styles.sessionHeader}>
                           <Text
                             style={[styles.sessionTitle, { color: theme.text }]}

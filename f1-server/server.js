@@ -107,7 +107,10 @@ function updateRefreshInterval(key, url, ttlMs) {
       } catch (e) {}
       refreshIntervals.delete(key);
     }
-    const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), ttlMs);
+    const id = setInterval(
+      () => fetchAndCache(key, url).catch(() => {}),
+      ttlMs,
+    );
     refreshIntervals.set(key, id);
   } catch (e) {
     // ignore
@@ -121,7 +124,9 @@ function startLiveRefreshMonitor() {
   setInterval(() => {
     try {
       const sessionsEntry = cache.get("sessions")?.data || [];
-      const arr = Array.isArray(sessionsEntry) ? sessionsEntry : sessionsEntry.data || [];
+      const arr = Array.isArray(sessionsEntry)
+        ? sessionsEntry
+        : sessionsEntry.data || [];
       const now = Date.now();
       let anyLive = false;
       for (const s of arr) {
@@ -142,7 +147,11 @@ function startLiveRefreshMonitor() {
       const sessionResultUrl = `${BASE_URL}session_result`;
       const startingGridUrl = `${BASE_URL}starting_grid`;
       if (anyLive) {
-        updateRefreshInterval("session_result", sessionResultUrl, AGGRESSIVE_MS);
+        updateRefreshInterval(
+          "session_result",
+          sessionResultUrl,
+          AGGRESSIVE_MS,
+        );
         updateRefreshInterval("starting_grid", startingGridUrl, AGGRESSIVE_MS);
       } else {
         // revert to sane defaults
@@ -777,7 +786,11 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         } else {
           path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
         }
-        const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, ttl).catch(() => ({ data: null }));
+        const { data } = await getCachedWithTTL(
+          path,
+          `${BASE_URL}${path}`,
+          ttl,
+        ).catch(() => ({ data: null }));
         resources[name] = normalizeArray(data);
       } catch (e) {
         resources[name] = [];
@@ -1023,9 +1036,12 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         return da - db;
       });
       for (const p of toUse) {
-        const dn = String(p?.driver_number || p?.driverNumber || p?.driver || "");
+        const dn = String(
+          p?.driver_number || p?.driverNumber || p?.driver || "",
+        );
         if (!dn) continue;
-        if (!positionsMap[dn]) positionsMap[dn] = { position: null, record: [] };
+        if (!positionsMap[dn])
+          positionsMap[dn] = { position: null, record: [] };
         // push recorded position into record array (use null or string coercion)
         const posVal = p.position ?? p.position_current ?? p.pos ?? null;
         positionsMap[dn].record.push(posVal);
@@ -1047,10 +1063,16 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         return da - db;
       });
       for (const lap of lapsArr) {
-        const dn = String(lap?.driver_number || lap?.driverNumber || lap?.driver || "");
+        const dn = String(
+          lap?.driver_number || lap?.driverNumber || lap?.driver || "",
+        );
         if (!dn) continue;
         if (!lapsByDriver[dn]) {
-          lapsByDriver[dn] = { lastLap: null, fastest_lap: null, fastest_st_speed: null };
+          lapsByDriver[dn] = {
+            lastLap: null,
+            fastest_lap: null,
+            fastest_st_speed: null,
+          };
         }
         // last lap with duration_sector_1 != null
         if (lap.duration_sector_1 != null) {
@@ -1060,16 +1082,22 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         const lapDur = lap.lap_duration ?? lap.duration ?? null;
         if (lapDur != null) {
           const cur = lapsByDriver[dn].fastest_lap;
-          if (!cur || (cur.lap_duration == null || lapDur < cur.lap_duration)) {
-            lapsByDriver[dn].fastest_lap = { lap_number: lap.lap_number ?? lap.lapNumber ?? null, lap_duration: lapDur };
+          if (!cur || cur.lap_duration == null || lapDur < cur.lap_duration) {
+            lapsByDriver[dn].fastest_lap = {
+              lap_number: lap.lap_number ?? lap.lapNumber ?? null,
+              lap_duration: lapDur,
+            };
           }
         }
         // fastest st_speed (max)
         const st = lap.st_speed ?? lap.stSpeed ?? lap.st_speed ?? null;
         if (st != null) {
           const cur = lapsByDriver[dn].fastest_st_speed;
-          if (!cur || (cur.st_speed == null || st > cur.st_speed)) {
-            lapsByDriver[dn].fastest_st_speed = { lap_number: lap.lap_number ?? lap.lapNumber ?? null, st_speed: st };
+          if (!cur || cur.st_speed == null || st > cur.st_speed) {
+            lapsByDriver[dn].fastest_st_speed = {
+              lap_number: lap.lap_number ?? lap.lapNumber ?? null,
+              st_speed: st,
+            };
           }
         }
       }

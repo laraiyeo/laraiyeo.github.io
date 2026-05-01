@@ -990,7 +990,11 @@ const ResultsScreen = ({ route }) => {
 
   // When viewing CURRENT results, ensure we load meeting details (sessions)
   useEffect(() => {
-    if (selectedType !== "CURRENT" || !Array.isArray(results) || results.length === 0)
+    if (
+      selectedType !== "CURRENT" ||
+      !Array.isArray(results) ||
+      results.length === 0
+    )
       return;
 
     results.forEach((ev) => {
@@ -1005,9 +1009,15 @@ const ResultsScreen = ({ route }) => {
       if (cached) {
         const meetingObj = cached.meeting || cached;
         const startRaw =
-          meetingObj?.date_start || meetingObj?.dateStart || meetingObj?.date || null;
+          meetingObj?.date_start ||
+          meetingObj?.dateStart ||
+          meetingObj?.date ||
+          null;
         const endRaw =
-          meetingObj?.date_end || meetingObj?.dateEnd || meetingObj?.endDate || null;
+          meetingObj?.date_end ||
+          meetingObj?.dateEnd ||
+          meetingObj?.endDate ||
+          null;
         const eventDateObj = startRaw ? new Date(startRaw) : null;
         const endDateObj = endRaw ? new Date(endRaw) : null;
         setResults((prev) =>
@@ -1035,9 +1045,15 @@ const ResultsScreen = ({ route }) => {
             // normalize meeting/date fields for viewer badge logic
             const meetingObj = md.meeting || md;
             const startRaw =
-              meetingObj?.date_start || meetingObj?.dateStart || meetingObj?.date || null;
+              meetingObj?.date_start ||
+              meetingObj?.dateStart ||
+              meetingObj?.date ||
+              null;
             const endRaw =
-              meetingObj?.date_end || meetingObj?.dateEnd || meetingObj?.endDate || null;
+              meetingObj?.date_end ||
+              meetingObj?.dateEnd ||
+              meetingObj?.endDate ||
+              null;
             const eventDateObj = startRaw ? new Date(startRaw) : null;
             const endDateObj = endRaw ? new Date(endRaw) : null;
 
@@ -1069,14 +1085,21 @@ const ResultsScreen = ({ route }) => {
     if (!dateString) return "";
     const d = new Date(dateString);
     if (!d || Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const formatTimeShort = (dateString) => {
     if (!dateString) return "";
     const d = new Date(dateString);
     if (!d || Number.isNaN(d.getTime())) return "";
-    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const formatDate = (dateString) => {
@@ -1366,7 +1389,8 @@ const ResultsScreen = ({ route }) => {
           </View>
         )}
 
-        {(selectedType === "CURRENT" && (event.meetingDetails || Array.isArray(event.competitions))) ? (
+        {selectedType === "CURRENT" &&
+        (event.meetingDetails || Array.isArray(event.competitions)) ? (
           <View style={styles.meetingDetails}>
             <Text
               allowFontScaling={false}
@@ -1382,18 +1406,37 @@ const ResultsScreen = ({ route }) => {
             </Text>
             {(() => {
               // Prefer explicit meetingDetails.sessions; otherwise derive from event.competitions
-              const sessions = (event.meetingDetails && Array.isArray(event.meetingDetails.sessions))
-                ? event.meetingDetails.sessions
-                : Array.isArray(event.competitions)
-                  ? event.competitions.map((comp) => ({
-                      session_key: comp.id || comp.competition_id || comp.session_key || comp.$ref || comp.type?.abbreviation || comp.name,
-                      session_name: comp.type?.displayName || comp.type?.abbreviation || comp.name || comp.type?.text || "Session",
-                      date_start: comp.date || comp.start || null,
-                      date_end: comp.endDate || comp.dateEnd || null,
-                      winner: (comp.competitors || []).find((c) => c.winner === true)?.athlete?.displayName || null,
-                      winner_team: (comp.competitors || []).find((c) => c.winner === true)?.vehicle?.manufacturer || "",
-                    }))
-                  : [];
+              const sessions =
+                event.meetingDetails &&
+                Array.isArray(event.meetingDetails.sessions)
+                  ? event.meetingDetails.sessions
+                  : Array.isArray(event.competitions)
+                    ? event.competitions.map((comp) => ({
+                        session_key:
+                          comp.id ||
+                          comp.competition_id ||
+                          comp.session_key ||
+                          comp.$ref ||
+                          comp.type?.abbreviation ||
+                          comp.name,
+                        session_name:
+                          comp.type?.displayName ||
+                          comp.type?.abbreviation ||
+                          comp.name ||
+                          comp.type?.text ||
+                          "Session",
+                        date_start: comp.date || comp.start || null,
+                        date_end: comp.endDate || comp.dateEnd || null,
+                        winner:
+                          (comp.competitors || []).find(
+                            (c) => c.winner === true,
+                          )?.athlete?.displayName || null,
+                        winner_team:
+                          (comp.competitors || []).find(
+                            (c) => c.winner === true,
+                          )?.vehicle?.manufacturer || "",
+                      }))
+                    : [];
 
               if (!sessions || sessions.length === 0) return null;
 
@@ -1422,8 +1465,10 @@ const ResultsScreen = ({ route }) => {
                           ]}
                         >
                           {(() => {
-                            const start = s.date_start || s.dateStart || s.start || null;
-                            const end = s.date_end || s.dateEnd || s.end || null;
+                            const start =
+                              s.date_start || s.dateStart || s.start || null;
+                            const end =
+                              s.date_end || s.dateEnd || s.end || null;
                             if (start) {
                               const datePart = formatDateShort(start);
                               return `${datePart} · ${formatTimeShort(start)}${end ? ` - ${formatTimeShort(end)}` : ""}`;
@@ -1437,7 +1482,10 @@ const ResultsScreen = ({ route }) => {
                           <>
                             <Text
                               allowFontScaling={false}
-                              style={[styles.meetingWinner, { color: theme.text }]}
+                              style={[
+                                styles.meetingWinner,
+                                { color: theme.text },
+                              ]}
                               numberOfLines={1}
                             >
                               {s.winner || s.winnerName || ""}
@@ -1478,17 +1526,17 @@ const ResultsScreen = ({ route }) => {
                             const startMs = s.date_start
                               ? Date.parse(s.date_start)
                               : s.dateStart
-                              ? Date.parse(s.dateStart)
-                              : s.start
-                              ? Date.parse(s.start)
-                              : null;
+                                ? Date.parse(s.dateStart)
+                                : s.start
+                                  ? Date.parse(s.start)
+                                  : null;
                             const endMs = s.date_end
                               ? Date.parse(s.date_end)
                               : s.dateEnd
-                              ? Date.parse(s.dateEnd)
-                              : s.end
-                              ? Date.parse(s.end)
-                              : null;
+                                ? Date.parse(s.dateEnd)
+                                : s.end
+                                  ? Date.parse(s.end)
+                                  : null;
                             let statusLabel = "Scheduled";
                             let statusColor = theme.warning;
                             if (s.is_cancelled || s.isCancelled) {
