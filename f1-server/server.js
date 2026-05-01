@@ -98,6 +98,63 @@ function ensureRefreshInterval(key, url, ttlMs) {
   }
 }
 
+// update or create a refresh interval (clears existing if present)
+function updateRefreshInterval(key, url, ttlMs) {
+  try {
+    if (refreshIntervals.has(key)) {
+      try {
+        clearInterval(refreshIntervals.get(key));
+      } catch (e) {}
+      refreshIntervals.delete(key);
+    }
+    const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), ttlMs);
+    refreshIntervals.set(key, id);
+  } catch (e) {
+    // ignore
+  }
+}
+
+// monitor sessions and switch session_result/starting_grid to aggressive refresh when any session is live
+function startLiveRefreshMonitor() {
+  const CHECK_MS = 60 * 1000; // check once per minute
+  const AGGRESSIVE_MS = 2 * 60 * 1000; // 2 minutes
+  setInterval(() => {
+    try {
+      const sessionsEntry = cache.get("sessions")?.data || [];
+      const arr = Array.isArray(sessionsEntry) ? sessionsEntry : sessionsEntry.data || [];
+      const now = Date.now();
+      let anyLive = false;
+      for (const s of arr) {
+        if (!s) continue;
+        const st = s.date_start || s.dateStart || s.start || null;
+        const en = s.date_end || s.dateEnd || s.end || null;
+        const startMs = st ? new Date(st).getTime() : null;
+        const endMs = en ? new Date(en).getTime() : null;
+        if (!startMs || !endMs) continue;
+        const liveStart = startMs - 15 * 60 * 1000;
+        const liveEnd = endMs + 15 * 60 * 1000;
+        if (now >= liveStart && now <= liveEnd) {
+          anyLive = true;
+          break;
+        }
+      }
+
+      const sessionResultUrl = `${BASE_URL}session_result`;
+      const startingGridUrl = `${BASE_URL}starting_grid`;
+      if (anyLive) {
+        updateRefreshInterval("session_result", sessionResultUrl, AGGRESSIVE_MS);
+        updateRefreshInterval("starting_grid", startingGridUrl, AGGRESSIVE_MS);
+      } else {
+        // revert to sane defaults
+        updateRefreshInterval("session_result", sessionResultUrl, TTL_1H);
+        updateRefreshInterval("starting_grid", startingGridUrl, TTL_1H);
+      }
+    } catch (e) {
+      // ignore monitor errors
+    }
+  }, CHECK_MS);
+}
+
 app.get("/drivers", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
@@ -705,16 +762,22 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       "stints",
       "session_result",
       "position",
+      "laps",
     ];
     const resources = {};
     for (const name of resourceNames) {
       try {
-        const path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
-        const { data } = await getCachedWithTTL(
-          path,
-          `${BASE_URL}${path}`,
-          ttl,
-        ).catch(() => ({ data: null }));
+        // position should be fetched without a session filter so we can aggregate records
+        let path;
+        if (name === "position") {
+          path = `position`;
+        } else if (name === "laps") {
+          // keep laps session-scoped for efficiency
+          path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
+        } else {
+          path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
+        }
+        const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, ttl).catch(() => ({ data: null }));
         resources[name] = normalizeArray(data);
       } catch (e) {
         resources[name] = [];
@@ -941,6 +1004,79 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       // ignore reducing errors
     }
 
+    // --- build positions map from unfiltered 'position' resource ---
+    const positionsMap = Object.create(null);
+    try {
+      const posArr = resources.position || [];
+      // filter positions for this session_key if present, otherwise leave as-is
+      const filteredPos = posArr.filter((p) => {
+        const sk = p?.session_key || p?.sessionKey || p?.session_key || null;
+        if (!sk) return false;
+        return String(sk) === String(sessionKey);
+      });
+      // If no filtered results, fallback to using posArr (may contain live stream entries)
+      const toUse = filteredPos.length > 0 ? filteredPos : posArr;
+      // sort by date if date exists
+      toUse.sort((a, b) => {
+        const da = new Date(a.date || a.timestamp || a.t || 0).getTime() || 0;
+        const db = new Date(b.date || b.timestamp || b.t || 0).getTime() || 0;
+        return da - db;
+      });
+      for (const p of toUse) {
+        const dn = String(p?.driver_number || p?.driverNumber || p?.driver || "");
+        if (!dn) continue;
+        if (!positionsMap[dn]) positionsMap[dn] = { position: null, record: [] };
+        // push recorded position into record array (use null or string coercion)
+        const posVal = p.position ?? p.position_current ?? p.pos ?? null;
+        positionsMap[dn].record.push(posVal);
+        // keep last known as position
+        positionsMap[dn].position = posVal;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // --- build laps map per driver: last valid lap + fastest lap and fastest st_speed ---
+    const lapsByDriver = Object.create(null);
+    try {
+      const lapsArr = resources.laps || [];
+      // ensure chronological order
+      lapsArr.sort((a, b) => {
+        const da = new Date(a.date_start || a.date || 0).getTime() || 0;
+        const db = new Date(b.date_start || b.date || 0).getTime() || 0;
+        return da - db;
+      });
+      for (const lap of lapsArr) {
+        const dn = String(lap?.driver_number || lap?.driverNumber || lap?.driver || "");
+        if (!dn) continue;
+        if (!lapsByDriver[dn]) {
+          lapsByDriver[dn] = { lastLap: null, fastest_lap: null, fastest_st_speed: null };
+        }
+        // last lap with duration_sector_1 != null
+        if (lap.duration_sector_1 != null) {
+          lapsByDriver[dn].lastLap = lap;
+        }
+        // fastest lap (lowest lap_duration)
+        const lapDur = lap.lap_duration ?? lap.duration ?? null;
+        if (lapDur != null) {
+          const cur = lapsByDriver[dn].fastest_lap;
+          if (!cur || (cur.lap_duration == null || lapDur < cur.lap_duration)) {
+            lapsByDriver[dn].fastest_lap = { lap_number: lap.lap_number ?? lap.lapNumber ?? null, lap_duration: lapDur };
+          }
+        }
+        // fastest st_speed (max)
+        const st = lap.st_speed ?? lap.stSpeed ?? lap.st_speed ?? null;
+        if (st != null) {
+          const cur = lapsByDriver[dn].fastest_st_speed;
+          if (!cur || (cur.st_speed == null || st > cur.st_speed)) {
+            lapsByDriver[dn].fastest_st_speed = { lap_number: lap.lap_number ?? lap.lapNumber ?? null, st_speed: st };
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     // assemble driver list referenced
     const collectDriversFrom = (arr) => {
       if (!Array.isArray(arr)) return;
@@ -996,7 +1132,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       session_result: resources.session_result || [],
       intervals: intervalsMap,
       location: locationMap,
-      positions: positionMap,
+      positions: positionsMap,
+      laps: {
+        byDriver: lapsByDriver,
+      },
       weather: weatherObj,
       maps: {
         meetings: meetingsMap,
@@ -1879,4 +2018,8 @@ app.listen(PORT, async () => {
   // warm caches used across the app
   await warmUpAll();
   console.log("Warm-up complete");
+  // start background monitor to toggle aggressive refresh for live sessions
+  try {
+    startLiveRefreshMonitor();
+  } catch (e) {}
 });

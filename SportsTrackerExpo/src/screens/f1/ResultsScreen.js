@@ -23,7 +23,7 @@ import Svg, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
-const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
+const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
 const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 function parseGmtOffset(gmt) {
@@ -54,6 +54,7 @@ const ResultsScreen = ({ route }) => {
   const [allEventsLoaded, setAllEventsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [meetingDetailsCache, setMeetingDetailsCache] = useState({});
 
   const resultTypes = [
     { key: "LAST", name: "Previous" },
@@ -987,6 +988,97 @@ const ResultsScreen = ({ route }) => {
     }
   };
 
+  // When viewing CURRENT results, ensure we load meeting details (sessions)
+  useEffect(() => {
+    if (selectedType !== "CURRENT" || !Array.isArray(results) || results.length === 0)
+      return;
+
+    results.forEach((ev) => {
+      const meetingKey = ev.meeting_key || ev.meetingKey || ev.id;
+      if (!meetingKey) return;
+      const keyStr = String(meetingKey);
+      // If event already has meetingDetails, skip
+      if (ev.meetingDetails) return;
+
+      // If we have cached meeting details, merge them immediately
+      const cached = meetingDetailsCache[keyStr];
+      if (cached) {
+        const meetingObj = cached.meeting || cached;
+        const startRaw =
+          meetingObj?.date_start || meetingObj?.dateStart || meetingObj?.date || null;
+        const endRaw =
+          meetingObj?.date_end || meetingObj?.dateEnd || meetingObj?.endDate || null;
+        const eventDateObj = startRaw ? new Date(startRaw) : null;
+        const endDateObj = endRaw ? new Date(endRaw) : null;
+        setResults((prev) =>
+          prev.map((p) => {
+            const pk = p.meeting_key || p.meetingKey || p.id;
+            if (String(pk) === keyStr)
+              return {
+                ...p,
+                meetingDetails: cached,
+                startRaw: p.startRaw || startRaw,
+                endRaw: p.endRaw || endRaw,
+                eventDate: p.eventDate || eventDateObj,
+                endDate: p.endDate || endDateObj,
+              };
+            return p;
+          }),
+        );
+        return;
+      }
+
+      (async () => {
+        try {
+          const md = await fetchMeetingDetail(meetingKey);
+          if (md) {
+            // normalize meeting/date fields for viewer badge logic
+            const meetingObj = md.meeting || md;
+            const startRaw =
+              meetingObj?.date_start || meetingObj?.dateStart || meetingObj?.date || null;
+            const endRaw =
+              meetingObj?.date_end || meetingObj?.dateEnd || meetingObj?.endDate || null;
+            const eventDateObj = startRaw ? new Date(startRaw) : null;
+            const endDateObj = endRaw ? new Date(endRaw) : null;
+
+            setMeetingDetailsCache((prev) => ({ ...prev, [keyStr]: md }));
+            setResults((prev) =>
+              prev.map((p) => {
+                const pk = p.meeting_key || p.meetingKey || p.id;
+                if (String(pk) === keyStr)
+                  return {
+                    ...p,
+                    meetingDetails: md,
+                    startRaw: p.startRaw || startRaw,
+                    endRaw: p.endRaw || endRaw,
+                    eventDate: p.eventDate || eventDateObj,
+                    endDate: p.endDate || endDateObj,
+                  };
+                return p;
+              }),
+            );
+          }
+        } catch (err) {
+          // ignore per-item fetch errors
+        }
+      })();
+    });
+  }, [results, selectedType, meetingDetailsCache]);
+
+  const formatDateShort = (dateString) => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (!d || Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  const formatTimeShort = (dateString) => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (!d || Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const options = {
@@ -1049,16 +1141,15 @@ const ResultsScreen = ({ route }) => {
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}
       onPress={() => {
-        // Navigate to F1 race details
-        navigation.navigate("F1RaceDetails", {
-          raceId: event.id,
-          eventId: event.id, // pass explicit eventId for clarity
-          nextCompetitionType: event.nextCompetitionType || null,
-          nextCompetitionAbbr: event.nextCompetitionAbbr || null,
+        // For current items, prefer session key (live -> next -> last). Otherwise use meeting key.
+        const navParams = {
+          meetingKey: event.meeting_key || event.meetingKey || event.id,
           raceName: event.name,
           raceDate: event.date,
           sport: "f1",
-        });
+        };
+
+        navigation.navigate("F1RaceDetails", navParams);
       }}
     >
       {/* Left gradient strip using winnerTeamColor (skipped when cancelled or when showing meetingDetails) */}
@@ -1275,83 +1366,165 @@ const ResultsScreen = ({ route }) => {
           </View>
         )}
 
-        {event.meetingDetails ? (
+        {(selectedType === "CURRENT" && (event.meetingDetails || Array.isArray(event.competitions))) ? (
           <View style={styles.meetingDetails}>
             <Text
               allowFontScaling={false}
               style={[styles.meetingName, { color: theme.text }]}
               numberOfLines={2}
             >
-              {event.meetingDetails.meeting?.meeting_official_name ||
-                event.meetingDetails.meeting?.meeting_name ||
+              {event.meetingDetails?.meeting?.meeting_official_name ||
+                event.meetingDetails?.meeting?.meeting_name ||
+                event.venueName ||
+                event.venue ||
+                event.location ||
                 event.name}
             </Text>
-            {Array.isArray(event.meetingDetails.sessions) && (
-              <View style={{ marginTop: 6 }}>
-                {event.meetingDetails.sessions.map((s) => (
-                  <View key={s.session_key} style={styles.meetingSessionRow}>
-                    <View style={styles.meetingSessionLeft}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.meetingSessionName,
-                          { color: theme.text },
-                        ]}
-                      >
-                        {s.session_name}
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.meetingSessionTime,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {formatTime(s.date_start)} - {formatTime(s.date_end)}
-                      </Text>
-                    </View>
-                    <View style={styles.meetingSessionRight}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.meetingWinner, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {s.winner || s.winnerName || ""}
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
+            {(() => {
+              // Prefer explicit meetingDetails.sessions; otherwise derive from event.competitions
+              const sessions = (event.meetingDetails && Array.isArray(event.meetingDetails.sessions))
+                ? event.meetingDetails.sessions
+                : Array.isArray(event.competitions)
+                  ? event.competitions.map((comp) => ({
+                      session_key: comp.id || comp.competition_id || comp.session_key || comp.$ref || comp.type?.abbreviation || comp.name,
+                      session_name: comp.type?.displayName || comp.type?.abbreviation || comp.name || comp.type?.text || "Session",
+                      date_start: comp.date || comp.start || null,
+                      date_end: comp.endDate || comp.dateEnd || null,
+                      winner: (comp.competitors || []).find((c) => c.winner === true)?.athlete?.displayName || null,
+                      winner_team: (comp.competitors || []).find((c) => c.winner === true)?.vehicle?.manufacturer || "",
+                    }))
+                  : [];
+
+              if (!sessions || sessions.length === 0) return null;
+
+              return (
+                <View style={{ marginTop: 6 }}>
+                  {sessions.map((s) => (
+                    <View
+                      key={s.session_key || s.session_name}
+                      style={styles.meetingSessionRow}
+                    >
+                      <View style={styles.meetingSessionLeft}>
                         <Text
                           allowFontScaling={false}
                           style={[
-                            styles.meetingWinnerTeam,
+                            styles.meetingSessionName,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {s.session_name}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.meetingSessionTime,
                             { color: theme.textSecondary },
                           ]}
-                          numberOfLines={1}
                         >
-                          {s.winner_team || s.winnerTeam || ""}
+                          {(() => {
+                            const start = s.date_start || s.dateStart || s.start || null;
+                            const end = s.date_end || s.dateEnd || s.end || null;
+                            if (start) {
+                              const datePart = formatDateShort(start);
+                              return `${datePart} · ${formatTimeShort(start)}${end ? ` - ${formatTimeShort(end)}` : ""}`;
+                            }
+                            return `${formatTimeShort(start)} - ${formatTimeShort(end)}`;
+                          })()}
                         </Text>
-                        <Image
-                          source={require("../../../assets/f1-car-svgrepo-com.png")}
-                          style={{
-                            width: 28,
-                            height: 12,
-                            tintColor: s.winner_team
-                              ? `#${getTeamColor(s.winner_team)}`
-                              : theme.textSecondary,
-                            marginTop: 2,
-                          }}
-                        />
+                      </View>
+                      <View style={styles.meetingSessionRight}>
+                        {s.winner || s.winnerName ? (
+                          <>
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.meetingWinner, { color: theme.text }]}
+                              numberOfLines={1}
+                            >
+                              {s.winner || s.winnerName || ""}
+                            </Text>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.meetingWinnerTeam,
+                                  { color: theme.textSecondary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {s.winner_team || s.winnerTeam || ""}
+                              </Text>
+                              <Image
+                                source={require("../../../assets/f1-car-svgrepo-com.png")}
+                                style={{
+                                  width: 28,
+                                  height: 12,
+                                  tintColor: s.winner_team
+                                    ? `#${getTeamColor(s.winner_team)}`
+                                    : theme.textSecondary,
+                                  marginTop: 2,
+                                }}
+                              />
+                            </View>
+                          </>
+                        ) : (
+                          (() => {
+                            const now = Date.now();
+                            const startMs = s.date_start
+                              ? Date.parse(s.date_start)
+                              : s.dateStart
+                              ? Date.parse(s.dateStart)
+                              : s.start
+                              ? Date.parse(s.start)
+                              : null;
+                            const endMs = s.date_end
+                              ? Date.parse(s.date_end)
+                              : s.dateEnd
+                              ? Date.parse(s.dateEnd)
+                              : s.end
+                              ? Date.parse(s.end)
+                              : null;
+                            let statusLabel = "Scheduled";
+                            let statusColor = theme.warning;
+                            if (s.is_cancelled || s.isCancelled) {
+                              statusLabel = "Cancelled";
+                              statusColor = theme.error;
+                            } else if (startMs && endMs) {
+                              if (now < startMs) {
+                                statusLabel = "Scheduled";
+                                statusColor = theme.warning;
+                              } else if (now >= startMs && now <= endMs) {
+                                statusLabel = "In Progress";
+                                statusColor = theme.error;
+                              } else if (now > endMs) {
+                                statusLabel = "Finished";
+                                statusColor = theme.success;
+                              }
+                            }
+                            return (
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.meetingSessionStatus,
+                                  { color: statusColor },
+                                ]}
+                              >
+                                {statusLabel}
+                              </Text>
+                            );
+                          })()
+                        )}
                       </View>
                     </View>
-                  </View>
-                ))}
-              </View>
-            )}
+                  ))}
+                </View>
+              );
+            })()}
           </View>
         ) : null}
 
@@ -1933,6 +2106,11 @@ const ResultsScreen = ({ route }) => {
       width: 120,
       alignItems: "flex-end",
       justifyContent: "center",
+    },
+    meetingSessionStatus: {
+      fontSize: 12,
+      fontWeight: "700",
+      textTransform: "uppercase",
     },
     meetingSessionName: {
       fontSize: 13,

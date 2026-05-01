@@ -28,11 +28,12 @@ import Svg, {
 } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
+import { useNavigation } from "@react-navigation/native";
 
 const DRIVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000;
 const TABS = ["Main", "Season Stats"];
-const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
+const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
 
 const ST_CHART_H = 180;
 const ST_PAD = { top: 24, bottom: 28, left: 28, right: 10 };
@@ -172,6 +173,26 @@ const formatDuration = (value) => {
   return `${mStr}:${sStr}.${msStr}`;
 };
 
+// Format an ISO date/time string to the user's local device date+time (short)
+const formatDateTimeLocal = (iso) => {
+  if (!iso) return "--";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "--";
+    const datePart = d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+    const timePart = d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `${datePart} ${timePart}`;
+  } catch (e) {
+    return "--";
+  }
+};
+
 const StandingsTracker = ({
   championship,
   maps,
@@ -190,14 +211,20 @@ const StandingsTracker = ({
       meeting_key: c.meeting_key,
       session_key: c.session_key,
       // meeting/session names from maps (maps keys are strings but numeric access works too)
-      meetingName:
-        maps?.meetings?.[c.meeting_key] ||
-        maps?.meetings?.[String(c.meeting_key)] ||
-        null,
-      sessionName:
-        maps?.sessions?.[c.session_key] ||
-        maps?.sessions?.[String(c.session_key)] ||
-        null,
+      meetingName: (() => {
+        const m =
+          maps?.meetings?.[c.meeting_key] ||
+          maps?.meetings?.[String(c.meeting_key)];
+        if (!m) return null;
+        return typeof m === "string" ? m : m.name || m.meeting_name || null;
+      })(),
+      sessionName: (() => {
+        const s =
+          maps?.sessions?.[c.session_key] ||
+          maps?.sessions?.[String(c.session_key)];
+        if (!s) return null;
+        return typeof s === "string" ? s : s.name || s.session_name || null;
+      })(),
     }));
 
     // count occurrences of meeting_key
@@ -540,6 +567,7 @@ const StandingsTracker = ({
 
 const RacerDetailsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
+  const navigation = useNavigation();
   const driverNumber =
     route?.params?.racerId ?? route?.params?.driverNumber ?? null;
   const driverName =
@@ -664,13 +692,21 @@ const RacerDetailsScreen = ({ route }) => {
 
   // Season stats computations
   const seasonStats = useMemo(() => {
-    const lastChamp = championship && championship.length ? championship[championship.length - 1] : null;
-    const points = lastChamp ? (lastChamp.points_current ?? lastChamp.points ?? 0) : 0;
-    const place = lastChamp ? (lastChamp.position_current ?? lastChamp.position ?? null) : null;
+    const lastChamp =
+      championship && championship.length
+        ? championship[championship.length - 1]
+        : null;
+    const points = lastChamp
+      ? (lastChamp.points_current ?? lastChamp.points ?? 0)
+      : 0;
+    const place = lastChamp
+      ? (lastChamp.position_current ?? lastChamp.position ?? null)
+      : null;
 
     const results = Array.isArray(sessionResults) ? sessionResults : [];
     const mapsSessions = driverData?.maps?.sessions || {};
-    const sessionLabelFor = (skey) => mapsSessions?.[skey] || mapsSessions?.[String(skey)] || "";
+    const sessionLabelFor = (skey) =>
+      mapsSessions?.[skey] || mapsSessions?.[String(skey)] || "";
     const isRaceSession = (s) => {
       const lbl = (sessionLabelFor(s) || "").toString().toLowerCase();
       return lbl.includes("race");
@@ -682,27 +718,49 @@ const RacerDetailsScreen = ({ route }) => {
     const startVals = [];
 
     results.forEach((r) => {
-      const pos = Number.isFinite(Number(r.position)) ? Number(r.position) : null;
+      const pos = Number.isFinite(Number(r.position))
+        ? Number(r.position)
+        : null;
       if (pos === 1 && isRaceSession(r.session_key)) wins++;
       if (pos !== null && pos <= 3 && isRaceSession(r.session_key)) podiums++;
 
       // starting grid detection (try common fields)
-      const gridCandidates = [r.starting_grid, r.grid, r.grid_position, r.starting_position, r.start_position];
+      const gridCandidates = [
+        r.starting_grid,
+        r.grid,
+        r.grid_position,
+        r.starting_position,
+        r.start_position,
+      ];
       for (const g of gridCandidates) {
-        if (g !== null && g !== undefined && g !== "" && !Number.isNaN(Number(g))) {
+        if (
+          g !== null &&
+          g !== undefined &&
+          g !== "" &&
+          !Number.isNaN(Number(g))
+        ) {
           startVals.push(Number(g));
           break;
         }
       }
 
       const status = (r.status || "").toString().toLowerCase();
-      if (r.dnf || r.dns || r.dsq || status.includes("dnf") || status.includes("dns") || status.includes("dsq")) {
+      if (
+        r.dnf ||
+        r.dns ||
+        r.dsq ||
+        status.includes("dnf") ||
+        status.includes("dns") ||
+        status.includes("dsq")
+      ) {
         dnCount++;
       }
     });
 
     // include starting_grid array if present (prefer explicit starting grid data)
-    const sg = Array.isArray(driverData?.starting_grid) ? driverData.starting_grid : [];
+    const sg = Array.isArray(driverData?.starting_grid)
+      ? driverData.starting_grid
+      : [];
     if (sg.length) {
       sg.forEach((g) => {
         const p = g.position ?? g.pos ?? g.position_current ?? null;
@@ -712,7 +770,9 @@ const RacerDetailsScreen = ({ route }) => {
       });
     }
 
-    const avgStart = startVals.length ? startVals.reduce((a, b) => a + b, 0) / startVals.length : null;
+    const avgStart = startVals.length
+      ? startVals.reduce((a, b) => a + b, 0) / startVals.length
+      : null;
 
     return {
       points,
@@ -1027,11 +1087,22 @@ const RacerDetailsScreen = ({ route }) => {
                 />
 
                 {selectedMeetingSessions.map((s, idx) => {
-                  const sessionName =
+                  // maps.sessions entries may be either a string (name) or an object { name, date_start, date_end }
+                  const sessEntry =
                     driverData?.maps?.sessions?.[s.session_key] ||
                     driverData?.maps?.sessions?.[String(s.session_key)] ||
-                    s.session_name ||
-                    "Session";
+                    null;
+                  const sessionName =
+                    typeof sessEntry === "string"
+                      ? sessEntry
+                      : sessEntry?.name ||
+                        sessEntry?.session_name ||
+                        s.session_name ||
+                        "Session";
+                  const sessionDateStart =
+                    sessEntry && typeof sessEntry === "object"
+                      ? sessEntry.date_start || sessEntry.dateStart || null
+                      : s.date_start || s.dateStart || null;
 
                   const hasMultiDuration = Array.isArray(s.duration);
                   const statusText = s.dnf
@@ -1052,56 +1123,137 @@ const RacerDetailsScreen = ({ route }) => {
                           ]}
                         />
                       ) : null}
-                      <View style={styles.raceSessionRow}>
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.raceSessionName,
-                            { color: theme.text },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {sessionName}
-                        </Text>
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        onPress={() =>
+                          navigation.navigate("F1RaceDetails", {
+                            meetingKey:
+                              s.meeting_key ||
+                              s.meetingKey ||
+                              selectedPoint?.meeting_key,
+                            sport: "f1",
+                          })
+                        }
+                      >
+                        <View style={styles.raceSessionRow}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.raceSessionName,
+                                { color: theme.text, flex: 1 },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {sessionName}
+                            </Text>
 
-                        <View style={styles.raceMetrics}>
-                          {hasMultiDuration ? (
-                            <>
-                              <View style={styles.raceMetricsRow}>
-                                {[0, 1, 2].map((i) => {
-                                  const val = s.duration?.[i];
-                                  const out = val === null || val === undefined;
-                                  return (
-                                    <View
-                                      key={`qual-${i}`}
-                                      style={styles.raceMetricCell}
+                            <Text
+                              allowFontScaling={false}
+                              style={{
+                                color: theme.textSecondary,
+                                fontSize: 12,
+                                marginLeft: 8,
+                                marginTop: -8,
+                              }}
+                            >
+                              {formatDateTimeLocal(sessionDateStart)}
+                            </Text>
+                          </View>
+
+                          <View style={styles.raceMetrics}>
+                            {hasMultiDuration ? (
+                              <>
+                                <View style={styles.raceMetricsRow}>
+                                  {[0, 1, 2].map((i) => {
+                                    const val = s.duration?.[i];
+                                    const out =
+                                      val === null || val === undefined;
+                                    return (
+                                      <View
+                                        key={`qual-${i}`}
+                                        style={styles.raceMetricCell}
+                                      >
+                                        <Text
+                                          allowFontScaling={false}
+                                          style={[
+                                            styles.raceMetricLabel,
+                                            { color: theme.textSecondary },
+                                          ]}
+                                        >
+                                          {`QUAL ${i + 1}`}
+                                        </Text>
+                                        <Text
+                                          allowFontScaling={false}
+                                          style={[
+                                            styles.raceMetricValue,
+                                            {
+                                              color: out
+                                                ? theme.error
+                                                : theme.text,
+                                            },
+                                          ]}
+                                        >
+                                          {out ? "OUT" : formatDuration(val)}
+                                        </Text>
+                                      </View>
+                                    );
+                                  })}
+                                </View>
+                                <View style={styles.raceMetricsRow}>
+                                  <View
+                                    style={[styles.raceMetricCell, { flex: 1 }]}
+                                  >
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.raceMetricLabel,
+                                        { color: theme.textSecondary },
+                                      ]}
                                     >
-                                      <Text
-                                        allowFontScaling={false}
-                                        style={[
-                                          styles.raceMetricLabel,
-                                          { color: theme.textSecondary },
-                                        ]}
-                                      >
-                                        {`QUAL ${i + 1}`}
-                                      </Text>
-                                      <Text
-                                        allowFontScaling={false}
-                                        style={[
-                                          styles.raceMetricValue,
-                                          {
-                                            color: out
-                                              ? theme.error
-                                              : theme.text,
-                                          },
-                                        ]}
-                                      >
-                                        {out ? "OUT" : formatDuration(val)}
-                                      </Text>
-                                    </View>
-                                  );
-                                })}
-                              </View>
+                                      LAPS
+                                    </Text>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.raceMetricValue,
+                                        { color: theme.text },
+                                      ]}
+                                    >
+                                      {s.number_of_laps ?? "--"}
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={[styles.raceMetricCell, { flex: 1 }]}
+                                  >
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.raceMetricLabel,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      PLACE
+                                    </Text>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.raceMetricValue,
+                                        { color: theme.text },
+                                      ]}
+                                    >
+                                      {s.position ?? "--"}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </>
+                            ) : (
                               <View style={styles.raceMetricsRow}>
                                 <View
                                   style={[styles.raceMetricCell, { flex: 1 }]}
@@ -1135,6 +1287,34 @@ const RacerDetailsScreen = ({ route }) => {
                                       { color: theme.textSecondary },
                                     ]}
                                   >
+                                    TIME
+                                  </Text>
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricValue,
+                                      {
+                                        color: statusText
+                                          ? theme.error
+                                          : theme.text,
+                                      },
+                                    ]}
+                                  >
+                                    {statusText
+                                      ? statusText
+                                      : formatDuration(s.duration)}
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[styles.raceMetricCell, { flex: 1 }]}
+                                >
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.raceMetricLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
                                     PLACE
                                   </Text>
                                   <Text
@@ -1148,85 +1328,10 @@ const RacerDetailsScreen = ({ route }) => {
                                   </Text>
                                 </View>
                               </View>
-                            </>
-                          ) : (
-                            <View style={styles.raceMetricsRow}>
-                              <View
-                                style={[styles.raceMetricCell, { flex: 1 }]}
-                              >
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  LAPS
-                                </Text>
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {s.number_of_laps ?? "--"}
-                                </Text>
-                              </View>
-                              <View
-                                style={[styles.raceMetricCell, { flex: 1 }]}
-                              >
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  TIME
-                                </Text>
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricValue,
-                                    {
-                                      color: statusText
-                                        ? theme.error
-                                        : theme.text,
-                                    },
-                                  ]}
-                                >
-                                  {statusText
-                                    ? statusText
-                                    : formatDuration(s.duration)}
-                                </Text>
-                              </View>
-                              <View
-                                style={[styles.raceMetricCell, { flex: 1 }]}
-                              >
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  PLACE
-                                </Text>
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.raceMetricValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {s.position ?? "--"}
-                                </Text>
-                              </View>
-                            </View>
-                          )}
+                            )}
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     </React.Fragment>
                   );
                 })}
@@ -1234,35 +1339,123 @@ const RacerDetailsScreen = ({ route }) => {
             ) : null}
           </View>
 
-          <View style={{ display: activeTab === "Season Stats" ? "flex" : "none" }}>
+          <View
+            style={{ display: activeTab === "Season Stats" ? "flex" : "none" }}
+          >
             <View style={{ paddingHorizontal: 12, paddingBottom: 28 }}>
               <View style={styles.seasonGridContainer}>
-                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>POINTS</Text>
-                  <Text style={[styles.bubbleValue, { color: accentColor }]}>{seasonStats.points}</Text>
+                <View
+                  style={[
+                    styles.seasonBubble,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.bubbleLabel, { color: theme.textSecondary }]}
+                  >
+                    POINTS
+                  </Text>
+                  <Text style={[styles.bubbleValue, { color: accentColor }]}>
+                    {seasonStats.points}
+                  </Text>
                 </View>
-                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>PLACE</Text>
-                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.place ?? "--"}</Text>
+                <View
+                  style={[
+                    styles.seasonBubble,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.bubbleLabel, { color: theme.textSecondary }]}
+                  >
+                    PLACE
+                  </Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>
+                    {seasonStats.place ?? "--"}
+                  </Text>
                 </View>
-                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>WINS</Text>
-                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.wins}</Text>
+                <View
+                  style={[
+                    styles.seasonBubble,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.bubbleLabel, { color: theme.textSecondary }]}
+                  >
+                    WINS
+                  </Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>
+                    {seasonStats.wins}
+                  </Text>
                 </View>
-                <View style={[styles.seasonBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                  <Text style={[styles.bubbleLabel, { color: theme.textSecondary }]}>PODIUM</Text>
-                  <Text style={[styles.bubbleValue, { color: theme.text }]}>{seasonStats.podiums}</Text>
+                <View
+                  style={[
+                    styles.seasonBubble,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.bubbleLabel, { color: theme.textSecondary }]}
+                  >
+                    PODIUM
+                  </Text>
+                  <Text style={[styles.bubbleValue, { color: theme.text }]}>
+                    {seasonStats.podiums}
+                  </Text>
                 </View>
               </View>
 
-              <View style={[styles.seasonStatRow, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                <Text style={[styles.seasonStatLabel, { color: theme.textSecondary }]}>Average Starting Grid</Text>
-                <Text style={[styles.seasonStatValue, { color: theme.text }]}>{seasonStats.avgStart !== null ? `${seasonStats.avgStart} (${seasonStats.avgStartCount})` : "--"}</Text>
+              <View
+                style={[
+                  styles.seasonStatRow,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.seasonStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Average Starting Grid
+                </Text>
+                <Text style={[styles.seasonStatValue, { color: theme.text }]}>
+                  {seasonStats.avgStart !== null
+                    ? `${seasonStats.avgStart} (${seasonStats.avgStartCount})`
+                    : "--"}
+                </Text>
               </View>
 
-              <View style={[styles.seasonStatRow, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
-                <Text style={[styles.seasonStatLabel, { color: theme.textSecondary }]}>DNF / DNS / DSQ</Text>
-                <Text style={[styles.seasonStatValue, { color: theme.error }]}>{seasonStats.dnCount}</Text>
+              <View
+                style={[
+                  styles.seasonStatRow,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.seasonStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  DNF / DNS / DSQ
+                </Text>
+                <Text style={[styles.seasonStatValue, { color: theme.error }]}>
+                  {seasonStats.dnCount}
+                </Text>
               </View>
             </View>
           </View>
