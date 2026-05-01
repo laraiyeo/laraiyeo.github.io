@@ -1392,7 +1392,9 @@ app.get("/session/:session_key/:status?", async (req, res) => {
         // Simplified selection: pick the next session with NO winner.
         // If all sessions have winners, pick the last session with a winner.
         // Ensure we have session_result data available to check winners.
-        let resultsArr = normalizeArray(cache.get("session_result")?.data || []);
+        let resultsArr = normalizeArray(
+          cache.get("session_result")?.data || [],
+        );
         if (!resultsArr || resultsArr.length === 0) {
           try {
             const sr = await getCachedWithTTL(
@@ -1410,7 +1412,9 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           try {
             const sk = String(s.session_key || s.sessionKey || "");
             return resultsArr.some(
-              (r) => String(r.session_key) === sk && (String(r.position) === "1" || r.position === 1),
+              (r) =>
+                String(r.session_key) === sk &&
+                (String(r.position) === "1" || r.position === 1),
             );
           } catch (e) {
             return false;
@@ -1435,7 +1439,13 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           chosen = sorted.find((s) => {
             const st = parseStart(s);
             const en = parseEnd(s);
-            return st !== null && en !== null && now >= st && now <= en && !hasWinner(s);
+            return (
+              st !== null &&
+              en !== null &&
+              now >= st &&
+              now <= en &&
+              !hasWinner(s)
+            );
           });
         }
 
@@ -1449,7 +1459,9 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           const withTimes = sessArr
             .map((s) => ({ s, en: parseEnd(s) || parseStart(s) || 0 }))
             .sort((a, b) => b.en - a.en);
-          const lastWithWinner = withTimes.map((x) => x.s).find((s) => hasWinner(s));
+          const lastWithWinner = withTimes
+            .map((x) => x.s)
+            .find((s) => hasWinner(s));
           chosen = lastWithWinner || null;
         }
 
