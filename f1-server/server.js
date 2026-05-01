@@ -1065,7 +1065,8 @@ app.get("/session", async (req, res) => {
     if (!sessionKey && meetingKey) {
       const sessionsGlobal = cache.get("sessions")?.data || [];
       const arr = normalizeArray(sessionsGlobal).filter(
-        (s) => String(s.meeting_key || s.meetingKey || "") === String(meetingKey),
+        (s) =>
+          String(s.meeting_key || s.meetingKey || "") === String(meetingKey),
       );
       if (arr.length === 0)
         return res.status(404).json({ error: "no sessions found for meeting" });
@@ -1107,9 +1108,13 @@ app.get("/session", async (req, res) => {
         inProgress = withEnd.length > 0 ? withEnd[0].s : null;
       }
 
-      sessionKey = inProgress ? inProgress.session_key || inProgress.sessionKey || null : null;
+      sessionKey = inProgress
+        ? inProgress.session_key || inProgress.sessionKey || null
+        : null;
       if (!sessionKey)
-        return res.status(404).json({ error: "could not determine session_key for meeting" });
+        return res
+          .status(404)
+          .json({ error: "could not determine session_key for meeting" });
     }
 
     if (!sessionKey)
@@ -1172,7 +1177,8 @@ app.get("/session/:session_key/:status?", async (req, res) => {
   try {
     let sessionKey = req.params.session_key;
     const status = req.params.status || null;
-    if (!sessionKey) return res.status(400).json({ error: "session_key required" });
+    if (!sessionKey)
+      return res.status(400).json({ error: "session_key required" });
     const cacheKey = `session:${sessionKey}`;
 
     // try to find session object in cache by session_key first
@@ -1180,15 +1186,27 @@ app.get("/session/:session_key/:status?", async (req, res) => {
     const sessionsGlobal = cache.get("sessions")?.data;
     if (sessionsGlobal) {
       const arr = normalizeArray(sessionsGlobal);
-      sessionObj = arr.find((s) => String(s.session_key) === String(sessionKey));
+      sessionObj = arr.find(
+        (s) => String(s.session_key) === String(sessionKey),
+      );
     }
 
     // if not found by session_key, treat the provided param as a meeting_key and try to pick a session
     if (!sessionObj) {
       // ensure we have sessions cached (may fetch)
-      const allSessionsData = sessionsGlobal || (await getCachedWithTTL("sessions", `${BASE_URL}sessions`, TTL_6H).catch(() => ({ data: null }))).data || [];
+      const allSessionsData =
+        sessionsGlobal ||
+        (
+          await getCachedWithTTL(
+            "sessions",
+            `${BASE_URL}sessions`,
+            TTL_6H,
+          ).catch(() => ({ data: null }))
+        ).data ||
+        [];
       const sessArr = normalizeArray(allSessionsData).filter(
-        (s) => String(s.meeting_key || s.meetingKey || "") === String(sessionKey),
+        (s) =>
+          String(s.meeting_key || s.meetingKey || "") === String(sessionKey),
       );
 
       if (sessArr.length > 0) {
@@ -1227,11 +1245,17 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           chosen = withEnd.length > 0 ? withEnd[0].s : null;
         }
 
-        sessionKey = chosen ? chosen.session_key || chosen.sessionKey || null : null;
+        sessionKey = chosen
+          ? chosen.session_key || chosen.sessionKey || null
+          : null;
         if (sessionKey) {
           // now fetch sessionObj by sessionKey
           const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
-          const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, TTL_6H).catch(() => ({ data: null }));
+          const { data } = await getCachedWithTTL(
+            path,
+            `${BASE_URL}${path}`,
+            TTL_6H,
+          ).catch(() => ({ data: null }));
           sessionObj = normalizeArray(data)[0] || null;
         }
       }
@@ -1239,7 +1263,11 @@ app.get("/session/:session_key/:status?", async (req, res) => {
       // if still not found, try the original session_key fetch as fallback
       if (!sessionObj && !sessionsGlobal) {
         const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
-        const { data } = await getCachedWithTTL(path, `${BASE_URL}${path}`, TTL_6H).catch(() => ({ data: null }));
+        const { data } = await getCachedWithTTL(
+          path,
+          `${BASE_URL}${path}`,
+          TTL_6H,
+        ).catch(() => ({ data: null }));
         sessionObj = normalizeArray(data)[0] || null;
       }
     }
