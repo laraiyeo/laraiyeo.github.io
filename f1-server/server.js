@@ -1389,27 +1389,68 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           return Number.isFinite(t) ? t : null;
         };
 
-        // prefer session where now is within start..end
-        let chosen = sessArr.find((s) => {
-          const st = parseStart(s);
-          const en = parseEnd(s);
-          return st !== null && en !== null && now >= st && now <= en;
-        });
-
-        if (!chosen) {
-          // next future session
-          const future = sessArr
-            .map((s) => ({ s, st: parseStart(s) }))
-            .filter((x) => x.st !== null && x.st > now)
-            .sort((a, b) => a.st - b.st);
-          if (future.length > 0) chosen = future[0].s;
+        // Simplified selection: pick the next session with NO winner.
+        // If all sessions have winners, pick the last session with a winner.
+        // Ensure we have session_result data available to check winners.
+        let resultsArr = normalizeArray(cache.get("session_result")?.data || []);
+        if (!resultsArr || resultsArr.length === 0) {
+          try {
+            const sr = await getCachedWithTTL(
+              "session_result",
+              `${BASE_URL}session_result`,
+              TTL_1H,
+            ).catch(() => ({ data: [] }));
+            resultsArr = normalizeArray(sr.data);
+          } catch (e) {
+            resultsArr = [];
+          }
         }
 
+        const hasWinner = (s) => {
+          try {
+            const sk = String(s.session_key || s.sessionKey || "");
+            return resultsArr.some(
+              (r) => String(r.session_key) === sk && (String(r.position) === "1" || r.position === 1),
+            );
+          } catch (e) {
+            return false;
+          }
+        };
+
+        // sort sessions by start time asc for predictable ordering
+        const sorted = sessArr
+          .slice()
+          .map((s) => ({ s, st: parseStart(s), en: parseEnd(s) }))
+          .sort((a, b) => (a.st || 0) - (b.st || 0))
+          .map((x) => x.s);
+
+        // prefer next future session without a winner
+        let chosen = sorted.find((s) => {
+          const st = parseStart(s);
+          return st !== null && st > now && !hasWinner(s);
+        });
+
+        // if none, prefer a currently live session without a winner
         if (!chosen) {
-          const withEnd = sessArr
-            .map((s) => ({ s, en: parseEnd(s), st: parseStart(s) }))
-            .sort((a, b) => (b.en || b.st || 0) - (a.en || a.st || 0));
-          chosen = withEnd.length > 0 ? withEnd[0].s : null;
+          chosen = sorted.find((s) => {
+            const st = parseStart(s);
+            const en = parseEnd(s);
+            return st !== null && en !== null && now >= st && now <= en && !hasWinner(s);
+          });
+        }
+
+        // if still none, pick any session without a winner (earliest by start)
+        if (!chosen) {
+          chosen = sorted.find((s) => !hasWinner(s));
+        }
+
+        // if all have winners, pick the last session that has a winner (by end or start desc)
+        if (!chosen) {
+          const withTimes = sessArr
+            .map((s) => ({ s, en: parseEnd(s) || parseStart(s) || 0 }))
+            .sort((a, b) => b.en - a.en);
+          const lastWithWinner = withTimes.map((x) => x.s).find((s) => hasWinner(s));
+          chosen = lastWithWinner || null;
         }
 
         sessionKey = chosen
