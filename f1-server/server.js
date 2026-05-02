@@ -1153,12 +1153,11 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         return `${displayLaps} ${displayLaps === 1 ? "Lap" : "Laps"}`;
       };
 
-      const driverOrder = Object.keys(lapsByDriver)
-        .map((dn) => {
-          const info = lapsByDriver[dn];
-          const validLaps = Array.isArray(info?.lastLap) ? [] : [];
-          return { dn, info };
-        });
+      const driverOrder = Object.keys(lapsByDriver).map((dn) => {
+        const info = lapsByDriver[dn];
+        const validLaps = Array.isArray(info?.lastLap) ? [] : [];
+        return { dn, info };
+      });
 
       const driverTimes = Object.create(null);
       let leaderDriver = null;
@@ -1168,14 +1167,19 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       for (const dn of Object.keys(lapsByDriver)) {
         const info = lapsByDriver[dn];
         const driverLaps = lapsArr.filter(
-          (lap) => String(lap?.driver_number || lap?.driverNumber || lap?.driver || "") === String(dn),
+          (lap) =>
+            String(
+              lap?.driver_number || lap?.driverNumber || lap?.driver || "",
+            ) === String(dn),
         );
 
         // laps that have any sector data (include laps even if some sectors are null)
         const sectorLaps = driverLaps.filter(
           (lap) =>
             lap &&
-            (lap.duration_sector_1 != null || lap.duration_sector_2 != null || lap.duration_sector_3 != null),
+            (lap.duration_sector_1 != null ||
+              lap.duration_sector_2 != null ||
+              lap.duration_sector_3 != null),
         );
 
         let totalTime = null;
@@ -1197,16 +1201,23 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           const lastWithLapDuration = driverLaps
             .slice()
             .reverse()
-            .find((l) => (l && (l.lap_duration != null || l.duration != null)));
+            .find((l) => l && (l.lap_duration != null || l.duration != null));
           if (lastWithLapDuration) {
-            totalTime = Number(lastWithLapDuration.lap_duration ?? lastWithLapDuration.duration) || null;
+            totalTime =
+              Number(
+                lastWithLapDuration.lap_duration ??
+                  lastWithLapDuration.duration,
+              ) || null;
             lapsUsed = 1;
           }
         }
 
-        const currentLap = info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
+        const currentLap =
+          info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
         const currentLapNumber = Number(currentLap);
-        const currentLapValid = Number.isFinite(currentLapNumber) ? currentLapNumber : null;
+        const currentLapValid = Number.isFinite(currentLapNumber)
+          ? currentLapNumber
+          : null;
 
         lapsByDriver[dn].driver_time = {
           time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
@@ -1220,11 +1231,19 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         };
       }
 
-      const allDriverEntries = Object.entries(driverTimes).filter(([, v]) => v.totalTime != null);
+      const allDriverEntries = Object.entries(driverTimes).filter(
+        ([, v]) => v.totalTime != null,
+      );
       if (allDriverEntries.length > 0) {
-        const maxLap = allDriverEntries.reduce((max, [, v]) => Math.max(max, v.currentLap || 0), 0);
-        const leadCandidates = allDriverEntries.filter(([, v]) => (v.currentLap || 0) === maxLap);
-        const leadByTime = leadCandidates.length > 0 ? leadCandidates : allDriverEntries;
+        const maxLap = allDriverEntries.reduce(
+          (max, [, v]) => Math.max(max, v.currentLap || 0),
+          0,
+        );
+        const leadCandidates = allDriverEntries.filter(
+          ([, v]) => (v.currentLap || 0) === maxLap,
+        );
+        const leadByTime =
+          leadCandidates.length > 0 ? leadCandidates : allDriverEntries;
         leadByTime.sort((a, b) => a[1].totalTime - b[1].totalTime);
         leaderDriver = leadByTime[0][0];
         leaderTotalTime = leadByTime[0][1].totalTime;
