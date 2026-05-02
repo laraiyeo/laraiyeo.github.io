@@ -63,8 +63,12 @@ async function fetchAndCacheWithRetry(key, url, opts = {}) {
       // Consider payload non-empty if it's an array with length > 0,
       // or if it's an object with a non-empty `data` array, or if it has keys
       const isArray = Array.isArray(payload) && payload.length > 0;
-      const hasDataArray = payload && Array.isArray(payload.data) && payload.data.length > 0;
-      const hasAnyKeys = payload && typeof payload === "object" && Object.keys(payload).length > 0;
+      const hasDataArray =
+        payload && Array.isArray(payload.data) && payload.data.length > 0;
+      const hasAnyKeys =
+        payload &&
+        typeof payload === "object" &&
+        Object.keys(payload).length > 0;
 
       if (isArray || hasDataArray || hasAnyKeys) {
         cache.set(key, { data: payload, fetchedAt: Date.now() });
@@ -105,15 +109,26 @@ async function getCachedWithTTL(key, url, ttlMs) {
   }
   // For session_result we prefer to retry the upstream until non-empty (short wait),
   // to avoid returning stale/empty session_result in places that expect fresh data.
-  if (String(key).toLowerCase().startsWith("session_result" ) || key === "session_result") {
+  if (
+    String(key).toLowerCase().startsWith("session_result") ||
+    key === "session_result"
+  ) {
     try {
       // try for up to 30s, polling every 2s
-      const res = await fetchAndCacheWithRetry(key, url, { maxWaitMs: 30000, intervalMs: 2000 });
+      const res = await fetchAndCacheWithRetry(key, url, {
+        maxWaitMs: 30000,
+        intervalMs: 2000,
+      });
       return res;
     } catch (e) {
       // fall back to single fetch attempt if retries fail
-      console.warn(`[getCachedWithTTL] retry fetch failed for ${key}: ${e.message}`);
-      const res = await fetchAndCache(key, url).catch((err) => ({ data: null, fromCache: false }));
+      console.warn(
+        `[getCachedWithTTL] retry fetch failed for ${key}: ${e.message}`,
+      );
+      const res = await fetchAndCache(key, url).catch((err) => ({
+        data: null,
+        fromCache: false,
+      }));
       return res;
     }
   }
@@ -172,14 +187,19 @@ function watchSessionResultUntilChanged(sessionKey, prevSnapshot, opts = {}) {
 
         // Normalize to comparable form: JSON stringify of array or object
         const newSnap = payload === null ? null : JSON.stringify(payload);
-        const prevSnap = prevSnapshot === null ? null : JSON.stringify(prevSnapshot);
+        const prevSnap =
+          prevSnapshot === null ? null : JSON.stringify(prevSnapshot);
 
         if (newSnap && newSnap !== prevSnap) {
           // Found updated session_result. Rebuild cached assembled session so
           // other endpoints pick up the new data.
-          console.log(`watchSessionResultUntilChanged: detected update for ${sessionKey}`);
+          console.log(
+            `watchSessionResultUntilChanged: detected update for ${sessionKey}`,
+          );
           try {
-            await buildAndCacheSession(String(sessionKey), { forceLive: false }).catch(() => {});
+            await buildAndCacheSession(String(sessionKey), {
+              forceLive: false,
+            }).catch(() => {});
           } catch (e) {}
           // stop watching
           clearInterval(id);
@@ -189,13 +209,17 @@ function watchSessionResultUntilChanged(sessionKey, prevSnapshot, opts = {}) {
 
         // stop if waited too long
         if (Date.now() - start >= maxWaitMs) {
-          console.log(`watchSessionResultUntilChanged: timeout for ${sessionKey}`);
+          console.log(
+            `watchSessionResultUntilChanged: timeout for ${sessionKey}`,
+          );
           clearInterval(id);
           refreshIntervals.delete(key);
           return;
         }
       } catch (e) {
-        console.warn(`watchSessionResultUntilChanged: fetch error for ${sessionKey}: ${e.message}`);
+        console.warn(
+          `watchSessionResultUntilChanged: fetch error for ${sessionKey}: ${e.message}`,
+        );
         if (Date.now() - start >= maxWaitMs) {
           clearInterval(id);
           refreshIntervals.delete(key);
