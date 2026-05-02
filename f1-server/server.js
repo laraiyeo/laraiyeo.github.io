@@ -108,13 +108,29 @@ async function getCachedWithTTL(key, url, ttlMs) {
     if (age < ttlMs) return { data: entry.data, fromCache: true };
   }
   // For session_result we prefer to retry the upstream until non-empty (short wait),
-  // to avoid returning stale/empty session_result in places that expect fresh data.
+  // For `session_result` we previously retried up to 30s to wait for upstream
+  // data. That causes long delays for session-scoped queries (e.g. querying a
+  // future session by session_key) where upstream will happily return an empty
+  // payload. Avoid the retry loop for session-scoped requests (those that
+  // include a session_key) and fall back to a single fetch instead. Keep the
+  // retry behavior for global `session_result` polling.
   if (
     String(key).toLowerCase().startsWith("session_result") ||
     key === "session_result"
   ) {
+    const lowerKey = String(key).toLowerCase();
+    const lowerUrl = String(url || "").toLowerCase();
+    const isSessionScoped = lowerKey.includes("session_key") || lowerUrl.includes("session_key=");
+    if (isSessionScoped) {
+      try {
+        return await fetchAndCache(key, url);
+      } catch (e) {
+        return { data: null, fromCache: false };
+      }
+    }
+
     try {
-      // try for up to 30s, polling every 2s
+      // try for up to 30s, polling every 2s for global session_result
       const res = await fetchAndCacheWithRetry(key, url, {
         maxWaitMs: 30000,
         intervalMs: 2000,
