@@ -1201,8 +1201,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           .filter((entry) => Number.isFinite(entry.lapNumber))
           .sort((a, b) => {
             if (a.lapNumber !== b.lapNumber) return a.lapNumber - b.lapNumber;
-            const da = new Date(a.lap?.date_start || a.lap?.date || 0).getTime() || 0;
-            const db = new Date(b.lap?.date_start || b.lap?.date || 0).getTime() || 0;
+            const da =
+              new Date(a.lap?.date_start || a.lap?.date || 0).getTime() || 0;
+            const db =
+              new Date(b.lap?.date_start || b.lap?.date || 0).getTime() || 0;
             return da - db;
           });
 
@@ -1214,9 +1216,11 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             if (entry.lapTime == null) continue;
 
             if (previousRecordedLapNumber != null) {
-              const missingLapCount = entry.lapNumber - previousRecordedLapNumber - 1;
+              const missingLapCount =
+                entry.lapNumber - previousRecordedLapNumber - 1;
               if (missingLapCount > 0 && previousRecordedLapTime != null) {
-                totalTime = (totalTime ?? 0) + previousRecordedLapTime * missingLapCount;
+                totalTime =
+                  (totalTime ?? 0) + previousRecordedLapTime * missingLapCount;
                 lapsUsed += missingLapCount;
               }
             }
