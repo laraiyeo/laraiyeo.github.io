@@ -1326,14 +1326,21 @@ const RaceDetailsScreen = () => {
               // Only include drivers that appear in the positions map (preferred).
               // If positions is empty, fall back to session_results entries.
               const nums = new Set();
-              const posKeys = Object.keys(positions || {});
-              if (posKeys.length > 0) {
-                posKeys.forEach((k) => nums.add(String(k)));
-              } else {
-                (sessionResults || []).forEach((r) => {
-                  if (r?.driver_number) nums.add(String(r.driver_number));
-                });
-              }
+
+              // 1. Always include starting grid (baseline — ALL drivers)
+              (startingGrid || []).forEach((s) => {
+                if (s?.driver_number) nums.add(String(s.driver_number));
+              });
+
+              // 2. Merge in any drivers from positions (in case of edge cases)
+              Object.keys(positions || {}).forEach((k) => {
+                nums.add(String(k));
+              });
+
+              // 3. Optional: include session results as safety fallback
+              (sessionResults || []).forEach((r) => {
+                if (r?.driver_number) nums.add(String(r.driver_number));
+              });
 
               const list = Array.from(nums).map((dn) => {
                 const driverObj = findDriverInMaps(payload?.maps, dn) || null;
@@ -1354,9 +1361,26 @@ const RaceDetailsScreen = () => {
                   "";
                 const posObj =
                   positions[String(dn)] || positions[Number(dn)] || null;
-                const pos = posObj?.position ?? null;
+
+                const gridObj = (startingGrid || []).find(
+                  (s) => String(s.driver_number) === String(dn),
+                );
+
+                const pos =
+                  posObj?.position ??
+                  gridObj?.position ??
+                  gridObj?.grid_position ?? // depending on your schema
+                  null;
+
+                const gridPos =
+                  gridObj?.position ?? gridObj?.grid_position ?? null;
+
+                const positionDelta =
+                  gridPos != null && pos != null ? gridPos - pos : null;
+
                 const lastLap = lapsByDriver[String(dn)]?.lastLap || null;
-                const time = lastLap?.lap_duration ?? lastLap?.duration ?? null;
+                const sectorTimes = lastLap?.duration_sector_1 + lastLap?.duration_sector_2 + lastLap?.duration_sector_3;
+                const time = lastLap?.lap_duration ?? lastLap?.duration ?? sectorTimes ?? null;
                 const lapNumber =
                   lastLap?.lap_number ?? lastLap?.lapNumber ?? null;
                 const overCount = overtakes.filter(
@@ -1397,15 +1421,23 @@ const RaceDetailsScreen = () => {
                   }
                 };
 
-                const result = dnfDnsDsq(sessionResult);
+                const result = sessionResult ? dnfDnsDsq(sessionResult) : null;
 
                 const timeToUse = duration || time;
 
+                const timeLabel = duration ? "TIME" : "LAP TIME";
+
                 const getSegmentColor = (segment) => {
                   if (!segment) return null;
-                  if (segment.includes(2051)) return "#6d28d9";
-                  if (segment.includes(2049)) return "#16a34a";
-                  if (segment.every((s) => s === 2048)) return "#ffcf40";
+
+                  const validSegments = segment.filter((s) => s != null); // remove null/undefined
+
+                  if (validSegments.length === 0) return null; // all values were null
+
+                  if (validSegments.includes(2051)) return "#6d28d9";
+                  if (validSegments.includes(2049)) return "#16a34a";
+                  if (validSegments.every((s) => s === 2048)) return "#ffcf40";
+
                   return null;
                 };
 
@@ -1419,9 +1451,25 @@ const RaceDetailsScreen = () => {
                   lastLap?.segments_sector_3,
                 );
 
-                const getTextColor = (color) => {
+                const getTextColor = (segment, color) => {
+                  if (!segment) return theme.surfaceSecondary; // 👈 check raw data
                   return color === "#ffcf40" ? "#000" : "#fff";
                 };
+
+                const segment1TextColor = getTextColor(
+                  lastLap?.segments_sector_1,
+                  segment1Color,
+                );
+
+                const segment2TextColor = getTextColor(
+                  lastLap?.segments_sector_2,
+                  segment2Color,
+                );
+
+                const segment3TextColor = getTextColor(
+                  lastLap?.segments_sector_3,
+                  segment3Color,
+                );
 
                 return {
                   driverNumber: dn,
@@ -1429,7 +1477,10 @@ const RaceDetailsScreen = () => {
                   headshot,
                   teamName,
                   pos: Number.isFinite(Number(pos)) ? Number(pos) : null,
+                  gridPos,
+                  positionDelta,
                   timeToUse,
+                  timeLabel,
                   outQual,
                   result,
                   laps: lapNumber,
@@ -1438,6 +1489,9 @@ const RaceDetailsScreen = () => {
                   segment1Color,
                   segment2Color,
                   segment3Color,
+                  segment1TextColor,
+                  segment2TextColor,
+                  segment3TextColor,
                   getTextColor,
                 };
               });
@@ -1519,15 +1573,39 @@ const RaceDetailsScreen = () => {
                         <View style={styles.driverNameBlock}>
                           <View style={styles.nameTopRow}>
                             <View style={{ flex: 1, marginRight: 8 }}>
-                              <Text
-                                style={[
-                                  styles.driverName,
-                                  { color: theme.text },
-                                ]}
-                                numberOfLines={1}
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                }}
                               >
-                                {d.name}
-                              </Text>
+                                {d.positionDelta !== null &&
+                                  d.positionDelta !== 0 && payload?.session?.session_type === "Race" && (
+                                    <Text
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: "800",
+                                        color:
+                                          d.positionDelta > 0
+                                            ? theme.success
+                                            : theme.error,
+                                      }}
+                                    >
+                                      {d.positionDelta > 0
+                                        ? `▲ ${d.positionDelta} · `
+                                        : `▼ ${Math.abs(d.positionDelta)} · `}
+                                    </Text>
+                                  )}
+                                <Text
+                                  style={[
+                                    styles.driverName,
+                                    { color: theme.text },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {d.name}
+                                </Text>
+                              </View>
                               <View
                                 style={{
                                   flexDirection: "row",
@@ -1552,27 +1630,28 @@ const RaceDetailsScreen = () => {
                                 ) : null}
                               </View>
                             </View>
-
-                            <View style={styles.posBadgeWrap}>
-                              <View
-                                style={[
-                                  styles.posBadge,
-                                  { backgroundColor: teamColorLocal },
-                                ]}
-                              >
-                                <Text style={styles.posBadgeText}>
-                                  {d.pos != null ? d.pos : "-"}
+                            {d.pos !== 0 && (
+                              <View style={styles.posBadgeWrap}>
+                                <View
+                                  style={[
+                                    styles.posBadge,
+                                    { backgroundColor: teamColorLocal },
+                                  ]}
+                                >
+                                  <Text style={styles.posBadgeText}>
+                                    {d.pos != null ? d.pos : "-"}
+                                  </Text>
+                                </View>
+                                <Text
+                                  style={[
+                                    styles.posLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  POS
                                 </Text>
                               </View>
-                              <Text
-                                style={[
-                                  styles.posLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                POS
-                              </Text>
-                            </View>
+                            )}
                           </View>
 
                           <View style={styles.statsRow}>
@@ -1597,7 +1676,7 @@ const RaceDetailsScreen = () => {
                                   { color: theme.textSecondary },
                                 ]}
                               >
-                                TIME
+                                {d.timeLabel}
                               </Text>
                             </View>
                             <View style={styles.statCell}>
@@ -1664,7 +1743,7 @@ const RaceDetailsScreen = () => {
                         >
                           <Text
                             style={{
-                              color: d.getTextColor(d.segment1Color),
+                              color: d.segment1TextColor,
                               fontSize: 10,
                               textAlign: "center",
                               fontWeight: "600",
@@ -1687,7 +1766,7 @@ const RaceDetailsScreen = () => {
                         >
                           <Text
                             style={{
-                              color: d.getTextColor(d.segment2Color),
+                              color: d.segment2TextColor,
                               fontSize: 10,
                               textAlign: "center",
                               fontWeight: "600",
@@ -1708,7 +1787,7 @@ const RaceDetailsScreen = () => {
                         >
                           <Text
                             style={{
-                              color: d.getTextColor(d.segment3Color),
+                              color: d.segment3TextColor,
                               fontSize: 10,
                               textAlign: "center",
                               fontWeight: "600",
@@ -1826,7 +1905,11 @@ const RaceDetailsScreen = () => {
               {sessionsList && sessionsList.length ? (
                 // Filter out the session that matches selectedSessionKey
                 sessionsList
-                  .filter((s) => s.session_key !== selectedSessionKey && s.session_key !== payload?.session?.session_key) // Exclude the current session
+                  .filter(
+                    (s) =>
+                      s.session_key !== selectedSessionKey &&
+                      s.session_key !== payload?.session?.session_key,
+                  ) // Exclude the current session
                   .map((s) => {
                     const isLive = isSessionLive(s);
                     const bg = isLive
@@ -1982,7 +2065,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
     elevation: 6,
   },
   sessionPickerOverlay: {
@@ -2011,7 +2093,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
   },
   sessionButtonLabel: { fontSize: 18, fontWeight: "900" },
   sessionButtonEmpty: { padding: 12, alignItems: "center" },

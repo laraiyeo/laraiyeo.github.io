@@ -117,6 +117,38 @@ function updateRefreshInterval(key, url, ttlMs) {
   }
 }
 
+function hasAnyLiveSession() {
+  try {
+    const sessionsEntry = cache.get("sessions")?.data || [];
+    const arr = Array.isArray(sessionsEntry)
+      ? sessionsEntry
+      : sessionsEntry.data || [];
+    const now = Date.now();
+    for (const s of arr) {
+      if (!s) continue;
+      const st = s.date_start || s.dateStart || s.start || null;
+      const en = s.date_end || s.dateEnd || s.end || null;
+      const startMs = st ? new Date(st).getTime() : null;
+      const endMs = en ? new Date(en).getTime() : null;
+      if (!startMs || !endMs) continue;
+      const liveStart = startMs - 15 * 60 * 1000;
+      const liveEnd = endMs + 15 * 60 * 1000;
+      if (now >= liveStart && now <= liveEnd) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+async function refreshSessionResultCacheIfLive() {
+  try {
+    if (activeLiveClients.size > 0 || hasAnyLiveSession()) {
+      await fetchAndCache("session_result", `${BASE_URL}session_result`).catch(
+        () => {},
+      );
+    }
+  } catch (e) {}
+}
+
 // monitor sessions and switch session_result/starting_grid to aggressive refresh when any session is live
 function startLiveRefreshMonitor() {
   const CHECK_MS = 60 * 1000; // check once per minute
@@ -306,6 +338,8 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     const meetingKey = req.params.meeting_key;
     if (!meetingKey)
       return res.status(400).json({ error: "meeting_key required" });
+
+    await refreshSessionResultCacheIfLive();
 
     // ensure caches
     await getCachedWithTTL("meetings", `${BASE_URL}meetings`, TTL_6H).catch(
@@ -615,7 +649,7 @@ function computeSessionTTLFromDates(dateStartStr, dateEndStr) {
   const beforeStart15 = start - 15 * 60 * 1000;
   const afterEnd15 = end + 15 * 60 * 1000;
   if (now < beforeStart15) return 30 * 60 * 1000; // 30 minutes
-  if (now >= beforeStart15 && now <= afterEnd15) return 10 * 1000; // live window: 10 seconds
+  if (now >= beforeStart15 && now <= afterEnd15) return 5 * 1000; // live window: 5 seconds
   return 24 * 60 * 60 * 1000; // finished: 24 hours
 }
 
@@ -1104,6 +1138,106 @@ async function buildAndCacheSession(sessionKey, options = {}) {
               lap_number: lap.lap_number ?? lap.lapNumber ?? null,
               st_speed: st,
             };
+          }
+        }
+      }
+
+      const formatGap = (gapSeconds) => {
+        if (!Number.isFinite(gapSeconds) || gapSeconds <= 0) return "0.000";
+        return gapSeconds.toFixed(3);
+      };
+
+      const formatLapGap = (lapDiff) => {
+        if (!Number.isFinite(lapDiff) || lapDiff <= 0) return null;
+        const displayLaps = Math.max(1, lapDiff - 1);
+        return `${displayLaps} ${displayLaps === 1 ? "Lap" : "Laps"}`;
+      };
+
+      const driverOrder = Object.keys(lapsByDriver)
+        .map((dn) => {
+          const info = lapsByDriver[dn];
+          const validLaps = Array.isArray(info?.lastLap) ? [] : [];
+          return { dn, info };
+        });
+
+      const driverTimes = Object.create(null);
+      let leaderDriver = null;
+      let leaderTotalTime = null;
+      let leaderLapNumber = null;
+
+      for (const dn of Object.keys(lapsByDriver)) {
+        const info = lapsByDriver[dn];
+        const driverLaps = lapsArr.filter(
+          (lap) => String(lap?.driver_number || lap?.driverNumber || lap?.driver || "") === String(dn),
+        );
+
+        // laps that have any sector data (include laps even if some sectors are null)
+        const sectorLaps = driverLaps.filter(
+          (lap) =>
+            lap &&
+            (lap.duration_sector_1 != null || lap.duration_sector_2 != null || lap.duration_sector_3 != null),
+        );
+
+        let totalTime = null;
+        let lapsUsed = 0;
+        if (sectorLaps.length > 0) {
+          totalTime = sectorLaps.reduce((sum, lap) => {
+            // prefer explicit lap_duration/duration when available
+            const lapDurRaw = lap.lap_duration ?? lap.duration ?? null;
+            const lapDur = lapDurRaw != null ? Number(lapDurRaw) : null;
+            if (lapDur != null && Number.isFinite(lapDur)) return sum + lapDur;
+            const s1 = Number(lap.duration_sector_1) || 0;
+            const s2 = Number(lap.duration_sector_2) || 0;
+            const s3 = Number(lap.duration_sector_3) || 0;
+            return sum + s1 + s2 + s3;
+          }, 0);
+          lapsUsed = sectorLaps.length;
+        } else {
+          // fallback to most recent lap_duration if sectors not available
+          const lastWithLapDuration = driverLaps
+            .slice()
+            .reverse()
+            .find((l) => (l && (l.lap_duration != null || l.duration != null)));
+          if (lastWithLapDuration) {
+            totalTime = Number(lastWithLapDuration.lap_duration ?? lastWithLapDuration.duration) || null;
+            lapsUsed = 1;
+          }
+        }
+
+        const currentLap = info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
+        const currentLapNumber = Number(currentLap);
+        const currentLapValid = Number.isFinite(currentLapNumber) ? currentLapNumber : null;
+
+        lapsByDriver[dn].driver_time = {
+          time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
+          behind: null,
+          laps_used: lapsUsed,
+        };
+        driverTimes[dn] = {
+          totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
+          currentLap: currentLapValid,
+          lapsUsed,
+        };
+      }
+
+      const allDriverEntries = Object.entries(driverTimes).filter(([, v]) => v.totalTime != null);
+      if (allDriverEntries.length > 0) {
+        const maxLap = allDriverEntries.reduce((max, [, v]) => Math.max(max, v.currentLap || 0), 0);
+        const leadCandidates = allDriverEntries.filter(([, v]) => (v.currentLap || 0) === maxLap);
+        const leadByTime = leadCandidates.length > 0 ? leadCandidates : allDriverEntries;
+        leadByTime.sort((a, b) => a[1].totalTime - b[1].totalTime);
+        leaderDriver = leadByTime[0][0];
+        leaderTotalTime = leadByTime[0][1].totalTime;
+        leaderLapNumber = leadByTime[0][1].currentLap || maxLap || null;
+
+        for (const [dn, v] of allDriverEntries) {
+          const info = lapsByDriver[dn];
+          if (!info || !info.driver_time) continue;
+          const lapDiff = (leaderLapNumber || 0) - (v.currentLap || 0);
+          if (lapDiff > 0) {
+            info.driver_time.behind = formatLapGap(lapDiff);
+          } else if (leaderTotalTime != null && v.totalTime != null) {
+            info.driver_time.behind = formatGap(v.totalTime - leaderTotalTime);
           }
         }
       }
@@ -2079,6 +2213,8 @@ app.get("/session_result", async (req, res) => {
     const path = qs ? `session_result?${qs}` : "session_result";
     const url = `${BASE_URL}${path}`;
     const key = path;
+
+    await refreshSessionResultCacheIfLive();
 
     const { data, fromCache } = await getCachedWithTTL(key, url, TTL_1H);
     let arr = normalizeArray(data);
