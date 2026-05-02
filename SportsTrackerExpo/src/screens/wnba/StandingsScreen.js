@@ -97,6 +97,7 @@ const WNBAStandingsScreen = () => {
         }
         
         const data = await WNBAService.getStandings();
+        console.log("Raw WNBA standings data:", data);
         if (!mounted) return;
         const formattedData = WNBAService.formatStandingsForMobile(data);
         setStandings(formattedData);

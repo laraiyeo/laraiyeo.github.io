@@ -23,7 +23,7 @@ import Svg, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
-const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
+const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
 const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 function parseGmtOffset(gmt) {
@@ -846,7 +846,7 @@ const ResultsScreen = ({ route }) => {
     if (!constructorName) return "333333";
     const colorMap = {
       Mercedes: "00D7B6",
-      "Red Bull": "4781D7",
+      "Red Bull Racing": "4781D7",
       Ferrari: "ED1131",
       McLaren: "F47600",
       Alpine: "00A1E8",
@@ -854,7 +854,7 @@ const ResultsScreen = ({ route }) => {
       "Aston Martin": "229971",
       Williams: "1878D8",
       Sauber: "52E252",
-      Haas: "9C9FA2",
+      "Haas F1 Team": "9C9FA2",
       Audi: "F50537",
       Cadillac: "909090",
     };
@@ -949,7 +949,7 @@ const ResultsScreen = ({ route }) => {
   };
 
   // Fetch meeting details with short TTL cache (5 minutes)
-  const MEETING_DETAIL_TTL = 5 * 60 * 1000; // 5 minutes
+  const MEETING_DETAIL_TTL = 1 * 60 * 1000; // 5 minutes
   const fetchMeetingDetail = async (meetingKey) => {
     if (!meetingKey) return null;
     const cacheKey = `f1_meeting_detail:${meetingKey}`;

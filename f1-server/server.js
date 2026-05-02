@@ -1017,18 +1017,24 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       // ignore reducing errors
     }
 
-    // --- build positions map from unfiltered 'position' resource ---
+    // --- build positions map from 'position' resource scoped to this session ---
     const positionsMap = Object.create(null);
     try {
       const posArr = resources.position || [];
-      // filter positions for this session_key if present, otherwise leave as-is
+      // filter positions for this session_key only
       const filteredPos = posArr.filter((p) => {
-        const sk = p?.session_key || p?.sessionKey || p?.session_key || null;
+        const sk = p?.session_key || p?.sessionKey || null;
         if (!sk) return false;
         return String(sk) === String(sessionKey);
       });
-      // If no filtered results, fallback to using posArr (may contain live stream entries)
-      const toUse = filteredPos.length > 0 ? filteredPos : posArr;
+      if ((posArr.length || 0) > 0 && filteredPos.length === 0) {
+        try {
+          console.log(
+            `[positions] session=${sessionKey} posArr_total=${posArr.length} filtered_for_session=0 — NOT using global posArr to avoid mixing sessions`,
+          );
+        } catch (e) {}
+      }
+      const toUse = filteredPos; // only use entries that specifically match this session
       // sort by date if date exists
       toUse.sort((a, b) => {
         const da = new Date(a.date || a.timestamp || a.t || 0).getTime() || 0;
@@ -1251,33 +1257,140 @@ app.get("/session", async (req, res) => {
         return Number.isFinite(t) ? t : null;
       };
 
-      // 1) pick session where now is between start and end
-      let inProgress = arr.find((s) => {
-        const st = parseStart(s);
-        const en = parseEnd(s);
-        return st !== null && en !== null && now >= st && now <= en;
-      });
-
-      // 2) pick next future session (earliest start > now)
-      if (!inProgress) {
-        const future = arr
-          .map((s) => ({ s, st: parseStart(s) }))
-          .filter((x) => x.st !== null && x.st > now)
-          .sort((a, b) => a.st - b.st);
-        if (future.length > 0) inProgress = future[0].s;
+      // New selection logic: choose the first session (by start time ascending)
+      // that has NO winner. If all sessions have winners, choose the last
+      // session that has a winner (by end/start time). This matches the
+      // UI expectation: "next session with no winner" fallback to last
+      // with winner.
+      // Prefer authoritative meeting endpoint for winner info. If unavailable, fall back to session_result cache.
+      let meetingProviderSessions = null;
+      try {
+        const provKey = `meeting_provider:${meetingKey}`;
+        const provUrl = `https://laraiyeogithubio-production-ed10.up.railway.app/meeting/${encodeURIComponent(meetingKey)}`;
+        const provRes = await getCachedWithTTL(provKey, provUrl, TTL_6H).catch(
+          () => ({ data: null }),
+        );
+        if (provRes && provRes.data) {
+          // provider returns { meeting, sessions }
+          const payload = provRes.data;
+          meetingProviderSessions = Array.isArray(payload.sessions)
+            ? payload.sessions
+            : normalizeArray(payload?.sessions || payload?.data || []);
+        }
+      } catch (e) {
+        meetingProviderSessions = null;
       }
 
-      // 3) fallback to last session (latest end or latest start)
-      if (!inProgress) {
-        const withEnd = arr
-          .map((s) => ({ s, en: parseEnd(s), st: parseStart(s) }))
-          .sort((a, b) => (b.en || b.st || 0) - (a.en || a.st || 0));
-        inProgress = withEnd.length > 0 ? withEnd[0].s : null;
+      let resultsArr = [];
+      try {
+        resultsArr = normalizeArray(cache.get("session_result")?.data);
+      } catch (e) {
+        resultsArr = [];
       }
 
-      sessionKey = inProgress
-        ? inProgress.session_key || inProgress.sessionKey || null
+      // Log sessions and which source we're using for winner info
+      try {
+        const source = meetingProviderSessions
+          ? "meeting_provider"
+          : "session_result_cache";
+        console.log(
+          `[session-selection] meeting=${meetingKey} winner_source=${source} session_result_count=${resultsArr.length}`,
+        );
+        const statusList = arr.map((s) => {
+          const sk = s.session_key || s.sessionKey;
+          const name = s.session_name || s.sessionName || "";
+          let has = null;
+          if (meetingProviderSessions) {
+            const ms = meetingProviderSessions.find(
+              (m) => String(m.session_key) === String(sk),
+            );
+            has = ms ? (ms.winner ? true : false) : null;
+          }
+          if (has === null) {
+            has = resultsArr.some(
+              (r) =>
+                String(r.session_key) === String(sk) &&
+                (String(r.position) === "1" || r.position === 1),
+            );
+          }
+          return `${sk}:${name}:${has === true ? "HAS_WINNER" : has === false ? "NO_WINNER" : "UNKNOWN"}`;
+        });
+        console.log(
+          `[session-selection] sessions_status=${statusList.join(", ")}`,
+        );
+      } catch (e) {}
+
+      // Choose the first session in the provided sessions array that has NO winner.
+      // If all sessions have winners, choose the last session that has a winner.
+      // This intentionally ignores start/end times and uses the original ordering
+      // returned by the upstream sessions payload.
+      let chosen = null;
+      for (const s of arr) {
+        const sk = s.session_key || s.sessionKey;
+        let hasWinner = null;
+        if (meetingProviderSessions) {
+          const ms = meetingProviderSessions.find(
+            (m) => String(m.session_key) === String(sk),
+          );
+          if (ms) hasWinner = !!ms.winner;
+        }
+        if (hasWinner === null) {
+          hasWinner = resultsArr.some(
+            (r) =>
+              String(r.session_key) === String(sk) &&
+              (String(r.position) === "1" || r.position === 1),
+          );
+        }
+        if (!hasWinner) {
+          chosen = s;
+          break;
+        }
+      }
+
+      if (!chosen) {
+        // all have winners — pick last one with a winner in original order
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const s = arr[i];
+          const sk = s.session_key || s.sessionKey;
+          let hasWinner = null;
+          if (meetingProviderSessions) {
+            const ms = meetingProviderSessions.find(
+              (m) => String(m.session_key) === String(sk),
+            );
+            if (ms) hasWinner = !!ms.winner;
+          }
+          if (hasWinner === null) {
+            hasWinner = resultsArr.some(
+              (r) =>
+                String(r.session_key) === String(sk) &&
+                (String(r.position) === "1" || r.position === 1),
+            );
+          }
+          if (hasWinner) {
+            chosen = s;
+            break;
+          }
+        }
+      }
+      sessionKey = chosen
+        ? chosen.session_key || chosen.sessionKey || null
         : null;
+      try {
+        const expected = arr.find((s) => {
+          const sk = s.session_key || s.sessionKey;
+          return !resultsArr.some(
+            (r) =>
+              String(r.session_key) === String(sk) &&
+              (String(r.position) === "1" || r.position === 1),
+          );
+        });
+        console.log(
+          `[session-selection] expected_choice=${expected ? expected.session_key || expected.sessionKey : "none"}`,
+        );
+        console.log(
+          `[session-selection] chosen=${sessionKey} reason=${chosen ? (resultsArr.some((r) => String(r.session_key) === String(chosen.session_key) && (String(r.position) === "1" || r.position === 1)) ? "hasWinner" : "noWinner") : "none"}`,
+        );
+      } catch (e) {}
       if (!sessionKey)
         return res
           .status(404)
@@ -1392,6 +1505,26 @@ app.get("/session/:session_key/:status?", async (req, res) => {
         // Simplified selection: pick the next session with NO winner.
         // If all sessions have winners, pick the last session with a winner.
         // Ensure we have session_result data available to check winners.
+        // Prefer external meeting provider for winner info first (does not rely on session_result cache)
+        let meetingProviderSessions = null;
+        try {
+          const provKey = `meeting_provider:${sessionKey}`;
+          const provUrl = `https://laraiyeogithubio-production-ed10.up.railway.app/meeting/${encodeURIComponent(sessionKey)}`;
+          const provRes = await getCachedWithTTL(
+            provKey,
+            provUrl,
+            TTL_6H,
+          ).catch(() => ({ data: null }));
+          if (provRes && provRes.data) {
+            const payload = provRes.data;
+            meetingProviderSessions = Array.isArray(payload.sessions)
+              ? payload.sessions
+              : normalizeArray(payload?.sessions || payload?.data || []);
+          }
+        } catch (e) {
+          meetingProviderSessions = null;
+        }
+
         let resultsArr = normalizeArray(
           cache.get("session_result")?.data || [],
         );
@@ -1408,18 +1541,44 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           }
         }
 
-        const hasWinner = (s) => {
-          try {
-            const sk = String(s.session_key || s.sessionKey || "");
-            return resultsArr.some(
-              (r) =>
-                String(r.session_key) === sk &&
-                (String(r.position) === "1" || r.position === 1),
-            );
-          } catch (e) {
-            return false;
-          }
-        };
+        try {
+          const source = meetingProviderSessions
+            ? "meeting_provider"
+            : "session_result_cache";
+          console.log(
+            `[session-selection-path] meeting=${sessionKey} winner_source=${source} sessArr=${sessArr
+              .map(
+                (s) =>
+                  `${s.session_key || s.sessionKey}:${s.session_name || s.sessionName}`,
+              )
+              .join(", ")}`,
+          );
+          console.log(
+            `[session-selection-path] cached session_result count=${resultsArr.length}`,
+          );
+          const statusList = sessArr.map((s) => {
+            const sk = s.session_key || s.sessionKey;
+            const name = s.session_name || s.sessionName || "";
+            let has = null;
+            if (meetingProviderSessions) {
+              const ms = meetingProviderSessions.find(
+                (m) => String(m.session_key) === String(sk),
+              );
+              has = ms ? (ms.winner ? true : false) : null;
+            }
+            if (has === null) {
+              has = resultsArr.some(
+                (r) =>
+                  String(r.session_key) === String(sk) &&
+                  (String(r.position) === "1" || r.position === 1),
+              );
+            }
+            return `${sk}:${name}:${has === true ? "HAS_WINNER" : has === false ? "NO_WINNER" : "UNKNOWN"}`;
+          });
+          console.log(
+            `[session-selection-path] sessions_status=${statusList.join(", ")}`,
+          );
+        } catch (e) {}
 
         // sort sessions by start time asc for predictable ordering
         const sorted = sessArr
@@ -1428,11 +1587,24 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           .sort((a, b) => (a.st || 0) - (b.st || 0))
           .map((x) => x.s);
 
-        // prefer next future session without a winner
-        let chosen = sorted.find((s) => {
-          const st = parseStart(s);
-          return st !== null && st > now && !hasWinner(s);
-        });
+        // helper to check winner using meetingProviderSessions first then session_result
+        const hasWinner = (s) => {
+          const sk = String(s.session_key || s.sessionKey || "");
+          if (meetingProviderSessions) {
+            const ms = meetingProviderSessions.find(
+              (m) => String(m.session_key) === sk,
+            );
+            if (ms) return !!ms.winner;
+          }
+          return resultsArr.some(
+            (r) =>
+              String(r.session_key) === sk &&
+              (String(r.position) === "1" || r.position === 1),
+          );
+        };
+
+        // Pick the next session without a winner (earliest start)
+        let chosen = sorted.find((s) => !hasWinner(s));
 
         // if none, prefer a currently live session without a winner
         if (!chosen) {
@@ -1454,20 +1626,22 @@ app.get("/session/:session_key/:status?", async (req, res) => {
           chosen = sorted.find((s) => !hasWinner(s));
         }
 
-        // if all have winners, pick the last session that has a winner (by end or start desc)
+        // fallback if all have winners
         if (!chosen) {
-          const withTimes = sessArr
+          const withTimes = sorted
             .map((s) => ({ s, en: parseEnd(s) || parseStart(s) || 0 }))
             .sort((a, b) => b.en - a.en);
-          const lastWithWinner = withTimes
-            .map((x) => x.s)
-            .find((s) => hasWinner(s));
-          chosen = lastWithWinner || null;
+          chosen = withTimes.map((x) => x.s).find((s) => hasWinner(s)) || null;
         }
 
         sessionKey = chosen
           ? chosen.session_key || chosen.sessionKey || null
           : null;
+        try {
+          console.log(
+            `[session-selection-path] chosen=${sessionKey} reason=${chosen ? (hasWinner(chosen) ? "hasWinner" : "noWinner") : "none"}`,
+          );
+        } catch (e) {}
         if (sessionKey) {
           // now fetch sessionObj by sessionKey
           const path = `sessions?session_key=${encodeURIComponent(sessionKey)}`;
@@ -1548,6 +1722,33 @@ app.get("/sessions", async (req, res) => {
     res
       .status(502)
       .json({ error: "Failed to fetch sessions", details: err.message });
+  }
+});
+
+// DEBUG: expose cached session_result (optional session_key filter)
+app.get("/debug/session_results/:session_key?", async (req, res) => {
+  try {
+    const sk = req.params.session_key || null;
+    let arr = normalizeArray(cache.get("session_result")?.data || []);
+    if ((!arr || arr.length === 0) && !sk) {
+      // try to prime cache from upstream
+      const sr = await getCachedWithTTL(
+        "session_result",
+        `${BASE_URL}session_result`,
+        TTL_1H,
+      ).catch(() => ({ data: [] }));
+      arr = normalizeArray(sr.data);
+    }
+    if (sk) {
+      arr = arr.filter((r) => String(r.session_key) === String(sk));
+    }
+    const hasWinner = arr.some(
+      (r) => String(r.position) === "1" || r.position === 1,
+    );
+    setCachingHeaders(res, TTL_1H);
+    res.json({ count: arr.length, hasWinner, sample: arr.slice(0, 50) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

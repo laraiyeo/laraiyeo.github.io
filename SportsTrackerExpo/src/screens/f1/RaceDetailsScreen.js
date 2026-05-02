@@ -18,7 +18,7 @@ import Svg, {
   Path,
   G,
 } from "react-native-svg";
-import { useRoute } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -26,7 +26,7 @@ import { useTheme } from "../../context/ThemeContext";
 const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
 const { width } = Dimensions.get("window");
 
-const BASE_TABS = ["Main", "Drivers", "Events", "Stints", "Grid"];
+const BASE_TABS = ["Main", "Drivers", "Events", "Stints", "Race Flow", "Grid"];
 
 const countryColorMap = {
   bahrain: "#CE1126",
@@ -55,7 +55,7 @@ const countryColorMap = {
 // Team color map (used for headshot background/border)
 const TEAM_COLORS = {
   Mercedes: "#00D7B6",
-  "Red Bull": "#4781D7",
+  "Red Bull Racing": "#4781D7",
   Ferrari: "#ED1131",
   McLaren: "#F47600",
   Alpine: "#00A1E8",
@@ -63,7 +63,7 @@ const TEAM_COLORS = {
   "Aston Martin": "#229971",
   Williams: "#1878D8",
   Sauber: "#52E252",
-  Haas: "#9C9FA2",
+  "Haas F1 Team": "#9C9FA2",
   Audi: "#F50537",
   Cadillac: "#909090",
 };
@@ -177,7 +177,7 @@ const mapSessionNameToAbbrev = (name) => {
   const pMatch = n.match(/practice\s*(\d+)/i);
   if (pMatch) return `P${pMatch[1]}`;
   if (n.includes("sprint qualifying")) return "SQ";
-  if (n.includes("sprint")) return "S";
+  if (n.includes("sprint")) return "SR";
   if (n.includes("qualifying")) return "Q";
   if (n.includes("race")) return "R";
   // fallback: initials of words
@@ -319,6 +319,7 @@ const formatDateTimeLocal = (iso) => {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "--";
     const datePart = d.toLocaleDateString(undefined, {
+      weekday: "short",
       month: "short",
       day: "numeric",
     });
@@ -326,7 +327,7 @@ const formatDateTimeLocal = (iso) => {
       hour: "2-digit",
       minute: "2-digit",
     });
-    return `${datePart} ${timePart}`;
+    return `${datePart} · ${timePart}`;
   } catch (e) {
     return "--";
   }
@@ -337,9 +338,18 @@ const formatLapTime = (t) => {
   // t expected in seconds (may be float)
   const totalMs = Math.round(Number(t) * 1000);
   if (Number.isNaN(totalMs)) return String(t);
-  const minutes = Math.floor(totalMs / 60000);
-  const seconds = Math.floor((totalMs % 60000) / 1000);
-  const hundredths = Math.floor((totalMs % 1000) / 10);
+
+  const hours = Math.floor(totalMs / 3600000); // Get hours
+  const minutes = Math.floor((totalMs % 3600000) / 60000); // Get minutes
+  const seconds = Math.floor((totalMs % 60000) / 1000); // Get seconds
+  const hundredths = Math.floor((totalMs % 1000) / 10); // Get hundredths
+
+  // If hours are zero, we don't need to show it
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+  }
+
+  // If no hours, just show minutes:seconds.hundredths
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
 };
 
@@ -401,16 +411,18 @@ const buildPathFromXY = (xArr, yArr, w, h, pad = 12) => {
 const RaceDetailsScreen = () => {
   const route = useRoute();
   const { theme, colors } = useTheme();
+  const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState("Main");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [renderMode, setRenderMode] = useState(false);
+  const [renderMode, setRenderMode] = useState(true);
   const [meetingInfo, setMeetingInfo] = useState(null);
   const [sessionsList, setSessionsList] = useState([]);
   const [selectedSessionKey, setSelectedSessionKey] = useState(
     sessionKey || null,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [sessionInitialized, setSessionInitialized] = useState(false);
 
   const sessionKey =
     route?.params?.sessionKey ||
@@ -445,9 +457,10 @@ const RaceDetailsScreen = () => {
       setLoading(true);
       try {
         if (sessionKey) {
+          // Fetch session data
           await fetchSessionByKey(sessionKey);
         } else if (meetingKey) {
-          // fetch meeting summary (contains sessions list)
+          // Fetch meeting summary and session data
           try {
             const resp = await fetch(`${SERVER_BASE}/meeting/${meetingKey}`);
             const json = await resp.json();
@@ -455,9 +468,9 @@ const RaceDetailsScreen = () => {
             setMeetingInfo(meetingObj);
             const sessionsArr = json?.sessions ?? meetingObj?.sessions ?? [];
             setSessionsList(sessionsArr);
-            const defaultSessionKey =
-              sessionKey || sessionsArr?.[0]?.session_key || null;
-            if (defaultSessionKey) await fetchSessionByKey(defaultSessionKey);
+
+            // Fetch session details by meeting key
+            await fetchSessionByKey(meetingKey);
           } catch (e) {
             console.warn("[RaceDetailsScreen] meeting fetch failed", e);
           }
@@ -490,6 +503,7 @@ const RaceDetailsScreen = () => {
   const raceControl = Array.isArray(payload.race_control)
     ? payload.race_control
     : [];
+  const overtakes = Array.isArray(payload.overtakes) ? payload.overtakes : [];
   const stints = Array.isArray(payload.stints) ? payload.stints : [];
 
   const countryColor =
@@ -567,7 +581,11 @@ const RaceDetailsScreen = () => {
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Svg width={width} height={90}>
+        <Svg
+          width={width}
+          height={90}
+          style={{ backgroundColor: theme.surface }}
+        >
           <Defs>
             <LinearGradient id="raceHdr" x1="0%" y1="0%" x2="100%" y2="0%">
               <Stop offset="0%" stopColor={countryColor} stopOpacity="0.28" />
@@ -600,7 +618,12 @@ const RaceDetailsScreen = () => {
         </View>
       </View>
 
-      <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
+      <View
+        style={[
+          styles.tabBar,
+          { borderBottomColor: theme.border, backgroundColor: theme.surface },
+        ]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -983,7 +1006,7 @@ const RaceDetailsScreen = () => {
                               style={[
                                 styles.candHeadshot,
                                 {
-                                  borderWidth: StyleSheet.hairlineWidth,
+                                  borderWidth: 2,
                                   borderColor: teamColorLocal || theme.border,
                                   backgroundColor:
                                     (teamColorLocal || theme.surface) + "33",
@@ -999,7 +1022,7 @@ const RaceDetailsScreen = () => {
                                     (teamColorLocal || theme.surface) + "33",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  borderWidth: StyleSheet.hairlineWidth,
+                                  borderWidth: 2,
                                   borderColor: teamColorLocal || theme.border,
                                 },
                               ]}
@@ -1290,32 +1313,423 @@ const RaceDetailsScreen = () => {
 
         {activeTab === "Drivers" && (
           <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
-            {sessionResults.length ? (
-              sessionResults.slice(0, 20).map((r, i) => (
-                <View
-                  key={`${r.driver_number || i}`}
-                  style={[styles.row, { borderBottomColor: theme.border }]}
-                >
-                  <Text style={{ color: theme.text }}>
-                    {r.position ?? i + 1}
-                  </Text>
+            {(() => {
+              const maps = payload?.maps || {};
+              const driversMap = maps.drivers || {};
+              const positions = payload?.positions || {};
+              const lapsByDriver = payload?.laps?.byDriver || {};
+              const overtakes = Array.isArray(payload?.overtakes)
+                ? payload.overtakes
+                : [];
+              const pits = Array.isArray(payload?.pits) ? payload.pits : [];
+
+              // Only include drivers that appear in the positions map (preferred).
+              // If positions is empty, fall back to session_results entries.
+              const nums = new Set();
+              const posKeys = Object.keys(positions || {});
+              if (posKeys.length > 0) {
+                posKeys.forEach((k) => nums.add(String(k)));
+              } else {
+                (sessionResults || []).forEach((r) => {
+                  if (r?.driver_number) nums.add(String(r.driver_number));
+                });
+              }
+
+              const list = Array.from(nums).map((dn) => {
+                const driverObj = findDriverInMaps(payload?.maps, dn) || null;
+                const name =
+                  driverObj?.full_name ||
+                  driverObj?.name ||
+                  driverObj?.displayName ||
+                  `#${dn}`;
+                const headshot =
+                  driverObj?.headshot ||
+                  driverObj?.headshot_url ||
+                  driverObj?.headshotUrl ||
+                  null;
+                const teamName =
+                  DRIVER_TO_TEAM[String(dn)] ||
+                  driverObj?.team ||
+                  driverObj?.team_name ||
+                  "";
+                const posObj =
+                  positions[String(dn)] || positions[Number(dn)] || null;
+                const pos = posObj?.position ?? null;
+                const lastLap = lapsByDriver[String(dn)]?.lastLap || null;
+                const time = lastLap?.lap_duration ?? lastLap?.duration ?? null;
+                const lapNumber =
+                  lastLap?.lap_number ?? lastLap?.lapNumber ?? null;
+                const overCount = overtakes.filter(
+                  (o) => String(o.driver_number) === String(dn),
+                ).length;
+                const pitCount = pits.filter(
+                  (p) => String(p.driver_number) === String(dn),
+                ).length;
+                const sessionResult =
+                  (sessionResults || []).find(
+                    (r) => String(r.driver_number) === String(dn),
+                  ) || null;
+                const duration = Array.isArray(sessionResult?.duration)
+                  ? (sessionResult.duration[2] ??
+                    sessionResult.duration[1] ??
+                    sessionResult.duration[0] ??
+                    null)
+                  : sessionResult?.duration || null;
+
+                const outQual = Array.isArray(sessionResult?.duration)
+                  ? !sessionResult?.duration[1]
+                    ? "Q2"
+                    : !sessionResult?.duration[2]
+                      ? "Q3"
+                      : null
+                  : null;
+
+                const dnfDnsDsq = (status) => {
+                  const { dnf, dns, dsq } = status;
+                  if (dnf) {
+                    return "DNF";
+                  } else if (dns) {
+                    return "DNS";
+                  } else if (dsq) {
+                    return "DSQ";
+                  } else {
+                    return null;
+                  }
+                };
+
+                const result = dnfDnsDsq(sessionResult);
+
+                const timeToUse = duration || time;
+
+                const getSegmentColor = (segment) => {
+                  if (!segment) return null;
+                  if (segment.includes(2051)) return "#6d28d9";
+                  if (segment.includes(2049)) return "#16a34a";
+                  if (segment.every((s) => s === 2048)) return "#ffcf40";
+                  return null;
+                };
+
+                const segment1Color = getSegmentColor(
+                  lastLap?.segments_sector_1,
+                );
+                const segment2Color = getSegmentColor(
+                  lastLap?.segments_sector_2,
+                );
+                const segment3Color = getSegmentColor(
+                  lastLap?.segments_sector_3,
+                );
+
+                const getTextColor = (color) => {
+                  return color === "#ffcf40" ? "#000" : "#fff";
+                };
+
+                return {
+                  driverNumber: dn,
+                  name,
+                  headshot,
+                  teamName,
+                  pos: Number.isFinite(Number(pos)) ? Number(pos) : null,
+                  timeToUse,
+                  outQual,
+                  result,
+                  laps: lapNumber,
+                  overtakes: overCount,
+                  pits: pitCount,
+                  segment1Color,
+                  segment2Color,
+                  segment3Color,
+                  getTextColor,
+                };
+              });
+
+              list.sort((a, b) => {
+                if (a.pos == null && b.pos == null)
+                  return a.name.localeCompare(b.name);
+                if (a.pos == null) return 1;
+                if (b.pos == null) return -1;
+                return a.pos - b.pos;
+              });
+
+              if (!list.length)
+                return (
                   <Text style={{ color: theme.textSecondary }}>
-                    {r.driver_name || r.full_name || r.name || "Driver"}
+                    Drivers will appear here when available.
                   </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={{ color: theme.textSecondary }}>
-                Drivers will appear here when results are available.
-              </Text>
-            )}
+                );
+
+              return list.map((d) => {
+                const teamColorLocal =
+                  (TEAM_COLORS && TEAM_COLORS[d.teamName]) || colors.primary;
+                return (
+                  <TouchableOpacity
+                    key={`driver-${d.driverNumber}`}
+                    style={[
+                      styles.driverCard,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: teamColorLocal,
+                      },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      navigation.navigate("RacerDetails", {
+                        driverNumber: d.driverNumber,
+                        driverName: d.name,
+                      })
+                    }
+                  >
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 10 }}>
+                      <View style={styles.driverTopRow}>
+                        {d.headshot ? (
+                          <Image
+                            source={{ uri: d.headshot }}
+                            style={[
+                              styles.driverHeadshot,
+                              {
+                                borderColor: teamColorLocal,
+                                backgroundColor: teamColorLocal + "22",
+                              },
+                            ]}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.driverHeadshot,
+                              {
+                                borderColor: teamColorLocal,
+                                backgroundColor: teamColorLocal + "22",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[styles.driverInitials, { color: "#fff" }]}
+                            >
+                              {String(d.name)
+                                .split(" ")
+                                .map((w) => w[0] || "")
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.driverNameBlock}>
+                          <View style={styles.nameTopRow}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text
+                                style={[
+                                  styles.driverName,
+                                  { color: theme.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {d.name}
+                              </Text>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Text
+                                  style={[
+                                    styles.driverMeta,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                  numberOfLines={1}
+                                >{`#${d.driverNumber} · ${d.teamName || ""}`}</Text>
+                                {d.outQual !== null ? (
+                                  <Text
+                                    style={[
+                                      styles.driverMeta,
+                                      { color: theme.error },
+                                    ]}
+                                    numberOfLines={1}
+                                  >{` · OUT ${d.outQual}`}</Text>
+                                ) : null}
+                              </View>
+                            </View>
+
+                            <View style={styles.posBadgeWrap}>
+                              <View
+                                style={[
+                                  styles.posBadge,
+                                  { backgroundColor: teamColorLocal },
+                                ]}
+                              >
+                                <Text style={styles.posBadgeText}>
+                                  {d.pos != null ? d.pos : "-"}
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.posLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                POS
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.statsRow}>
+                            <View style={styles.statCell}>
+                              <Text
+                                style={[
+                                  styles.statValue,
+                                  {
+                                    color: d.result ? theme.error : theme.text,
+                                  },
+                                ]}
+                              >
+                                {d.result
+                                  ? d.result
+                                  : d.timeToUse
+                                    ? formatLapTime(d.timeToUse)
+                                    : "-"}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.statLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                TIME
+                              </Text>
+                            </View>
+                            <View style={styles.statCell}>
+                              <Text
+                                style={[
+                                  styles.statValue,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {d.laps ?? "-"}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.statLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                LAPS
+                              </Text>
+                            </View>
+                            <View style={styles.statCell}>
+                              <Text
+                                style={[
+                                  styles.statValue,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {d.pits}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.statLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                PITS
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    {d.segment1Color || d.segment2Color || d.segment3Color ? (
+                      <View
+                        style={[
+                          styles.summaryFooter,
+                          {
+                            borderTopColor: theme.surface,
+                            backgroundColor: theme.surfaceSecondary,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.summaryFooterFill,
+                            {
+                              flex: 1,
+                              backgroundColor:
+                                d.segment1Color || theme.surfaceSecondary,
+                              borderRightColor: theme.surface,
+                              borderRightWidth: 2.5,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: d.getTextColor(d.segment1Color),
+                              fontSize: 10,
+                              textAlign: "center",
+                              fontWeight: "600",
+                            }}
+                          >
+                            SECTOR 1
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.summaryFooterFill,
+                            {
+                              flex: 1,
+                              backgroundColor:
+                                d.segment2Color || theme.surfaceSecondary,
+                              borderRightColor: theme.surface,
+                              borderRightWidth: 2.5,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: d.getTextColor(d.segment2Color),
+                              fontSize: 10,
+                              textAlign: "center",
+                              fontWeight: "600",
+                            }}
+                          >
+                            SECTOR 2
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.summaryFooterFill,
+                            {
+                              flex: 1,
+                              backgroundColor:
+                                d.segment3Color || theme.surfaceSecondary,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: d.getTextColor(d.segment3Color),
+                              fontSize: 10,
+                              textAlign: "center",
+                              fontWeight: "600",
+                            }}
+                          >
+                            SECTOR 3
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              });
+            })()}
           </View>
         )}
 
         {activeTab === "Events" && (
           <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
             {raceControl.length ? (
-              raceControl.slice(0, 30).map((c, i) => (
+              raceControl.map((c, i) => (
                 <View
                   key={`rc-${i}`}
                   style={[
@@ -1350,7 +1764,8 @@ const RaceDetailsScreen = () => {
                   style={[styles.row, { borderBottomColor: theme.border }]}
                 >
                   <Text style={{ color: theme.text }}>
-                    {s.driver_number || s.driver || i + 1}
+                    {findDriverInMaps(payload?.maps, s.driver_number)?.name ||
+                      "Driver"}
                   </Text>
                   <Text style={{ color: theme.textSecondary }}>
                     {s.compound || s.tyre || "Stint"}
@@ -1377,7 +1792,8 @@ const RaceDetailsScreen = () => {
                     {g.position ?? i + 1}
                   </Text>
                   <Text style={{ color: theme.textSecondary }}>
-                    {g.driver_name || g.full_name || g.name || "Driver"}
+                    {findDriverInMaps(payload?.maps, g.driver_number)?.name ||
+                      "Driver"}
                   </Text>
                 </View>
               ))
@@ -1390,55 +1806,74 @@ const RaceDetailsScreen = () => {
         )}
       </ScrollView>
       {/* Session picker overlay + floating button */}
-      {pickerOpen && (
-        <View style={styles.sessionPickerOverlay} pointerEvents="box-none">
-          <TouchableWithoutFeedback onPress={() => setPickerOpen(false)}>
-            <View style={styles.sessionPickerBackdrop} />
-          </TouchableWithoutFeedback>
-          <View style={styles.sessionPickerContainer} pointerEvents="box-none">
-            {sessionsList && sessionsList.length ? (
-              sessionsList.map((s) => {
-                const isLive = isSessionLive(s);
-                const bg = isLive ? theme.error || "#b00020" : colors.primary;
-                return (
-                  <TouchableOpacity
-                    key={`${s.session_key}`}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      fetchSessionByKey(s.session_key);
-                      setPickerOpen(false);
-                    }}
-                    style={[
-                      styles.sessionButton,
-                      { backgroundColor: bg, borderColor: theme.border },
-                    ]}
-                  >
-                    {isLive && (
-                      <Ionicons
-                        name="radio"
-                        size={45}
-                        color={"#b00020"}
-                        style={{ position: "absolute", opacity: 0.75 }}
-                      />
-                    )}
-                    <Text
-                      style={[styles.sessionButtonLabel, { color: "white" }]}
-                    >
-                      {mapSessionNameToAbbrev(s.session_name) || "S"}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={styles.sessionButtonEmpty}>
-                <Text style={{ color: theme.textSecondary }}>
-                  No sessions available
-                </Text>
-              </View>
-            )}
+      {pickerOpen &&
+        selectedSessionKey !== null &&
+        (console.log(
+          "Rendering session picker overlay with sessionsList:",
+          sessionsList,
+          "and selectedSessionKey:",
+          selectedSessionKey,
+        ),
+        (
+          <View style={styles.sessionPickerOverlay} pointerEvents="box-none">
+            <TouchableWithoutFeedback onPress={() => setPickerOpen(false)}>
+              <View style={styles.sessionPickerBackdrop} />
+            </TouchableWithoutFeedback>
+            <View
+              style={styles.sessionPickerContainer}
+              pointerEvents="box-none"
+            >
+              {sessionsList && sessionsList.length ? (
+                // Filter out the session that matches selectedSessionKey
+                sessionsList
+                  .filter((s) => s.session_key !== selectedSessionKey && s.session_key !== payload?.session?.session_key) // Exclude the current session
+                  .map((s) => {
+                    const isLive = isSessionLive(s);
+                    const bg = isLive
+                      ? theme.error || "#b00020"
+                      : colors.primary;
+                    return (
+                      <TouchableOpacity
+                        key={`${s.session_key}`}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          fetchSessionByKey(s.session_key); // Fetch the session details when selected
+                          setPickerOpen(false);
+                        }}
+                        style={[
+                          styles.sessionButton,
+                          { backgroundColor: bg, borderColor: theme.border },
+                        ]}
+                      >
+                        {isLive && (
+                          <Ionicons
+                            name="radio"
+                            size={45}
+                            color={"#b00020"}
+                            style={{ position: "absolute", opacity: 0.75 }}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.sessionButtonLabel,
+                            { color: "white" },
+                          ]}
+                        >
+                          {mapSessionNameToAbbrev(s.session_name) || "S"}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+              ) : (
+                <View style={styles.sessionButtonEmpty}>
+                  <Text style={{ color: theme.textSecondary }}>
+                    No sessions available
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      )}
+        ))}
 
       <View style={styles.floatingButtonWrap} pointerEvents="box-none">
         {(() => {
@@ -1675,9 +2110,55 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: "rgba(0,0,0,0.06)",
+    borderWidth: 2,
   },
   candTitle: { fontSize: 10, fontWeight: "500" },
   candName: { fontSize: 14, fontWeight: "800" },
+  /* Drivers / Player-like card styles (inspired by BoxScorePanel) */
+  driverCard: {
+    borderRadius: 12,
+    marginBottom: 6,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  driverTopRow: { flexDirection: "row", alignItems: "center" },
+  driverHeadshot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  driverInitials: { fontSize: 16, fontWeight: "800" },
+  driverNameBlock: { flex: 1, marginLeft: 10 },
+  nameTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  driverName: { fontSize: 14, fontWeight: "800" },
+  driverMeta: { fontSize: 12, marginTop: 2 },
+  posBadgeWrap: { alignItems: "center", justifyContent: "center" },
+  posBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  posBadgeText: { color: "white", fontSize: 14, fontWeight: "800" },
+  posLabel: { fontSize: 10, marginTop: 4, fontWeight: "700" },
+  statsRow: {
+    flexDirection: "row",
+    marginTop: 8,
+    justifyContent: "space-between",
+  },
+  statCell: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 15, fontWeight: "800" },
+  statLabel: { fontSize: 11, fontWeight: "700", marginTop: 2 },
+  summaryFooter: {
+    height: 12.5,
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    width: "100%",
+  },
+  summaryFooterFill: {
+    height: "100%",
+  },
   weatherSection: { borderRadius: 10, padding: 12, marginTop: 8 },
   weatherRow: {
     flexDirection: "row",
