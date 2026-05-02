@@ -50,6 +50,43 @@ async function fetchAndCache(key, url) {
   }
 }
 
+// fetch until upstream returns a non-empty session_result payload or until a timeout
+async function fetchAndCacheWithRetry(key, url, opts = {}) {
+  const { maxWaitMs = 30000, intervalMs = 2000 } = opts;
+  const start = Date.now();
+
+  while (true) {
+    try {
+      const r = await axios.get(url, { timeout: 10000 });
+      const payload = r.data;
+
+      // Consider payload non-empty if it's an array with length > 0,
+      // or if it's an object with a non-empty `data` array, or if it has keys
+      const isArray = Array.isArray(payload) && payload.length > 0;
+      const hasDataArray = payload && Array.isArray(payload.data) && payload.data.length > 0;
+      const hasAnyKeys = payload && typeof payload === "object" && Object.keys(payload).length > 0;
+
+      if (isArray || hasDataArray || hasAnyKeys) {
+        cache.set(key, { data: payload, fetchedAt: Date.now() });
+        console.log(`Fetched and cached ${key} (with data)`);
+        return { data: payload, fromCache: false };
+      }
+
+      // empty payload — decide whether to retry or return
+      if (Date.now() - start >= maxWaitMs) {
+        cache.set(key, { data: payload, fetchedAt: Date.now() });
+        console.log(`Fetched and cached ${key} (empty, timeout reached)`);
+        return { data: payload, fromCache: false };
+      }
+    } catch (err) {
+      console.warn(`Transient fetch error for ${url}: ${err.message}`);
+      if (Date.now() - start >= maxWaitMs) throw err;
+    }
+
+    await new Promise((res) => setTimeout(res, intervalMs));
+  }
+}
+
 async function getCached(key, url) {
   const entry = cache.get(key);
   if (entry) {
@@ -66,6 +103,21 @@ async function getCachedWithTTL(key, url, ttlMs) {
     const age = Date.now() - entry.fetchedAt;
     if (age < ttlMs) return { data: entry.data, fromCache: true };
   }
+  // For session_result we prefer to retry the upstream until non-empty (short wait),
+  // to avoid returning stale/empty session_result in places that expect fresh data.
+  if (String(key).toLowerCase().startsWith("session_result" ) || key === "session_result") {
+    try {
+      // try for up to 30s, polling every 2s
+      const res = await fetchAndCacheWithRetry(key, url, { maxWaitMs: 30000, intervalMs: 2000 });
+      return res;
+    } catch (e) {
+      // fall back to single fetch attempt if retries fail
+      console.warn(`[getCachedWithTTL] retry fetch failed for ${key}: ${e.message}`);
+      const res = await fetchAndCache(key, url).catch((err) => ({ data: null, fromCache: false }));
+      return res;
+    }
+  }
+
   const res = await fetchAndCache(key, url);
   return res;
 }
@@ -95,6 +147,66 @@ function ensureRefreshInterval(key, url, ttlMs) {
       ttlMs,
     );
     refreshIntervals.set(key, id);
+  }
+}
+
+// Start a watcher that polls session_result for a specific session_key until
+// the returned payload changes (compared to `prevSnapshot`) or until `maxWaitMs`.
+// This avoids stopping fetches immediately after a live window and ensures
+// the server will keep requesting upstream until new session_result data appears.
+function watchSessionResultUntilChanged(sessionKey, prevSnapshot, opts = {}) {
+  try {
+    const key = `watch_session_result:${sessionKey}`;
+    if (refreshIntervals.has(key)) return; // already watching
+
+    const intervalMs = opts.intervalMs || 30 * 1000; // default 30s
+    const maxWaitMs = opts.maxWaitMs || 30 * 60 * 1000; // default 30 minutes
+    const start = Date.now();
+    const path = `session_result?session_key=${encodeURIComponent(sessionKey)}`;
+    const url = `${BASE_URL}${path}`;
+
+    const id = setInterval(async () => {
+      try {
+        const r = await axios.get(url, { timeout: 10000 });
+        const payload = r.data || null;
+
+        // Normalize to comparable form: JSON stringify of array or object
+        const newSnap = payload === null ? null : JSON.stringify(payload);
+        const prevSnap = prevSnapshot === null ? null : JSON.stringify(prevSnapshot);
+
+        if (newSnap && newSnap !== prevSnap) {
+          // Found updated session_result. Rebuild cached assembled session so
+          // other endpoints pick up the new data.
+          console.log(`watchSessionResultUntilChanged: detected update for ${sessionKey}`);
+          try {
+            await buildAndCacheSession(String(sessionKey), { forceLive: false }).catch(() => {});
+          } catch (e) {}
+          // stop watching
+          clearInterval(id);
+          refreshIntervals.delete(key);
+          return;
+        }
+
+        // stop if waited too long
+        if (Date.now() - start >= maxWaitMs) {
+          console.log(`watchSessionResultUntilChanged: timeout for ${sessionKey}`);
+          clearInterval(id);
+          refreshIntervals.delete(key);
+          return;
+        }
+      } catch (e) {
+        console.warn(`watchSessionResultUntilChanged: fetch error for ${sessionKey}: ${e.message}`);
+        if (Date.now() - start >= maxWaitMs) {
+          clearInterval(id);
+          refreshIntervals.delete(key);
+          return;
+        }
+      }
+    }, intervalMs);
+
+    refreshIntervals.set(key, id);
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -1353,6 +1465,31 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
     // cache assembled
     cache.set(cacheKey, { data: assembled, fetchedAt: Date.now() });
+    // If the session has finished but session_result appears incomplete (no winner),
+    // start a background watcher to keep polling the upstream session_result until
+    // new data appears (or until a longer timeout). This prevents the server from
+    // reverting to an infrequent refresh cadence and missing upstream updates.
+    try {
+      const endMs = new Date(
+        sessionObj.date_end || sessionObj.dateEnd,
+      ).getTime();
+      const hasEnded = Number.isFinite(endMs) ? Date.now() > endMs : false;
+      const srArr = Array.isArray(assembled.session_result)
+        ? assembled.session_result
+        : normalizeArray(assembled.session_result);
+      const hasWinner = Array.isArray(srArr)
+        ? srArr.some((r) => String(r?.position) === "1" || r?.position === 1)
+        : false;
+      if (hasEnded && !hasWinner) {
+        // poll every 60s for up to 30 minutes until updated
+        watchSessionResultUntilChanged(String(sessionKey), srArr || null, {
+          intervalMs: 60 * 1000,
+          maxWaitMs: 30 * 60 * 1000,
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
     // ensure refresh interval for assembled session
     try {
       const now = Date.now();
