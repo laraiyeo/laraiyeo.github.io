@@ -1408,6 +1408,10 @@ const RaceDetailsScreen = () => {
                       : null
                   : null;
 
+                const driverTime = lapsByDriver[String(dn)]?.driver_time ?? null;
+                const driverDuration = driverTime?.time ?? null;
+                const driverBehind = driverTime?.behind ?? null;
+
                 const dnfDnsDsq = (status) => {
                   const { dnf, dns, dsq } = status;
                   if (dnf) {
@@ -1506,7 +1510,7 @@ const RaceDetailsScreen = () => {
 
               if (!list.length)
                 return (
-                  <Text style={{ color: theme.textSecondary }}>
+                  <Text style={{ color: theme.textSecondary, textAlign: "center", fontSize: 16 }}>
                     Drivers will appear here when available.
                   </Text>
                 );
@@ -1827,7 +1831,7 @@ const RaceDetailsScreen = () => {
                 </View>
               ))
             ) : (
-              <Text style={{ color: theme.textSecondary }}>
+              <Text style={{ color: theme.textSecondary, textAlign: "center", fontSize: 16 }}>
                 Events will appear here when available.
               </Text>
             )}
@@ -1852,7 +1856,7 @@ const RaceDetailsScreen = () => {
                 </View>
               ))
             ) : (
-              <Text style={{ color: theme.textSecondary }}>
+              <Text style={{ color: theme.textSecondary, textAlign: "center", fontSize: 16 }}>
                 Stints data will appear here when available.
               </Text>
             )}
@@ -1877,7 +1881,7 @@ const RaceDetailsScreen = () => {
                 </View>
               ))
             ) : (
-              <Text style={{ color: theme.textSecondary }}>
+              <Text style={{ color: theme.textSecondary, textAlign: "center", fontSize: 16 }}>
                 No starting grid data.
               </Text>
             )}

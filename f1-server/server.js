@@ -1164,6 +1164,23 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       let leaderTotalTime = null;
       let leaderLapNumber = null;
 
+      const toNumberOrNull = (value) => {
+        if (value == null) return null;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      const getLapTime = (lap) => {
+        if (!lap) return null;
+        const lapDuration = toNumberOrNull(lap.lap_duration ?? lap.duration);
+        if (lapDuration != null) return lapDuration;
+        const s1 = toNumberOrNull(lap.duration_sector_1) ?? 0;
+        const s2 = toNumberOrNull(lap.duration_sector_2) ?? 0;
+        const s3 = toNumberOrNull(lap.duration_sector_3) ?? 0;
+        const sectorTotal = s1 + s2 + s3;
+        return sectorTotal > 0 ? sectorTotal : null;
+      };
+
       for (const dn of Object.keys(lapsByDriver)) {
         const info = lapsByDriver[dn];
         const driverLaps = lapsArr.filter(
@@ -1173,42 +1190,41 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             ) === String(dn),
         );
 
-        // laps that have any sector data (include laps even if some sectors are null)
-        const sectorLaps = driverLaps.filter(
-          (lap) =>
-            lap &&
-            (lap.duration_sector_1 != null ||
-              lap.duration_sector_2 != null ||
-              lap.duration_sector_3 != null),
-        );
-
         let totalTime = null;
         let lapsUsed = 0;
-        if (sectorLaps.length > 0) {
-          totalTime = sectorLaps.reduce((sum, lap) => {
-            // prefer explicit lap_duration/duration when available
-            const lapDurRaw = lap.lap_duration ?? lap.duration ?? null;
-            const lapDur = lapDurRaw != null ? Number(lapDurRaw) : null;
-            if (lapDur != null && Number.isFinite(lapDur)) return sum + lapDur;
-            const s1 = Number(lap.duration_sector_1) || 0;
-            const s2 = Number(lap.duration_sector_2) || 0;
-            const s3 = Number(lap.duration_sector_3) || 0;
-            return sum + s1 + s2 + s3;
-          }, 0);
-          lapsUsed = sectorLaps.length;
-        } else {
-          // fallback to most recent lap_duration if sectors not available
-          const lastWithLapDuration = driverLaps
-            .slice()
-            .reverse()
-            .find((l) => l && (l.lap_duration != null || l.duration != null));
-          if (lastWithLapDuration) {
-            totalTime =
-              Number(
-                lastWithLapDuration.lap_duration ??
-                  lastWithLapDuration.duration,
-              ) || null;
-            lapsUsed = 1;
+        const lapsWithNumbers = driverLaps
+          .map((lap) => ({
+            lap,
+            lapNumber: Number(lap?.lap_number ?? lap?.lapNumber ?? NaN),
+            lapTime: getLapTime(lap),
+          }))
+          .filter((entry) => Number.isFinite(entry.lapNumber))
+          .sort((a, b) => {
+            if (a.lapNumber !== b.lapNumber) return a.lapNumber - b.lapNumber;
+            const da = new Date(a.lap?.date_start || a.lap?.date || 0).getTime() || 0;
+            const db = new Date(b.lap?.date_start || b.lap?.date || 0).getTime() || 0;
+            return da - db;
+          });
+
+        if (lapsWithNumbers.length > 0) {
+          let previousRecordedLapNumber = null;
+          let previousRecordedLapTime = null;
+
+          for (const entry of lapsWithNumbers) {
+            if (entry.lapTime == null) continue;
+
+            if (previousRecordedLapNumber != null) {
+              const missingLapCount = entry.lapNumber - previousRecordedLapNumber - 1;
+              if (missingLapCount > 0 && previousRecordedLapTime != null) {
+                totalTime = (totalTime ?? 0) + previousRecordedLapTime * missingLapCount;
+                lapsUsed += missingLapCount;
+              }
+            }
+
+            totalTime = (totalTime ?? 0) + entry.lapTime;
+            lapsUsed += 1;
+            previousRecordedLapNumber = entry.lapNumber;
+            previousRecordedLapTime = entry.lapTime;
           }
         }
 
