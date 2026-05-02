@@ -120,7 +120,8 @@ async function getCachedWithTTL(key, url, ttlMs) {
   ) {
     const lowerKey = String(key).toLowerCase();
     const lowerUrl = String(url || "").toLowerCase();
-    const isSessionScoped = lowerKey.includes("session_key") || lowerUrl.includes("session_key=");
+    const isSessionScoped =
+      lowerKey.includes("session_key") || lowerUrl.includes("session_key=");
     if (isSessionScoped) {
       try {
         return await fetchAndCache(key, url);

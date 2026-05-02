@@ -803,7 +803,9 @@ const RaceDetailsDriverCopyCard = ({
           ? `${driverData.topSpeedDisplay} km/h`
           : "-",
       topRight:
-        driverData.topSpeedLapNum != null ? `Lap ${driverData.topSpeedLapNum}` : null,
+        driverData.topSpeedLapNum != null
+          ? `Lap ${driverData.topSpeedLapNum}`
+          : null,
     },
     {
       label: "OVERTAKES",
@@ -934,7 +936,9 @@ const RaceDetailsDriverCopyCard = ({
                       },
                     ]}
                   >
-                    <Text style={[f1RacerCardStyles.initText, { color: teamColor }]}>
+                    <Text
+                      style={[f1RacerCardStyles.initText, { color: teamColor }]}
+                    >
                       {initials || "D"}
                     </Text>
                   </View>
@@ -943,15 +947,24 @@ const RaceDetailsDriverCopyCard = ({
                 <View style={f1RacerCardStyles.nameBlock}>
                   <View style={f1RacerCardStyles.summaryRow}>
                     {topStats.map((item) => (
-                      <View key={item.label} style={f1RacerCardStyles.summaryCell}>
+                      <View
+                        key={item.label}
+                        style={f1RacerCardStyles.summaryCell}
+                      >
                         <Text
-                          style={[f1RacerCardStyles.summaryVal, { color: theme.text }]}
+                          style={[
+                            f1RacerCardStyles.summaryVal,
+                            { color: theme.text },
+                          ]}
                           numberOfLines={1}
                         >
                           {item.val}
                         </Text>
                         <Text
-                          style={[f1RacerCardStyles.summaryLbl, { color: theme.textSecondary }]}
+                          style={[
+                            f1RacerCardStyles.summaryLbl,
+                            { color: theme.textSecondary },
+                          ]}
                         >
                           {item.label}
                         </Text>
@@ -960,7 +973,10 @@ const RaceDetailsDriverCopyCard = ({
                   </View>
 
                   <Text
-                    style={[f1RacerCardStyles.driverNameText, { color: theme.text }]}
+                    style={[
+                      f1RacerCardStyles.driverNameText,
+                      { color: theme.text },
+                    ]}
                     numberOfLines={1}
                   >
                     {driverData.name}
@@ -974,7 +990,13 @@ const RaceDetailsDriverCopyCard = ({
                         resizeMode="contain"
                       />
                     ) : null}
-                    <Text style={[f1RacerCardStyles.teamNameText, { color: theme.textSecondary }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        f1RacerCardStyles.teamNameText,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {teamDisplayName || "Team"}
                     </Text>
                   </View>
@@ -1273,7 +1295,13 @@ const RaceDetailsSessionCopyCard = ({
                       {driver.headshot ? (
                         <Image
                           source={{ uri: driver.headshot }}
-                          style={[f1CardStyles.headshot, { borderColor: driver.teamColor, backgroundColor: driver.teamColor + "33"}]}
+                          style={[
+                            f1CardStyles.headshot,
+                            {
+                              borderColor: driver.teamColor,
+                              backgroundColor: driver.teamColor + "33",
+                            },
+                          ]}
                           resizeMode="cover"
                         />
                       ) : (
@@ -1338,10 +1366,10 @@ const RaceDetailsSessionCopyCard = ({
                       {driver.behindRaw === "0.000"
                         ? "Leader"
                         : driver.behindRaw
-                        ? driver.behindRaw.includes("Lap")
-                          ? `+${driver.behindRaw}`
-                          : `+${formatLapTime(driver.behindRaw)}`
-                        : ""}
+                          ? driver.behindRaw.includes("Lap")
+                            ? `+${driver.behindRaw}`
+                            : `+${formatLapTime(driver.behindRaw)}`
+                          : ""}
                     </Text>
                     <Text
                       style={[
@@ -1546,7 +1574,9 @@ const RaceDetailsScreen = () => {
   const STINT_ROW_HEIGHT = 46;
   const STINT_PX_PER_LAP = 18;
 
-  const circuitImage = session?.circuit_short_name ? `https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026track${session?.circuit_short_name?.toLowerCase()}detailed.webp` : null;
+  const circuitImage = session?.circuit_short_name
+    ? `https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026track${session?.circuit_short_name?.toLowerCase()}detailed.webp`
+    : null;
 
   const TIRE_IMAGES = {
     SOFT: "https://upload.wikimedia.org/wikipedia/commons/d/df/F1_tire_Pirelli_PZero_Red.svg",
@@ -3450,7 +3480,8 @@ const RaceDetailsScreen = () => {
                   fastestLapLapNum:
                     lapsByDriver[String(dn)]?.fastest_lap?.lap_number ?? null,
                   topSpeedLapNum:
-                    lapsByDriver[String(dn)]?.fastest_st_speed?.lap_number ?? null,
+                    lapsByDriver[String(dn)]?.fastest_st_speed?.lap_number ??
+                    null,
                   behindRaw: driverBehind ?? null,
                 };
               });
