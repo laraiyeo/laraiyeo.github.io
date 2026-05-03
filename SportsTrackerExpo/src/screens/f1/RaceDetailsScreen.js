@@ -369,15 +369,15 @@ const formatLapTime = (t) => {
 
   // If hours are zero, we don't need to show it
   if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
   }
 
   if (minutes > 0) {
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+    return `${minutes}:${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
   }
 
   // If no hours or minutes, just show seconds.hundredths
-  return `${String(seconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+  return `${seconds}.${String(hundredths).padStart(2, "0")}`;
 };
 
 const tryFormatIsoToLocal = (val) => {
@@ -636,6 +636,10 @@ const f1CardStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  lapsText: {
+    fontSize: 10,
+    textAlign: "center",
+  },
   actionBtn: {
     paddingHorizontal: 28,
     paddingVertical: 13,
@@ -650,6 +654,112 @@ const f1CardStyles = StyleSheet.create({
 });
 
 const f1RacerCardStyles = StyleSheet.create({
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+    gap: 4,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  driverBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  driverBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  raceInfoRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingLeft: 20,
+  },
+  raceFlagImg: {
+    height: 36,
+    width: 40,
+    borderRadius: 2,
+  },
+  raceName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "right",
+    flex: 1,
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headshotImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  headshotInitials: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  initText: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  nameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 4,
+  },
+  summaryCell: {
+    alignItems: "center",
+  },
+  summaryVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  summaryLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  driverNameText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  teamLogoImg: {
+    height: 16,
+    width: 16,
+    marginLeft: -2.5,
+  },
   statGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -720,11 +830,12 @@ const RaceDetailsDriverCopyCard = ({
   if (!visible || !driverData) return null;
 
   const teamDisplayName = driverData.teamName || "";
-  const teamColor = driverData.teamColor || colors.primary;
+  const teamColor =
+    TEAM_COLORS[teamDisplayName.replace(/ Racing$/i, "")] ||
+    TEAM_COLORS[teamDisplayName] ||
+    colors.primary;
   const textOnTeam = getF1TextOnColor(teamColor);
-  const sessionLabel = mapSessionNameToAbbrev(
-    session?.session_name || session?.session_type,
-  );
+  const sessionLabel = session?.session_name || session?.session_type;
   const raceName =
     meeting?.meeting_official_name ||
     meeting?.meeting_name ||
@@ -750,10 +861,29 @@ const RaceDetailsDriverCopyCard = ({
         : theme.textSecondary;
 
   const timeRight = driverData.timeRight || "";
+  const overtakesArray = Array.isArray(driverData.overtakesArray)
+    ? driverData.overtakesArray
+    : Array.isArray(driverData.overtakes)
+      ? driverData.overtakes
+      : [];
+  const overtakingCount =
+    driverData.driverNumber != null
+      ? overtakesArray.filter(
+          (o) =>
+            Number(o.overtaking_driver_number) ===
+            Number(driverData.driverNumber),
+        ).length
+      : 0;
+  const overtakenCount =
+    driverData.driverNumber != null
+      ? overtakesArray.filter(
+          (o) =>
+            Number(o.overtaken_driver_number) ===
+            Number(driverData.driverNumber),
+        ).length
+      : 0;
   const ovrDiff =
-    driverData.overtakes != null && driverData.overtakenCount != null
-      ? driverData.overtakes - driverData.overtakenCount
-      : null;
+    driverData.driverNumber != null ? overtakingCount - overtakenCount : null;
   const ovrDiffDisplay =
     ovrDiff != null ? (ovrDiff > 0 ? `+${ovrDiff}` : String(ovrDiff)) : "-";
   const ovrColor =
@@ -769,7 +899,12 @@ const RaceDetailsDriverCopyCard = ({
     { label: "POS", val: String(driverData.pos ?? "-") },
     {
       label: "TIME",
-      val: String(driverData.timeToUse || driverData.result || "-"),
+      val: String(
+        driverData.durationTime ||
+          driverData.timeToUse ||
+          driverData.result ||
+          "-",
+      ),
     },
     { label: "LAPS", val: String(driverData.laps ?? "-") },
   ];
@@ -788,14 +923,31 @@ const RaceDetailsDriverCopyCard = ({
     {
       label: "TIME",
       val: String(
-        driverData.timeToUse ||
+        driverData.durationTime ||
+          driverData.timeToUse ||
           driverData.result ||
           driverData.behindLabel ||
           "-",
       ),
-      topRight: timeRight,
+      topRight:
+        timeRight === "0.000" || timeRight === "0"
+          ? "Leader"
+          : timeRight.includes("Lap")
+            ? `+${timeRight}`
+            : timeRight
+              ? `+${formatLapTime(timeRight)}`
+              : null,
     },
-    { label: "LAPS", val: String(driverData.laps ?? "-") },
+    {
+      label: "LAPS",
+      val: String(
+        driverData.laps ??
+          driverData.durationLaps ??
+          driverData.lapNumber ??
+          "-",
+      ),
+      topRight: driverData.result
+    },
     {
       label: "SPD TRAP",
       val:
@@ -809,8 +961,13 @@ const RaceDetailsDriverCopyCard = ({
     },
     {
       label: "OVERTAKES",
-      val: String(driverData.overtakes ?? 0),
-      topRight: driverData.overtakes > 0 ? `${ovrDiffDisplay} DIFF` : null,
+      val: String(overtakingCount),
+      topRight:
+        overtakesArray.length > 0
+          ? ovrDiffDisplay > 0
+            ? `${ovrDiffDisplay} DIFF`
+            : null
+          : null,
     },
     {
       label: "FAST LAP",
@@ -905,14 +1062,6 @@ const RaceDetailsDriverCopyCard = ({
                       resizeMode="contain"
                     />
                   )}
-                  {driverData.behindRaw && driverData.behindRaw !== "0.000" ? (
-                    <Text
-                      style={{ color: theme.textSecondary, fontSize: 12 }}
-                      numberOfLines={1}
-                    >
-                      {driverData.behindLabel || driverData.behindRaw}
-                    </Text>
-                  ) : null}
                 </View>
               </View>
 
@@ -1029,6 +1178,8 @@ const RaceDetailsDriverCopyCard = ({
                               ? topRightColor
                               : item.label === "OVERTAKES"
                                 ? ovrColor
+                                : item.label === "LAPS"
+                                ? theme.error
                                 : theme.textSecondary,
                         },
                       ]}
@@ -1118,6 +1269,7 @@ const RaceDetailsSessionCopyCard = ({
   meeting,
   sessionResults,
   maps,
+  lapsByDriver,
   colors,
   theme,
 }) => {
@@ -1130,19 +1282,38 @@ const RaceDetailsSessionCopyCard = ({
   const countryColor =
     getCountryColor(meeting?.country_name || session?.country_name) ||
     colors.primary;
-  const raceName =
+  const raceNameRaw =
     meeting?.meeting_official_name ||
     meeting?.meeting_name ||
     meeting?.name ||
     "F1";
+
+  const raceName =
+    raceNameRaw
+      .replace(/FORMULA 1/gi, "F1") // remove "FORMULA 1"
+      .replace(/\b\d{4}\b/g, "") // remove 4-digit year
+      .trim() // clean whitespace
+      .replace(/\s+/g, " ") || "F1"; // normalize spaces
   const flagUri = meeting?.country_flag || null;
   const sessionLabelPre =
     session?.session_name || session?.session_type || "Session";
   const sessionTime = formatRaceDate(session?.date_start);
+  const circuit = meeting?.circuit_short_name || session?.circuit_short_name;
+
+  const location = meeting?.location || session?.location;
+
+  const country = meeting?.country_name || session?.country_name;
+
+  // helper to compare safely (case-insensitive, trimmed)
+  const isSamePlace =
+    circuit &&
+    location &&
+    circuit.trim().toLowerCase() === location.trim().toLowerCase();
+
   const venueLine = [
-    meeting?.circuit_short_name || session?.circuit_short_name,
-    meeting?.location || session?.location,
-    meeting?.country_name || session?.country_name,
+    circuit,
+    isSamePlace ? null : location, // only include location if different
+    country,
   ]
     .filter(Boolean)
     .join("  •  ");
@@ -1152,8 +1323,17 @@ const RaceDetailsSessionCopyCard = ({
     .sort((a, b) => Number(a.position) - Number(b.position))
     .slice(0, 3)
     .map((entry) => {
+      const pickArrayValue = (value) => {
+        if (Array.isArray(value)) {
+          return value[2] ?? value[1] ?? value[0] ?? null;
+        }
+        return value ?? null;
+      };
       const driverNumber = entry?.driver_number ?? entry?.driverNumber ?? null;
       const driver = findDriverInMaps(maps, driverNumber) || null;
+      const lapEntry = lapsByDriver?.[String(driverNumber)] || null;
+      const driverTime = lapEntry?.driver_time || null;
+      const lastLap = lapEntry?.lastLap || null;
       const name =
         driver?.full_name ||
         driver?.name ||
@@ -1171,19 +1351,42 @@ const RaceDetailsSessionCopyCard = ({
         TEAM_COLORS[teamName.replace(/ Racing$/i, "")] ||
         TEAM_COLORS[teamName] ||
         colors.primary;
-      const duration = Array.isArray(entry?.duration)
-        ? (entry.duration[2] ?? entry.duration[1] ?? entry.duration[0] ?? null)
-        : (entry?.duration ?? null);
-      const behindRaw = entry?.behind ?? null;
-      const lapsVal = entry?.laps ?? entry?.lap_count ?? null;
+
+      const resultDuration = pickArrayValue(entry?.duration);
+      const resultGap = pickArrayValue(entry?.gap_to_leader);
+      const fallbackDriverTime = driverTime?.time ?? null;
+      const fallbackBehind = driverTime?.behind ?? null;
+
+      const durationToUse = resultDuration ?? fallbackDriverTime;
+      const behindToUse = resultGap ?? fallbackBehind;
+      const lapsVal =
+        entry?.number_of_laps ??
+        entry?.laps ??
+        entry?.lap_count ??
+        lastLap?.lap_number ??
+        lastLap?.lapNumber ??
+        null;
+
+      const behindIsLeader =
+        behindToUse === 0 || behindToUse === "0" || behindToUse === "0.000";
+
+      const behindDisplay = behindIsLeader
+        ? "Leader"
+        : behindToUse != null && behindToUse !== ""
+          ? `+${String(behindToUse)}`
+          : "-";
+
       return {
         position: Number(entry.position),
         name,
         headshot,
         teamName,
         teamColor,
-        duration: duration != null ? formatLapTime(duration) : "-",
-        behindRaw,
+        duration:
+          durationToUse != null && durationToUse !== ""
+            ? formatLapTime(durationToUse)
+            : "-",
+        behindDisplay,
         laps: lapsVal,
       };
     });
@@ -1363,22 +1566,29 @@ const RaceDetailsSessionCopyCard = ({
                       ]}
                       numberOfLines={1}
                     >
-                      {driver.behindRaw === "0.000"
-                        ? "Leader"
-                        : driver.behindRaw
-                          ? driver.behindRaw.includes("Lap")
-                            ? `+${driver.behindRaw}`
-                            : `+${formatLapTime(driver.behindRaw)}`
-                          : ""}
+                      {driver.duration}
+                    </Text>
+                    <Text
+                      style={[
+                        f1CardStyles.timeText,
+                        {
+                          color: theme.textSecondary,
+                          fontSize: 9,
+                          opacity: 0.75,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {driver.behindDisplay}
                     </Text>
                     <Text
                       style={[
                         f1CardStyles.lapsText,
-                        { color: theme.textSecondary },
+                        { color: theme.textTertiary },
                       ]}
                       numberOfLines={1}
                     >
-                      {driver.laps != null ? String(driver.laps) : "-"}
+                      {driver.laps != null ? String(driver.laps) : "-"} Laps
                     </Text>
                   </View>
                 );
@@ -3322,8 +3532,6 @@ const RaceDetailsScreen = () => {
                   lastLap?.duration ??
                   sectorTimes ??
                   null;
-                const lapNumber =
-                  lastLap?.lap_number ?? lastLap?.lapNumber ?? null;
                 const overCount = overtakes.filter(
                   (o) => String(o.driver_number) === String(dn),
                 ).length;
@@ -3334,6 +3542,11 @@ const RaceDetailsScreen = () => {
                   (sessionResults || []).find(
                     (r) => String(r.driver_number) === String(dn),
                   ) || null;
+                const lapNumber =
+                  sessionResult.number_of_laps ??
+                  lastLap?.lap_number ??
+                  lastLap?.lapNumber ??
+                  null;
                 const duration = Array.isArray(sessionResult?.duration)
                   ? (sessionResult.duration[2] ??
                     sessionResult.duration[1] ??
@@ -3483,6 +3696,7 @@ const RaceDetailsScreen = () => {
                     lapsByDriver[String(dn)]?.fastest_st_speed?.lap_number ??
                     null,
                   behindRaw: driverBehind ?? null,
+                  overtakesArray: overtakes,
                 };
               });
 
@@ -4389,6 +4603,7 @@ const RaceDetailsScreen = () => {
         meeting={effectiveMeeting}
         sessionResults={sessionResults}
         maps={payload?.maps}
+        lapsByDriver={payload?.laps?.byDriver}
         colors={colors}
         theme={theme}
       />
