@@ -856,7 +856,7 @@ const RaceDetailsDriverCopyCard = ({
   const topRightColor =
     positionDelta > 0
       ? theme.success
-      : positionDelta < 0
+      : positionDelta < 0 || driverData.outQual
         ? theme.error
         : theme.textSecondary;
 
@@ -913,12 +913,15 @@ const RaceDetailsDriverCopyCard = ({
     {
       label: "POS",
       val: String(driverData.pos ?? "-"),
-      topRight:
-        positionDelta > 0
-          ? ` UP ${positionDelta} POS`
-          : positionDelta < 0
-            ? ` DOWN ${Math.abs(positionDelta)} POS`
-            : null,
+      topRight: driverData.outQual
+        ? `OUT ${driverData.outQual}`
+        : session?.session_type === "Race"
+          ? positionDelta > 0
+            ? ` UP ${positionDelta} POS`
+            : positionDelta < 0
+              ? ` DOWN ${Math.abs(positionDelta)} POS`
+              : null
+          : null,
     },
     {
       label: "TIME",
@@ -1784,9 +1787,11 @@ const RaceDetailsScreen = () => {
   const STINT_ROW_HEIGHT = 46;
   const STINT_PX_PER_LAP = 18;
 
-  const circuitImage = session?.circuit_short_name
-    ? `https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026track${session?.circuit_short_name?.toLowerCase()}detailed.webp`
-    : null;
+  const circuit = session?.circuit_short_name
+    ?.toLowerCase()
+    ?.replace(/[\s-]/g, "");
+
+  const circuitImage = `https://media.formula1.com/image/upload/c_fit,h_704/q_auto/v1740000001/common/f1/2026/track/2026track${circuit}detailed.webp`;
 
   const TIRE_IMAGES = {
     SOFT: "https://upload.wikimedia.org/wikipedia/commons/d/df/F1_tire_Pirelli_PZero_Red.svg",
@@ -3510,10 +3515,16 @@ const RaceDetailsScreen = () => {
                   (s) => String(s.driver_number) === String(dn),
                 );
 
+                const sessionResult =
+                  (sessionResults || []).find(
+                    (r) => String(r.driver_number) === String(dn),
+                  ) || null;
+
                 const pos =
                   posObj?.position ??
                   gridObj?.position ??
-                  gridObj?.grid_position ?? // depending on your schema
+                  gridObj?.grid_position ??
+                  sessionResult?.position ??
                   null;
 
                 const gridPos =
@@ -3538,12 +3549,9 @@ const RaceDetailsScreen = () => {
                 const pitCount = pits.filter(
                   (p) => String(p.driver_number) === String(dn),
                 ).length;
-                const sessionResult =
-                  (sessionResults || []).find(
-                    (r) => String(r.driver_number) === String(dn),
-                  ) || null;
+
                 const lapNumber =
-                  sessionResult.number_of_laps ??
+                  sessionResult?.number_of_laps ??
                   lastLap?.lap_number ??
                   lastLap?.lapNumber ??
                   null;
@@ -3567,11 +3575,21 @@ const RaceDetailsScreen = () => {
                 const driverDuration = driverTime?.time ?? null;
                 const driverBehind = driverTime?.behind ?? null;
 
+                // Prefer session_result.gap_to_leader; fallback to laps.byDriver.driver_time.behind
+                const gapToLeader =
+                  (Array.isArray(sessionResult?.gap_to_leader)
+                    ? (sessionResult.gap_to_leader[2] ??
+                      sessionResult.gap_to_leader[1] ??
+                      sessionResult.gap_to_leader[0] ??
+                      null)
+                    : (sessionResult?.gap_to_leader ?? null)) ?? driverBehind;
+
                 const behindLabel =
-                  driverBehind && driverBehind !== "0.000"
-                    ? driverBehind.includes("Lap")
-                      ? `+${driverBehind}`
-                      : `+${formatLapTime(driverBehind)}`
+                  gapToLeader && gapToLeader !== 0 && gapToLeader !== "0.000"
+                    ? typeof gapToLeader === "string" &&
+                      gapToLeader.includes("Lap")
+                      ? `+${gapToLeader}`
+                      : `+${formatLapTime(gapToLeader)}`
                     : "";
 
                 const dnfDnsDsq = (status) => {
@@ -3593,8 +3611,10 @@ const RaceDetailsScreen = () => {
 
                 const timeToUse = formatLapTime(driverDuration || time);
                 const timeRight =
-                  driverBehind && !driverBehind.includes("Laps")
-                    ? driverBehind
+                  gapToLeader && gapToLeader !== 0 && gapToLeader !== "0.000"
+                    ? typeof gapToLeader === "string"
+                      ? gapToLeader
+                      : formatLapTime(gapToLeader)
                     : "";
                 const fastestLapDisplay = formatLapTime(
                   lapsByDriver[String(dn)]?.fastest_lap?.lap_duration ?? null,
@@ -3695,7 +3715,7 @@ const RaceDetailsScreen = () => {
                   topSpeedLapNum:
                     lapsByDriver[String(dn)]?.fastest_st_speed?.lap_number ??
                     null,
-                  behindRaw: driverBehind ?? null,
+                  behindRaw: gapToLeader ?? null,
                   overtakesArray: overtakes,
                 };
               });

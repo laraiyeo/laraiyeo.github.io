@@ -476,28 +476,6 @@ const StandingsTracker = ({
                   >
                     {roundLabel}
                   </SvgText>
-                  {meetingName ? (
-                    <SvgText
-                      x={xFor(i)}
-                      y={ST_CHART_H - ST_PAD.bottom + 22}
-                      textAnchor={i === 0 ? "start" : "end"}
-                      fontSize={8}
-                      fill={theme.textSecondary}
-                    >
-                      {meetingName}
-                    </SvgText>
-                  ) : null}
-                  {sessionLabel ? (
-                    <SvgText
-                      x={xFor(i)}
-                      y={ST_CHART_H - ST_PAD.bottom + 32}
-                      textAnchor={i === 0 ? "start" : "end"}
-                      fontSize={8}
-                      fill={theme.textSecondary}
-                    >
-                      {sessionLabel}
-                    </SvgText>
-                  ) : null}
                 </React.Fragment>
               );
             })}
@@ -706,11 +684,9 @@ const RacerDetailsScreen = ({ route }) => {
     const results = Array.isArray(sessionResults) ? sessionResults : [];
     const mapsSessions = driverData?.maps?.sessions || {};
     const sessionLabelFor = (skey) =>
-      mapsSessions?.[skey] || mapsSessions?.[String(skey)] || "";
-    const isRaceSession = (s) => {
-      const lbl = (sessionLabelFor(s) || "").toString().toLowerCase();
-      return lbl.includes("race");
-    };
+      mapsSessions?.[skey]?.name || mapsSessions?.[String(skey)]?.name || "";
+    const isRaceSession = (s) =>
+      sessionLabelFor(s).toLowerCase().includes("race");
 
     let wins = 0;
     let podiums = 0;

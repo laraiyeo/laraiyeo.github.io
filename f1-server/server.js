@@ -973,10 +973,30 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         } else {
           path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
         }
+        // By default use session TTL, but override session_result to be aggressively
+        // refreshed (5s) while we're within 1 hour after session end so callers
+        // will see updated data as it becomes available.
+        let resourceTtl = ttl;
+        if (name === "session_result") {
+          try {
+            const endMs = new Date(
+              sessionObj.date_end || sessionObj.dateEnd,
+            ).getTime();
+            const now = Date.now();
+            const endPlus1h = endMs + 60 * 60 * 1000; // 1 hour after end
+            if (now <= endPlus1h) {
+              // make session_result refresh frequently (10s)
+              resourceTtl = 10 * 1000;
+            }
+          } catch (e) {
+            // fallback: leave resourceTtl as ttl
+          }
+        }
+
         const { data } = await getCachedWithTTL(
           path,
           `${BASE_URL}${path}`,
-          ttl,
+          resourceTtl,
         ).catch(() => ({ data: null }));
         resources[name] = normalizeArray(data);
       } catch (e) {
@@ -984,8 +1004,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       }
     }
 
-    // weather: fetch +/- 2 minutes from session start and pick the record closest to start
-    let weatherObj = null;
+    // weather: construct an `atStart` object (closest to session start)
+    // and a `now` object with the latest available weather record for this session
+    let weatherAtStart = null;
+    let weatherNow = null;
     try {
       const startMs = new Date(
         sessionObj.date_start || sessionObj.dateStart,
@@ -1009,12 +1031,32 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             closest = w;
           }
         }
-        weatherObj = closest;
-      } else {
-        weatherObj = null;
+        weatherAtStart = closest;
       }
     } catch (e) {
-      weatherObj = null;
+      weatherAtStart = null;
+    }
+
+    // latest weather for session (most recent record)
+    try {
+      const pathNow = `weather?session_key=${encodeURIComponent(sessionKey)}`;
+      const { data: nowData } = await getCachedWithTTL(
+        pathNow,
+        `${BASE_URL}${pathNow}`,
+        ttl,
+      ).catch(() => ({ data: null }));
+      const arrAll = normalizeArray(nowData);
+      if (arrAll.length > 0) {
+        // find most recent by date
+        arrAll.sort((a, b) => {
+          const da = new Date(a.date || a.timestamp || 0).getTime() || 0;
+          const db = new Date(b.date || b.timestamp || 0).getTime() || 0;
+          return db - da;
+        });
+        weatherNow = arrAll[0];
+      }
+    } catch (e) {
+      weatherNow = null;
     }
 
     // prepare drivers set for referenced drivers (will be populated from other resources and live fetches)
@@ -1334,6 +1376,17 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         return sectorTotal > 0 ? sectorTotal : null;
       };
 
+      // determine session type: if not a race, we'll compute times using fastest lap
+      const sessionName = (
+        sessionObj?.session_name ||
+        sessionObj?.sessionType ||
+        sessionObj?.type ||
+        ""
+      )
+        .toString()
+        .toLowerCase();
+      const isRaceSession = sessionName.includes("race");
+
       for (const dn of Object.keys(lapsByDriver)) {
         const info = lapsByDriver[dn];
         const driverLaps = lapsArr.filter(
@@ -1342,94 +1395,134 @@ async function buildAndCacheSession(sessionKey, options = {}) {
               lap?.driver_number || lap?.driverNumber || lap?.driver || "",
             ) === String(dn),
         );
+        if (isRaceSession) {
+          let totalTime = null;
+          let lapsUsed = 0;
+          const lapsWithNumbers = driverLaps
+            .map((lap) => ({
+              lap,
+              lapNumber: Number(lap?.lap_number ?? lap?.lapNumber ?? NaN),
+              lapTime: getLapTime(lap),
+            }))
+            .filter((entry) => Number.isFinite(entry.lapNumber))
+            .sort((a, b) => {
+              if (a.lapNumber !== b.lapNumber) return a.lapNumber - b.lapNumber;
+              const da =
+                new Date(a.lap?.date_start || a.lap?.date || 0).getTime() || 0;
+              const db =
+                new Date(b.lap?.date_start || b.lap?.date || 0).getTime() || 0;
+              return da - db;
+            });
 
-        let totalTime = null;
-        let lapsUsed = 0;
-        const lapsWithNumbers = driverLaps
-          .map((lap) => ({
-            lap,
-            lapNumber: Number(lap?.lap_number ?? lap?.lapNumber ?? NaN),
-            lapTime: getLapTime(lap),
-          }))
-          .filter((entry) => Number.isFinite(entry.lapNumber))
-          .sort((a, b) => {
-            if (a.lapNumber !== b.lapNumber) return a.lapNumber - b.lapNumber;
-            const da =
-              new Date(a.lap?.date_start || a.lap?.date || 0).getTime() || 0;
-            const db =
-              new Date(b.lap?.date_start || b.lap?.date || 0).getTime() || 0;
-            return da - db;
-          });
+          if (lapsWithNumbers.length > 0) {
+            let previousRecordedLapNumber = null;
+            let previousRecordedLapTime = null;
 
-        if (lapsWithNumbers.length > 0) {
-          let previousRecordedLapNumber = null;
-          let previousRecordedLapTime = null;
+            for (const entry of lapsWithNumbers) {
+              if (entry.lapTime == null) continue;
 
-          for (const entry of lapsWithNumbers) {
-            if (entry.lapTime == null) continue;
-
-            if (previousRecordedLapNumber != null) {
-              const missingLapCount =
-                entry.lapNumber - previousRecordedLapNumber - 1;
-              if (missingLapCount > 0 && previousRecordedLapTime != null) {
-                totalTime =
-                  (totalTime ?? 0) + previousRecordedLapTime * missingLapCount;
-                lapsUsed += missingLapCount;
+              if (previousRecordedLapNumber != null) {
+                const missingLapCount =
+                  entry.lapNumber - previousRecordedLapNumber - 1;
+                if (missingLapCount > 0 && previousRecordedLapTime != null) {
+                  totalTime =
+                    (totalTime ?? 0) +
+                    previousRecordedLapTime * missingLapCount;
+                  lapsUsed += missingLapCount;
+                }
               }
+
+              totalTime = (totalTime ?? 0) + entry.lapTime;
+              lapsUsed += 1;
+              previousRecordedLapNumber = entry.lapNumber;
+              previousRecordedLapTime = entry.lapTime;
             }
-
-            totalTime = (totalTime ?? 0) + entry.lapTime;
-            lapsUsed += 1;
-            previousRecordedLapNumber = entry.lapNumber;
-            previousRecordedLapTime = entry.lapTime;
           }
+
+          const currentLap =
+            info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
+          const currentLapNumber = Number(currentLap);
+          const currentLapValid = Number.isFinite(currentLapNumber)
+            ? currentLapNumber
+            : null;
+
+          lapsByDriver[dn].driver_time = {
+            time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
+            behind: null,
+            laps_used: lapsUsed,
+          };
+          driverTimes[dn] = {
+            totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
+            currentLap: currentLapValid,
+            lapsUsed,
+          };
+        } else {
+          // Non-race session: use fastest lap duration as the driver_time
+          const fastest = info?.fastest_lap?.lap_duration ?? null;
+          const fastestLapNumber = info?.fastest_lap?.lap_number ?? null;
+          const fastestVal = Number.isFinite(Number(fastest))
+            ? Number(fastest)
+            : null;
+          lapsByDriver[dn].driver_time = {
+            time: fastestVal != null ? Number(fastestVal.toFixed(3)) : null,
+            behind: null,
+            laps_used: fastestVal != null ? 1 : 0,
+          };
+          driverTimes[dn] = {
+            totalTime:
+              fastestVal != null ? Number(fastestVal.toFixed(3)) : null,
+            currentLap:
+              fastestLapNumber != null ? Number(fastestLapNumber) : null,
+            lapsUsed: fastestVal != null ? 1 : 0,
+          };
         }
-
-        const currentLap =
-          info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
-        const currentLapNumber = Number(currentLap);
-        const currentLapValid = Number.isFinite(currentLapNumber)
-          ? currentLapNumber
-          : null;
-
-        lapsByDriver[dn].driver_time = {
-          time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
-          behind: null,
-          laps_used: lapsUsed,
-        };
-        driverTimes[dn] = {
-          totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
-          currentLap: currentLapValid,
-          lapsUsed,
-        };
       }
 
       const allDriverEntries = Object.entries(driverTimes).filter(
         ([, v]) => v.totalTime != null,
       );
       if (allDriverEntries.length > 0) {
-        const maxLap = allDriverEntries.reduce(
-          (max, [, v]) => Math.max(max, v.currentLap || 0),
-          0,
-        );
-        const leadCandidates = allDriverEntries.filter(
-          ([, v]) => (v.currentLap || 0) === maxLap,
-        );
-        const leadByTime =
-          leadCandidates.length > 0 ? leadCandidates : allDriverEntries;
-        leadByTime.sort((a, b) => a[1].totalTime - b[1].totalTime);
-        leaderDriver = leadByTime[0][0];
-        leaderTotalTime = leadByTime[0][1].totalTime;
-        leaderLapNumber = leadByTime[0][1].currentLap || maxLap || null;
+        if (isRaceSession) {
+          const maxLap = allDriverEntries.reduce(
+            (max, [, v]) => Math.max(max, v.currentLap || 0),
+            0,
+          );
+          const leadCandidates = allDriverEntries.filter(
+            ([, v]) => (v.currentLap || 0) === maxLap,
+          );
+          const leadByTime =
+            leadCandidates.length > 0 ? leadCandidates : allDriverEntries;
+          leadByTime.sort((a, b) => a[1].totalTime - b[1].totalTime);
+          leaderDriver = leadByTime[0][0];
+          leaderTotalTime = leadByTime[0][1].totalTime;
+          leaderLapNumber = leadByTime[0][1].currentLap || maxLap || null;
 
-        for (const [dn, v] of allDriverEntries) {
-          const info = lapsByDriver[dn];
-          if (!info || !info.driver_time) continue;
-          const lapDiff = (leaderLapNumber || 0) - (v.currentLap || 0);
-          if (lapDiff > 0) {
-            info.driver_time.behind = formatLapGap(lapDiff);
-          } else if (leaderTotalTime != null && v.totalTime != null) {
-            info.driver_time.behind = formatGap(v.totalTime - leaderTotalTime);
+          for (const [dn, v] of allDriverEntries) {
+            const info = lapsByDriver[dn];
+            if (!info || !info.driver_time) continue;
+            const lapDiff = (leaderLapNumber || 0) - (v.currentLap || 0);
+            if (lapDiff > 0) {
+              info.driver_time.behind = formatLapGap(lapDiff);
+            } else if (leaderTotalTime != null && v.totalTime != null) {
+              info.driver_time.behind = formatGap(
+                v.totalTime - leaderTotalTime,
+              );
+            }
+          }
+        } else {
+          // Non-race session: leader determined by lowest totalTime (fastest lap)
+          allDriverEntries.sort((a, b) => a[1].totalTime - b[1].totalTime);
+          leaderDriver = allDriverEntries[0][0];
+          leaderTotalTime = allDriverEntries[0][1].totalTime;
+          leaderLapNumber = null;
+          for (const [dn, v] of allDriverEntries) {
+            const info = lapsByDriver[dn];
+            if (!info || !info.driver_time) continue;
+            if (leaderTotalTime != null && v.totalTime != null) {
+              info.driver_time.behind = formatGap(
+                v.totalTime - leaderTotalTime,
+              );
+            }
           }
         }
       }
@@ -1452,8 +1545,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     collectDriversFrom(resources.stints || []);
     collectDriversFrom(resources.session_result || []);
     collectDriversFrom(resources.position || []);
-    if (weatherObj && weatherObj.driver_number)
-      driversSet.add(String(weatherObj.driver_number));
+    if (weatherAtStart && weatherAtStart.driver_number)
+      driversSet.add(String(weatherAtStart.driver_number));
+    if (weatherNow && weatherNow.driver_number)
+      driversSet.add(String(weatherNow.driver_number));
 
     // build drivers map only for referenced drivers
     const driversGlobal = normalizeArray(cache.get("drivers")?.data);
@@ -1496,7 +1591,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
       laps: {
         byDriver: lapsByDriver,
       },
-      weather: weatherObj,
+      weather: {
+        atStart: weatherAtStart,
+        now: weatherNow,
+      },
       maps: {
         meetings: meetingsMap,
         sessions: sessionsMap,
