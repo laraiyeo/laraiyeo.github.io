@@ -946,7 +946,7 @@ const RaceDetailsDriverCopyCard = ({
           driverData.lapNumber ??
           "-",
       ),
-      topRight: driverData.result
+      topRight: driverData.result,
     },
     {
       label: "SPD TRAP",
@@ -1179,8 +1179,8 @@ const RaceDetailsDriverCopyCard = ({
                               : item.label === "OVERTAKES"
                                 ? ovrColor
                                 : item.label === "LAPS"
-                                ? theme.error
-                                : theme.textSecondary,
+                                  ? theme.error
+                                  : theme.textSecondary,
                         },
                       ]}
                       numberOfLines={1}
