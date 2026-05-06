@@ -30,7 +30,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 
-const DRIVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
+const DRIVER_BASE =
+  "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
 const CACHE_TTL = 60 * 60 * 1000;
 const TABS = ["Main", "Season Stats"];
 const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
@@ -843,7 +844,7 @@ const RacerDetailsScreen = ({ route }) => {
                 style={[styles.headerTeam, { color: theme.textSecondary }]}
                 numberOfLines={1}
               >
-                {driver?.team_name ?? "Team"}
+                #{driver?.driver_number ?? ""} · {driver?.team_name ?? "Team"}
               </Text>
             </View>
             {teamLogoUrl ? (
@@ -985,11 +986,21 @@ const RacerDetailsScreen = ({ route }) => {
             />
 
             {selectedMeeting ? (
-              <View
+              <TouchableOpacity
+                activeOpacity={0.75}
                 style={[
                   styles.raceCard,
                   { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
+                onPress={() =>
+                  navigation.navigate("F1RaceDetails", {
+                    meetingKey:
+                      selectedPoint?.meeting_key ||
+                      selectedMeeting.meeting_key ||
+                      selectedMeeting.meetingKey,
+                    sport: "f1",
+                  })
+                }
               >
                 <Svg
                   style={StyleSheet.absoluteFill}
@@ -1099,137 +1110,76 @@ const RacerDetailsScreen = ({ route }) => {
                           ]}
                         />
                       ) : null}
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() =>
-                          navigation.navigate("F1RaceDetails", {
-                            meetingKey:
-                              s.meeting_key ||
-                              s.meetingKey ||
-                              selectedPoint?.meeting_key,
-                            sport: "f1",
-                          })
-                        }
-                      >
-                        <View style={styles.raceSessionRow}>
-                          <View
+                      <View style={styles.raceSessionRow}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.raceSessionName,
+                              { color: theme.text, flex: 1 },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {sessionName}
+                          </Text>
+
+                          <Text
+                            allowFontScaling={false}
                             style={{
-                              flexDirection: "row",
-                              justifyContent: "space-between",
-                              alignItems: "center",
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                              marginLeft: 8,
+                              marginTop: -8,
                             }}
                           >
-                            <Text
-                              allowFontScaling={false}
-                              style={[
-                                styles.raceSessionName,
-                                { color: theme.text, flex: 1 },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {sessionName}
-                            </Text>
+                            {formatDateTimeLocal(sessionDateStart)}
+                          </Text>
+                        </View>
 
-                            <Text
-                              allowFontScaling={false}
-                              style={{
-                                color: theme.textSecondary,
-                                fontSize: 12,
-                                marginLeft: 8,
-                                marginTop: -8,
-                              }}
-                            >
-                              {formatDateTimeLocal(sessionDateStart)}
-                            </Text>
-                          </View>
-
-                          <View style={styles.raceMetrics}>
-                            {hasMultiDuration ? (
-                              <>
-                                <View style={styles.raceMetricsRow}>
-                                  {[0, 1, 2].map((i) => {
-                                    const val = s.duration?.[i];
-                                    const out =
-                                      val === null || val === undefined;
-                                    return (
-                                      <View
-                                        key={`qual-${i}`}
-                                        style={styles.raceMetricCell}
+                        <View style={styles.raceMetrics}>
+                          {hasMultiDuration ? (
+                            <>
+                              <View style={styles.raceMetricsRow}>
+                                {[0, 1, 2].map((i) => {
+                                  const val = s.duration?.[i];
+                                  const out = val === null || val === undefined;
+                                  return (
+                                    <View
+                                      key={`qual-${i}`}
+                                      style={styles.raceMetricCell}
+                                    >
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.raceMetricLabel,
+                                          { color: theme.textSecondary },
+                                        ]}
                                       >
-                                        <Text
-                                          allowFontScaling={false}
-                                          style={[
-                                            styles.raceMetricLabel,
-                                            { color: theme.textSecondary },
-                                          ]}
-                                        >
-                                          {`QUAL ${i + 1}`}
-                                        </Text>
-                                        <Text
-                                          allowFontScaling={false}
-                                          style={[
-                                            styles.raceMetricValue,
-                                            {
-                                              color: out
-                                                ? theme.error
-                                                : theme.text,
-                                            },
-                                          ]}
-                                        >
-                                          {out ? "OUT" : formatDuration(val)}
-                                        </Text>
-                                      </View>
-                                    );
-                                  })}
-                                </View>
-                                <View style={styles.raceMetricsRow}>
-                                  <View
-                                    style={[styles.raceMetricCell, { flex: 1 }]}
-                                  >
-                                    <Text
-                                      allowFontScaling={false}
-                                      style={[
-                                        styles.raceMetricLabel,
-                                        { color: theme.textSecondary },
-                                      ]}
-                                    >
-                                      LAPS
-                                    </Text>
-                                    <Text
-                                      allowFontScaling={false}
-                                      style={[
-                                        styles.raceMetricValue,
-                                        { color: theme.text },
-                                      ]}
-                                    >
-                                      {s.number_of_laps ?? "--"}
-                                    </Text>
-                                  </View>
-                                  <View
-                                    style={[styles.raceMetricCell, { flex: 1 }]}
-                                  >
-                                    <Text
-                                      allowFontScaling={false}
-                                      style={[
-                                        styles.raceMetricLabel,
-                                        { color: theme.textSecondary },
-                                      ]}
-                                    >
-                                      PLACE
-                                    </Text>
-                                    <Text
-                                      allowFontScaling={false}
-                                      style={[
-                                        styles.raceMetricValue,
-                                        { color: theme.text },
-                                      ]}
-                                    >
-                                      {s.position ?? "--"}
-                                    </Text>
-                                  </View>
-                                </View>
-                              </>
-                            ) : (
+                                        {`QUAL ${i + 1}`}
+                                      </Text>
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.raceMetricValue,
+                                          {
+                                            color: out
+                                              ? theme.error
+                                              : theme.text,
+                                          },
+                                        ]}
+                                      >
+                                        {out ? "OUT" : formatDuration(val)}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                              </View>
                               <View style={styles.raceMetricsRow}>
                                 <View
                                   style={[styles.raceMetricCell, { flex: 1 }]}
@@ -1263,34 +1213,6 @@ const RacerDetailsScreen = ({ route }) => {
                                       { color: theme.textSecondary },
                                     ]}
                                   >
-                                    TIME
-                                  </Text>
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.raceMetricValue,
-                                      {
-                                        color: statusText
-                                          ? theme.error
-                                          : theme.text,
-                                      },
-                                    ]}
-                                  >
-                                    {statusText
-                                      ? statusText
-                                      : formatDuration(s.duration)}
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[styles.raceMetricCell, { flex: 1 }]}
-                                >
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.raceMetricLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
                                     PLACE
                                   </Text>
                                   <Text
@@ -1304,14 +1226,89 @@ const RacerDetailsScreen = ({ route }) => {
                                   </Text>
                                 </View>
                               </View>
-                            )}
-                          </View>
+                            </>
+                          ) : (
+                            <View style={styles.raceMetricsRow}>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  LAPS
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {s.number_of_laps ?? "--"}
+                                </Text>
+                              </View>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  TIME
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    {
+                                      color: statusText
+                                        ? theme.error
+                                        : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {statusText
+                                    ? statusText
+                                    : formatDuration(s.duration)}
+                                </Text>
+                              </View>
+                              <View
+                                style={[styles.raceMetricCell, { flex: 1 }]}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  PLACE
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.raceMetricValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {s.position ?? "--"}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
                         </View>
-                      </TouchableOpacity>
+                      </View>
                     </React.Fragment>
                   );
                 })}
-              </View>
+              </TouchableOpacity>
             ) : null}
           </View>
 

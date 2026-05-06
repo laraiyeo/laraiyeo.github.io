@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -12,7 +18,9 @@ import {
   Modal,
   Platform,
   Share,
+  Alert,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import Svg, {
   Defs,
   LinearGradient,
@@ -22,13 +30,19 @@ import Svg, {
   G,
   SvgUri,
 } from "react-native-svg";
-import { useRoute, useNavigation } from "@react-navigation/native";
+import {
+  useRoute,
+  useNavigation,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { useGamePresence } from "../../hooks/useGamePresence";
-import { Ionicons } from "@expo/vector-icons";
+import { useStreamingAccess } from "../../utils/streamingUtils";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import ViewShot from "react-native-view-shot";
 
-const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
+const SERVER_BASE =
+  "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
 const { width } = Dimensions.get("window");
 
 const BASE_TABS = ["Main", "Drivers", "Events", "Stints", "Starting Grid"];
@@ -935,10 +949,17 @@ const RaceDetailsDriverCopyCard = ({
       topRight:
         timeRight === "0.000" || timeRight === "0"
           ? "Leader"
-          : timeRight.includes("Lap")
-            ? `+${timeRight}`
+          : timeRight && timeRight.includes("Lap")
+            ? timeRight.startsWith("+")
+              ? timeRight
+              : `+${timeRight}`
             : timeRight
-              ? `+${formatLapTime(timeRight)}`
+              ? (() => {
+                  const formatted = formatLapTime(timeRight);
+                  return formatted.startsWith("+")
+                    ? formatted
+                    : `+${formatted}`;
+                })()
               : null,
     },
     {
@@ -967,7 +988,7 @@ const RaceDetailsDriverCopyCard = ({
       val: String(overtakingCount),
       topRight:
         overtakesArray.length > 0
-          ? ovrDiffDisplay > 0
+          ? ovrDiffDisplay !== "0"
             ? `${ovrDiffDisplay} DIFF`
             : null
           : null,
@@ -1376,7 +1397,10 @@ const RaceDetailsSessionCopyCard = ({
       const behindDisplay = behindIsLeader
         ? "Leader"
         : behindToUse != null && behindToUse !== ""
-          ? `+${String(behindToUse)}`
+          ? (() => {
+              const value = String(behindToUse);
+              return value.startsWith("+") ? value : `+${value}`;
+            })()
           : "-";
 
       return {
@@ -1681,6 +1705,15 @@ const RaceDetailsScreen = () => {
   const [selectedDriverCard, setSelectedDriverCard] = useState(null);
   const floatingButtonLongPressRef = useRef(false);
 
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  // Streaming state
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [isStreamLoading, setIsStreamLoading] = useState(true);
+  const [selectedStream, setSelectedStream] = useState(3); // 1 for Test 1, 2 for Test 2, 3 for Grand Prix
+  const [grandPrixStreamUrl, setGrandPrixStreamUrl] = useState(null); // URL for Grand Prix stream
+
   const sessionKey =
     route?.params?.sessionKey ||
     route?.params?.session_key ||
@@ -1931,8 +1964,6 @@ const RaceDetailsScreen = () => {
     };
 
     const rowsByDriver = new Map();
-    let minLap = Infinity;
-    let maxLap = -Infinity;
 
     (stints || []).forEach((stint, index) => {
       const driverNumber = String(
@@ -2030,12 +2061,32 @@ const RaceDetailsScreen = () => {
     );
 
     const rows = Array.from(rowsByDriver.values())
-      .map((row) => ({
-        ...row,
-        bars: row.bars.sort(
+      .map((row) => {
+        const sortedBars = [...row.bars].sort(
           (a, b) => a.startLap - b.startLap || a.endLap - b.endLap,
-        ),
-      }))
+        );
+        const normalizedBars = [];
+
+        for (const bar of sortedBars) {
+          const nextBar = { ...bar };
+          const previousBar = normalizedBars[normalizedBars.length - 1];
+
+          if (previousBar && nextBar.startLap <= previousBar.endLap) {
+            previousBar.endLap = nextBar.startLap - 1;
+            if (previousBar.endLap < previousBar.startLap) {
+              normalizedBars.pop();
+            }
+          }
+
+          normalizedBars.push(nextBar);
+        }
+
+        return {
+          ...row,
+          bars: normalizedBars,
+        };
+      })
+      .filter((row) => row.bars.length > 0)
       .sort((a, b) => {
         const aOrder = orderMap.has(String(a.driverNumber))
           ? orderMap.get(String(a.driverNumber))
@@ -2059,6 +2110,15 @@ const RaceDetailsScreen = () => {
         ticks: [1],
       };
     }
+
+    let minLap = Infinity;
+    let maxLap = -Infinity;
+    rows.forEach((row) => {
+      row.bars.forEach((bar) => {
+        minLap = Math.min(minLap, bar.startLap);
+        maxLap = Math.max(maxLap, bar.endLap);
+      });
+    });
 
     const safeMinLap = Number.isFinite(minLap) ? minLap : 1;
     const safeMaxLap = Number.isFinite(maxLap) ? maxLap : safeMinLap;
@@ -2719,6 +2779,128 @@ const RaceDetailsScreen = () => {
     );
   };
 
+  // Helper to determine if streaming should be available
+  const isStreamingAvailable = useMemo(() => {
+    // First check if streaming code has been entered
+    if (!isStreamingUnlocked) {
+      return false;
+    }
+    // Use isSessionLive to check if session is currently live
+    return isSessionLive(session);
+  }, [isStreamingUnlocked, session]);
+
+  // Function to fetch Grand Prix stream from streaming API
+  const fetchGrandPrixStream = async () => {
+    try {
+      console.log("Fetching Grand Prix stream from streaming API...");
+      const response = await fetch(
+        "https://streamed.pk/api/matches/motor-sports/popular",
+      );
+      const data = await response.json();
+
+      // Find the first match with "Grand Prix" in the title
+      const grandPrixMatch = data.find(
+        (match) =>
+          match.title && match.title.toLowerCase().includes("grand prix"),
+      );
+
+      if (!grandPrixMatch) {
+        console.log("No Grand Prix match found");
+        return null;
+      }
+
+      console.log("Found Grand Prix match:", grandPrixMatch.title);
+
+      // Look for admin source
+      const adminSource = grandPrixMatch.sources?.find(
+        (source) => source.source === "admin",
+      );
+
+      if (!adminSource) {
+        console.log("No admin source found for Grand Prix match");
+        // Look for next Grand Prix match with admin source
+        const alternativeMatch = data.find(
+          (match) =>
+            match.title &&
+            match.title.toLowerCase().includes("grand prix") &&
+            match.sources?.some((source) => source.source === "admin") &&
+            match.id !== grandPrixMatch.id,
+        );
+
+        if (alternativeMatch) {
+          const altAdminSource = alternativeMatch.sources.find(
+            (source) => source.source === "admin",
+          );
+          const streamUrl = `https://embedsports.top/embed/admin/${altAdminSource.id}/1`;
+          console.log("Found alternative Grand Prix stream:", streamUrl);
+          return streamUrl;
+        }
+
+        return null;
+      }
+
+      // Build the embed URL
+      const streamUrl = `https://embedsports.top/embed/admin/${adminSource.id}/1`;
+      console.log("Grand Prix stream URL:", streamUrl);
+      return streamUrl;
+    } catch (error) {
+      console.error("Failed to fetch Grand Prix stream:", error);
+      return null;
+    }
+  };
+
+  // Stream modal functions
+  const openStreamModal = async () => {
+    console.log("Stream icon clicked! Opening stream modal...");
+
+    if (!isStreamingAvailable) {
+      console.log("Stream not available, showing alert");
+      if (!isStreamingUnlocked) {
+        Alert.alert(
+          "Stream Unavailable",
+          "Please unlock streaming access in Settings first.",
+        );
+      } else {
+        Alert.alert(
+          "Stream Unavailable",
+          "Streaming is only available during live sessions.",
+        );
+      }
+      return;
+    }
+
+    console.log("Stream available, opening modal");
+    setStreamModalVisible(true);
+    setIsStreamLoading(true);
+
+    // Fetch Grand Prix stream URL in the background
+    fetchGrandPrixStream()
+      .then((url) => {
+        setGrandPrixStreamUrl(url);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch Grand Prix stream in modal:", error);
+      });
+
+    // Simulate loading time for stream
+    setTimeout(() => {
+      setIsStreamLoading(false);
+    }, 2000);
+  };
+
+  const closeStreamModal = () => {
+    setStreamModalVisible(false);
+    setIsStreamLoading(true);
+    setGrandPrixStreamUrl(null); // Reset Grand Prix stream URL
+  };
+
+  // Refs for UI state to avoid stale closures inside interval callbacks
+  const streamModalVisibleRef = useRef(streamModalVisible);
+
+  useEffect(() => {
+    streamModalVisibleRef.current = streamModalVisible;
+  }, [streamModalVisible]);
+
   if (loading) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
@@ -2764,6 +2946,33 @@ const RaceDetailsScreen = () => {
               {meeting?.country_name || session?.country_name || ""}
             </Text>
           </View>
+          {isSessionLive(session) && isStreamingAvailable ? (
+            <TouchableOpacity
+              onPress={openStreamModal}
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 10,
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="radio-tower"
+                size={30}
+                color={theme.error}
+              />
+              <Text
+                style={{
+                  color: theme.error,
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginTop: 4,
+                }}
+              >
+                STREAM
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -3192,7 +3401,7 @@ const RaceDetailsScreen = () => {
                             <Text
                               style={[styles.candTitle, { color: theme.text }]}
                             >
-                              Fastest Lap
+                              Candidate Lap
                             </Text>
                             <Text
                               style={[styles.candName, { color: theme.text }]}
@@ -3382,81 +3591,184 @@ const RaceDetailsScreen = () => {
               </View>
             </View>
 
-            {/* Weather section */}
-            <View style={{ marginTop: 12 }}>
-              <View
-                style={[
-                  styles.weatherSection,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <View style={styles.sessionHeader}>
-                  <Text style={[styles.sessionTitle, { color: theme.text }]}>
-                    WEATHER
-                  </Text>
-                </View>
+            {payload?.weather?.atStart ? (
+              <View style={{ marginTop: 12 }}>
                 <View
                   style={[
-                    styles.weatherRow,
-                    { borderBottomColor: theme.border },
+                    styles.weatherSection,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.sessionLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Wind Speed
-                  </Text>
-                  <Text style={[styles.sessionValue, { color: theme.text }]}>
-                    {payload?.weather?.wind_speed
-                      ? `${payload.weather.wind_speed} m/s`
-                      : "-"}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.weatherRow,
-                    { borderBottomColor: theme.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sessionLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Wind Direction
-                  </Text>
-                  <Text style={[styles.sessionValue, { color: theme.text }]}>
-                    {payload?.weather?.wind_direction
-                      ? `${payload.weather.wind_direction}° ${degToCompass(payload.weather.wind_direction)}`
-                      : "-"}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.weatherRow,
-                    { borderBottomColor: theme.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sessionLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Track Temp
-                  </Text>
-                  <Text style={[styles.sessionValue, { color: theme.text }]}>
-                    {payload?.weather?.track_temperature
-                      ? `${payload.weather.track_temperature}° C`
-                      : "-"}
-                  </Text>
+                  <View style={styles.sessionHeader}>
+                    <Text
+                      style={[
+                        styles.sessionTitle,
+                        { color: theme.text, marginBottom: -5 },
+                      ]}
+                    >
+                      WEATHER
+                    </Text>
+                  </View>
+                  <View style={styles.wSection}>
+                    <Text
+                      style={[
+                        styles.sectionHdr,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {" "}
+                      Current Weather{" "}
+                    </Text>
+                    <View style={styles.statRow}>
+                      <View style={styles.weatherStatCell}>
+                        <Text
+                          style={[styles.weatherStatVal, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {payload?.weather?.now?.track_temperature != null
+                            ? `${payload.weather.now.track_temperature}°C`
+                            : "-"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.weatherStatLbl,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          Track Temp
+                        </Text>
+                      </View>
+                      <View style={styles.weatherStatCell}>
+                        <Text
+                          style={[styles.weatherStatVal, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {payload?.weather?.now?.wind_speed != null
+                            ? `${payload.weather.now.wind_speed} km/h`
+                            : "-"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.weatherStatLbl,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          Wind
+                        </Text>
+                      </View>
+                      <View style={styles.weatherStatCell}>
+                        <Text
+                          style={[styles.weatherStatVal, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {payload?.weather?.now?.humidity != null
+                            ? `${payload.weather.now.humidity}%`
+                            : "-"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.weatherStatLbl,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          Humidity
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {payload?.weather?.atStart ? (
+                    <View
+                      style={[
+                        styles.divider,
+                        { backgroundColor: theme.border },
+                      ]}
+                    />
+                  ) : null}
+                  {payload?.weather?.atStart ? (
+                    <View style={styles.wSection}>
+                      <Text
+                        style={[
+                          styles.sectionHdr,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {" "}
+                        Weather at Start{" "}
+                      </Text>
+                      <View style={styles.statRow}>
+                        <View style={styles.weatherStatCell}>
+                          <Text
+                            style={[
+                              styles.weatherStatVal,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {payload?.weather?.atStart?.track_temperature !=
+                            null
+                              ? `${payload.weather.atStart.track_temperature}°C`
+                              : "-"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.weatherStatLbl,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Track Temp
+                          </Text>
+                        </View>
+                        <View style={styles.weatherStatCell}>
+                          <Text
+                            style={[
+                              styles.weatherStatVal,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {payload?.weather?.atStart?.wind_speed != null
+                              ? `${payload.weather.atStart.wind_speed} km/h`
+                              : "-"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.weatherStatLbl,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Wind
+                          </Text>
+                        </View>
+                        <View style={styles.weatherStatCell}>
+                          <Text
+                            style={[
+                              styles.weatherStatVal,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {payload?.weather?.atStart?.humidity != null
+                              ? `${payload.weather.atStart.humidity}%`
+                              : "-"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.weatherStatLbl,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Humidity
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
               </View>
-            </View>
+            ) : null}
           </View>
         )}
 
@@ -3588,8 +3900,15 @@ const RaceDetailsScreen = () => {
                   gapToLeader && gapToLeader !== 0 && gapToLeader !== "0.000"
                     ? typeof gapToLeader === "string" &&
                       gapToLeader.includes("Lap")
-                      ? `+${gapToLeader}`
-                      : `+${formatLapTime(gapToLeader)}`
+                      ? gapToLeader.startsWith("+")
+                        ? gapToLeader
+                        : `+${gapToLeader}`
+                      : (() => {
+                          const formatted = formatLapTime(gapToLeader);
+                          return formatted.startsWith("+")
+                            ? formatted
+                            : `+${formatted}`;
+                        })()
                     : "";
 
                 const dnfDnsDsq = (status) => {
@@ -4628,6 +4947,302 @@ const RaceDetailsScreen = () => {
         theme={theme}
       />
 
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={streamModalVisible}
+          onRequestClose={closeStreamModal}
+        >
+          <View style={styles.streamModalOverlay}>
+            <View
+              style={[
+                styles.streamModalContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              {/* Modal Header */}
+              <View
+                style={[
+                  styles.streamModalHeader,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.streamModalTitle, { color: colors.primary }]}
+                >
+                  F1 Live Stream
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.streamCloseButton,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={closeStreamModal}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.streamCloseText, { color: colors.primary }]}
+                  >
+                    ×
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Stream Selection Buttons */}
+              <View
+                style={[
+                  styles.streamSelectorContainer,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 3 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(3)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 3 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Grand Prix {!grandPrixStreamUrl ? "⏳" : ""}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 1 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(1)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 1 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Test 1
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 2 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(2)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 2 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Test 2
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Stream Content */}
+              <View style={styles.streamContent}>
+                {(isStreamLoading ||
+                  (selectedStream === 3 && !grandPrixStreamUrl)) && (
+                  <View style={styles.streamLoadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.streamLoadingText, { color: theme.text }]}
+                    >
+                      {selectedStream === 3 && !grandPrixStreamUrl
+                        ? "Loading Grand Prix Stream..."
+                        : "Loading F1 Stream..."}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Show error message if Grand Prix stream is selected but failed to load */}
+                {selectedStream === 3 &&
+                  !isStreamLoading &&
+                  !grandPrixStreamUrl && (
+                    <View style={styles.streamLoadingContainer}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.streamLoadingText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Grand Prix stream not available
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.streamLoadingText,
+                          {
+                            color: theme.textSecondary,
+                            fontSize: 12,
+                            marginTop: 8,
+                          },
+                        ]}
+                      >
+                        Try selecting Test 1 or Test 2
+                      </Text>
+                    </View>
+                  )}
+
+                {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
+                {(selectedStream !== 3 || grandPrixStreamUrl) && (
+                  <WebView
+                    source={{
+                      uri:
+                        selectedStream === 3 && grandPrixStreamUrl
+                          ? grandPrixStreamUrl
+                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`,
+                    }}
+                    style={[
+                      styles.streamWebView,
+                      {
+                        opacity:
+                          isStreamLoading ||
+                          (selectedStream === 3 && !grandPrixStreamUrl)
+                            ? 0
+                            : 1,
+                      },
+                    ]}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    startInLoadingState={true}
+                    scalesPageToFit={true}
+                    mixedContentMode="compatibility"
+                    allowsInlineMediaPlayback={true}
+                    mediaPlaybackRequiresUserAction={false}
+                    onLoadStart={() => setIsStreamLoading(true)}
+                    onLoadEnd={() => setIsStreamLoading(false)}
+                    onError={(error) => {
+                      console.error("F1 WebView error:", error);
+                      setIsStreamLoading(false);
+                    }}
+                    userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+                    injectedJavaScript={`(function(){
+                      function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                      post({type:'instrumentation', event:'init'});
+                      window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                      document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                      try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
+                      try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
+                      try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href')||{}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
+                      try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                      try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                      function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                      setInterval(instrumentExistingVideos,1000);
+                      true; })();`}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
+                    }}
+                    // Block popup navigation within the WebView
+                    onShouldStartLoadWithRequest={(request) => {
+                      console.log(
+                        "F1 WebView navigation request:",
+                        request.url,
+                      );
+
+                      // Allow the initial stream URL to load
+                      const streamUrl =
+                        selectedStream === 3 && grandPrixStreamUrl
+                          ? grandPrixStreamUrl
+                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                      if (request.url === streamUrl) {
+                        return true;
+                      }
+
+                      const popupKeywords = [
+                        "popup",
+                        "ad",
+                        "ads",
+                        "click",
+                        "redirect",
+                        "promo",
+                      ];
+                      const urlLower = request.url.toLowerCase();
+                      const hasPopupKeywords = popupKeywords.some((keyword) =>
+                        urlLower.includes(keyword),
+                      );
+
+                      const currentDomain = new URL(streamUrl).hostname;
+                      let requestDomain = "";
+                      try {
+                        requestDomain = new URL(request.url).hostname;
+                      } catch (e) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
+                          return true;
+                        }
+                        return false;
+                      }
+
+                      const isSameDomain = currentDomain === requestDomain;
+                      const shouldBlock = hasPopupKeywords || !isSameDomain;
+
+                      if (shouldBlock) {
+                        console.log(
+                          "Blocking WebView navigation:",
+                          request.url,
+                        );
+                        return false;
+                      }
+
+                      return true;
+                    }}
+                  />
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* Session picker overlay + floating button */}
       {pickerOpen &&
         selectedSessionKey !== null &&
@@ -5411,6 +6026,196 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.04)",
+  },
+
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  wSection: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  weatherHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  weatherHeaderTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  sectionHdr: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  venueName: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  statRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  weatherStatCell: {
+    flex: 1,
+    minWidth: 52,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  weatherStatVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  weatherStatLbl: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  fullRow: {
+    marginBottom: 2,
+  },
+  fullRowCentered: {
+    marginBottom: 2,
+    alignItems: "center",
+  },
+  firstPitchVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  officialsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  officialCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  officialName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  officialType: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginTop: 4,
+  },
+  // Stream Modal Styles
+  streamModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  streamModalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: "95%",
+    maxWidth: 800,
+    height: "85%",
+    maxHeight: 325,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  streamModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+  },
+  streamModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#FF1E00",
+  },
+  streamCloseButton: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: "#e9ecef",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  streamCloseText: {
+    fontSize: 20,
+    color: "#FF1E00",
+    fontWeight: "bold",
+  },
+  streamContent: {
+    flex: 1,
+    position: "relative",
+  },
+  streamLoadingContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  streamLoadingText: {
+    color: "#fff",
+    marginTop: 10,
+    fontSize: 16,
+  },
+  streamWebView: {
+    flex: 1,
+  },
+  streamSelectorContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  streamSelectorButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  streamSelectorText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

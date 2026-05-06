@@ -6,6 +6,11 @@ const compression = require("compression");
 const app = express();
 app.use(cors());
 app.use(compression());
+const f1 = express.Router();
+app.use("/f1", f1);
+
+const nascar = express.Router();
+app.use("/nascar", nascar);
 
 const PORT = process.env.PORT || 3000;
 
@@ -35,6 +40,251 @@ function markSessionActive(sessionKey) {
 function setCachingHeaders(res, ttlMs) {
   const secs = Math.max(0, Math.floor((ttlMs || TTL_MS) / 1000));
   res.setHeader("Cache-Control", `public, max-age=${secs}`);
+}
+
+function normalizeDateKey(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  }
+  const parsed = new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getSessionDateKey(session) {
+  return normalizeDateKey(
+    session?.date_start ||
+      session?.dateStart ||
+      session?.date ||
+      session?.date_end ||
+      session?.dateEnd ||
+      null,
+  );
+}
+
+function parseDateMs(value) {
+  const parsed = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getWinnerInfo(sessionKey, resultsArr, driversArr) {
+  const sr = resultsArr.find(
+    (r) =>
+      String(r.session_key) === String(sessionKey) &&
+      (String(r.position) === "1" || r.position === 1),
+  );
+  if (!sr) return { winner: null, winner_team: null };
+
+  const driverNum = sr.driver_number || sr.driverNumber || sr.driver;
+  const driverObj = driversArr.find(
+    (d) => String(d.driver_number) === String(driverNum),
+  );
+
+  return {
+    winner: driverObj
+      ? driverObj.full_name || driverObj.broadcast_name || driverObj.name
+      : sr.driver_name || sr.name || null,
+    winner_team: driverObj
+      ? driverObj.team_name || driverObj.teamName || null
+      : sr.team_name || sr.team || null,
+  };
+}
+
+function enrichSessionForDateView(session, meeting, resultsArr, driversArr) {
+  const sessionKey = session?.session_key || session?.sessionKey || null;
+  const winnerInfo = sessionKey
+    ? getWinnerInfo(sessionKey, resultsArr, driversArr)
+    : { winner: null, winner_team: null };
+
+  return {
+    ...session,
+    session_date: getSessionDateKey(session),
+    date_start: session?.date_start || session?.dateStart || null,
+    date_end: session?.date_end || session?.dateEnd || null,
+    meeting: meeting || null,
+    winner: winnerInfo.winner,
+    winner_team: winnerInfo.winner_team,
+  };
+}
+
+function buildPositionIntervals({
+  sessionObj,
+  sessionKey,
+  positionsArr,
+  raceControlArr,
+  startingGridArr,
+}) {
+  const positionsMap = Object.create(null);
+  const raceControlDates = (Array.isArray(raceControlArr) ? raceControlArr : [])
+    .map((it) => ({
+      date: it?.date || null,
+      ms: parseDateMs(it?.date),
+      lap_number: it?.lap_number ?? it?.lapNumber ?? it?.lap ?? null,
+    }))
+    .filter((it) => it.ms !== null && it.lap_number != null)
+    .sort((a, b) => a.ms - b.ms);
+
+  const firstLap =
+    raceControlDates.length > 0 ? Number(raceControlDates[0].lap_number) : null;
+  const lastLap =
+    raceControlDates.length > 0
+      ? Number(raceControlDates[raceControlDates.length - 1].lap_number)
+      : null;
+  const normalizeLapNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const findRaceControlLap = (ms) => {
+    if (ms == null || raceControlDates.length === 0) return null;
+    let best = null;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const candidate of raceControlDates) {
+      const diff = Math.abs(candidate.ms - ms);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = candidate;
+      }
+    }
+    return best ? normalizeLapNumber(best.lap_number) : null;
+  };
+
+  const startingGridMap = Object.create(null);
+  for (const row of Array.isArray(startingGridArr) ? startingGridArr : []) {
+    const driverNumber = String(
+      row?.driver_number || row?.driverNumber || row?.driver || "",
+    );
+    if (!driverNumber) continue;
+    const gridPosition =
+      row?.position_start ?? row?.positionStart ?? row?.position ?? null;
+    const gridDate = parseDateMs(
+      row?.date_start || row?.dateStart || row?.date || null,
+    );
+    startingGridMap[driverNumber] = {
+      position: gridPosition,
+      date: gridDate,
+    };
+  }
+
+  const grouped = Object.create(null);
+  for (const row of Array.isArray(positionsArr) ? positionsArr : []) {
+    const rowSessionKey = row?.session_key || row?.sessionKey || null;
+    if (String(rowSessionKey) !== String(sessionKey)) continue;
+    const driverNumber = String(
+      row?.driver_number || row?.driverNumber || row?.driver || "",
+    );
+    if (!driverNumber) continue;
+    if (!grouped[driverNumber]) grouped[driverNumber] = [];
+    grouped[driverNumber].push(row);
+  }
+
+  for (const driverNumber of Object.keys(grouped)) {
+    const snapshotsByLap = Object.create(null);
+    for (const row of grouped[driverNumber]) {
+      const snapshotMs = parseDateMs(
+        row?.date || row?.timestamp || row?.t || null,
+      );
+      const snapshotLap = findRaceControlLap(snapshotMs);
+      const position =
+        row?.position ?? row?.position_current ?? row?.pos ?? null;
+      if (snapshotLap == null || position == null) continue;
+      snapshotsByLap[String(snapshotLap)] = {
+        lap: snapshotLap,
+        position,
+        date: snapshotMs,
+      };
+    }
+
+    const snapshots = Object.values(snapshotsByLap)
+      .map((row) => ({
+        lap: row.lap,
+        position: row.position,
+        date: row.date,
+      }))
+      .sort((a, b) => a.lap - b.lap || a.date - b.date);
+
+    const grid = startingGridMap[driverNumber] || null;
+    const hasGrid = grid && grid.position != null;
+
+    if (snapshots.length === 0) {
+      if (!hasGrid) continue;
+      positionsMap[driverNumber] = {
+        position: grid.position,
+        record: [
+          {
+            position: grid.position,
+            start: firstLap,
+            end: lastLap,
+          },
+        ],
+      };
+      continue;
+    }
+
+    const timeline = [];
+    let currentPosition = hasGrid ? grid.position : snapshots[0].position;
+    let currentStart = firstLap != null ? firstLap : snapshots[0].lap;
+
+    for (const snapshot of snapshots) {
+      if (snapshot.position == null) continue;
+      if (currentPosition == null) {
+        currentPosition = snapshot.position;
+        currentStart = firstLap != null ? firstLap : snapshot.lap;
+        continue;
+      }
+
+      if (String(snapshot.position) === String(currentPosition)) {
+        continue;
+      }
+
+      if (snapshot.lap === currentStart && hasGrid) {
+        currentPosition = snapshot.position;
+        continue;
+      }
+
+      timeline.push({
+        position: currentPosition,
+        start: currentStart,
+        end: Math.max((snapshot.lap || currentStart) - 1, currentStart),
+      });
+      currentPosition = snapshot.position;
+      currentStart = snapshot.lap;
+    }
+
+    if (currentPosition != null) {
+      timeline.push({
+        position: currentPosition,
+        start: currentStart,
+        end: lastLap != null ? lastLap : currentStart,
+      });
+    }
+
+    positionsMap[driverNumber] = {
+      position: timeline[timeline.length - 1]?.position ?? null,
+      record: timeline,
+    };
+  }
+
+  for (const driverNumber of Object.keys(startingGridMap)) {
+    if (positionsMap[driverNumber]) continue;
+    const grid = startingGridMap[driverNumber];
+    if (!grid || grid.position == null) continue;
+    positionsMap[driverNumber] = {
+      position: grid.position,
+      record: [
+        {
+          position: grid.position,
+          start: firstLap,
+          end: lastLap,
+        },
+      ],
+    };
+  }
+
+  return positionsMap;
 }
 
 async function fetchAndCache(key, url) {
@@ -163,6 +413,14 @@ function normalizeArray(payload) {
   return [];
 }
 
+function normalizeNascarTracks(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.data)) return payload.data;
+  return [];
+}
+
 function removeKeyFromArray(arr, keyName) {
   if (!Array.isArray(arr)) return arr;
   for (const it of arr) {
@@ -170,6 +428,53 @@ function removeKeyFromArray(arr, keyName) {
       delete it[keyName];
   }
   return arr;
+}
+
+// NASCAR data filtering helpers
+function filterNascarDriver(driver) {
+  if (!driver) return null;
+  return {
+    Nascar_Driver_ID: driver.Nascar_Driver_ID ?? null,
+    Driver_ID: driver.Driver_ID ?? null,
+    Driver_Series: driver.Driver_Series ?? null,
+    First_Name: driver.First_Name ?? null,
+    Last_Name: driver.Last_Name ?? null,
+    Full_Name: driver.Full_Name ?? null,
+    DOB: driver.DOB ?? null,
+    Hometown_City: driver.Hometown_City ?? null,
+    Crew_Chief: driver.Crew_Chief ?? null,
+    Hometown_State: driver.Hometown_State ?? null,
+    Hometown_Country: driver.Hometown_Country ?? null,
+    Rookie_Year_Series_1: driver.Rookie_Year_Series_1 ?? null,
+    Badge: driver.Badge ?? null,
+    Badge_Image: driver.Badge_Image ?? null,
+    Manufacturer: driver.Manufacturer ?? null,
+    Team: driver.Team ?? null,
+    Image:
+      driver.Firesuit_Image_Small && driver.Firesuit_Image_Small !== ""
+        ? driver.Firesuit_Image_Small
+        : (driver.Image ?? null),
+  };
+}
+
+function filterNascarTrack(track) {
+  if (!track) return null;
+  return {
+    track_id: track.track_id ?? null,
+    track_name: track.track_name ?? null,
+    track_surface: track.track_surface ?? null,
+    track_type: track.track_type ?? null,
+    track_banking: track.track_banking ?? null,
+    year_built: track.year_built ?? null,
+    track_description: track.track_description ?? null,
+    city: track.city ?? null,
+    state: track.state ?? null,
+    length: track.length ?? null,
+    caution_car_speed: track.caution_car_speed ?? null,
+    track_image: track.track_image ?? null,
+    track_logo: track.track_logo ?? null,
+    capacity: track.capacity ?? null,
+  };
 }
 
 function ensureRefreshInterval(key, url, ttlMs) {
@@ -349,7 +654,7 @@ function startLiveRefreshMonitor() {
   }, CHECK_MS);
 }
 
-app.get("/drivers", async (req, res) => {
+f1.get("/drivers", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
     const path = qs ? `drivers?${qs}` : "drivers";
@@ -388,7 +693,7 @@ app.get("/drivers", async (req, res) => {
 });
 
 // Meetings endpoint - cache for 6 hours, remove country_key
-app.get("/meetings", async (req, res) => {
+f1.get("/meetings", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
     const path = qs ? `meetings?${qs}` : "meetings";
@@ -486,10 +791,10 @@ app.get("/meetings", async (req, res) => {
 });
 
 // Single meeting: return sessions for a meeting with winner and winner_team on each session
-app.get("/meeting/:meeting_key", async (req, res) => {
+f1.get("/meeting/:meeting_key", async (req, res) => {
   try {
-    const meetingKey = req.params.meeting_key;
-    if (!meetingKey)
+    const lookupKey = req.params.meeting_key;
+    if (!lookupKey)
       return res.status(400).json({ error: "meeting_key required" });
 
     await refreshSessionResultCacheIfLive();
@@ -515,35 +820,37 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     const resultsArr = normalizeArray(cache.get("session_result")?.data);
     const driversArr = normalizeArray(cache.get("drivers")?.data);
 
-    const meeting = meetingsArr.find(
-      (m) => String(m.meeting_key) === String(meetingKey),
+    let meeting = meetingsArr.find(
+      (m) => String(m.meeting_key) === String(lookupKey),
     );
+    let resolvedMeetingKey = meeting?.meeting_key || null;
+
+    if (!meeting) {
+      const sessionMatch = sessionsArr.find(
+        (s) => String(s.session_key) === String(lookupKey),
+      );
+      if (sessionMatch && sessionMatch.meeting_key != null) {
+        resolvedMeetingKey = sessionMatch.meeting_key;
+        meeting = meetingsArr.find(
+          (m) => String(m.meeting_key) === String(resolvedMeetingKey),
+        );
+      }
+    }
+
     if (!meeting) return res.status(404).json({ error: "meeting not found" });
+    if (resolvedMeetingKey == null) resolvedMeetingKey = meeting.meeting_key;
 
     const sessionsForMeeting = sessionsArr.filter(
-      (s) => String(s.meeting_key || s.meetingKey) === String(meetingKey),
+      (s) =>
+        String(s.meeting_key || s.meetingKey) === String(resolvedMeetingKey),
     );
 
     const enriched = sessionsForMeeting.map((session) => {
-      const sr = resultsArr.find(
-        (r) =>
-          String(r.session_key) === String(session.session_key) &&
-          (String(r.position) === "1" || r.position === 1),
+      const { winner, winner_team } = getWinnerInfo(
+        session.session_key,
+        resultsArr,
+        driversArr,
       );
-      let winner = null;
-      let winner_team = null;
-      if (sr) {
-        const driverNum = sr.driver_number || sr.driverNumber || sr.driver;
-        const driverObj = driversArr.find(
-          (d) => String(d.driver_number) === String(driverNum),
-        );
-        winner = driverObj
-          ? driverObj.full_name || driverObj.broadcast_name || driverObj.name
-          : sr.driver_name || sr.name || null;
-        winner_team = driverObj
-          ? driverObj.team_name || driverObj.teamName || null
-          : sr.team_name || sr.team || null;
-      }
       return { ...session, winner, winner_team };
     });
 
@@ -553,6 +860,300 @@ app.get("/meeting/:meeting_key", async (req, res) => {
     res
       .status(502)
       .json({ error: "Failed to fetch meeting", details: e.message });
+  }
+});
+
+app.get("/racing/date/:date?", async (req, res) => {
+  try {
+    const inputDate = req.params.date || null;
+    const normalizedDate = inputDate ? normalizeDateKey(inputDate) : null;
+    if (inputDate && !normalizedDate) {
+      return res.status(400).json({
+        error: "date must be YYYYMMDD or YYYY-MM-DD",
+      });
+    }
+
+    const currentYear = new Date().getFullYear();
+    await refreshSessionResultCacheIfLive();
+
+    await getCachedWithTTL("meetings", `${BASE_URL}meetings`, TTL_6H).catch(
+      () => {},
+    );
+    await getCachedWithTTL("sessions", `${BASE_URL}sessions`, TTL_6H).catch(
+      () => {},
+    );
+    await getCachedWithTTL(
+      "session_result",
+      `${BASE_URL}session_result`,
+      TTL_1H,
+    ).catch(() => {});
+    await getCachedWithTTL("drivers", `${BASE_URL}drivers`, TTL_1H).catch(
+      () => {},
+    );
+
+    // Also fetch NASCAR data
+    await getCachedWithTTL(
+      "nascar_races",
+      `https://cf.nascar.com/cacher/${new Date().getFullYear()}/race_list_basic.json`,
+      TTL_6H,
+    ).catch(() => {});
+
+    const meetingsArr = normalizeArray(cache.get("meetings")?.data);
+    const sessionsArr = normalizeArray(cache.get("sessions")?.data);
+    const resultsArr = normalizeArray(cache.get("session_result")?.data);
+    const driversArr = normalizeArray(cache.get("drivers")?.data);
+
+    const meetingsByKey = Object.create(null);
+    for (const meeting of meetingsArr) {
+      if (meeting?.meeting_key == null) continue;
+      meetingsByKey[String(meeting.meeting_key)] = meeting;
+    }
+
+    const enriched = sessionsArr
+      .filter((session) => {
+        const sessionDate = getSessionDateKey(session);
+        return !normalizedDate || sessionDate === normalizedDate;
+      })
+      .map((session) => {
+        const meetingKey = session?.meeting_key || session?.meetingKey || null;
+        const meeting = meetingKey
+          ? meetingsByKey[String(meetingKey)] || null
+          : null;
+        return enrichSessionForDateView(
+          session,
+          meeting,
+          resultsArr,
+          driversArr,
+        );
+      })
+      .sort((a, b) => {
+        const aMs = parseDateMs(a.date_start || a.dateStart || a.session_date);
+        const bMs = parseDateMs(b.date_start || b.dateStart || b.session_date);
+        return (aMs || 0) - (bMs || 0);
+      });
+
+    // Build NASCAR schedule data with enrichment
+    const nascarRacesData = cache.get("nascar_races")?.data;
+    const tracksData = cache.get("nascar_tracks")?.data;
+    const tracksArr = normalizeNascarTracks(tracksData);
+    const tracksMap = Object.create(null);
+    for (const track of tracksArr) {
+      if (track?.track_id != null) {
+        tracksMap[String(track.track_id)] = track;
+      }
+    }
+
+    let nascarRacesArr = [];
+    if (
+      normalizedDate &&
+      nascarRacesData &&
+      nascarRacesData.series_1 &&
+      Array.isArray(nascarRacesData.series_1)
+    ) {
+      // When date is specified, enrich NASCAR schedule data with weekend-feed
+      for (const race of nascarRacesData.series_1) {
+        const raceId = race?.race_id || null;
+        if (!raceId) continue;
+
+        // Check schedule items for matching date
+        if (Array.isArray(race.schedule)) {
+          for (const scheduleItem of race.schedule) {
+            if (scheduleItem.run_type === 0) continue; // skip run_type 0
+            const scheduleDate = scheduleItem.start_time_utc
+              ? normalizeDateKey(scheduleItem.start_time_utc)
+              : null;
+            if (scheduleDate !== normalizedDate) continue;
+
+            // Found matching schedule item - fetch weekend-feed for enrichment
+            const weekendFeedKey = `nascar_weekend_feed:${currentYear}:${raceId}`;
+            let weekendFeed = null;
+            try {
+              const r = await getCachedWithTTL(
+                weekendFeedKey,
+                `https://cf.nascar.com/cacher/${currentYear}/1/${encodeURIComponent(raceId)}/weekend-feed.json`,
+                TTL_1H,
+              ).catch(() => ({ data: null }));
+              weekendFeed = r.data || null;
+              ensureRefreshInterval(
+                weekendFeedKey,
+                `https://cf.nascar.com/cacher/${currentYear}/1/${encodeURIComponent(raceId)}/weekend-feed.json`,
+                TTL_1H,
+              );
+            } catch (e) {
+              weekendFeed = null;
+            }
+
+            // Extract winner based on run_type
+            let winner = null;
+            let winnerTeam = null;
+            let winnerManufacturer = null;
+            if (weekendFeed) {
+              let resultsArray = null;
+              if (scheduleItem.run_type === 3) {
+                // Race - look in weekend_race[0].results
+                if (
+                  Array.isArray(weekendFeed.weekend_race) &&
+                  weekendFeed.weekend_race[0] &&
+                  Array.isArray(weekendFeed.weekend_race[0].results)
+                ) {
+                  resultsArray = weekendFeed.weekend_race[0].results;
+                } else if (
+                  weekendFeed.weekend_race &&
+                  typeof weekendFeed.weekend_race === "object" &&
+                  Array.isArray(weekendFeed.weekend_race.results)
+                ) {
+                  resultsArray = weekendFeed.weekend_race.results;
+                }
+              } else {
+                // Other run_type - look up the run object by run_type in the weekend_runs array/object
+                const runTypeKey = String(scheduleItem.run_type);
+                let runObj = null;
+                if (Array.isArray(weekendFeed.weekend_runs)) {
+                  runObj = weekendFeed.weekend_runs.find(
+                    (run) => String(run?.run_type) === runTypeKey,
+                  );
+                } else if (
+                  weekendFeed.weekend_runs &&
+                  typeof weekendFeed.weekend_runs === "object"
+                ) {
+                  runObj =
+                    weekendFeed.weekend_runs[runTypeKey] ||
+                    weekendFeed.weekend_runs[scheduleItem.run_type] ||
+                    null;
+                }
+
+                if (runObj && Array.isArray(runObj.results)) {
+                  resultsArray = runObj.results;
+                }
+              }
+
+              // Find finishing_position 1
+              if (resultsArray) {
+                const winnerResult = resultsArray.find(
+                  (r) => String(r?.finishing_position) === "1",
+                );
+                if (winnerResult) {
+                  winner =
+                    winnerResult.driver_name ||
+                    winnerResult.driver_fullname ||
+                    winnerResult.driver_fullName ||
+                    winnerResult.full_name ||
+                    winnerResult.name ||
+                    null;
+                  winnerTeam =
+                    winnerResult.team_name ||
+                    winnerResult.team ||
+                    winnerResult.owner_fullname ||
+                    winnerResult.owner_name ||
+                    null;
+                  winnerManufacturer =
+                    winnerResult.manufacturer ||
+                    winnerResult.car_make ||
+                    winnerResult.make ||
+                    winnerResult.car_manufacturer ||
+                    null;
+                }
+              }
+            }
+
+            // Get track info
+            const trackId = race?.track_id || null;
+            const trackInfo = trackId ? tracksMap[String(trackId)] : null;
+
+            nascarRacesArr.push({
+              source: "nascar_schedule",
+              race_id: raceId,
+              race_name: race.race_name || null,
+              track_id: trackId,
+              track_name: race.track_name || null,
+              track_image: trackInfo?.track_image || null,
+              track_logo: trackInfo?.track_logo || null,
+              state: trackInfo?.state || null,
+              event_name: scheduleItem.event_name || null,
+              date_start: scheduleItem.start_time_utc || null,
+              schedule: scheduleItem,
+              winner,
+              winner_team: winnerTeam,
+              winner_manufacturer: winnerManufacturer,
+            });
+          }
+        }
+      }
+    } else if (
+      !normalizedDate &&
+      nascarRacesData &&
+      nascarRacesData.series_1 &&
+      Array.isArray(nascarRacesData.series_1)
+    ) {
+      // When no date is specified, collect all unique schedule dates
+      for (const race of nascarRacesData.series_1) {
+        if (Array.isArray(race.schedule)) {
+          for (const scheduleItem of race.schedule) {
+            if (scheduleItem.run_type !== 0 && scheduleItem.start_time_utc) {
+              nascarRacesArr.push({
+                source: "nascar_schedule",
+                date_start: scheduleItem.start_time_utc,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    if (!normalizedDate) {
+      // Return unique dates only (no time, deduplicated)
+      const allDates = new Set();
+      for (const session of enriched) {
+        const dateStart = session.date_start || null;
+        if (dateStart) {
+          const normalized = normalizeDateKey(dateStart);
+          if (normalized) allDates.add(normalized);
+        }
+      }
+      for (const race of nascarRacesArr) {
+        const dateStart = race.date_start || null;
+        if (dateStart) {
+          const normalized = normalizeDateKey(dateStart);
+          if (normalized) allDates.add(normalized);
+        }
+      }
+
+      const uniqueDates = Array.from(allDates)
+        .sort()
+        .map((date) => ({
+          date_start: date,
+        }));
+
+      setCachingHeaders(res, TTL_6H);
+      return res.json({
+        source: "cache",
+        date: null,
+        data: uniqueDates,
+      });
+    }
+
+    // Filter NASCAR races for the requested date
+    const filteredNascarRaces = nascarRacesArr.filter((race) => {
+      const raceDate = race.date_start
+        ? normalizeDateKey(race.date_start)
+        : null;
+      return raceDate === normalizedDate;
+    });
+
+    // Combine F1 and NASCAR data
+    const combinedData = [...enriched, ...filteredNascarRaces];
+
+    setCachingHeaders(res, TTL_6H);
+    res.json({
+      source: "cache",
+      date: normalizedDate,
+      data: combinedData,
+    });
+  } catch (e) {
+    res.status(502).json({
+      error: "Failed to fetch racing date data",
+      details: e.message,
+    });
   }
 });
 
@@ -568,7 +1169,7 @@ async function getComputedCached(key, ttlMs, builder) {
 }
 
 // Driver endpoint (aggregates drivers, championship_drivers, starting_grid, session_result)
-app.get("/driver/:driver_number", async (req, res) => {
+f1.get("/driver/:driver_number", async (req, res) => {
   try {
     const driverNumber = String(req.params.driver_number);
     if (!driverNumber)
@@ -676,7 +1277,7 @@ app.get("/driver/:driver_number", async (req, res) => {
 });
 
 // Team endpoint: accepts hyphenated name and case-insensitive
-app.get("/team/:team_name", async (req, res) => {
+f1.get("/team/:team_name", async (req, res) => {
   try {
     const raw = req.params.team_name || "";
     const teamQuery = raw.replace(/-/g, " ").toLowerCase();
@@ -1247,45 +1848,13 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     }
 
     // --- build positions map from 'position' resource scoped to this session ---
-    const positionsMap = Object.create(null);
-    try {
-      const posArr = resources.position || [];
-      // filter positions for this session_key only
-      const filteredPos = posArr.filter((p) => {
-        const sk = p?.session_key || p?.sessionKey || null;
-        if (!sk) return false;
-        return String(sk) === String(sessionKey);
-      });
-      if ((posArr.length || 0) > 0 && filteredPos.length === 0) {
-        try {
-          console.log(
-            `[positions] session=${sessionKey} posArr_total=${posArr.length} filtered_for_session=0 — NOT using global posArr to avoid mixing sessions`,
-          );
-        } catch (e) {}
-      }
-      const toUse = filteredPos; // only use entries that specifically match this session
-      // sort by date if date exists
-      toUse.sort((a, b) => {
-        const da = new Date(a.date || a.timestamp || a.t || 0).getTime() || 0;
-        const db = new Date(b.date || b.timestamp || b.t || 0).getTime() || 0;
-        return da - db;
-      });
-      for (const p of toUse) {
-        const dn = String(
-          p?.driver_number || p?.driverNumber || p?.driver || "",
-        );
-        if (!dn) continue;
-        if (!positionsMap[dn])
-          positionsMap[dn] = { position: null, record: [] };
-        // push recorded position into record array (use null or string coercion)
-        const posVal = p.position ?? p.position_current ?? p.pos ?? null;
-        positionsMap[dn].record.push(posVal);
-        // keep last known as position
-        positionsMap[dn].position = posVal;
-      }
-    } catch (e) {
-      // ignore
-    }
+    const positionsMap = buildPositionIntervals({
+      sessionObj,
+      sessionKey,
+      positionsArr: resources.position || [],
+      raceControlArr: resources.race_control || [],
+      startingGridArr: starting_grid || [],
+    });
 
     // --- build laps map per driver: last valid lap + fastest lap and fastest st_speed ---
     const lapsByDriver = Object.create(null);
@@ -1677,7 +2246,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
   }
 }
 
-app.get("/session", async (req, res) => {
+f1.get("/session", async (req, res) => {
   try {
     // support either session_key or meeting_key
     let sessionKey = req.query.session_key || req.query.s || null;
@@ -1902,7 +2471,7 @@ app.get("/session", async (req, res) => {
 });
 
 // Path-style session route: /session/:session_key/:status?
-app.get("/session/:session_key/:status?", async (req, res) => {
+f1.get("/session/:session_key/:status?", async (req, res) => {
   try {
     let sessionKey = req.params.session_key;
     const status = req.params.status || null;
@@ -2146,7 +2715,7 @@ app.get("/session/:session_key/:status?", async (req, res) => {
 });
 
 // Sessions endpoint - cache for 6 hours, remove circuit_key and country_key
-app.get("/sessions", async (req, res) => {
+f1.get("/sessions", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
     const path = qs ? `sessions?${qs}` : "sessions";
@@ -2175,7 +2744,7 @@ app.get("/sessions", async (req, res) => {
 });
 
 // DEBUG: expose cached session_result (optional session_key filter)
-app.get("/debug/session_results/:session_key?", async (req, res) => {
+f1.get("/debug/session_results/:session_key?", async (req, res) => {
   try {
     const sk = req.params.session_key || null;
     let arr = normalizeArray(cache.get("session_result")?.data || []);
@@ -2273,7 +2842,7 @@ function groupChampionshipTeams(arr) {
 }
 
 // championship_drivers - 1 hour cache
-app.get("/championship_drivers", async (req, res) => {
+f1.get("/championship_drivers", async (req, res) => {
   try {
     const { q, keys } = buildMeetingQuery(req.query);
     const params = new URLSearchParams(q);
@@ -2340,7 +2909,7 @@ app.get("/championship_drivers", async (req, res) => {
 });
 
 // championship_teams - 1 hour cache
-app.get("/championship_teams", async (req, res) => {
+f1.get("/championship_teams", async (req, res) => {
   try {
     const { q, keys } = buildMeetingQuery(req.query);
     const params = new URLSearchParams(q);
@@ -2405,7 +2974,7 @@ app.get("/championship_teams", async (req, res) => {
 });
 
 // Standings endpoint: combine championship_drivers and championship_teams
-app.get("/standings", async (req, res) => {
+f1.get("/standings", async (req, res) => {
   try {
     // ensure cached source data exists
     await getCachedWithTTL(
@@ -2522,7 +3091,7 @@ function groupByMeetingThenSession(arr) {
   return out;
 }
 
-app.get("/session_result", async (req, res) => {
+f1.get("/session_result", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
     const path = qs ? `session_result?${qs}` : "session_result";
@@ -2595,7 +3164,7 @@ app.get("/session_result", async (req, res) => {
   }
 });
 
-app.get("/starting_grid", async (req, res) => {
+f1.get("/starting_grid", async (req, res) => {
   try {
     const qs = new URLSearchParams(req.query).toString();
     const path = qs ? `starting_grid?${qs}` : "starting_grid";
@@ -2665,7 +3234,7 @@ app.get("/starting_grid", async (req, res) => {
   }
 });
 
-app.get("/proxy/*", async (req, res) => {
+f1.get("/proxy/*", async (req, res) => {
   const path = req.params[0] || "";
   const qs = req.url.split("?")[1] || "";
   const fullPath = qs ? `${path}?${qs}` : path;
@@ -2689,15 +3258,409 @@ app.get("/proxy/*", async (req, res) => {
   }
 });
 
-app.get("/health", (req, res) => {
+f1.get("/health", (req, res) => {
   const entries = {};
   for (const [k, v] of cache.entries())
     entries[k] = { ageMs: Date.now() - v.fetchedAt };
   res.json({ status: "ok", cachedKeys: Object.keys(entries).length, entries });
 });
 
-app.get("/", (req, res) => {
+f1.get("/", (req, res) => {
   res.json({ message: "F1 server running", baseUrl: BASE_URL });
+});
+
+// NASCAR endpoints
+nascar.get("/meetings", async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const url = `https://cf.nascar.com/cacher/${currentYear}/race_list_basic.json`;
+    const key = "nascar_races";
+
+    const { data, fromCache } = await getCachedWithTTL(key, url, TTL_6H);
+    let races = [];
+    if (data && data.series_1 && Array.isArray(data.series_1)) {
+      races = data.series_1;
+    }
+
+    ensureRefreshInterval(key, url, TTL_6H);
+    setCachingHeaders(res, TTL_6H);
+    res.json({ source: fromCache ? "cache" : "origin", data: races });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch NASCAR meetings", details: err.message });
+  }
+});
+
+nascar.get("/drivers", async (req, res) => {
+  try {
+    const url = "https://cf.nascar.com/cacher/drivers.json";
+    const key = "nascar_drivers";
+
+    const { data, fromCache } = await getCachedWithTTL(key, url, TTL_6H);
+    let drivers = [];
+    if (Array.isArray(data)) {
+      drivers = data.map(filterNascarDriver).filter((d) => d !== null);
+    } else if (data && data.response && Array.isArray(data.response)) {
+      drivers = data.response.map(filterNascarDriver).filter((d) => d !== null);
+    }
+
+    ensureRefreshInterval(key, url, TTL_6H);
+    setCachingHeaders(res, TTL_6H);
+    res.json({ source: fromCache ? "cache" : "origin", data: drivers });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch NASCAR drivers", details: err.message });
+  }
+});
+
+nascar.get("/tracks", async (req, res) => {
+  try {
+    const url = "https://cf.nascar.com/cacher/tracks.json";
+    const key = "nascar_tracks";
+
+    const { data, fromCache } = await getCachedWithTTL(key, url, TTL_6H);
+    let tracks = [];
+    if (data && data.items && Array.isArray(data.items)) {
+      tracks = data.items.map(filterNascarTrack).filter((t) => t !== null);
+    } else if (Array.isArray(data)) {
+      tracks = data.map(filterNascarTrack).filter((t) => t !== null);
+    }
+
+    ensureRefreshInterval(key, url, TTL_6H);
+    setCachingHeaders(res, TTL_6H);
+    res.json({ source: fromCache ? "cache" : "origin", data: tracks });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch NASCAR tracks", details: err.message });
+  }
+});
+
+// NASCAR standings: drivers, owners, manufacturers
+nascar.get("/standings", async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const driversUrl = `https://cf.nascar.com/data/cacher/production/${currentYear}/1/racinginsights-points-feed.json`;
+    const ownersUrl = `https://cf.nascar.com/cacher/${currentYear}/1/final/1-owners-points.json`;
+    const manufacturersUrl = `https://cf.nascar.com/cacher/${currentYear}/1/final/1-manufacturer-points.json`;
+
+    const driversKey = `nascar_standings_drivers:${currentYear}`;
+    const ownersKey = `nascar_standings_owners:${currentYear}`;
+    const manufacturersKey = `nascar_standings_manufacturers:${currentYear}`;
+
+    const driversRes = await getCachedWithTTL(
+      driversKey,
+      driversUrl,
+      TTL_1H,
+    ).catch(() => ({ data: null, fromCache: false }));
+    const ownersRes = await getCachedWithTTL(
+      ownersKey,
+      ownersUrl,
+      TTL_1H,
+    ).catch(() => ({ data: null, fromCache: false }));
+    const manufacturersRes = await getCachedWithTTL(
+      manufacturersKey,
+      manufacturersUrl,
+      TTL_1H,
+    ).catch(() => ({ data: null, fromCache: false }));
+
+    ensureRefreshInterval(driversKey, driversUrl, TTL_1H);
+    ensureRefreshInterval(ownersKey, ownersUrl, TTL_1H);
+    ensureRefreshInterval(manufacturersKey, manufacturersUrl, TTL_1H);
+
+    // normalize payloads to arrays/objects as-is (upstream shapes vary)
+    const driversData = driversRes?.data || null;
+    const ownersData = ownersRes?.data || null;
+    const manufacturersData = manufacturersRes?.data || null;
+
+    setCachingHeaders(res, TTL_1H);
+    res.json({
+      source:
+        driversRes.fromCache ||
+        ownersRes.fromCache ||
+        manufacturersRes.fromCache
+          ? "cache"
+          : "origin",
+      data: {
+        drivers: driversData,
+        owners: ownersData,
+        manufacturers: manufacturersData,
+      },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({
+        error: "Failed to fetch NASCAR standings",
+        details: err.message,
+      });
+  }
+});
+
+// NASCAR race endpoint: /nascar/race/:race_id/:status (status: off|live)
+nascar.get("/race/:race_id/:status?", async (req, res) => {
+  try {
+    const raceId = req.params.race_id;
+    const status = (req.params.status || "off").toLowerCase();
+    if (!raceId) return res.status(400).json({ error: "race_id required" });
+
+    const currentYear = new Date().getFullYear();
+    const raceListUrl = `https://cf.nascar.com/cacher/${currentYear}/race_list_basic.json`;
+    const raceListKey = `nascar_races:${currentYear}`;
+
+    await getCachedWithTTL(raceListKey, raceListUrl, TTL_6H).catch(() => {});
+    const raceListData =
+      cache.get(raceListKey)?.data || cache.get("nascar_races")?.data || null;
+    const raceListArr = Array.isArray(raceListData?.series_1)
+      ? raceListData.series_1
+      : [];
+    const raceObj =
+      raceListArr.find((race) => String(race?.race_id) === String(raceId)) ||
+      null;
+
+    const trackId = raceObj?.track_id || null;
+    const trackInfo = (() => {
+      const tracksData = cache.get("nascar_tracks")?.data;
+      const tracksArr = normalizeNascarTracks(tracksData);
+      if (!trackId) return null;
+      return (
+        tracksArr.find(
+          (track) => String(track?.track_id) === String(trackId),
+        ) || null
+      );
+    })();
+
+    const scheduleArr = Array.isArray(raceObj?.schedule)
+      ? raceObj.schedule
+      : [];
+    const nowMs = Date.now();
+    const hasLiveScheduledEvent = scheduleArr.some((item) => {
+      if (Number(item?.run_type) === 0) return false;
+      const startMs = parseDateMs(
+        item?.start_time_utc || item?.start_time || null,
+      );
+      return startMs != null && Math.abs(startMs - nowMs) <= 3 * 60 * 60 * 1000;
+    });
+    const shouldUseLiveFeeds = status === "live";
+    const liveRefreshMs = hasLiveScheduledEvent ? 10 * 1000 : TTL_1H;
+
+    const liveUrls = {
+      live_stage_points: `https://cf.nascar.com/live/feeds/live-stage-points.json`,
+      live_flag_data: `https://cf.nascar.com/live/feeds/live-flag-data.json`,
+      live_pit_data: `https://cf.nascar.com/live/feeds/live-pit-data.json`,
+      live_feed: `https://cf.nascar.com/live/feeds/live-feed.json`,
+      live_points: `https://cf.nascar.com/live/feeds/live-points.json`,
+    };
+
+    const staticUrls = {
+      loopstats: `https://cf.nascar.com/loopstats/prod/${currentYear}/1/${encodeURIComponent(raceId)}.json`,
+      weekend: `https://cf.nascar.com/cacher/${currentYear}/1/${encodeURIComponent(raceId)}/weekend-feed.json`,
+      lap_notes: `https://cf.nascar.com/cacher/${currentYear}/1/${encodeURIComponent(raceId)}/lap-notes.json`,
+      lap_times: `https://cf.nascar.com/cacher/${currentYear}/1/${encodeURIComponent(raceId)}/lap-times.json`,
+      live_pit: `https://cf.nascar.com/cacher/live/series_1/${encodeURIComponent(raceId)}/live-pit-data.json`,
+    };
+
+    const staticCacheKeys = {
+      loopstats: `nascar_race_loopstats:${currentYear}:${raceId}`,
+      weekend: `nascar_race_weekend:${currentYear}:${raceId}`,
+      lap_notes: `nascar_race_lap_notes:${currentYear}:${raceId}`,
+      lap_times: `nascar_race_lap_times:${currentYear}:${raceId}`,
+      live_pit: `nascar_race_live_pit:${currentYear}:${raceId}`,
+    };
+
+    const liveCacheKeys = {
+      live_stage_points: `nascar_live_stage_points:${currentYear}:${raceId}`,
+      live_flag_data: `nascar_live_flag_data:${currentYear}:${raceId}`,
+      live_pit_data: `nascar_live_pit_data:${currentYear}:${raceId}`,
+      live_feed: `nascar_live_feed:${currentYear}:${raceId}`,
+      live_points: `nascar_live_points:${currentYear}:${raceId}`,
+    };
+
+    const out = {
+      race_list_basic: raceObj,
+    };
+
+    if (shouldUseLiveFeeds) {
+      const liveSources = [
+        ["live_stage_points", liveUrls.live_stage_points],
+        ["live_flag_data", liveUrls.live_flag_data],
+        ["live_pit_data", liveUrls.live_pit_data],
+        ["live_feed", liveUrls.live_feed],
+        ["live_points", liveUrls.live_points],
+      ];
+
+      for (const [name, url] of liveSources) {
+        try {
+          const cacheKey = liveCacheKeys[name];
+          const result = await getCachedWithTTL(
+            cacheKey,
+            url,
+            liveRefreshMs,
+          ).catch(() => ({ data: null }));
+          out[name] = result.data || null;
+          ensureRefreshInterval(cacheKey, url, liveRefreshMs);
+        } catch (e) {
+          out[name] = null;
+        }
+      }
+
+      // Keep track object available in live mode too.
+      out.track = trackInfo || null;
+
+      // Also expose the schedule window that triggered live refresh.
+      out.live_window = hasLiveScheduledEvent;
+
+      setCachingHeaders(res, liveRefreshMs);
+      return res.json({ source: "cache", race_id: raceId, status, data: out });
+    }
+
+    // offline / default mode: perform resilient fetches from the non-live feeds
+    try {
+      const r = await getCachedWithTTL(
+        staticCacheKeys.loopstats,
+        staticUrls.loopstats,
+        TTL_1H,
+      ).catch(() => ({ data: null }));
+      out.loopstats = r.data || null;
+      ensureRefreshInterval(
+        staticCacheKeys.loopstats,
+        staticUrls.loopstats,
+        TTL_1H,
+      );
+    } catch (e) {
+      out.loopstats = null;
+    }
+
+    try {
+      const r = await getCachedWithTTL(
+        staticCacheKeys.weekend,
+        staticUrls.weekend,
+        TTL_1H,
+      ).catch(() => ({ data: null }));
+      out.weekend = r.data || null;
+      ensureRefreshInterval(
+        staticCacheKeys.weekend,
+        staticUrls.weekend,
+        TTL_1H,
+      );
+    } catch (e) {
+      out.weekend = null;
+    }
+
+    try {
+      const r = await getCachedWithTTL(
+        staticCacheKeys.lap_notes,
+        staticUrls.lap_notes,
+        TTL_1H,
+      ).catch(() => ({ data: null }));
+      out.lap_notes = r.data || null;
+      ensureRefreshInterval(
+        staticCacheKeys.lap_notes,
+        staticUrls.lap_notes,
+        TTL_1H,
+      );
+    } catch (e) {
+      out.lap_notes = null;
+    }
+
+    try {
+      const r = await getCachedWithTTL(
+        staticCacheKeys.lap_times,
+        staticUrls.lap_times,
+        TTL_1H,
+      ).catch(() => ({ data: null }));
+      out.lap_times = r.data || null;
+      ensureRefreshInterval(
+        staticCacheKeys.lap_times,
+        staticUrls.lap_times,
+        TTL_1H,
+      );
+    } catch (e) {
+      out.lap_times = null;
+    }
+
+    try {
+      const r = await getCachedWithTTL(
+        staticCacheKeys.live_pit,
+        staticUrls.live_pit,
+        TTL_1H,
+      ).catch(() => ({ data: null }));
+      let livePit = r.data || null;
+      ensureRefreshInterval(
+        staticCacheKeys.live_pit,
+        staticUrls.live_pit,
+        TTL_1H,
+      );
+
+      if (Array.isArray(livePit)) {
+        const grouped = Object.create(null);
+        for (const item of livePit) {
+          const vn =
+            item?.vehicle_number ??
+            item?.vehicleNumber ??
+            item?.vehicle ??
+            null;
+          if (vn == null) continue;
+          const copy = { ...item };
+          delete copy.vehicle_number;
+          delete copy.vehicleNumber;
+          delete copy.vehicle;
+          delete copy.left_front_tire_changed;
+          delete copy.left_rear_tire_changed;
+          delete copy.right_front_tire_changed;
+          delete copy.right_rear_tire_changed;
+          const key = String(vn);
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(copy);
+        }
+        out.live_pit = grouped;
+      } else if (livePit && typeof livePit === "object") {
+        let arr = null;
+        if (Array.isArray(livePit.items)) arr = livePit.items;
+        else if (Array.isArray(livePit.data)) arr = livePit.data;
+        if (arr) {
+          const grouped = Object.create(null);
+          for (const item of arr) {
+            const vn =
+              item?.vehicle_number ??
+              item?.vehicleNumber ??
+              item?.vehicle ??
+              null;
+            if (vn == null) continue;
+            const copy = { ...item };
+            delete copy.vehicle_number;
+            delete copy.vehicleNumber;
+            delete copy.vehicle;
+            delete copy.left_front_tire_changed;
+            delete copy.left_rear_tire_changed;
+            delete copy.right_front_tire_changed;
+            delete copy.right_rear_tire_changed;
+            const key = String(vn);
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(copy);
+          }
+          out.live_pit = grouped;
+        } else {
+          out.live_pit = null;
+        }
+      } else {
+        out.live_pit = null;
+      }
+    } catch (e) {
+      out.live_pit = null;
+    }
+
+    out.track = trackInfo || null;
+
+    setCachingHeaders(res, TTL_1H);
+    res.json({ source: "cache", race_id: raceId, status, data: out });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch race data", details: err.message });
+  }
 });
 
 async function warmUpAll() {
@@ -2741,6 +3704,36 @@ async function warmUpAll() {
       () => {},
     );
     ensureRefreshInterval("starting_grid", `${BASE_URL}starting_grid`, TTL_1H);
+
+    // fetch NASCAR data on startup
+    const currentYear = new Date().getFullYear();
+    await fetchAndCache(
+      "nascar_races",
+      `https://cf.nascar.com/cacher/${currentYear}/race_list_basic.json`,
+    ).catch(() => {});
+    ensureRefreshInterval(
+      "nascar_races",
+      `https://cf.nascar.com/cacher/${currentYear}/race_list_basic.json`,
+      TTL_6H,
+    );
+    await fetchAndCache(
+      "nascar_drivers",
+      "https://cf.nascar.com/cacher/drivers.json",
+    ).catch(() => {});
+    ensureRefreshInterval(
+      "nascar_drivers",
+      "https://cf.nascar.com/cacher/drivers.json",
+      TTL_6H,
+    );
+    await fetchAndCache(
+      "nascar_tracks",
+      "https://cf.nascar.com/cacher/tracks.json",
+    ).catch(() => {});
+    ensureRefreshInterval(
+      "nascar_tracks",
+      "https://cf.nascar.com/cacher/tracks.json",
+      TTL_6H,
+    );
   } catch (e) {
     console.warn("Warm-up fetch failed:", e?.message || e);
   }

@@ -22,7 +22,8 @@ import Svg, {
 } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const SERVER_BASE = "https://laraiyeogithubio-production-ed10.up.railway.app";
+const SERVER_BASE =
+  "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
 const MEETINGS_CACHE_KEY = "f1_meetings_cache:v1";
 const MEETINGS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 

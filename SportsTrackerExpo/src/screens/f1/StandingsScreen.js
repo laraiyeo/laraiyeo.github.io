@@ -114,7 +114,7 @@ const StandingsScreen = ({ route }) => {
       setLoading(true);
 
       const STANDINGS_URL =
-        "https://laraiyeogithubio-production-ed10.up.railway.app/standings";
+        "https://laraiyeogithubio-production-ed10.up.railway.app/standings/f1";
       const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
       const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
 
