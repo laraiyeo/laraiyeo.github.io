@@ -3390,12 +3390,10 @@ nascar.get("/standings", async (req, res) => {
       },
     });
   } catch (err) {
-    res
-      .status(502)
-      .json({
-        error: "Failed to fetch NASCAR standings",
-        details: err.message,
-      });
+    res.status(502).json({
+      error: "Failed to fetch NASCAR standings",
+      details: err.message,
+    });
   }
 });
 
