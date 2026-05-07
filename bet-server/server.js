@@ -147,6 +147,45 @@ initBetslipCleaner().catch((e) => console.error("initBetslipCleaner", e));
 
 const expo = new Expo();
 
+// Helper: determine whether a profile should be considered active pro
+function isActivePro(profileRow) {
+  if (!profileRow) return false;
+  if (!profileRow.is_pro) return false;
+  if (!profileRow.pro_expires_at) return true;
+  try {
+    return new Date(profileRow.pro_expires_at) > new Date();
+  } catch (e) {
+    return true;
+  }
+}
+
+// Periodic cleanup: clear `is_pro` for rows whose `pro_expires_at` has passed.
+async function cleanupExpiredPro() {
+  try {
+    const nowISO = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .update({ is_pro: false })
+      .lt("pro_expires_at", nowISO)
+      .eq("is_pro", true);
+    if (error) {
+      console.error("cleanupExpiredPro error", error);
+    } else if (data && data.length) {
+      console.log(
+        "cleanupExpiredPro: cleared pro for",
+        data.length,
+        "profiles",
+      );
+    }
+  } catch (e) {
+    console.error("cleanupExpiredPro exception", e?.message || e);
+  }
+}
+
+// Run cleanup on startup and every 15 minutes
+cleanupExpiredPro().catch((e) => console.error("cleanupExpiredPro startup", e));
+setInterval(cleanupExpiredPro, 15 * 60 * 1000);
+
 // Small helper: send push notification via Supabase-stored tokens
 async function sendPushNotification(userId, title, bodyText, data = {}) {
   try {
@@ -2226,7 +2265,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     const { data: profileRow, error: selectErr } = await supabaseAdmin
       .from("profiles")
       .select(
-        "credits, is_pro, daily_available_day, daily_claimed, daily_next_available_at",
+        "credits, is_pro, pro_expires_at, daily_available_day, daily_claimed, daily_next_available_at",
       )
       .eq("id", userId)
       .maybeSingle();
@@ -2250,7 +2289,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     // Determine reward
     const baseReward = day < 7 ? 250 : 1000;
     const reward =
-      profileRow && profileRow.is_pro ? baseReward + 500 : baseReward;
+      profileRow && isActivePro(profileRow) ? baseReward + 500 : baseReward;
 
     const currentCredits = Number(profileRow?.credits || 0);
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
@@ -12495,7 +12534,7 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     try {
       const { data: p, error: pErr } = await supabaseAdmin
         .from("profiles")
-        .select("id, is_pro")
+        .select("id, is_pro, pro_expires_at")
         .eq("id", profileId)
         .maybeSingle();
       if (pErr) {
@@ -12507,7 +12546,7 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
       console.warn("promo redeem: profile lookup exception", e?.message || e);
     }
 
-    if (profileRow && profileRow.is_pro) {
+    if (profileRow && isActivePro(profileRow)) {
       return res.status(400).json({ message: "already_pro" });
     }
 
