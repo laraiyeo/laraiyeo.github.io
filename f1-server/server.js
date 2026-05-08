@@ -3414,7 +3414,9 @@ nascar.get("/standings", async (req, res) => {
     ensureRefreshInterval(driversKey, driversUrl, TTL_1H);
     ensureRefreshInterval(ownersKey, ownersUrl, TTL_1H);
     ensureRefreshInterval(manufacturersKey, manufacturersUrl, TTL_1H);
-    await getCachedWithTTL("nascar_drivers", nascarDriversUrl, TTL_6H).catch(() => {});
+    await getCachedWithTTL("nascar_drivers", nascarDriversUrl, TTL_6H).catch(
+      () => {},
+    );
     ensureRefreshInterval("nascar_drivers", nascarDriversUrl, TTL_6H);
 
     // normalize payloads to arrays/objects as-is (upstream shapes vary)
@@ -3430,8 +3432,8 @@ nascar.get("/standings", async (req, res) => {
     const standingsDriversArr = Array.isArray(driversData?.drivers)
       ? driversData.drivers
       : Array.isArray(driversData)
-      ? driversData
-      : [];
+        ? driversData
+        : [];
     const allowedDriverIds = new Set();
     for (const d of standingsDriversArr) {
       const id =
@@ -3766,12 +3768,19 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
 
     // loopstats -> drivers
     if (out.loopstats) {
-      const lsArr = Array.isArray(out.loopstats) ? out.loopstats : [out.loopstats];
+      const lsArr = Array.isArray(out.loopstats)
+        ? out.loopstats
+        : [out.loopstats];
       for (const ls of lsArr) {
         if (!ls) continue;
         const drivers = Array.isArray(ls.drivers) ? ls.drivers : [];
         for (const d of drivers) {
-          const id = d?.driver_id ?? d?.Driver_ID ?? d?.driverId ?? d?.NASCARDriverID ?? null;
+          const id =
+            d?.driver_id ??
+            d?.Driver_ID ??
+            d?.driverId ??
+            d?.NASCARDriverID ??
+            null;
           if (id != null) allowed.add(String(id));
         }
       }
@@ -3783,7 +3792,12 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
         if (!wr) continue;
         const results = Array.isArray(wr.results) ? wr.results : [];
         for (const r of results) {
-          const id = r?.driver_id ?? r?.Driver_ID ?? r?.driverId ?? r?.NASCARDriverID ?? null;
+          const id =
+            r?.driver_id ??
+            r?.Driver_ID ??
+            r?.driverId ??
+            r?.NASCARDriverID ??
+            null;
           if (id != null) allowed.add(String(id));
         }
       }
@@ -3794,7 +3808,11 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       for (const lap of out.lap_times.laps) {
         if (!lap) continue;
         const id =
-          lap?.NASCARDriverID ?? lap?.Nascar_Driver_ID ?? lap?.nascar_driver_id ?? lap?.driver_id ?? null;
+          lap?.NASCARDriverID ??
+          lap?.Nascar_Driver_ID ??
+          lap?.nascar_driver_id ??
+          lap?.driver_id ??
+          null;
         if (id != null) allowed.add(String(id));
       }
     }
@@ -3812,7 +3830,12 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       for (const v of out.live_feed.vehicles) {
         const drv = v?.driver ?? v?.Driver ?? v?.driverObj ?? null;
         if (!drv) continue;
-        const id = drv?.driver_id ?? drv?.Driver_ID ?? drv?.driverId ?? drv?.NASCARDriverID ?? null;
+        const id =
+          drv?.driver_id ??
+          drv?.Driver_ID ??
+          drv?.driverId ??
+          drv?.NASCARDriverID ??
+          null;
         if (id != null) allowed.add(String(id));
       }
     }
@@ -3831,7 +3854,9 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
     for (const entry of Object.values(driversMap)) {
       if (!entry) continue;
       const entryDriverId = entry.driver_id ? String(entry.driver_id) : null;
-      const entryNascarId = entry.nascar_driver_id ? String(entry.nascar_driver_id) : null;
+      const entryNascarId = entry.nascar_driver_id
+        ? String(entry.nascar_driver_id)
+        : null;
       // Only include drivers referenced in `allowed`. Expose by nascar id only
       if (entryNascarId && allowed.has(entryNascarId)) {
         if (added.has(entryNascarId)) continue;
