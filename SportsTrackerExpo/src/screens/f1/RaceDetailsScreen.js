@@ -45,7 +45,15 @@ const SERVER_BASE =
   "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
 const { width } = Dimensions.get("window");
 
-const BASE_TABS = ["Main", "Drivers", "Events", "Stints", "Starting Grid"];
+const BASE_TABS = [
+  "Main",
+  "Drivers",
+  "Events",
+  "Stints",
+  "Flow",
+  "Compare",
+  "Starting Grid",
+];
 
 const countryColorMap = {
   bahrain: "#CE1126",
@@ -825,6 +833,64 @@ const f1RacerCardStyles = StyleSheet.create({
   carImg: {
     width: "100%",
     height: 84,
+  },
+});
+
+const flowStyles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  cardBody: {
+    paddingBottom: 12,
+  },
+  filterBar: {
+    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+    alignItems: "center",
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginRight: 8,
+    backgroundColor: "transparent",
+  },
+  chipAll: {
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "transparent",
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ddd",
+  },
+  chartWrap: {
+    paddingHorizontal: 0,
+    paddingTop: 4,
+  },
+  flowHeaderRow: {
+    height: 28,
+    position: "relative",
+  },
+  flowHeaderLabel: {
+    position: "absolute",
+    top: 4,
+    width: 34,
+    marginLeft: -17,
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  flowScrollInner: {
+    position: "relative",
+  },
+  flowChartSvg: {
+    marginTop: 2,
   },
 });
 
@@ -1691,6 +1757,11 @@ const RaceDetailsScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState("Main");
   const [loading, setLoading] = useState(true);
+  const [flowSelectedDrivers, setFlowSelectedDrivers] = useState(new Set());
+  const [compareDrivers, setCompareDrivers] = useState([]);
+  const [comparePickerOpen, setComparePickerOpen] = useState(false);
+  const [comparePickerSide, setComparePickerSide] = useState(null); // "left" or "right"
+  const [compareChartMode, setCompareChartMode] = useState("Stints"); // "Stints" or "Flow"
   const [data, setData] = useState(null);
   const [renderMode, setRenderMode] = useState(true);
   const [meetingInfo, setMeetingInfo] = useState(null);
@@ -1704,6 +1775,12 @@ const RaceDetailsScreen = () => {
   const [sessionCardVisible, setSessionCardVisible] = useState(false);
   const [selectedDriverCard, setSelectedDriverCard] = useState(null);
   const floatingButtonLongPressRef = useRef(false);
+  const flowFilterScrollRef = useRef(null);
+  const flowFilterScrollXRef = useRef(0);
+  const flowChartScrollRef = useRef(null);
+  const flowChartScrollXRef = useRef(0);
+  const compareFlowChartScrollRef = useRef(null);
+  const compareFlowChartScrollXRef = useRef(0);
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1754,8 +1831,20 @@ const RaceDetailsScreen = () => {
       setLoading(true);
       try {
         if (sessionKey) {
-          // Fetch session data
-          await fetchSessionByKey(sessionKey);
+          // Fetch meeting summary and session data
+          try {
+            const resp = await fetch(`${SERVER_BASE}/meeting/${sessionKey}`);
+            const json = await resp.json();
+            const meetingObj = json?.meeting ?? json?.data?.meeting ?? json;
+            setMeetingInfo(meetingObj);
+            const sessionsArr = json?.sessions ?? meetingObj?.sessions ?? [];
+            setSessionsList(sessionsArr);
+
+            // Fetch session details by meeting key
+            await fetchSessionByKey(sessionKey);
+          } catch (e) {
+            console.warn("[RaceDetailsScreen] meeting fetch failed", e);
+          }
         } else if (meetingKey) {
           // Fetch meeting summary and session data
           try {
@@ -1796,6 +1885,58 @@ const RaceDetailsScreen = () => {
 
     return () => clearInterval(intervalId);
   }, [selectedSessionKey, session?.date_start, session?.date_end]);
+
+  // Auto-select 1st and 2nd position drivers for Compare tab
+  useEffect(() => {
+    if (activeTab === "Compare") {
+      // Build list of drivers sorted by position
+      const posList = [];
+
+      // Try to get position info from sessionResults or positions
+      if (Array.isArray(sessionResults) && sessionResults.length > 0) {
+        const sorted = [...sessionResults]
+          .filter((r) => r?.driver_number != null)
+          .sort(
+            (a, b) =>
+              (a?.position ?? a?.pos ?? Infinity) -
+              (b?.position ?? b?.pos ?? Infinity),
+          );
+        sorted.forEach((r) => {
+          posList.push({
+            driver: String(r.driver_number),
+            position: r.position,
+          });
+        });
+      } else if (
+        payload?.positions &&
+        Object.keys(payload.positions).length > 0
+      ) {
+        // Fallback: extract unique drivers and their first position
+        Object.keys(payload.positions).forEach((dn) => {
+          let arr = payload.positions[dn];
+          if (!Array.isArray(arr)) {
+            if (payload.positions[dn]?.record)
+              arr = payload.positions[dn].record;
+            else if (payload.positions[dn]?.records)
+              arr = payload.positions[dn].records;
+            else arr = [];
+          }
+          if (arr.length > 0) {
+            const firstPos = arr[0]?.position ?? arr[0]?.pos;
+            posList.push({ driver: dn, position: firstPos || 999 });
+          }
+        });
+        posList.sort((a, b) => a.position - b.position);
+      }
+
+      // Auto-select 1st and 2nd if available and distinct
+      if (posList.length >= 2 && posList[0].driver !== posList[1].driver) {
+        setCompareDrivers([posList[0].driver, posList[1].driver]);
+      } else {
+        setCompareDrivers([]);
+      }
+    }
+  }, [activeTab, payload?.positions, sessionResults]);
 
   const payload = data || {};
   const meeting = payload.meeting || null;
@@ -2138,6 +2279,1260 @@ const RaceDetailsScreen = () => {
       ticks,
     };
   }, [colors.primary, driverOrder, payload?.maps, stints]);
+
+  /* ----- Race Flow: Driver filter bar + flow chart ----- */
+  const DriverFilterBar = ({
+    driverNumbers,
+    selectedSet,
+    onToggle,
+    onSelectAll,
+    filterScrollRef,
+    onFilterScroll,
+  }) => {
+    return (
+      <ScrollView
+        ref={filterScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={flowStyles.filterBar}
+        scrollEventThrottle={16}
+        bounces={false}
+        onScroll={onFilterScroll}
+      >
+        <TouchableOpacity
+          onPress={() => onSelectAll()}
+          style={[
+            flowStyles.chip,
+            flowStyles.chipAll,
+            selectedSet.size === 0 && {
+              backgroundColor: colors.primary,
+              borderColor: colors.primary,
+            },
+          ]}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              flowStyles.chipText,
+              { fontWeight: "700" },
+              selectedSet.size === 0 && { color: "#fff" },
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+
+        {driverNumbers.map((dn) => {
+          const d = findDriverInMaps(payload?.maps, dn) || {};
+          const name = d?.full_name || d?.name || `#${dn}`;
+          const last = (name || "").split(" ").slice(-1)[0] || name;
+          const label = `#${dn} · ${String(last).toUpperCase()}`;
+          const teamName =
+            DRIVER_TO_TEAM[String(dn)] || d?.team || d?.team_name || "";
+          const color = TEAM_COLORS[teamName] || colors.primary;
+          const selected = !!selectedSet.has(String(dn));
+          return (
+            <TouchableOpacity
+              key={dn}
+              onPress={() => onToggle(String(dn))}
+              style={[
+                flowStyles.chip,
+                selected && { backgroundColor: color, borderColor: color },
+                !selected && { borderColor: color },
+              ]}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  flowStyles.chipText,
+                  selected && { color: getF1TextOnColor(color) },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    );
+  };
+
+  const RaceFlowView = ({
+    positionsMap,
+    selectedDriversSet,
+    showOnlySelected = false,
+    chartScrollRef = null,
+    onChartScroll = null,
+    chartScrollXRef = null,
+  }) => {
+    const lapSet = new Set();
+    const driverLapMap = new Map();
+    const FLOW_ROW_HEIGHT = 35;
+    const FLOW_LAP_PX = 26;
+    const FLOW_HEADER_HEIGHT = 28;
+    const FLOW_LEFT_PAD = 12;
+    const FLOW_RIGHT_PAD = 84;
+
+    // Build per-driver lap->position mapping from segments with start/end
+    Object.keys(positionsMap || {}).forEach((dn) => {
+      let arr = positionsMap[dn];
+      if (!Array.isArray(arr)) {
+        if (positionsMap[dn] && Array.isArray(positionsMap[dn].record))
+          arr = positionsMap[dn].record;
+        else if (positionsMap[dn] && Array.isArray(positionsMap[dn].records))
+          arr = positionsMap[dn].records;
+        else arr = [];
+      }
+      const map = new Map();
+      arr.forEach((seg) => {
+        const pos = seg?.position ?? seg?.pos ?? null;
+        const start = Number(
+          seg?.start ??
+            seg?.lap_start ??
+            seg?.lapStart ??
+            seg?.from ??
+            seg?.begin ??
+            1,
+        );
+        const end = Number(
+          seg?.end ??
+            seg?.lap_end ??
+            seg?.lapEnd ??
+            seg?.to ??
+            seg?.finish ??
+            start,
+        );
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        for (let lap = start; lap <= end; lap++) {
+          map.set(lap, Number(pos));
+          lapSet.add(lap);
+        }
+      });
+      driverLapMap.set(String(dn), map);
+    });
+
+    const laps = Array.from(lapSet).sort((a, b) => a - b);
+    if (!laps.length)
+      return (
+        <View style={{ padding: 12 }}>
+          <Text style={{ color: theme.textSecondary }}>
+            No flow data available.
+          </Text>
+        </View>
+      );
+
+    const isAllSelected = selectedDriversSet.size === 0;
+    const visibleDrivers = showOnlySelected
+      ? driverOrder.filter(
+          (dn) => isAllSelected || selectedDriversSet.has(String(dn)),
+        )
+      : driverOrder;
+
+    // Determine max position value to scale Y
+    let maxPos = 1;
+    visibleDrivers.forEach((dn) => {
+      const map = driverLapMap.get(String(dn)) || new Map();
+      map.forEach((p) => {
+        if (p != null) maxPos = Math.max(maxPos, p);
+      });
+    });
+
+    const lapCount = laps.length;
+    const svgWidth = Math.max(420, lapCount * FLOW_LAP_PX);
+    const svgHeight = Math.max(
+      260,
+      FLOW_HEADER_HEIGHT + maxPos * FLOW_ROW_HEIGHT + 28,
+    );
+
+    const buildPathForDriver = (dn) => {
+      const map = driverLapMap.get(String(dn)) || new Map();
+      let path = "";
+      let started = false;
+      laps.forEach((lap, i) => {
+        const p = map.get(lap);
+        if (p == null) {
+          started = false;
+          return;
+        }
+        const x = i * FLOW_LAP_PX + FLOW_LEFT_PAD;
+        const y =
+          FLOW_HEADER_HEIGHT + (p - 1) * FLOW_ROW_HEIGHT + FLOW_ROW_HEIGHT / 2;
+        if (!started) {
+          path += `M ${x} ${y}`;
+          started = true;
+        } else {
+          path += ` L ${x} ${y}`;
+        }
+      });
+      return path || null;
+    };
+
+    useEffect(() => {
+      requestAnimationFrame(() => {
+        if (chartScrollRef?.current && chartScrollXRef) {
+          chartScrollRef.current.scrollTo({
+            x: chartScrollXRef.current || 0,
+            animated: false,
+          });
+        }
+      });
+    }, [
+      positionsMap,
+      selectedDriversSet,
+      showOnlySelected,
+      chartScrollRef,
+      chartScrollXRef,
+    ]);
+
+    return (
+      <View style={flowStyles.chartWrap}>
+        <ScrollView
+          ref={chartScrollRef}
+          horizontal
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={onChartScroll || undefined}
+        >
+          <View style={flowStyles.flowScrollInner}>
+            <View
+              style={[
+                flowStyles.flowHeaderRow,
+                { width: svgWidth + FLOW_RIGHT_PAD, marginBottom: -28 },
+              ]}
+            >
+              {laps.map((lap, i) => {
+                const left = i * FLOW_LAP_PX + FLOW_LEFT_PAD;
+                return (
+                  <Text
+                    key={`lap-${lap}`}
+                    style={[
+                      flowStyles.flowHeaderLabel,
+                      {
+                        color: theme.textSecondary,
+                        left,
+                      },
+                    ]}
+                  >
+                    {lap}
+                  </Text>
+                );
+              })}
+            </View>
+
+            <Svg
+              width={svgWidth + FLOW_RIGHT_PAD}
+              height={svgHeight}
+              style={flowStyles.flowChartSvg}
+            >
+              {/* grid lines for positions */}
+              {Array.from({ length: maxPos }).map((_, idx) => {
+                const y = FLOW_HEADER_HEIGHT + idx * FLOW_ROW_HEIGHT + 0.5;
+                return (
+                  <Path
+                    key={`g-${idx}`}
+                    d={`M0 ${y} L ${svgWidth} ${y}`}
+                    stroke={theme.border}
+                    strokeWidth={0.5}
+                    opacity={0.6}
+                  />
+                );
+              })}
+
+              {/* lap vertical ticks */}
+              {laps.map((lap, i) => {
+                const x = i * FLOW_LAP_PX + FLOW_LEFT_PAD;
+                return (
+                  <Path
+                    key={`t-${lap}`}
+                    d={`M ${x} ${FLOW_HEADER_HEIGHT} L ${x} ${svgHeight}`}
+                    stroke={theme.border}
+                    strokeWidth={0.3}
+                    opacity={0.25}
+                  />
+                );
+              })}
+
+              {/* driver paths */}
+              {visibleDrivers.map((dn) => {
+                const path = buildPathForDriver(dn);
+                if (!path) return null;
+                const driverObj = findDriverInMaps(payload?.maps, dn) || {};
+                const teamName =
+                  DRIVER_TO_TEAM[String(dn)] ||
+                  driverObj?.team ||
+                  driverObj?.team_name ||
+                  "";
+                const color = TEAM_COLORS[teamName] || colors.primary;
+                const selected =
+                  isAllSelected || selectedDriversSet.has(String(dn));
+                const opacity = selected ? 1 : 0.35;
+                return (
+                  <Path
+                    key={`p-${dn}`}
+                    d={path}
+                    stroke={color}
+                    strokeWidth={selected ? 4 : 2.5}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={opacity}
+                  />
+                );
+              })}
+            </Svg>
+
+            {/* headshots aligned to last lap position */}
+            <View
+              style={{
+                position: "absolute",
+                left: svgWidth + 16,
+                top: FLOW_HEADER_HEIGHT,
+              }}
+            >
+              {visibleDrivers.map((dn) => {
+                const map = driverLapMap.get(String(dn)) || new Map();
+                const lastLap = laps[laps.length - 1];
+                const pos = map.get(lastLap) || null;
+                const y =
+                  pos != null
+                    ? FLOW_HEADER_HEIGHT +
+                      (pos - 1) * FLOW_ROW_HEIGHT +
+                      FLOW_ROW_HEIGHT / 2
+                    : FLOW_HEADER_HEIGHT;
+                const driverObj = findDriverInMaps(payload?.maps, dn) || {};
+                const head =
+                  driverObj?.headshot || driverObj?.headshot_url || null;
+                const teamName =
+                  DRIVER_TO_TEAM[String(dn)] || driverObj?.team || "";
+                const color = TEAM_COLORS[teamName] || colors.primary;
+                const selected =
+                  isAllSelected || selectedDriversSet.has(String(dn));
+                return (
+                  <View
+                    key={`hs-${dn}`}
+                    style={{
+                      position: "absolute",
+                      top: y,
+                      left: 0,
+                      width: 56,
+                      height: 28,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transform: [{ translateY: -14 }],
+                      opacity: selected ? 1 : 0.5,
+                      marginTop: -25,
+                    }}
+                  >
+                    {head ? (
+                      <Image
+                        source={{ uri: head }}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 15,
+                          borderWidth: 2,
+                          borderColor: color,
+                          backgroundColor: color + "33",
+                        }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 15,
+                          backgroundColor: color + "33",
+                          borderWidth: 2,
+                          borderColor: color,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: getF1TextOnColor(color),
+                            fontSize: 11,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {String(dn)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const toggleFlowDriver = useCallback((dn) => {
+    setFlowSelectedDrivers((prev) => {
+      const s = new Set(prev);
+      if (s.has(String(dn))) s.delete(String(dn));
+      else s.add(String(dn));
+      return s;
+    });
+  }, []);
+
+  const selectAllFlow = useCallback(() => {
+    setFlowSelectedDrivers(new Set());
+  }, []);
+
+  const handleFlowFilterScroll = useCallback((e) => {
+    flowFilterScrollXRef.current = e.nativeEvent.contentOffset.x;
+  }, []);
+
+  const handleFlowChartScroll = useCallback((e) => {
+    flowChartScrollXRef.current = e.nativeEvent.contentOffset.x;
+  }, []);
+
+  const handleCompareFlowChartScroll = useCallback((e) => {
+    compareFlowChartScrollXRef.current = e.nativeEvent.contentOffset.x;
+  }, []);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (flowFilterScrollRef.current) {
+        flowFilterScrollRef.current.scrollTo({
+          x: flowFilterScrollXRef.current,
+          animated: false,
+        });
+      }
+    });
+  }, [flowSelectedDrivers]);
+
+  // Helper functions for Compare tab
+  const getSessionResult = (driverNumber) => {
+    const dn = String(driverNumber);
+    return (
+      sessionResults.find(
+        (r) => String(r?.driver_number ?? r?.driverNumber ?? "") === dn,
+      ) || null
+    );
+  };
+
+  const countPits = (driverNumber) => {
+    const dn = String(driverNumber);
+    return pits.filter((p) => String(p?.driver_number ?? "") === dn).length;
+  };
+
+  const countOvertakes = (driverNumber) => {
+    const dn = String(driverNumber);
+    return overtakes.filter(
+      (o) => String(o?.overtaking_driver_number ?? "") === dn,
+    ).length;
+  };
+
+  const getStartingPosition = (driverNumber) => {
+    const dn = String(driverNumber);
+    const gridEntry = startingGrid.find(
+      (s) => String(s?.driver_number ?? "") === dn,
+    );
+    return gridEntry?.position ?? null;
+  };
+
+  const pickCompareDriver = (side) => {
+    setComparePickerSide(side);
+    setComparePickerOpen(true);
+  };
+
+  const selectCompareDriver = (driverNumber) => {
+    const dn = String(driverNumber);
+    const oppositeDriver =
+      comparePickerSide === "left" ? compareDrivers[1] : compareDrivers[0];
+    if (String(oppositeDriver ?? "") === dn) {
+      return;
+    }
+
+    setCompareDrivers((prev) => {
+      const updated = [...prev];
+      if (comparePickerSide === "left") {
+        if (String(prev[1] ?? "") === dn) return prev;
+        updated[0] = dn;
+      } else if (comparePickerSide === "right") {
+        if (String(prev[0] ?? "") === dn) return prev;
+        updated[1] = dn;
+      }
+      return updated;
+    });
+    setComparePickerOpen(false);
+    setComparePickerSide(null);
+  };
+
+  // Build list of available drivers for Compare picker, sorted by current position
+  const getAvailableDriversForCompare = () => {
+    const nums = new Set();
+    (startingGrid || []).forEach((s) => {
+      if (s?.driver_number) nums.add(String(s.driver_number));
+    });
+
+    return Array.from(nums).sort((a, b) => {
+      const posA = getCurrentPosition(a);
+      const posB = getCurrentPosition(b);
+      const posANum = posA != null ? Number(posA) : Infinity;
+      const posBNum = posB != null ? Number(posB) : Infinity;
+      return posANum - posBNum;
+    });
+  };
+
+  const getDriverHeadshot = (driverNumber) => {
+    const driverObj = findDriverInMaps(payload?.maps, driverNumber);
+    return driverObj?.headshot_url || driverObj?.image_url || null;
+  };
+
+  const getDriverName = (driverNumber) => {
+    const driverObj = findDriverInMaps(payload?.maps, driverNumber);
+    const name =
+      driverObj?.full_name ||
+      driverObj?.name ||
+      driverObj?.displayName ||
+      `#${driverNumber}`;
+    return name;
+  };
+
+  const getDriverTeam = (driverNumber) => {
+    const team =
+      DRIVER_TO_TEAM[String(driverNumber)] ||
+      findDriverInMaps(payload?.maps, driverNumber)?.team ||
+      "Team";
+    return team;
+  };
+
+  const getDriverTeamColor = (driverNumber) => {
+    const team = getDriverTeam(driverNumber);
+    const teamKey = String(team || "").replace(/ Racing$/i, "");
+    return TEAM_COLORS[teamKey] || TEAM_COLORS[team] || colors.primary;
+  };
+
+  // Get driver's latest time (last lap duration or session time)
+  const getDriverTime = (driverNumber) => {
+    const dn = String(driverNumber);
+    const sessionResult = getSessionResult(dn);
+    const lapsByDriver = payload?.laps_by_driver || {};
+
+    if (!sessionResult) return "—";
+
+    // 1️⃣ Duration from sessionResult.duration
+    const duration = Array.isArray(sessionResult?.duration)
+      ? (sessionResult.duration[2] ??
+        sessionResult.duration[1] ??
+        sessionResult.duration[0] ??
+        null)
+      : (sessionResult?.duration ?? null);
+    const durationTime = duration ? formatLapTime(duration) : null;
+
+    // 2️⃣ Driver lap time (lapsByDriver.driver_time.time)
+    const driverTime = lapsByDriver?.[dn]?.driver_time ?? {};
+    const driverDuration = driverTime?.time ?? null;
+    const timeToUse = driverDuration ? formatLapTime(driverDuration) : null;
+
+    // 3️⃣ Result (DNF/DNS/DSQ)
+    const dnfDnsDsq = (status) => {
+      const { dnf, dns, dsq } = status;
+      if (dnf) return "DNF";
+      if (dns) return "DNS";
+      if (dsq) return "DSQ";
+      return null;
+    };
+    const result = sessionResult ? dnfDnsDsq(sessionResult) : null;
+
+    // 4️⃣ Behind label (gap to leader)
+    const driverBehind = driverTime?.behind ?? null;
+    const gapToLeader =
+      (Array.isArray(sessionResult?.gap_to_leader)
+        ? (sessionResult.gap_to_leader[2] ??
+          sessionResult.gap_to_leader[1] ??
+          sessionResult.gap_to_leader[0] ??
+          null)
+        : (sessionResult?.gap_to_leader ?? null)) ?? driverBehind;
+
+    let behindLabel = "";
+    if (gapToLeader && gapToLeader !== 0 && gapToLeader !== "0.000") {
+      if (typeof gapToLeader === "string" && gapToLeader.includes("Lap")) {
+        behindLabel = gapToLeader.startsWith("+")
+          ? gapToLeader
+          : `+${gapToLeader}`;
+      } else {
+        const formatted = formatLapTime(gapToLeader);
+        behindLabel = formatted.startsWith("+") ? formatted : `+${formatted}`;
+      }
+    }
+
+    // ✅ Return first non-null / non-empty value in order
+    return durationTime || timeToUse || result || behindLabel || "—";
+  };
+
+  // Get driver's current race position
+  const getCurrentPosition = (driverNumber) => {
+    const dn = String(driverNumber);
+    // Try sessionResults first
+    const sessionResult = sessionResults.find(
+      (r) => String(r?.driver_number ?? "") === dn,
+    );
+    if (sessionResult?.position != null) {
+      return sessionResult.position;
+    }
+    // Try positions data (get latest position from latest lap)
+    if (payload?.positions && payload.positions[dn]) {
+      let arr = payload.positions[dn];
+      if (!Array.isArray(arr)) {
+        if (payload.positions[dn]?.record) arr = payload.positions[dn].record;
+        else if (payload.positions[dn]?.records)
+          arr = payload.positions[dn].records;
+        else arr = [];
+      }
+      if (arr.length > 0) {
+        const lastEntry = arr[arr.length - 1];
+        return lastEntry?.position ?? lastEntry?.pos ?? null;
+      }
+    }
+    return null;
+  };
+
+  const CompareView = () => {
+    if (compareDrivers.length !== 2) {
+      return (
+        <View style={{ padding: 16, alignItems: "center" }}>
+          <Text style={{ color: theme.textSecondary }}>
+            Select 2 drivers to compare
+          </Text>
+        </View>
+      );
+    }
+
+    const leftDriver = compareDrivers[0];
+    const rightDriver = compareDrivers[1];
+
+    // Build filtered stints for chart
+    const filteredStints = stintChart.rows.filter((row) => {
+      const rowDriver = String(row.driverNumber);
+      return rowDriver === leftDriver || rowDriver === rightDriver;
+    });
+
+    const leftTeamColor = getDriverTeamColor(leftDriver);
+    const rightTeamColor = getDriverTeamColor(rightDriver);
+
+    const statRows = [
+      {
+        key: "starting-pos",
+        label: "Starting Pos",
+        left: getStartingPosition(leftDriver),
+        right: getStartingPosition(rightDriver),
+        lowerBetter: true,
+        hidden:
+          getStartingPosition(leftDriver) == null &&
+          getStartingPosition(rightDriver) == null,
+      },
+      {
+        key: "points",
+        label: "Points",
+        left: getSessionResult(leftDriver)?.points ?? 0,
+        right: getSessionResult(rightDriver)?.points ?? 0,
+        lowerBetter: false,
+      },
+      {
+        key: "laps",
+        label: "Laps",
+        left: getSessionResult(leftDriver)?.number_of_laps ?? 0,
+        right: getSessionResult(rightDriver)?.number_of_laps ?? 0,
+        lowerBetter: false,
+      },
+      {
+        key: "pits",
+        label: "Pits",
+        left: countPits(leftDriver),
+        right: countPits(rightDriver),
+        lowerBetter: true,
+      },
+      {
+        key: "overtakes",
+        label: "Overtakes",
+        left: countOvertakes(leftDriver),
+        right: countOvertakes(rightDriver),
+        lowerBetter: false,
+      },
+    ].filter((row) => !row.hidden);
+
+    const renderStatPillRow = (row, isLast) => {
+      const leftValue = row.left ?? "—";
+      const rightValue = row.right ?? "—";
+      const leftNum = Number(row.left);
+      const rightNum = Number(row.right);
+      const hasNumericValues =
+        Number.isFinite(leftNum) && Number.isFinite(rightNum);
+
+      let leftFrac = 0.5;
+      if (hasNumericValues) {
+        const total = leftNum + rightNum;
+        leftFrac =
+          total === 0
+            ? 0.5
+            : row.lowerBetter
+              ? rightNum / total
+              : leftNum / total;
+        leftFrac = Math.max(0, Math.min(1, leftFrac));
+      }
+
+      return (
+        <View
+          key={row.key}
+          style={{
+            marginBottom: isLast ? 0 : 12,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                width: 38,
+                color: theme.text,
+                fontSize: 18,
+                fontWeight: "800",
+                textAlign: "right",
+                marginTop: -16,
+              }}
+              numberOfLines={1}
+            >
+              {leftValue}
+            </Text>
+
+            <View
+              style={{
+                flex: 1,
+                marginHorizontal: 8,
+              }}
+            >
+              <View
+                style={{
+                  width: "100%",
+                  height: 10,
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  flexDirection: "row",
+                  backgroundColor: theme.surfaceSecondary,
+                }}
+              >
+                <View
+                  style={{
+                    flex: leftFrac,
+                    backgroundColor: leftTeamColor,
+                  }}
+                />
+                {leftFrac > 0 && leftFrac < 1 ? (
+                  <View
+                    style={{
+                      width: 2,
+                      backgroundColor: theme.border,
+                    }}
+                  />
+                ) : null}
+                <View
+                  style={{
+                    flex: 1 - leftFrac,
+                    backgroundColor: rightTeamColor,
+                  }}
+                />
+              </View>
+              <Text
+                style={{
+                  marginTop: 4,
+                  color: theme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+                numberOfLines={1}
+              >
+                {row.label}
+              </Text>
+            </View>
+
+            <Text
+              style={{
+                width: 38,
+                color: theme.text,
+                fontSize: 18,
+                fontWeight: "800",
+                textAlign: "left",
+                marginTop: -16,
+              }}
+              numberOfLines={1}
+            >
+              {rightValue}
+            </Text>
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 12,
+          paddingTop: 12,
+        }}
+      >
+        {/* Chart Section with Mode Toggle */}
+        <View
+          style={[
+            flowStyles.card,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              marginBottom: 12,
+            },
+          ]}
+        >
+          {/* Mode Toggle Buttons */}
+          <View
+            style={{
+              flexDirection: "row",
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: theme.border,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              gap: 8,
+            }}
+          >
+            {["Stints", "Flow"].map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => setCompareChartMode(mode)}
+                style={[
+                  {
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    backgroundColor:
+                      compareChartMode === mode
+                        ? theme.primary || colors.primary
+                        : theme.surfaceSecondary,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color:
+                      compareChartMode === mode ? "#fff" : theme.textSecondary,
+                    fontWeight: "600",
+                    fontSize: 13,
+                  }}
+                >
+                  {mode}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Chart Content */}
+          <View style={{ paddingVertical: 12 }}>
+            {compareChartMode === "Stints" && stintChart.rows.length ? (
+              <ScrollView
+                horizontal
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  width: STINT_NAME_COL_W + stintChart.timelineWidth,
+                }}
+              >
+                <View
+                  style={{
+                    width: STINT_NAME_COL_W + stintChart.timelineWidth,
+                  }}
+                >
+                  <View style={styles.stintsChartBodyRow}>
+                    <View
+                      style={[
+                        styles.stintsNamesColumn,
+                        {
+                          width: STINT_NAME_COL_W,
+                          borderRightColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.stintsAxisTopPad,
+                          { borderBottomColor: theme.border },
+                        ]}
+                      />
+                      {filteredStints.map((row) => (
+                        <View
+                          key={`compare-stint-${row.driverNumber}`}
+                          style={[
+                            styles.stintsDriverRow,
+                            {
+                              height: STINT_ROW_HEIGHT,
+                              borderBottomColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.stintsDriverName,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {row.driverName}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.stintsDriverTeam,
+                              { color: row.teamColor },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {row.teamName}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <ScrollView
+                      horizontal
+                      bounces={false}
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{
+                        width: stintChart.timelineWidth,
+                      }}
+                    >
+                      <View style={{ width: stintChart.timelineWidth }}>
+                        <View
+                          style={[
+                            styles.stintsAxisTopPad,
+                            { borderBottomColor: theme.border },
+                          ]}
+                        >
+                          {stintChart.ticks.map((tick) => {
+                            const left =
+                              (tick - stintChart.minLap) * STINT_PX_PER_LAP;
+                            return (
+                              <Text
+                                key={`compare-stint-top-${tick}`}
+                                style={[
+                                  styles.stintsAxisTopLabel,
+                                  {
+                                    color: theme.textTertiary,
+                                    left,
+                                  },
+                                ]}
+                              >
+                                L{tick}
+                              </Text>
+                            );
+                          })}
+                        </View>
+
+                        {filteredStints.map((row) => (
+                          <View
+                            key={`compare-stint-row-${row.driverNumber}`}
+                            style={[
+                              styles.stintsRowTimeline,
+                              {
+                                height: STINT_ROW_HEIGHT,
+                                borderBottomColor: theme.border,
+                              },
+                            ]}
+                          >
+                            {stintChart.ticks.map((tick) => {
+                              const left =
+                                (tick - stintChart.minLap) * STINT_PX_PER_LAP;
+                              return (
+                                <View
+                                  key={`compare-stint-grid-${row.driverNumber}-${tick}`}
+                                  style={[
+                                    styles.stintsGridLine,
+                                    {
+                                      left,
+                                      backgroundColor: theme.border,
+                                    },
+                                  ]}
+                                />
+                              );
+                            })}
+
+                            {row.bars.map((bar) => {
+                              const left =
+                                (bar.startLap - stintChart.minLap) *
+                                STINT_PX_PER_LAP;
+                              const width = Math.max(
+                                4,
+                                (bar.endLap - bar.startLap + 1) *
+                                  STINT_PX_PER_LAP,
+                              );
+                              return (
+                                <View
+                                  key={bar.key}
+                                  style={[
+                                    styles.stintsBar,
+                                    {
+                                      left,
+                                      width,
+                                      backgroundColor:
+                                        bar.compoundColor || row.teamColor,
+                                    },
+                                  ]}
+                                />
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                </View>
+              </ScrollView>
+            ) : compareChartMode === "Flow" ? (
+              <RaceFlowView
+                positionsMap={payload?.positions || {}}
+                selectedDriversSet={new Set([leftDriver, rightDriver])}
+                showOnlySelected={true}
+                chartScrollRef={compareFlowChartScrollRef}
+                chartScrollXRef={compareFlowChartScrollXRef}
+                onChartScroll={handleCompareFlowChartScroll}
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {/* Driver Comparison Panels */}
+        <View
+          style={[
+            flowStyles.card,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={{ flexDirection: "row" }}>
+            {/* Left Driver Panel */}
+            <TouchableOpacity
+              onPress={() => pickCompareDriver("left")}
+              activeOpacity={0.65}
+              style={{
+                flex: 1,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                borderRightWidth: StyleSheet.hairlineWidth,
+                borderRightColor: theme.border,
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  marginBottom: 12,
+                  alignItems: "center",
+                  width: "100%",
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                    width: "100%",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: "600",
+                    }}
+                  >
+                    P{getCurrentPosition(leftDriver) ?? "—"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={theme.text}
+                    style={{ position: "absolute", right: 0 }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: "700",
+                    marginBottom: 2,
+                  }}
+                >
+                  {getDriverName(leftDriver)}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+                  {getDriverTeam(leftDriver)}
+                </Text>
+              </View>
+
+              <Image
+                source={{ uri: getDriverHeadshot(leftDriver) }}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  borderWidth: 2,
+                  borderColor: getDriverTeamColor(leftDriver),
+                  backgroundColor: getDriverTeamColor(leftDriver) + "33",
+                  marginBottom: 8,
+                }}
+                resizeMode="cover"
+              />
+
+              <Text
+                style={{
+                  color: ["DNF", "DNS", "DSQ"].includes(
+                    getDriverTime(leftDriver),
+                  )
+                    ? theme.error
+                    : theme.text,
+                  fontSize: 13,
+                  fontWeight: "700",
+                  marginBottom: 2,
+                }}
+              >
+                {getDriverTime(leftDriver)}
+              </Text>
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: "600",
+                }}
+              >
+                TIME
+              </Text>
+            </TouchableOpacity>
+
+            {/* Right Driver Panel */}
+            <TouchableOpacity
+              onPress={() => pickCompareDriver("right")}
+              activeOpacity={0.65}
+              style={{
+                flex: 1,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  marginBottom: 12,
+                  alignItems: "center",
+                  width: "100%",
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                    width: "100%",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: "600",
+                    }}
+                  >
+                    P{getCurrentPosition(rightDriver) ?? "—"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color={theme.text}
+                    style={{ position: "absolute", right: 0 }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    color: theme.text,
+                    fontSize: 14,
+                    fontWeight: "700",
+                    marginBottom: 2,
+                  }}
+                >
+                  {getDriverName(rightDriver)}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+                  {getDriverTeam(rightDriver)}
+                </Text>
+              </View>
+
+              <Image
+                source={{ uri: getDriverHeadshot(rightDriver) }}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  borderWidth: 2,
+                  borderColor: getDriverTeamColor(rightDriver),
+                  backgroundColor: getDriverTeamColor(rightDriver) + "33",
+                  marginBottom: 8,
+                }}
+                resizeMode="cover"
+              />
+
+              <Text
+                style={{
+                  color: ["DNF", "DNS", "DSQ"].includes(
+                    getDriverTime(rightDriver),
+                  )
+                    ? theme.error
+                    : theme.text,
+                  fontSize: 13,
+                  fontWeight: "700",
+                  marginBottom: 2,
+                }}
+              >
+                {getDriverTime(rightDriver)}
+              </Text>
+              <Text
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: "600",
+                }}
+              >
+                TIME
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Stats Section */}
+          <View
+            style={{
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: theme.border,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+            }}
+          >
+            {statRows.map((row, index) =>
+              renderStatPillRow(row, index === statRows.length - 1),
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const eventsFeed = useMemo(() => {
     const stintLookup = new Map();
@@ -4355,6 +5750,46 @@ const RaceDetailsScreen = () => {
           </View>
         )}
 
+        {activeTab === "Flow" && (
+          <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+            <View
+              style={[
+                flowStyles.card,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                }}
+              >
+                <DriverFilterBar
+                  driverNumbers={driverOrder}
+                  selectedSet={flowSelectedDrivers}
+                  onToggle={toggleFlowDriver}
+                  onSelectAll={selectAllFlow}
+                  filterScrollRef={flowFilterScrollRef}
+                  onFilterScroll={handleFlowFilterScroll}
+                />
+              </View>
+
+              <View style={flowStyles.cardBody}>
+                <RaceFlowView
+                  positionsMap={payload?.positions || {}}
+                  selectedDriversSet={flowSelectedDrivers}
+                  chartScrollRef={flowChartScrollRef}
+                  chartScrollXRef={flowChartScrollXRef}
+                  onChartScroll={handleFlowChartScroll}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         {activeTab === "Events" && (
           <View
             style={{ paddingHorizontal: 0, paddingTop: 12, paddingBottom: 80 }}
@@ -4495,7 +5930,7 @@ const RaceDetailsScreen = () => {
                               styles.eventsCardMainText,
                               { color: rowTextColor },
                             ]}
-                            numberOfLines={2}
+                            numberOfLines={3}
                           >
                             {event.message}
                           </Text>
@@ -4506,7 +5941,7 @@ const RaceDetailsScreen = () => {
                                 styles.eventsCardSubText,
                                 { color: rowTextColor },
                               ]}
-                              numberOfLines={2}
+                              numberOfLines={3}
                             >
                               {event.detail}
                             </Text>
@@ -4585,6 +6020,8 @@ const RaceDetailsScreen = () => {
             )}
           </View>
         )}
+
+        {activeTab === "Compare" && <CompareView />}
 
         {activeTab === "Stints" && (
           <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
@@ -4946,6 +6383,133 @@ const RaceDetailsScreen = () => {
         colors={colors}
         theme={theme}
       />
+
+      {/* Compare Driver Picker Modal */}
+      <Modal
+        visible={comparePickerOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setComparePickerOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "flex-end",
+              backgroundColor: "rgba(0,0,0,0.5)",
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                maxHeight: "80%",
+              }}
+            >
+              <View
+                style={{
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: theme.text,
+                  }}
+                >
+                  Select Driver
+                </Text>
+                <TouchableOpacity onPress={() => setComparePickerOpen(false)}>
+                  <Ionicons name="close" size={24} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={{ paddingVertical: 12 }}>
+                {getAvailableDriversForCompare().map((driverNumber) => {
+                  const isCurrentDriver =
+                    driverNumber ===
+                    (comparePickerSide === "left"
+                      ? compareDrivers[1]
+                      : compareDrivers[0]);
+
+                  return (
+                    <TouchableOpacity
+                      key={driverNumber}
+                      onPress={() =>
+                        !isCurrentDriver && selectCompareDriver(driverNumber)
+                      }
+                      disabled={isCurrentDriver}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: theme.border,
+                        opacity: isCurrentDriver ? 0.4 : 1,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: getDriverHeadshot(driverNumber) }}
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          marginRight: 12,
+                          borderWidth: 1,
+                          borderColor: getDriverTeamColor(driverNumber),
+                          backgroundColor:
+                            getDriverTeamColor(driverNumber) + "33",
+                        }}
+                        resizeMode="cover"
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: theme.text,
+                          }}
+                        >
+                          {getDriverName(driverNumber)}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                            marginTop: 2,
+                          }}
+                        >
+                          {getDriverTeam(driverNumber)}
+                        </Text>
+                        {isCurrentDriver && (
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: theme.textSecondary,
+                              marginTop: 2,
+                            }}
+                          >
+                            Already Selected
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Stream Modal - Only render when streaming is unlocked */}
       {isStreamingUnlocked && (

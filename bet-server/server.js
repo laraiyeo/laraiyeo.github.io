@@ -12486,10 +12486,11 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     if (!code) return res.status(400).json({ message: "code required" });
 
     // Look up code (include type and metadata so we can honor duration)
+    // Use case-insensitive lookup to tolerate user input casing/spacing
     const { data: promoRows, error: promoErr } = await supabaseAdmin
       .from("promo_codes")
       .select("code, uses, max_uses, expires_at, type, metadata")
-      .eq("code", code)
+      .ilike("code", code)
       .limit(1)
       .maybeSingle();
     if (promoErr) {

@@ -5325,7 +5325,7 @@ const PlayDetailModal = ({
                         {
                           borderColor: opt.color,
                           backgroundColor: active
-                            ? (theme.surfaceSecondary ?? theme.background)
+                            ? (opt.color ?? theme.background)
                             : "transparent",
                         },
                       ]}
@@ -5333,7 +5333,7 @@ const PlayDetailModal = ({
                       <View
                         style={[
                           modalStyles.pitchFilterNumber,
-                          { backgroundColor: opt.color },
+                          { backgroundColor: opt.color, borderColor: active ? badgeTextColor : "transparent" },
                         ]}
                       >
                         <Text
@@ -5349,7 +5349,7 @@ const PlayDetailModal = ({
                         style={[
                           modalStyles.pitchFilterText,
                           {
-                            color: theme.text,
+                            color: active ? badgeTextColor : theme.text,
                             opacity: active ? 1 : 0.86,
                           },
                         ]}
@@ -5668,6 +5668,7 @@ const modalStyles = StyleSheet.create({
     borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
   pitchFilterNumberText: {
     fontSize: 10,

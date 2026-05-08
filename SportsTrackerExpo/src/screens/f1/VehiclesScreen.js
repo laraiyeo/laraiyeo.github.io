@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,17 +10,20 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
+import { useFocusEffect } from "@react-navigation/native";
 
 const VehiclesScreen = () => {
   const { theme, colors } = useTheme();
+  const [selectedSeries, setSelectedSeries] = useState("F1");
+  const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [constructors, setConstructors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [logoUrls, setLogoUrls] = useState({});
   const [carUrls, setCarUrls] = useState({});
+  const lastLoadedSeriesRef = useRef(null);
 
-  // Team color mapping (same as teams.js)
-  const getTeamColor = (constructorName) => {
-    const colorMap = {
+  const seriesColors = {
+    F1: {
       Mercedes: "#00D7B6",
       "Red Bull": "#4781D7",
       Ferrari: "#ED1131",
@@ -33,9 +36,47 @@ const VehiclesScreen = () => {
       Haas: "#9C9FA2",
       Audi: "#F50537",
       Cadillac: "#909090",
-    };
+    },
+    NASCAR: {
+      Chevrolet: "#FFD700",
+      Ford: "#003399",
+      Toyota: "#E60012",
+    },
+  };
+  const SERIES_PREFERENCE_KEY = "SPORTS_TRACKER_SELECTED_SERIES";
 
+  const getTeamColor = (constructorName) => {
+    const colorMap = seriesColors[selectedSeries] || seriesColors.F1;
     return colorMap[constructorName] || "#000000";
+  };
+
+  const normalizeF1TeamName = (raw) => {
+    if (!raw) return raw;
+    const s = raw.toLowerCase();
+    if (s.includes("red bull")) return "Red Bull";
+    if (s.includes("haas")) return "Haas";
+    if (s.includes("ferrari")) return "Ferrari";
+    if (s.includes("mclaren")) return "McLaren";
+    if (s.includes("mercedes")) return "Mercedes";
+    if (s.includes("alpine")) return "Alpine";
+    if (s.includes("racing bulls")) return "Racing Bulls";
+    if (s.includes("audi")) return "Audi";
+    if (s.includes("cadillac")) return "Cadillac";
+    if (s.includes("williams")) return "Williams";
+    if (s.includes("aston")) return "Aston Martin";
+    return raw
+      .replace(/ F1 Team$/i, "")
+      .replace(/ Racing$/i, "")
+      .trim();
+  };
+
+  const normalizeNASCARManufacturer = (raw) => {
+    if (!raw) return raw;
+    const s = raw.toLowerCase();
+    if (s.includes("chevrolet")) return "Chevrolet";
+    if (s.includes("ford")) return "Ford";
+    if (s.includes("toyota")) return "Toyota";
+    return raw.trim();
   };
 
   // Get constructor logo (same as teams.js)
@@ -106,65 +147,42 @@ const VehiclesScreen = () => {
     return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${currentYear}/${carName}/${currentYear}${carName}carright.webp`;
   };
 
-  // Note: ESPN constructor fetch removed - use shared standings cache only
-
   // Shared standings cache constants
-  const STANDINGS_URL =
-    "https://laraiyeogithubio-production-ed10.up.railway.app/standings/f1";
+  const F1_STANDINGS_URL =
+    "https://laraiyeogithubio-production-ed10.up.railway.app/f1/standings";
+  const NASCAR_STANDINGS_URL =
+    "https://laraiyeogithubio-production-ed10.up.railway.app/nascar/standings";
   const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
+  const NASCAR_STANDINGS_CACHE_KEY = "NASCAR_STANDINGS_CACHE_KEY";
   const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
+  const NASCAR_STANDINGS_TTL = 1000 * 60 * 30; // 30 min
 
-  const normalizeTeamName = (raw) => {
-    if (!raw) return raw;
-    const s = raw.toLowerCase();
-    if (s.includes("red bull")) return "Red Bull";
-    if (s.includes("haas")) return "Haas";
-    if (s.includes("ferrari")) return "Ferrari";
-    if (s.includes("mclaren")) return "McLaren";
-    if (s.includes("mercedes")) return "Mercedes";
-    if (s.includes("alpine")) return "Alpine";
-    if (s.includes("racing bulls")) return "Racing Bulls";
-    if (s.includes("audi")) return "Audi";
-    if (s.includes("cadillac")) return "Cadillac";
-    if (s.includes("williams")) return "Williams";
-    if (s.includes("aston")) return "Aston Martin";
-    // Fallback: strip common suffixes
-    return raw
-      .replace(/ F1 Team$/i, "")
-      .replace(/ Racing$/i, "")
-      .trim();
-  };
-
-  const fetchSharedStandings = async () => {
+  const fetchSharedStandings = async (series) => {
     try {
-      // Try cache first
-      const raw = await AsyncStorage.getItem(F1_STANDINGS_CACHE_KEY);
+      const isNASCAR = series === "NASCAR";
+      const cacheKey = isNASCAR
+        ? NASCAR_STANDINGS_CACHE_KEY
+        : F1_STANDINGS_CACHE_KEY;
+      const ttl = isNASCAR ? NASCAR_STANDINGS_TTL : F1_STANDINGS_TTL;
+      const url = isNASCAR ? NASCAR_STANDINGS_URL : F1_STANDINGS_URL;
+
+      const raw = await AsyncStorage.getItem(cacheKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.ts && Date.now() - parsed.ts < F1_STANDINGS_TTL) {
-          console.log("[VehiclesScreen] Using cached standings");
-          // Normalize wrapper shapes (some payloads are { source, data: { teams: [...] } })
+        if (parsed?.ts && Date.now() - parsed.ts < ttl) {
           const cached = parsed.data;
           return cached?.data ?? cached;
         }
       }
 
-      // Not cached or expired — fetch from shared standings URL
-      console.log(
-        "[VehiclesScreen] Fetching shared standings from",
-        STANDINGS_URL,
-      );
-      const resp = await fetch(STANDINGS_URL);
+      const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const payload = await resp.json();
-
-      // Normalize payload (some servers wrap under `data`)
       const actual = payload?.data ?? payload;
 
-      // Cache the normalized payload with timestamp
       try {
         await AsyncStorage.setItem(
-          F1_STANDINGS_CACHE_KEY,
+          cacheKey,
           JSON.stringify({ ts: Date.now(), data: actual }),
         );
       } catch (e) {
@@ -178,54 +196,80 @@ const VehiclesScreen = () => {
     }
   };
 
+  const buildF1ConstructorList = (payload) => {
+    const teamsArr = payload.teams || payload.data?.teams || [];
+    return teamsArr.map((t, idx) => {
+      const rawName = t.team_name || t.team || `Team ${idx + 1}`;
+      const lookup = normalizeF1TeamName(rawName);
+      return {
+        id: lookup || `team-${idx}`,
+        name: lookup,
+        displayName: rawName,
+        rank: t.position_current ?? t.position ?? idx + 1,
+        points: parseInt(t.points_current ?? t.points ?? 0) || 0,
+      };
+    });
+  };
+
+  const buildNascarConstructorList = (payload) => {
+    const manufacturers =
+      payload.manufacturers || payload.data?.manufacturers || [];
+    return manufacturers.map((manufacturer, idx) => {
+      const name = normalizeNASCARManufacturer(manufacturer.manufacturer);
+      return {
+        id: name || `manufacturer-${idx}`,
+        name,
+        displayName: manufacturer.manufacturer || name,
+        rank: manufacturer.position ?? idx + 1,
+        points: parseInt(manufacturer.points ?? 0, 10) || 0,
+        wins: parseInt(manufacturer.wins ?? 0, 10) || 0,
+        behind:
+          manufacturer.delta_leader === "LEADER"
+            ? 0
+            : parseInt(manufacturer.delta_leader ?? 0, 10) || 0,
+        logo: manufacturer.logo || null,
+      };
+    });
+  };
+
+  const handleSeriesChange = async (series) => {
+    setSeriesLoaded(true);
+    setSelectedSeries(series);
+
+    try {
+      await AsyncStorage.setItem(SERIES_PREFERENCE_KEY, series);
+    } catch (error) {
+      console.warn("[VehiclesScreen] Failed to save series preference", error);
+    }
+  };
+
   useEffect(() => {
+    if (!seriesLoaded) {
+      return;
+    }
+
+    const hasLoadedData = constructors.length > 0;
+    if (lastLoadedSeriesRef.current === selectedSeries && hasLoadedData) {
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     const init = async () => {
       setLoading(true);
-      const payload = await fetchSharedStandings();
-      if (mounted && payload && payload.teams && payload.teams.length > 0) {
-        // Map teams into the constructor-like state used in this screen
-        const normalizeTeamName = (raw) => {
-          if (!raw) return raw;
-          const s = raw.toLowerCase();
-          if (s.includes("red bull")) return "Red Bull";
-          if (s.includes("haas")) return "Haas";
-          if (s.includes("ferrari")) return "Ferrari";
-          if (s.includes("mclaren")) return "McLaren";
-          if (s.includes("mercedes")) return "Mercedes";
-          if (s.includes("alpine")) return "Alpine";
-          if (s.includes("racing bulls")) return "Racing Bulls";
-          if (s.includes("audi")) return "Audi";
-          if (s.includes("cadillac")) return "Cadillac";
-          if (s.includes("williams")) return "Williams";
-          if (s.includes("aston")) return "Aston Martin";
-          // Fallback: strip common suffixes
-          return raw
-            .replace(/ F1 Team$/i, "")
-            .replace(/ Racing$/i, "")
-            .trim();
-        };
-
-        const constructorList = payload.teams.map((t, idx) => {
-          const rawName = t.team_name || t.team || `Team ${idx + 1}`;
-          const lookup = normalizeTeamName(rawName);
-          return {
-            id: lookup || `team-${idx}`,
-            name: lookup,
-            displayName: rawName,
-            rank: t.position_current ?? t.position ?? idx + 1,
-            points: parseInt(t.points_current ?? t.points ?? 0) || 0,
-          };
-        });
+      const payload = await fetchSharedStandings(selectedSeries);
+      if (mounted && payload) {
+        const constructorList =
+          selectedSeries === "NASCAR"
+            ? buildNascarConstructorList(payload)
+            : buildF1ConstructorList(payload);
         setConstructors(constructorList);
+        lastLoadedSeriesRef.current = selectedSeries;
         setLoading(false);
         return;
       }
 
-      // If shared standings not available, stop loading and leave constructors empty
-      console.warn(
-        "[VehiclesScreen] Shared standings not available; not fetching ESPN source per config",
-      );
+      console.warn("[VehiclesScreen] Standings not available");
       setConstructors([]);
       setLoading(false);
     };
@@ -234,23 +278,81 @@ const VehiclesScreen = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [selectedSeries, seriesLoaded, constructors.length]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let shouldFetch = true;
+
+      setLoading(true);
+      setSeriesLoaded(false);
+
+      const restoreSeries = async () => {
+        try {
+          const savedSeries = await AsyncStorage.getItem(SERIES_PREFERENCE_KEY);
+          const resolvedSeries =
+            savedSeries === "F1" || savedSeries === "NASCAR"
+              ? savedSeries
+              : "F1";
+
+          console.log(
+            `[VehiclesScreen] page load selected series: ${resolvedSeries}`,
+          );
+
+          shouldFetch =
+            lastLoadedSeriesRef.current !== resolvedSeries ||
+            constructors.length === 0;
+
+          if (active) {
+            setSelectedSeries(resolvedSeries);
+            setSeriesLoaded(true);
+            if (!shouldFetch) {
+              setLoading(false);
+            }
+          }
+
+          if (!savedSeries) {
+            try {
+              await AsyncStorage.setItem(SERIES_PREFERENCE_KEY, "F1");
+            } catch (error) {
+              console.warn(
+                "[VehiclesScreen] Failed to save default series preference",
+                error,
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "[VehiclesScreen] Failed to restore series preference",
+            error,
+          );
+        } finally {
+          if (active) {
+            if (!shouldFetch) {
+              setLoading(false);
+            }
+          }
+        }
+      };
+
+      restoreSeries();
+
+      return () => {
+        active = false;
+        setSeriesLoaded(false);
+      };
+    }, []),
+  );
 
   const refreshStandings = async () => {
     setLoading(true);
-    const payload = await fetchSharedStandings();
-    if (payload && payload.teams && payload.teams.length > 0) {
-      const constructorList = payload.teams.map((t, idx) => {
-        const rawName = t.team_name || t.team || `Team ${idx + 1}`;
-        const lookup = normalizeTeamName(rawName);
-        return {
-          id: lookup || `team-${idx}`,
-          name: lookup,
-          displayName: rawName,
-          rank: t.position_current ?? t.position ?? idx + 1,
-          points: parseInt(t.points_current ?? t.points ?? 0) || 0,
-        };
-      });
+    const payload = await fetchSharedStandings(selectedSeries);
+    if (payload) {
+      const constructorList =
+        selectedSeries === "NASCAR"
+          ? buildNascarConstructorList(payload)
+          : buildF1ConstructorList(payload);
       setConstructors(constructorList);
     } else {
       setConstructors([]);
@@ -258,8 +360,12 @@ const VehiclesScreen = () => {
     setLoading(false);
   };
 
-  const getLogoUrl = (constructorName) => {
-    return logoUrls[constructorName] || getConstructorLogo(constructorName);
+  const getLogoUrl = (constructorName, overrideLogo) => {
+    return (
+      overrideLogo ||
+      logoUrls[constructorName] ||
+      getConstructorLogo(constructorName)
+    );
   };
 
   const getCarUrlForConstructor = (constructorName) => {
@@ -323,7 +429,7 @@ const VehiclesScreen = () => {
   const renderConstructorCard = (constructor) => {
     const lookupName = constructor.name;
     const teamColor = getTeamColor(lookupName);
-    const logoUrl = getLogoUrl(lookupName);
+    const logoUrl = getLogoUrl(lookupName, constructor.logo);
     const carUrl = getCarUrlForConstructor(lookupName);
 
     const blackTextConstructors = [
@@ -333,7 +439,9 @@ const VehiclesScreen = () => {
       "Sauber",
       "Haas",
     ];
-    const needsBlackText = blackTextConstructors.includes(lookupName);
+    const needsBlackText =
+      blackTextConstructors.includes(lookupName) ||
+      (selectedSeries === "NASCAR" && lookupName === "Chevrolet");
 
     const ordinal = (n) => {
       const s = ["th", "st", "nd", "rd"],
@@ -395,14 +503,59 @@ const VehiclesScreen = () => {
           </View>
         </View>
 
-        <View style={styles.carContainer}>
-          <Image
-            source={{ uri: carUrl }}
-            style={styles.carImage}
-            resizeMode="contain"
-            onError={() => handleCarError(constructor.name)}
-          />
-        </View>
+        {selectedSeries === "F1" ? (
+          <View style={styles.carContainer}>
+            <Image
+              source={{ uri: carUrl }}
+              style={styles.carImage}
+              resizeMode="contain"
+              onError={() => handleCarError(constructor.name)}
+            />
+          </View>
+        ) : (
+          <View style={styles.nascarBodyRow}>
+            <View style={styles.nascarStatBlock}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.nascarStatValue,
+                  { color: needsBlackText ? "#000" : "#fff" },
+                ]}
+              >
+                {constructor.wins ?? 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.nascarStatLabel,
+                  { color: needsBlackText ? "#000" : "#fff" },
+                ]}
+              >
+                WINS
+              </Text>
+            </View>
+            <View style={styles.nascarStatBlock}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.nascarStatValue,
+                  { color: needsBlackText ? "#000" : "#fff" },
+                ]}
+              >
+                {constructor.behind ?? 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.nascarStatLabel,
+                  { color: needsBlackText ? "#000" : "#fff" },
+                ]}
+              >
+                BEHIND
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
     );
   };
@@ -446,20 +599,54 @@ const VehiclesScreen = () => {
     );
   }
 
-  console.log(
-    `[VehiclesScreen] Render - constructors.length: ${constructors.length}`,
-  );
-  console.log("[VehiclesScreen] Render - loading:", loading);
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.seriesContainer}>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "F1" && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => handleSeriesChange("F1")}
+        >
+          <Text
+            style={[
+              styles.seriesButtonText,
+              { color: selectedSeries === "F1" ? "#fff" : theme.textSecondary },
+            ]}
+          >
+            Formula 1
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "NASCAR" && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => handleSeriesChange("NASCAR")}
+        >
+          <Text
+            style={[
+              styles.seriesButtonText,
+              {
+                color:
+                  selectedSeries === "NASCAR" ? "#fff" : theme.textSecondary,
+              },
+            ]}
+          >
+            NASCAR
+          </Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.headerText, { color: theme.text }]}>
-          Formula 1 Vehicles
+          {selectedSeries === "F1"
+            ? "Formula 1 Vehicles"
+            : "NASCAR Manufacturers"}
         </Text>
 
         {constructors.map(renderConstructorCard)}
@@ -480,7 +667,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  seriesContainer: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  seriesButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  seriesButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
   headerText: {
     fontSize: 24,
@@ -552,6 +760,28 @@ const styles = StyleSheet.create({
   pointsLabel: {
     fontSize: 14,
     marginTop: -2,
+  },
+  nascarBodyRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.18)",
+  },
+  nascarStatBlock: {
+    flex: 1,
+    alignItems: "center",
+  },
+  nascarStatValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  nascarStatLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+    letterSpacing: 0.4,
   },
   emptyText: {
     fontSize: 16,

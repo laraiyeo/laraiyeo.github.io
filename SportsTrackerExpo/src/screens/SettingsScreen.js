@@ -1372,19 +1372,7 @@ const SettingsScreen = ({ navigation }) => {
                         style={{ width: wheelSize, height: wheelSize }}
                       />
                     </View>
-                  ) : (
-                    <Text
-                      allowFontScaling={false}
-                      style={{
-                        color: theme.textSecondary,
-                        marginBottom: 8,
-                        textAlign: "center",
-                      }}
-                    >
-                      Install `reanimated-color-picker` or
-                      `react-native-color-wheel` to enable a color wheel here.
-                    </Text>
-                  )}
+                  ) : null}
 
                   <Text
                     allowFontScaling={false}

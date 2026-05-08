@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -25,13 +25,17 @@ const StandingsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigation = useNavigation();
+  const SERIES_PREFERENCE_KEY = "SPORTS_TRACKER_SELECTED_SERIES";
 
   const [selectedType, setSelectedType] = useState("DRIVERS");
+  const [selectedSeries, setSelectedSeries] = useState("F1"); // 'F1' or 'NASCAR'
+  const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [driverStandings, setDriverStandings] = useState([]);
   const [constructorStandings, setConstructorStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [logoUrls, setLogoUrls] = useState({});
+  const lastLoadedSeriesRef = useRef(null);
 
   const standingTypes = [
     { key: "DRIVERS", name: "Drivers" },
@@ -52,7 +56,6 @@ const StandingsScreen = ({ route }) => {
     Audi: "#F50537",
     Cadillac: "#909090",
   };
-
   const normalizeTeamName = (raw) => {
     if (!raw) return raw;
     const s = raw.toLowerCase();
@@ -104,17 +107,161 @@ const StandingsScreen = ({ route }) => {
     }
   };
 
+  const handleSeriesChange = async (series) => {
+    setSeriesLoaded(true);
+    setSelectedSeries(series);
+
+    try {
+      await AsyncStorage.setItem(SERIES_PREFERENCE_KEY, series);
+    } catch (error) {
+      console.warn("[StandingsScreen] Failed to save series preference", error);
+    }
+  };
+
   useEffect(() => {
+    if (!seriesLoaded) {
+      return;
+    }
+
+    const hasLoadedData =
+      driverStandings.length > 0 || constructorStandings.length > 0;
+    if (lastLoadedSeriesRef.current === selectedSeries && hasLoadedData) {
+      setLoading(false);
+      return;
+    }
+
     fetchStandings();
-  }, []);
+    // refresh when series or type changes
+  }, [
+    selectedSeries,
+    selectedType,
+    seriesLoaded,
+    driverStandings.length,
+    constructorStandings.length,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let shouldFetch = true;
+
+      setLoading(true);
+      setSeriesLoaded(false);
+
+      const restoreSeries = async () => {
+        try {
+          const savedSeries = await AsyncStorage.getItem(SERIES_PREFERENCE_KEY);
+          const resolvedSeries =
+            savedSeries === "F1" || savedSeries === "NASCAR"
+              ? savedSeries
+              : "F1";
+
+          console.log(
+            `[StandingsScreen] page load selected series: ${resolvedSeries}`,
+          );
+
+          shouldFetch =
+            lastLoadedSeriesRef.current !== resolvedSeries ||
+            driverStandings.length === 0 ||
+            constructorStandings.length === 0;
+
+          if (active) {
+            setSelectedSeries(resolvedSeries);
+            setSeriesLoaded(true);
+            if (!shouldFetch) {
+              setLoading(false);
+            }
+          }
+
+          if (!savedSeries) {
+            try {
+              await AsyncStorage.setItem(SERIES_PREFERENCE_KEY, "F1");
+            } catch (error) {
+              console.warn(
+                "[StandingsScreen] Failed to save default series preference",
+                error,
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(
+            "[StandingsScreen] Failed to restore series preference",
+            error,
+          );
+        } finally {
+          if (active) {
+            if (!shouldFetch) {
+              setLoading(false);
+            }
+          }
+        }
+      };
+
+      restoreSeries();
+
+      return () => {
+        active = false;
+        setSeriesLoaded(false);
+      };
+    }, []),
+  );
+
+  useEffect(() => {
+    if (selectedSeries === "F1" && selectedType === "OWNERS") {
+      setSelectedType("CONSTRUCTORS");
+    } else if (selectedSeries === "NASCAR" && selectedType === "CONSTRUCTORS") {
+      setSelectedType("OWNERS");
+    }
+  }, [selectedSeries, selectedType]);
 
   const fetchStandings = async () => {
     try {
-      console.log("[StandingsScreen] Starting fetchStandings (cache-only)");
       setLoading(true);
 
+      if (selectedSeries === "NASCAR") {
+        // Fetch NASCAR standings and cache
+        const NASCAR_URL =
+          "https://laraiyeogithubio-production-ed10.up.railway.app/nascar/standings";
+        const NASCAR_CACHE_KEY = "NASCAR_STANDINGS_CACHE_KEY";
+        const NASCAR_TTL = 1000 * 60 * 30; // 30 min
+
+        const raw = await AsyncStorage.getItem(NASCAR_CACHE_KEY);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed?.ts && Date.now() - parsed.ts < NASCAR_TTL) {
+              const payload = parsed.data;
+              mapNascarPayload(payload);
+              setLoading(false);
+              setRefreshing(false);
+              return;
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+
+        const resp = await fetch(NASCAR_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const payload = await resp.json();
+        const actual = payload?.data ?? payload;
+        try {
+          await AsyncStorage.setItem(
+            NASCAR_CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: actual }),
+          );
+        } catch (e) {
+          console.warn(e);
+        }
+        mapNascarPayload(actual);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // reuse existing F1 cache + mapping logic
       const STANDINGS_URL =
-        "https://laraiyeogithubio-production-ed10.up.railway.app/standings/f1";
+        "https://laraiyeogithubio-production-ed10.up.railway.app/f1/standings";
       const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
       const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
 
@@ -124,15 +271,10 @@ const StandingsScreen = ({ route }) => {
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed?.ts && Date.now() - parsed.ts < F1_STANDINGS_TTL) {
-              console.log("[StandingsScreen] Using cached standings");
               return parsed.data?.data ?? parsed.data ?? parsed;
             }
           }
 
-          console.log(
-            "[StandingsScreen] Fetching shared standings from",
-            STANDINGS_URL,
-          );
           const resp = await fetch(STANDINGS_URL);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const payload = await resp.json();
@@ -157,7 +299,6 @@ const StandingsScreen = ({ route }) => {
 
       const payload = await fetchSharedStandings();
       if (!payload) {
-        console.warn("[StandingsScreen] No shared standings payload");
         setDriverStandings([]);
         setConstructorStandings([]);
         setLoading(false);
@@ -165,7 +306,7 @@ const StandingsScreen = ({ route }) => {
         return;
       }
 
-      // Map drivers
+      // Map drivers (existing F1 mapping)
       const driversArr = payload.drivers || payload.data?.drivers || [];
       const driversMap = payload.drivers_map || payload.data?.drivers_map || {};
       const driversByTeam =
@@ -174,7 +315,6 @@ const StandingsScreen = ({ route }) => {
       const normalizedDrivers = driversArr.map((d) => {
         const num = d.driver_number?.toString();
         const map = driversMap?.[num] || {};
-        // find team
         let teamNameRaw = null;
         let membersForTeam = null;
         for (const teamKey of Object.keys(driversByTeam || {})) {
@@ -235,12 +375,116 @@ const StandingsScreen = ({ route }) => {
         constructors.sort((a, b) => (a.position || 0) - (b.position || 0)),
       );
     } catch (error) {
-      console.error("Error fetching F1 standings (cache-based):", error);
+      console.error("Error fetching standings:", error);
       Alert.alert("Error", "Failed to load standings");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // Map a NASCAR payload (drivers + owners) into driverStandings and constructorStandings (owners)
+  const mapNascarPayload = (payload) => {
+    if (!payload) {
+      setDriverStandings([]);
+      setConstructorStandings([]);
+      return;
+    }
+
+    const driversArr = payload.drivers || payload.data?.drivers || [];
+    const ownersArr = payload.owners || payload.data?.owners || [];
+
+    // helper to find owner name by car number
+    const findOwnerByCarNo = (carNo) => {
+      if (!carNo) return null;
+      for (const o of ownersArr || []) {
+        // common possible fields
+        if (o.vehicle_number && o.vehicle_number.toString() === carNo) return o;
+        if (o.car_no && o.car_no.toString() === carNo) return o;
+        if (o.vehicles && Array.isArray(o.vehicles)) {
+          if (o.vehicles.find((v) => v?.car_no?.toString() === carNo)) return o;
+          if (o.vehicles.find((v) => v?.vehicle_number?.toString() === carNo))
+            return o;
+        }
+        if (o.vehicle_numbers && Array.isArray(o.vehicle_numbers)) {
+          if (o.vehicle_numbers.map(String).includes(carNo)) return o;
+        }
+      }
+      return null;
+    };
+
+    const normalized = driversArr.map((d) => {
+      const carNoRaw =
+        d.car_no || d.carNo || d.car_no_str || d.car_number || d.car;
+      const carNo = carNoRaw != null ? carNoRaw.toString() : null;
+      const owner = findOwnerByCarNo(carNo);
+      const teamName =
+        owner?.owner_name ||
+        owner?.name ||
+        d.manufacturer ||
+        d.manufacturer_name ||
+        "";
+      const teamColor = constructorColors[teamName] || "#000000";
+      return {
+        position: d.position ?? d.rank ?? null,
+        carNo,
+        driver: {
+          id:
+            d.driver_id?.toString() ||
+            d.driver_id ||
+            d.driver_number?.toString() ||
+            carNo ||
+            null,
+          name:
+            d.driver_name ||
+            `${d.driver_first_name || ""} ${d.driver_last_name || ""}`.trim(),
+          firstName: d.driver_first_name || d.driver_first || "",
+          lastName: d.driver_last_name || d.driver_last || "",
+          headshot: d.driver_image || d.headshot || null,
+        },
+        team: {
+          name: teamName,
+          color: teamColor,
+        },
+        points: d.points ?? d.points_current ?? d.points_total ?? 0,
+        wins: d.wins ?? d.win_count ?? 0,
+        delta_leader: d.delta_leader ?? d.delta ?? 0,
+      };
+    });
+
+    // sort by position
+    normalized.sort((a, b) => (a.position || 0) - (b.position || 0));
+    setDriverStandings(normalized);
+
+    // Build owners listing for constructorStandings
+    const ownersList = ownersArr
+      .map((owner) => {
+        const carNoRaw =
+          owner.vehicle_number ||
+          owner.car_no ||
+          owner.car_number ||
+          owner.vehicle;
+        const carNo = carNoRaw != null ? carNoRaw.toString() : null;
+        return {
+          id:
+            owner.owner_id?.toString() ||
+            owner.owner_id ||
+            carNo ||
+            owner.owner_name,
+          position: owner.position ?? null,
+          name: owner.owner_name || owner.name || "",
+          firstName: owner.owner_first_name || "",
+          lastName: owner.owner_last_name || "",
+          headshot: null,
+          vehicleNumber: carNo,
+          points: owner.points ?? owner.points_current ?? 0,
+          wins: owner.wins ?? 0,
+          delta_leader: owner.delta_leader ?? owner.delta_next ?? 0,
+        };
+      })
+      .filter((owner) => owner.name);
+
+    setConstructorStandings(ownersList);
   };
 
   const convertToHttps = (url) => {
@@ -267,7 +511,11 @@ const StandingsScreen = ({ route }) => {
   const DriverImage = ({ driver, teamColor }) => {
     const [imageError, setImageError] = useState(false);
 
-    if (!driver.headshot || imageError) {
+    // support different headshot fields (F1: headshot, NASCAR: driver_image)
+    const uri =
+      driver.headshot || driver.driver_image || driver.headshot_url || null;
+
+    if (!uri || imageError) {
       return (
         <View
           style={[
@@ -287,7 +535,7 @@ const StandingsScreen = ({ route }) => {
 
     return (
       <Image
-        source={{ uri: driver.headshot }}
+        source={{ uri }}
         style={[
           styles.driverImage,
           {
@@ -323,35 +571,37 @@ const StandingsScreen = ({ route }) => {
         });
       }}
     >
-      <View style={styles.rightGradientOverlay} pointerEvents="none">
-        <Svg width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <SvgLinearGradient
-              id={`standingsGrad-driver-${standing.driver.id || "x"}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="0%"
-            >
-              <Stop
-                offset="0%"
-                stopColor={standing.team?.color || theme.surface}
-                stopOpacity="0"
-              />
-              <Stop
-                offset="100%"
-                stopColor={standing.team?.color || theme.surface}
-                stopOpacity="0.72"
-              />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect
-            width="100%"
-            height="100%"
-            fill={`url(#standingsGrad-driver-${standing.driver.id || "x"})`}
-          />
-        </Svg>
-      </View>
+      {selectedSeries === "F1" && (
+        <View style={styles.rightGradientOverlay} pointerEvents="none">
+          <Svg width="100%" height="100%" pointerEvents="none">
+            <Defs>
+              <SvgLinearGradient
+                id={`standingsGrad-driver-${standing.driver.id || "x"}`}
+                x1="100%"
+                y1="0%"
+                x2="0%"
+                y2="0%"
+              >
+                <Stop
+                  offset="0%"
+                  stopColor={standing.team?.color || theme.surface}
+                  stopOpacity="0.72"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={standing.team?.color || theme.surface}
+                  stopOpacity="0"
+                />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect
+              width="100%"
+              height="100%"
+              fill={`url(#standingsGrad-driver-${standing.driver.id || "x"})`}
+            />
+          </Svg>
+        </View>
+      )}
       <View style={styles.positionContainer}>
         <Text
           allowFontScaling={false}
@@ -428,6 +678,38 @@ const StandingsScreen = ({ route }) => {
             PTS
           </Text>
         </View>
+        {selectedSeries === "NASCAR" && (
+          <>
+            <View style={styles.statItem}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statValue, { color: theme.text }]}
+              >
+                {(standing.wins ?? standing.w) || 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                W
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statValue, { color: theme.text }]}
+              >
+                {(standing.delta_leader ?? standing.delta) || 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                BHND
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -440,35 +722,37 @@ const StandingsScreen = ({ route }) => {
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}
     >
-      <View style={styles.rightGradientOverlay} pointerEvents="none">
-        <Svg width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <SvgLinearGradient
-              id={`standingsGrad-ctor-${standing.id || "x"}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="0%"
-            >
-              <Stop
-                offset="0%"
-                stopColor={standing.color || theme.surface}
-                stopOpacity="0"
-              />
-              <Stop
-                offset="100%"
-                stopColor={standing.color || theme.surface}
-                stopOpacity="0.72"
-              />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect
-            width="100%"
-            height="100%"
-            fill={`url(#standingsGrad-ctor-${standing.id || "x"})`}
-          />
-        </Svg>
-      </View>
+      {selectedSeries === "F1" && (
+        <View style={styles.rightGradientOverlay} pointerEvents="none">
+          <Svg width="100%" height="100%" pointerEvents="none">
+            <Defs>
+              <SvgLinearGradient
+                id={`standingsGrad-ctor-${standing.id || "x"}`}
+                x1="100%"
+                y1="0%"
+                x2="0%"
+                y2="0%"
+              >
+                <Stop
+                  offset="0%"
+                  stopColor={standing.color || theme.surface}
+                  stopOpacity="0.72"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={standing.color || theme.surface}
+                  stopOpacity="0"
+                />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect
+              width="100%"
+              height="100%"
+              fill={`url(#standingsGrad-ctor-${standing.id || "x"})`}
+            />
+          </Svg>
+        </View>
+      )}
       <View style={styles.positionContainer}>
         <Text
           allowFontScaling={false}
@@ -479,51 +763,86 @@ const StandingsScreen = ({ route }) => {
       </View>
 
       <View style={styles.constructorInfo}>
-        <ConstructorLogo name={standing.name} color={standing.color} />
+        {selectedSeries === "NASCAR" ? (
+          <DriverImage
+            driver={{
+              firstName: standing.firstName,
+              lastName: standing.lastName,
+              headshot: null,
+            }}
+            teamColor={theme.border}
+          />
+        ) : (
+          <ConstructorLogo name={standing.name} color={standing.color} />
+        )}
 
         <View style={styles.constructorDetails}>
-          <View style={styles.constructorNameContainer}>
-            {isFavorite(getF1TeamId(standing.name)) && (
-              <TouchableOpacity
-                onPress={() =>
-                  handleTeamFavoriteToggle(standing.name, standing.color)
-                }
-                activeOpacity={0.7}
-                style={styles.constructorFavoriteButton}
+          {selectedSeries === "NASCAR" ? (
+            <>
+              <Text
+                allowFontScaling={false}
+                style={[styles.driverName, { color: theme.text }]}
+                numberOfLines={1}
               >
+                {standing.name}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.driversText, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {standing.firstName || ""} {standing.lastName || ""}
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.constructorNameContainer}>
+                {isFavorite(getF1TeamId(standing.name)) && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleTeamFavoriteToggle(standing.name, standing.color)
+                    }
+                    activeOpacity={0.7}
+                    style={styles.constructorFavoriteButton}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.constructorFavoriteIcon,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      ★
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <Text
                   allowFontScaling={false}
                   style={[
-                    styles.constructorFavoriteIcon,
-                    { color: colors.primary },
+                    styles.constructorName,
+                    {
+                      color: isFavorite(getF1TeamId(standing.name))
+                        ? colors.primary
+                        : theme.text,
+                    },
                   ]}
+                  numberOfLines={1}
                 >
-                  ★
+                  {standing.name}
                 </Text>
-              </TouchableOpacity>
-            )}
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.constructorName,
-                {
-                  color: isFavorite(getF1TeamId(standing.name))
-                    ? colors.primary
-                    : theme.text,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {standing.name}
-            </Text>
-          </View>
-          <Text
-            allowFontScaling={false}
-            style={[styles.driversText, { color: theme.textSecondary }]}
-            numberOfLines={1}
-          >
-            {standing.drivers.join(", ")}
-          </Text>
+              </View>
+              <Text
+                allowFontScaling={false}
+                style={[styles.driversText, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {standing.drivers?.join(", ") ||
+                  standing.subName ||
+                  standing.driverName ||
+                  ""}
+              </Text>
+            </>
+          )}
         </View>
       </View>
 
@@ -539,9 +858,41 @@ const StandingsScreen = ({ route }) => {
             allowFontScaling={false}
             style={[styles.statLabel, { color: theme.textSecondary }]}
           >
-            POINTS
+            PTS
           </Text>
         </View>
+        {selectedSeries === "NASCAR" && (
+          <>
+            <View style={styles.statItem}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statValue, { color: theme.text }]}
+              >
+                {(standing.wins ?? 0) || 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                W
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statValue, { color: theme.text }]}
+              >
+                {(standing.delta_leader ?? standing.delta_next ?? 0) || 0}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                BHND
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
@@ -681,7 +1032,11 @@ const StandingsScreen = ({ route }) => {
     },
     content: {
       flex: 1,
-      paddingHorizontal: 20,
+      paddingHorizontal: 12,
+    },
+    scrollContent: {
+      paddingBottom: 70,
+      flexGrow: 1,
     },
     loadingContainer: {
       flex: 1,
@@ -723,6 +1078,32 @@ const StandingsScreen = ({ route }) => {
       top: 0,
       bottom: 0,
       width: "44%",
+    },
+    // removed right gradient per design
+    seriesContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginHorizontal: 20,
+      marginVertical: 8,
+      borderRadius: 8,
+      backgroundColor: theme.surface,
+      padding: 6,
+    },
+    seriesButton: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: 6,
+    },
+    activeSeriesButton: {
+      backgroundColor: colors.primary,
+    },
+    stickyBottom: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: 20,
     },
     driverInfo: {
       flex: 1,
@@ -835,6 +1216,7 @@ const StandingsScreen = ({ route }) => {
       marginTop: 2,
     },
     constructorStatsContainer: {
+      flexDirection: "row",
       alignItems: "center",
     },
     emptyContainer: {
@@ -853,29 +1235,43 @@ const StandingsScreen = ({ route }) => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.typeContainer}>
-          {standingTypes.map((type) => (
-            <TouchableOpacity
-              key={type.key}
+        <View style={styles.seriesContainer}>
+          <TouchableOpacity
+            style={[
+              styles.seriesButton,
+              selectedSeries === "F1" && styles.activeSeriesButton,
+            ]}
+            onPress={() => handleSeriesChange("F1")}
+          >
+            <Text
               style={[
-                styles.typeButton,
-                selectedType === type.key && styles.activeTypeButton,
+                styles.typeButtonText,
+                selectedSeries === "F1"
+                  ? styles.activeTypeButtonText
+                  : styles.inactiveTypeButtonText,
               ]}
-              onPress={() => setSelectedType(type.key)}
             >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.typeButtonText,
-                  selectedType === type.key
-                    ? styles.activeTypeButtonText
-                    : styles.inactiveTypeButtonText,
-                ]}
-              >
-                {type.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+              Formula 1
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.seriesButton,
+              selectedSeries === "NASCAR" && styles.activeSeriesButton,
+            ]}
+            onPress={() => handleSeriesChange("NASCAR")}
+          >
+            <Text
+              style={[
+                styles.typeButtonText,
+                selectedSeries === "NASCAR"
+                  ? styles.activeTypeButtonText
+                  : styles.inactiveTypeButtonText,
+              ]}
+            >
+              NASCAR
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.loadingContainer}>
@@ -891,46 +1287,51 @@ const StandingsScreen = ({ route }) => {
   const currentStandings =
     selectedType === "DRIVERS" ? driverStandings : constructorStandings;
 
-  console.log(`[StandingsScreen] Render - selectedType: ${selectedType}`);
-  console.log(
-    `[StandingsScreen] Render - driverStandings.length: ${driverStandings.length}`,
-  );
-  console.log(
-    `[StandingsScreen] Render - constructorStandings.length: ${constructorStandings.length}`,
-  );
-  console.log(
-    `[StandingsScreen] Render - currentStandings.length: ${currentStandings.length}`,
-  );
-
   return (
     <View style={styles.container}>
-      <View style={styles.typeContainer}>
-        {standingTypes.map((type) => (
-          <TouchableOpacity
-            key={type.key}
+      {/* Top series toggle */}
+      <View style={styles.seriesContainer}>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "F1" && styles.activeSeriesButton,
+          ]}
+          onPress={() => handleSeriesChange("F1")}
+        >
+          <Text
             style={[
-              styles.typeButton,
-              selectedType === type.key && styles.activeTypeButton,
+              styles.typeButtonText,
+              selectedSeries === "F1"
+                ? styles.activeTypeButtonText
+                : styles.inactiveTypeButtonText,
             ]}
-            onPress={() => setSelectedType(type.key)}
           >
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.typeButtonText,
-                selectedType === type.key
-                  ? styles.activeTypeButtonText
-                  : styles.inactiveTypeButtonText,
-              ]}
-            >
-              {type.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+            Formula 1
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "NASCAR" && styles.activeSeriesButton,
+          ]}
+          onPress={() => handleSeriesChange("NASCAR")}
+        >
+          <Text
+            style={[
+              styles.typeButtonText,
+              selectedSeries === "NASCAR"
+                ? styles.activeTypeButtonText
+                : styles.inactiveTypeButtonText,
+            ]}
+          >
+            NASCAR
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -955,6 +1356,43 @@ const StandingsScreen = ({ route }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Sticky bottom bar with type buttons - changes depending on series */}
+      <View style={styles.stickyBottom} pointerEvents="box-none">
+        <View style={styles.typeContainer}>
+          {(selectedSeries === "F1"
+            ? [
+                { key: "DRIVERS", name: "Drivers" },
+                { key: "CONSTRUCTORS", name: "Constructors" },
+              ]
+            : [
+                { key: "DRIVERS", name: "Drivers" },
+                { key: "OWNERS", name: "Owners" },
+              ]
+          ).map((type) => (
+            <TouchableOpacity
+              key={type.key}
+              style={[
+                styles.typeButton,
+                selectedType === type.key && styles.activeTypeButton,
+              ]}
+              onPress={() => setSelectedType(type.key)}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.typeButtonText,
+                  selectedType === type.key
+                    ? styles.activeTypeButtonText
+                    : styles.inactiveTypeButtonText,
+                ]}
+              >
+                {type.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
     </View>
   );
 };

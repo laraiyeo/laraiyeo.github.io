@@ -66,10 +66,10 @@ const HOME_SPORTS_BASE = [
     icon: require("../../assets/wnba.png"),
   },
   {
-    id: "f1",
-    title: "F1",
-    description: "View all live F1 races happening right now.",
-    icon: require("../../assets/f1.png"),
+    id: "motorsports",
+    title: "MOTORSPORTS",
+    description: "View all live Motorsport races happening right now.",
+    icon: require("../../assets/motorsport.png"),
   },
   {
     id: "esports",

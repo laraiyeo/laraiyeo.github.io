@@ -194,6 +194,7 @@ import WNBADraftScreen from "./src/screens/wnba/DraftScreen";
 import F1ResultsScreen from "./src/screens/f1/ResultsScreen";
 import F1StandingsScreen from "./src/screens/f1/StandingsScreen";
 import F1RaceDetailsScreen from "./src/screens/f1/RaceDetailsScreen";
+import NascarRaceDetailsScreen from "./src/screens/f1/NascarRaceDetailsScreen";
 import F1ConstructorDetailsScreen from "./src/screens/f1/ConstructorDetailsScreen";
 import F1RacerDetailsScreen from "./src/screens/f1/RacerDetailsScreen";
 import F1VehiclesScreen from "./src/screens/f1/VehiclesScreen";
@@ -601,7 +602,7 @@ const SportTabNavigator = ({ route }) => {
           TransactionsScreen: NHLTransactionsScreen,
           InjuriesScreen: NHLInjuriesScreen,
         };
-      case "f1":
+      case "motorsports":
         return {
           ScoreboardScreen: F1ResultsScreen, // Using Results screen for Scores tab
           StandingsScreen: F1StandingsScreen,
@@ -802,6 +803,38 @@ const SportTabNavigator = ({ route }) => {
 const F1TabNavigator = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors } = useTheme();
+  const [selectedSeries, setSelectedSeries] = useState("F1");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSeries = async () => {
+      try {
+        const savedSeries = await AsyncStorage.getItem(
+          "SPORTS_TRACKER_SELECTED_SERIES",
+        );
+        const resolvedSeries = savedSeries === "NASCAR" ? "NASCAR" : "F1";
+
+        if (mounted) {
+          console.log(
+            `[App] F1TabNavigator selected series: ${resolvedSeries}`,
+          );
+          setSelectedSeries(resolvedSeries);
+        }
+      } catch (error) {
+        if (mounted) {
+          console.log("[App] F1TabNavigator selected series: F1");
+          setSelectedSeries("F1");
+        }
+      }
+    };
+
+    loadSeries();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <Tab.Navigator
@@ -817,6 +850,10 @@ const F1TabNavigator = ({ route }) => {
             const iconSize = 50;
             const safeTint =
               color || (focused ? colors.primary : theme.textTertiary);
+            const vehicleIconSource =
+              selectedSeries === "NASCAR"
+                ? require("./assets/nascar-car.png")
+                : require("./assets/f1-car-svgrepo-com.png");
             return (
               <View
                 style={{
@@ -827,11 +864,15 @@ const F1TabNavigator = ({ route }) => {
                 }}
               >
                 <Image
-                  source={require("./assets/f1-car-svgrepo-com.png")}
+                  source={vehicleIconSource}
                   style={{
                     width: iconSize,
                     height: iconSize,
                     tintColor: safeTint,
+                    transform:
+                      selectedSeries === "NASCAR"
+                        ? [{ scaleX: -1 }]
+                        : undefined,
                   }}
                   resizeMode="contain"
                 />
@@ -879,7 +920,8 @@ const F1TabNavigator = ({ route }) => {
         component={F1VehiclesScreen}
         initialParams={{ sport }}
         options={{
-          title: "Vehicles",
+          title: selectedSeries === "NASCAR" ? "MFR" : "Vehicles",
+          tabBarLabel: selectedSeries === "NASCAR" ? "MFR" : "Vehicles",
         }}
       />
     </Tab.Navigator>
@@ -1160,7 +1202,7 @@ const MainStackNavigator = ({ initialRouteName }) => {
             return <SoccerHomeScreen route={route} navigation={navigation} />;
           }
           // For F1, use the custom F1 tab navigator
-          if (sport?.toLowerCase() === "f1") {
+          if (sport?.toLowerCase() === "motorsports") {
             return <F1TabNavigator route={route} navigation={navigation} />;
           }
           // For esports (VAL, CS2, DOTA2, LOL), use the unified esports navigator
@@ -1220,7 +1262,7 @@ const MainStackNavigator = ({ initialRouteName }) => {
               return <WNBAGameDetailsScreen {...props} />;
             case "nhl":
               return <NHLGameDetailsScreen {...props} />;
-            case "f1":
+            case "motorsports":
               return <F1RaceDetailsScreen {...props} />;
             case "soccer":
               return <SpainGameDetailsScreen {...props} />;
@@ -1342,6 +1384,18 @@ const MainStackNavigator = ({ initialRouteName }) => {
       <Stack.Screen
         name="F1RaceDetails"
         component={F1RaceDetailsScreen}
+        options={{
+          title: "Race Details",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="NascarRaceDetails"
+        component={NascarRaceDetailsScreen}
         options={{
           title: "Race Details",
           headerStyle: {

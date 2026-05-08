@@ -421,6 +421,15 @@ function normalizeNascarTracks(payload) {
   return [];
 }
 
+function normalizeNascarDrivers(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.response)) return payload.response;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.drivers)) return payload.drivers;
+  return [];
+}
+
 function removeKeyFromArray(arr, keyName) {
   if (!Array.isArray(arr)) return arr;
   for (const it of arr) {
@@ -475,6 +484,41 @@ function filterNascarTrack(track) {
     track_logo: track.track_logo ?? null,
     capacity: track.capacity ?? null,
   };
+}
+
+function buildNascarDriversMap(driversArr) {
+  const map = Object.create(null);
+  for (const driver of Array.isArray(driversArr) ? driversArr : []) {
+    if (!driver) continue;
+    const badge = String(driver.Badge ?? driver.badge ?? "").trim();
+    const nascarDriverId = String(
+      driver.Nascar_Driver_ID ?? driver.nascar_driver_id ?? "",
+    ).trim();
+    const driverId = String(driver.Driver_ID ?? driver.driver_id ?? "").trim();
+    const key = badge || nascarDriverId || driverId;
+    if (!key) continue;
+
+    const entry = {
+      badge: badge || null,
+      nascar_driver_id: driver.Nascar_Driver_ID ?? null,
+      driver_id: driver.Driver_ID ?? null,
+      name: driver.Full_Name ?? driver.full_name ?? null,
+      manufacturer: driver.Manufacturer ?? null,
+      image: driver.Image ?? driver.Badge_Image ?? null,
+      team: driver.Team ?? null,
+    };
+
+    // Prefer Nascar_Driver_ID as the canonical map key. Fall back to Driver_ID,
+    // then Badge if Nascar_Driver_ID is not available.
+    if (nascarDriverId) {
+      map[nascarDriverId] = entry;
+    } else if (driverId) {
+      map[driverId] = entry;
+    } else if (badge) {
+      map[badge] = entry;
+    }
+  }
+  return map;
 }
 
 function ensureRefreshInterval(key, url, ttlMs) {
@@ -3342,6 +3386,7 @@ nascar.get("/tracks", async (req, res) => {
 nascar.get("/standings", async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
+    const nascarDriversUrl = "https://cf.nascar.com/cacher/drivers.json";
     const driversUrl = `https://cf.nascar.com/data/cacher/production/${currentYear}/1/racinginsights-points-feed.json`;
     const ownersUrl = `https://cf.nascar.com/cacher/${currentYear}/1/final/1-owners-points.json`;
     const manufacturersUrl = `https://cf.nascar.com/cacher/${currentYear}/1/final/1-manufacturer-points.json`;
@@ -3369,11 +3414,55 @@ nascar.get("/standings", async (req, res) => {
     ensureRefreshInterval(driversKey, driversUrl, TTL_1H);
     ensureRefreshInterval(ownersKey, ownersUrl, TTL_1H);
     ensureRefreshInterval(manufacturersKey, manufacturersUrl, TTL_1H);
+    await getCachedWithTTL("nascar_drivers", nascarDriversUrl, TTL_6H).catch(() => {});
+    ensureRefreshInterval("nascar_drivers", nascarDriversUrl, TTL_6H);
 
     // normalize payloads to arrays/objects as-is (upstream shapes vary)
     const driversData = driversRes?.data || null;
     const ownersData = ownersRes?.data || null;
     const manufacturersData = manufacturersRes?.data || null;
+    const nascarDriversArr = normalizeNascarDrivers(
+      cache.get("nascar_drivers")?.data,
+    );
+    const driversMap = buildNascarDriversMap(nascarDriversArr);
+
+    // For standings, only include drivers that appear in the upstream drivers list
+    const standingsDriversArr = Array.isArray(driversData?.drivers)
+      ? driversData.drivers
+      : Array.isArray(driversData)
+      ? driversData
+      : [];
+    const allowedDriverIds = new Set();
+    for (const d of standingsDriversArr) {
+      const id =
+        d?.driver_id ?? d?.Driver_ID ?? d?.driverId ?? d?.driverNumber ?? null;
+      if (id != null) allowedDriverIds.add(String(id));
+    }
+
+    const filteredDriversMap = Object.create(null);
+    const seen = new Set();
+    for (const entry of Object.values(driversMap)) {
+      if (!entry || seen.has(entry)) continue;
+      seen.add(entry);
+      const entryDriverId = entry.driver_id ? String(entry.driver_id) : null;
+      const entryNascarId = entry.nascar_driver_id
+        ? String(entry.nascar_driver_id)
+        : null;
+      // Only include the entry if its nascar_driver_id or driver_id appears
+      // in the upstream standings. Expose it in the map keyed by
+      // `nascar_driver_id` only.
+      if (
+        (entryNascarId && allowedDriverIds.has(entryNascarId)) ||
+        (entryDriverId && allowedDriverIds.has(entryDriverId))
+      ) {
+        if (entryNascarId) {
+          filteredDriversMap[entryNascarId] = entry;
+        } else if (entryDriverId) {
+          // If there's no nascar id, use driver id as the key (rare fallback)
+          filteredDriversMap[entryDriverId] = entry;
+        }
+      }
+    }
 
     setCachingHeaders(res, TTL_1H);
     res.json({
@@ -3387,6 +3476,9 @@ nascar.get("/standings", async (req, res) => {
         drivers: driversData,
         owners: ownersData,
         manufacturers: manufacturersData,
+        maps: {
+          drivers: filteredDriversMap,
+        },
       },
     });
   } catch (err) {
@@ -3480,6 +3572,21 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       race_list_basic: raceObj,
     };
 
+    await getCachedWithTTL(
+      "nascar_drivers",
+      "https://cf.nascar.com/cacher/drivers.json",
+      TTL_6H,
+    ).catch(() => {});
+    ensureRefreshInterval(
+      "nascar_drivers",
+      "https://cf.nascar.com/cacher/drivers.json",
+      TTL_6H,
+    );
+    const nascarDriversArr = normalizeNascarDrivers(
+      cache.get("nascar_drivers")?.data,
+    );
+    const driversMap = buildNascarDriversMap(nascarDriversArr);
+
     if (shouldUseLiveFeeds) {
       const liveSources = [
         ["live_stage_points", liveUrls.live_stage_points],
@@ -3509,6 +3616,7 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
 
       // Also expose the schedule window that triggered live refresh.
       out.live_window = hasLiveScheduledEvent;
+      out.maps = { drivers: driversMap };
 
       setCachingHeaders(res, liveRefreshMs);
       return res.json({ source: "cache", race_id: raceId, status, data: out });
@@ -3651,6 +3759,93 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
     }
 
     out.track = trackInfo || null;
+    // For race responses, restrict the drivers map to only drivers referenced
+    // in the various race payload locations (loopstats, weekend results, lap_times,
+    // live_stage_points, live_feed vehicles, live_points).
+    const allowed = new Set();
+
+    // loopstats -> drivers
+    if (out.loopstats) {
+      const lsArr = Array.isArray(out.loopstats) ? out.loopstats : [out.loopstats];
+      for (const ls of lsArr) {
+        if (!ls) continue;
+        const drivers = Array.isArray(ls.drivers) ? ls.drivers : [];
+        for (const d of drivers) {
+          const id = d?.driver_id ?? d?.Driver_ID ?? d?.driverId ?? d?.NASCARDriverID ?? null;
+          if (id != null) allowed.add(String(id));
+        }
+      }
+    }
+
+    // weekend -> weekend_race[].results
+    if (out.weekend && Array.isArray(out.weekend.weekend_race)) {
+      for (const wr of out.weekend.weekend_race) {
+        if (!wr) continue;
+        const results = Array.isArray(wr.results) ? wr.results : [];
+        for (const r of results) {
+          const id = r?.driver_id ?? r?.Driver_ID ?? r?.driverId ?? r?.NASCARDriverID ?? null;
+          if (id != null) allowed.add(String(id));
+        }
+      }
+    }
+
+    // lap_times -> laps[].NASCARDriverID or similar
+    if (out.lap_times && Array.isArray(out.lap_times.laps)) {
+      for (const lap of out.lap_times.laps) {
+        if (!lap) continue;
+        const id =
+          lap?.NASCARDriverID ?? lap?.Nascar_Driver_ID ?? lap?.nascar_driver_id ?? lap?.driver_id ?? null;
+        if (id != null) allowed.add(String(id));
+      }
+    }
+
+    // live_stage_points -> results
+    if (out.live_stage_points && Array.isArray(out.live_stage_points.results)) {
+      for (const r of out.live_stage_points.results) {
+        const id = r?.driver_id ?? r?.Driver_ID ?? r?.driverId ?? null;
+        if (id != null) allowed.add(String(id));
+      }
+    }
+
+    // live_feed -> vehicles[].driver
+    if (out.live_feed && Array.isArray(out.live_feed.vehicles)) {
+      for (const v of out.live_feed.vehicles) {
+        const drv = v?.driver ?? v?.Driver ?? v?.driverObj ?? null;
+        if (!drv) continue;
+        const id = drv?.driver_id ?? drv?.Driver_ID ?? drv?.driverId ?? drv?.NASCARDriverID ?? null;
+        if (id != null) allowed.add(String(id));
+      }
+    }
+
+    // live_points -> array of entries with driver id
+    if (out.live_points && Array.isArray(out.live_points)) {
+      for (const p of out.live_points) {
+        const id = p?.driver_id ?? p?.Driver_ID ?? p?.driverId ?? null;
+        if (id != null) allowed.add(String(id));
+      }
+    }
+
+    // Build filtered drivers map from driversMap using allowed set
+    const filteredDriversMap = Object.create(null);
+    const added = new Set();
+    for (const entry of Object.values(driversMap)) {
+      if (!entry) continue;
+      const entryDriverId = entry.driver_id ? String(entry.driver_id) : null;
+      const entryNascarId = entry.nascar_driver_id ? String(entry.nascar_driver_id) : null;
+      // Only include drivers referenced in `allowed`. Expose by nascar id only
+      if (entryNascarId && allowed.has(entryNascarId)) {
+        if (added.has(entryNascarId)) continue;
+        added.add(entryNascarId);
+        filteredDriversMap[entryNascarId] = entry;
+      } else if (entryDriverId && allowed.has(entryDriverId)) {
+        // fallback: include by driver id key if no nascar id present
+        if (added.has(entryDriverId)) continue;
+        added.add(entryDriverId);
+        filteredDriversMap[entryDriverId] = entry;
+      }
+    }
+
+    out.maps = { drivers: filteredDriversMap };
 
     setCachingHeaders(res, TTL_1H);
     res.json({ source: "cache", race_id: raceId, status, data: out });
