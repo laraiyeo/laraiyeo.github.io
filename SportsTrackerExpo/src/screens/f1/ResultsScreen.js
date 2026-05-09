@@ -34,8 +34,8 @@ const { width } = Dimensions.get("window");
 
 const DATE_API_BASE =
   "https://laraiyeogithubio-production-ed10.up.railway.app/racing/date";
-const DATE_CACHE_KEY = "racing_date_list:v1";
-const DATE_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
+const DATE_CACHE_KEY = "racing_date_list:v2";
+const DATE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours
 
 const DATE_ITEM_W = 90;
 const DATE_FADE_W = 50;
@@ -121,6 +121,29 @@ const formatTimeParts = (dateString) => {
   if (!dateString) return { time: "TBD", ampm: "" };
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return { time: "TBD", ampm: "" };
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(d);
+  const hour = parts.find((p) => p.type === "hour")?.value || "00";
+  const minute = parts.find((p) => p.type === "minute")?.value || "00";
+  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value || "";
+  return { time: `${hour}:${minute}`, ampm: dayPeriod.toUpperCase() };
+};
+
+const parseNascarUtcDate = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(text);
+  const parsed = new Date(hasTimezone ? text : `${text}Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatNascarTimeParts = (dateString) => {
+  const d = parseNascarUtcDate(dateString);
+  if (!d) return { time: "TBD", ampm: "" };
   const parts = new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -219,13 +242,14 @@ const getCountryColor = (countryName) => {
 const isNascarEvent = (event) =>
   event?.source === "nascar_schedule" || !!event?.race_id || !!event?.track_id;
 
-const resolveNascarLinkStatus = (dateStart) => {
-  const startMs = dateStart ? Date.parse(dateStart) : null;
+const resolveNascarLinkStatus = (dateStart, dateEnd, hasWinner = false) => {
+  const startMs = parseNascarUtcDate(dateStart)?.getTime() ?? null;
+  const endMs = parseNascarUtcDate(dateEnd)?.getTime() ?? null;
   if (!startMs || Number.isNaN(startMs)) return "off";
+  if (hasWinner) return "off";
   const nowMs = Date.now();
-  return nowMs >= startMs && nowMs <= startMs + 3 * 60 * 60 * 1000
-    ? "live"
-    : "off";
+  const liveUntilMs = endMs || startMs + 3 * 60 * 60 * 1000;
+  return nowMs >= startMs && nowMs <= liveUntilMs ? "live" : "off";
 };
 
 const CardGradient = ({ gradId, accentColor }) => (
@@ -613,10 +637,34 @@ const ResultsScreen = () => {
       "";
     const end = event.date_end || event.dateEnd || meeting.date_end || "";
     const nowMs = Date.now();
-    const startMs = start ? Date.parse(start) : null;
-    const endMs = end ? Date.parse(end) : null;
-    const isLive =
-      !isNascar && startMs && endMs && nowMs >= startMs && nowMs <= endMs;
+    const startMs = isNascar
+      ? (parseNascarUtcDate(start)?.getTime() ?? null)
+      : start
+        ? Date.parse(start)
+        : null;
+    const endMs = isNascar
+      ? (parseNascarUtcDate(end)?.getTime() ?? null)
+      : end
+        ? Date.parse(end)
+        : null;
+    const winnerName =
+      event.winner || event.winner_name || meeting.winner || "";
+    const winnerTeam =
+      event.winner_team || event.winnerTeam || meeting.winner_team || "";
+    const winnerManufacturer =
+      event.winner_manufacturer || event.winnerManufacturer || "";
+    const winnerParts = [
+      winnerName,
+      winnerTeam,
+      isNascar ? winnerManufacturer : null,
+    ].filter(Boolean);
+    const hasWinner = winnerParts.length > 0;
+    const nascarLinkStatus = isNascar
+      ? resolveNascarLinkStatus(start, end, hasWinner)
+      : "off";
+    const isLive = isNascar
+      ? nascarLinkStatus === "live"
+      : startMs && endMs && nowMs >= startMs && nowMs <= endMs;
 
     const raceName = isNascar
       ? event.race_name
@@ -649,18 +697,6 @@ const ResultsScreen = () => {
           meeting.circuit_short_name || event.circuit_short_name,
         );
 
-    const winnerName =
-      event.winner || event.winner_name || meeting.winner || "";
-    const winnerTeam =
-      event.winner_team || event.winnerTeam || meeting.winner_team || "";
-    const winnerManufacturer =
-      event.winner_manufacturer || event.winnerManufacturer || "";
-    const winnerParts = [
-      winnerName,
-      winnerTeam,
-      isNascar ? winnerManufacturer : null,
-    ].filter(Boolean);
-
     let accentColor = null;
     if (isNascar) {
       const m = String(winnerManufacturer || "").toLowerCase();
@@ -680,28 +716,35 @@ const ResultsScreen = () => {
     const viewerStatus = isNascar
       ? {
           status:
-            startMs && nowMs > startMs + 3 * 60 * 60 * 1000
+            hasWinner || (startMs && nowMs > startMs + 3 * 60 * 60 * 1000)
               ? "finished"
               : startMs && nowMs >= startMs
                 ? "live"
                 : "scheduled",
-          isCompleted: !!(startMs && nowMs > startMs + 3 * 60 * 60 * 1000),
-          reason: "Finished 3 hours after date start",
+          isCompleted: !!(
+            hasWinner ||
+            (startMs && nowMs > startMs + 3 * 60 * 60 * 1000)
+          ),
+          reason: hasWinner
+            ? "Winner present"
+            : "Finished 3 hours after date start",
         }
       : {
           status:
-            endMs && nowMs > endMs
+            hasWinner || (endMs && nowMs > endMs)
               ? "finished"
               : startMs && nowMs >= startMs
                 ? "live"
                 : "scheduled",
-          isCompleted: !!(endMs && nowMs > endMs),
-          reason: "Finished on date end",
+          isCompleted: !!(hasWinner || (endMs && nowMs > endMs)),
+          reason: hasWinner ? "Winner present" : "Finished on date end",
         };
 
     const showFooter =
       winnerParts.length > 0 || viewerStatus.status !== "scheduled";
-    const { time, ampm } = formatTimeParts(start);
+    const { time, ampm } = isNascar
+      ? formatNascarTimeParts(start)
+      : formatTimeParts(start);
 
     return (
       <TouchableOpacity
@@ -723,7 +766,7 @@ const ResultsScreen = () => {
               runType: event.schedule?.run_type || event.run_type || "",
               raceName,
               raceDate: start,
-              status: resolveNascarLinkStatus(start),
+              status: "live",
               sport: "nascar",
             });
             return;
@@ -1207,9 +1250,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   liveLabel: {
+    marginTop: -5,
     fontSize: 11,
     fontWeight: "800",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statusLine1: {
     fontSize: 12,

@@ -9,13 +9,17 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Share,
   TouchableOpacity,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ViewShot from "react-native-view-shot";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -36,7 +40,7 @@ const TAB_KEYS = [
   "Main",
   "Drivers",
   "Events",
-  "Stints",
+  "Pit Stops",
   "Flow",
   "Starting Grid",
 ];
@@ -68,10 +72,26 @@ const getInitials = (name = "") => {
   );
 };
 
+const parseNascarUtcDate = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(text);
+  const parsed = new Date(hasTimezone ? text : `${text}Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getNascarRunTypeLabel = (runType) => {
+  const type = Number(runType);
+  if (type === 1) return "PRACTICE";
+  if (type === 2) return "QUAL";
+  return "RACE";
+};
+
 const toDateLabel = (value) => {
   if (!value) return "TBD";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "TBD";
+  const date = parseNascarUtcDate(value);
+  if (!date) return "TBD";
   return date.toLocaleString("en-US", {
     weekday: "short",
     month: "short",
@@ -81,12 +101,27 @@ const toDateLabel = (value) => {
   });
 };
 
+const toFullDateLabel = (value) => {
+  if (!value) return "TBD";
+  const date = parseNascarUtcDate(value);
+  if (!date) return String(value);
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+};
+
 const formatDuration = (seconds) => {
   if (seconds === null || seconds === undefined || seconds === -1) return "--";
   const total = Number(seconds);
   if (Number.isNaN(total)) return "--";
   const mins = Math.floor(total / 60);
-  const secs = (total % 60).toFixed(1).padStart(4, "0");
+  const secs = (total % 60).toFixed(2).padStart(4, "0");
   return mins > 0 ? `${mins}:${secs}` : `${secs}s`;
 };
 
@@ -190,12 +225,7 @@ const computeNascarStatus = (raceDate) => {
 };
 
 const CardGradient = ({ gradId, accentColor }) => (
-  <Svg
-    style={StyleSheet.absoluteFillObject}
-    width="100%"
-    height="100%"
-    pointerEvents="none"
-  >
+  <Svg width="100%" height="100%" pointerEvents="none">
     <Defs>
       <SvgLinearGradient
         id={`nascarGrad_${gradId}`}
@@ -204,8 +234,8 @@ const CardGradient = ({ gradId, accentColor }) => (
         x2="100%"
         y2="0%"
       >
-        <Stop offset="0%" stopColor={accentColor} stopOpacity="0.28" />
-        <Stop offset="55%" stopColor={accentColor} stopOpacity="0" />
+        <Stop offset="0%" stopColor={accentColor} stopOpacity="0" />
+        <Stop offset="100%" stopColor={accentColor} stopOpacity="45" />
       </SvgLinearGradient>
     </Defs>
     <Rect width="100%" height="100%" fill={`url(#nascarGrad_${gradId})`} />
@@ -281,6 +311,1825 @@ const SectionCard = ({ title, children, theme, colors, accentColor }) => (
   </View>
 );
 
+const formatSessionCopyTime = (value) => {
+  if (value == null || value === "") return "-";
+  const text = String(value).trim();
+  if (!text) return "-";
+  if (text.includes(":")) return text;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? formatDuration(parsed) : text;
+};
+
+const formatElapsedClock = (secs) => {
+  if (secs == null || secs === "") return "-";
+  const s = String(secs).trim();
+  if (!s) return "-";
+  if (s.includes(":")) return s;
+  const total = Number(s);
+  if (!Number.isFinite(total)) return s;
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const sec = Math.floor(total % 60)
+    .toString()
+    .padStart(2, "0");
+  return hrs > 0 ? `${hrs}:${mins}:${sec}` : `${mins}:${sec}`;
+};
+
+const formatDeltaLeader = (value) => {
+  if (value == null || value === "") return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (text === "0" || text === "0.0" || Number(text) === 0) return "Leader";
+  if (text === "-") return "+";
+  if (text.startsWith("+")) return text;
+  if (text.startsWith("-")) return `+${text.slice(1)}`;
+  return `+${text}`;
+};
+
+const getLiveLapsLedCount = (lapsLed) => {
+  if (!Array.isArray(lapsLed)) {
+    const parsed = Number(lapsLed);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  const ranges = lapsLed
+    .map((entry) => {
+      const start = Number(entry?.start_lap);
+      const end = Number(entry?.end_lap);
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+      return { start, end };
+    })
+    .filter(Boolean);
+
+  if (!ranges.length) return 0;
+
+  const minStart = Math.min(...ranges.map((range) => range.start));
+  const maxEnd = Math.max(...ranges.map((range) => range.end));
+  return maxEnd >= minStart ? maxEnd - minStart + 1 : 0;
+};
+
+const getLiveAveragePitTime = (pitStops) => {
+  if (!Array.isArray(pitStops) || !pitStops.length) return null;
+
+  const durations = pitStops
+    .map((pitStop) => {
+      const pitIn = Number(pitStop?.pit_in_elapsed_time);
+      const pitOut = Number(pitStop?.pit_out_elapsed_time);
+      if (!Number.isFinite(pitIn) || !Number.isFinite(pitOut)) return null;
+      const duration = pitOut - pitIn;
+      return Number.isFinite(duration) && duration > 0 ? duration : null;
+    })
+    .filter((value) => value != null);
+
+  if (!durations.length) return null;
+
+  return durations.reduce((sum, value) => sum + value, 0) / durations.length;
+};
+
+const getLiveDriverPositionDeltaText = (
+  runningPos,
+  startingPos,
+  liveRunType,
+) => {
+  const currentPosition = Number(runningPos);
+  if (!Number.isFinite(currentPosition)) return null;
+  if (liveRunType !== 3) return null;
+
+  const startPosition = Number(startingPos);
+  if (!Number.isFinite(startPosition)) return null;
+
+  const delta = startPosition - currentPosition;
+  if (delta === 0) return null;
+  return delta > 0 ? `▲ ${delta} POS` : `▼ ${Math.abs(delta)} POS`;
+};
+const NascarSessionCopyCard = ({
+  visible,
+  onClose,
+  sourceLabel,
+  raceName,
+  sessionDate,
+  trackName,
+  trackState,
+  trackLogo,
+  podiumEntries,
+  accentColor,
+  colors,
+  theme,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const cardWidth = Math.min(width - 48, 540);
+
+  if (!visible) return null;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const uri = await cardRef.current.capture();
+      await Share.share({ url: uri, title: `${sourceLabel} Stats` });
+    } catch (error) {
+      console.warn("[NascarRaceDetailsScreen] session share failed", error);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.sessionCopyOverlay}>
+        <ViewShot ref={cardRef} options={{ format: "png", quality: 1 }}>
+          <View
+            style={[
+              styles.sessionCopyCard,
+              { backgroundColor: theme.surface, width: cardWidth },
+            ]}
+          >
+            <View
+              style={[
+                styles.sessionCopyHeader,
+                {
+                  backgroundColor: "#3C3B6E" + "33",
+                  borderBottomColor: "#3C3B6E",
+                },
+              ]}
+            >
+              <View style={styles.sessionCopyHeaderTopRow}>
+                <View
+                  style={[
+                    styles.sessionCopyBadge,
+                    { backgroundColor: "#3C3B6E" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.sessionCopyBadgeText,
+                      { color: getF1TextOnColor("#3C3B6E") },
+                    ]}
+                  >
+                    {sourceLabel}
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={[styles.sessionCopyRaceName, { color: "#fff" }]}
+                numberOfLines={1}
+              >
+                {raceName}
+              </Text>
+              <Text
+                style={[
+                  styles.sessionCopyRaceTime,
+                  { color: theme.text, marginBottom: 8 },
+                ]}
+                numberOfLines={1}
+              >
+                {sessionDate || "TBD"}
+              </Text>
+
+              <View style={styles.sessionCopyVenueRow}>
+                {trackLogo ? (
+                  <Image
+                    source={{ uri: trackLogo }}
+                    style={styles.sessionCopyTrackLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.sessionCopyTrackFallback,
+                      { borderColor: theme.border },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.sessionCopyTrackFallbackText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {getInitials(trackName)}
+                    </Text>
+                  </View>
+                )}
+
+                <Text
+                  style={[
+                    styles.sessionCopyVenueText,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {trackName} · {trackState}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.sessionCopyPodiumRow}>
+              {podiumEntries.map((driver) => {
+                const initials = getInitials(driver.name);
+                const showDelta = driver.showDeltaLeader;
+                return (
+                  <View
+                    key={`${driver.position}-${driver.name}`}
+                    style={styles.sessionCopyDriverCol}
+                  >
+                    <View style={styles.sessionCopyHeadshotWrap}>
+                      {driver.headshot ? (
+                        <View
+                          style={[
+                            styles.driverHeadshotCard,
+                            {
+                              borderColor: driver.teamColor,
+                              backgroundColor: `${driver.teamColor}22`,
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: driver.headshot }}
+                            style={{
+                              width: "100%",
+                              height: "150%",
+                              transform: [
+                                { translateY: 1.5 },
+                                { translateX: -2 },
+                              ],
+                            }}
+                            resizeMode="cover"
+                          />
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.driverHeadshotCard,
+                            {
+                              backgroundColor: `${driver.teamColor}22`,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.driverInitials,
+                              { color: driver.teamColor },
+                            ]}
+                          >
+                            {initials || "D"}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View
+                        style={[
+                          styles.sessionCopyPosBadge,
+                          { backgroundColor: driver.teamColor },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.sessionCopyPosBadgeText,
+                            { color: getF1TextOnColor(driver.teamColor) },
+                          ]}
+                        >
+                          {driver.position}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.sessionCopyDriverName,
+                        { color: theme.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {driver.lastName.toUpperCase()}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.sessionCopyDriverTeam,
+                        { color: driver.teamColor },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {driver.teamName || "Team"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.sessionCopyDriverTime,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {driver.timeText}
+                    </Text>
+                    {showDelta ? (
+                      <Text
+                        style={[
+                          styles.sessionCopyDriverDelta,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {driver.deltaLeaderText || ""}
+                      </Text>
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.sessionCopyDriverLaps,
+                        { color: theme.textTertiary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {driver.laps != null ? String(driver.laps) : "-"} Laps
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View
+              style={[
+                styles.sessionCopyFooter,
+                { borderTopColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[styles.sessionCopyFooterText, { color: theme.text }]}
+              >
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        <View style={styles.sessionCopyActions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sessionCopyActionBtnText,
+                { color: getF1TextOnColor(colors.primary) },
+              ]}
+            >
+              {sharing ? "Sharing…" : "Share"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: theme.border },
+            ]}
+          >
+            <Text
+              style={[styles.sessionCopyActionBtnText, { color: theme.text }]}
+            >
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const NascarDriverStatsCard = ({
+  visible,
+  onClose,
+  driver,
+  sourceType,
+  colors,
+  theme,
+  trackLogo,
+  trackName,
+  raceName,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const cardWidth = Math.min(width - 48, 540);
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const uri = await cardRef.current.capture();
+      await Share.share({ url: uri, title: `${driver.name} Stats` });
+    } catch (error) {
+      console.warn("[NascarDriverStatsCard] share failed", error);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const isLive = sourceType === "LIVE";
+  const isQualPractice = sourceType === "QUAL" || sourceType === "PRACTICE";
+  const displayTime =
+    driver.comment && isQualPractice
+      ? driver.comment.toUpperCase()
+      : isLive
+        ? driver.totalTimeText || driver.timeText || "-"
+        : driver.timeText || "-";
+  const displayTimeColor =
+    driver.comment && isQualPractice ? theme.error : theme.text;
+  const sponsorName = driver.sponsorName || driver.teamName || "Team";
+  const liveBestLapText = driver.bestLapTime || "-";
+  const liveLapsLedText = driver.lapsLed != null ? String(driver.lapsLed) : "-";
+  const livePitsText = driver.pits || "-";
+  const livePassesText = driver.passes != null ? String(driver.passes) : "-";
+  const liveAvgRestartText =
+    driver.avgRestartSpeed != null ? String(driver.avgRestartSpeed) : "-";
+  const liveAvgPosText =
+    driver.avgRunningPosition != null ? String(driver.avgRunningPosition) : "-";
+  const liveAvgSpeedText =
+    driver.avgSpeed != null ? String(driver.avgSpeed) : "-";
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.sessionCopyOverlay}>
+        <ViewShot ref={cardRef} options={{ format: "png", quality: 1 }}>
+          <View
+            style={[
+              styles.driverStatsCard,
+              { backgroundColor: theme.surface, width: cardWidth },
+            ]}
+          >
+            {/* Header */}
+            <View
+              style={[
+                styles.driverStatsHeader,
+                {
+                  backgroundColor: `${driver.teamColor}33`,
+                  borderBottomColor: driver.teamColor,
+                },
+              ]}
+            >
+              {/* Top row with badge and track info */}
+              <View style={styles.driverStatsHeaderTop}>
+                <View
+                  style={[
+                    styles.driverStatsBadge,
+                    { backgroundColor: driver.teamColor },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.driverStatsBadgeText,
+                      { color: getF1TextOnColor(driver.teamColor) },
+                    ]}
+                  >
+                    {(() => {
+                      // Prefer explicit run label for live drivers
+                      if (isLive) {
+                        return driver.runLabel || "LIVE";
+                      }
+                      // Non-live: normalize common source types
+                      const s = String(sourceType || "").toUpperCase();
+                      if (s === "QUAL" || s === "PRACTICE" || s === "RACE") {
+                        return s;
+                      }
+                      return s || sourceType || "RACE";
+                    })()}
+                  </Text>
+                </View>
+
+                <View style={styles.driverStatsRaceInfoRight}>
+                  <Text
+                    style={[styles.driverStatsRaceName, { color: theme.text }]}
+                    numberOfLines={2}
+                  >
+                    {isLive ? raceName || trackName : trackName}
+                  </Text>
+                  {trackLogo ? (
+                    <Image
+                      source={{ uri: trackLogo }}
+                      style={styles.driverStatsTrackLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={styles.driverStatsTrackFallback}>
+                      <Text
+                        style={[
+                          styles.driverStatsTrackFallbackText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {getInitials(trackName)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Headshot and info row */}
+              <View style={styles.driverStatsHeadshotRow}>
+                {/* Headshot with View wrapper */}
+                <View style={styles.driverStatsHeadshotContainer}>
+                  {driver.headshot ? (
+                    <View
+                      style={[
+                        styles.driverStatsHeadshotCircle,
+                        {
+                          borderColor: driver.teamColor,
+                          backgroundColor: `${driver.teamColor}22`,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: driver.headshot }}
+                        style={{
+                          width: "100%",
+                          height: "150%",
+                          transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                        }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.driverStatsHeadshotCircle,
+                        {
+                          backgroundColor: `${driver.teamColor}22`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.driverStatsInitials, { color: "#fff" }]}
+                      >
+                        {getInitials(driver.name)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Name, team, and top 3 stats */}
+                <View style={styles.driverStatsNameAndStatsBlock}>
+                  {/* Top 3 stats summary row */}
+                  <View style={styles.driverStatsSummaryRow}>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {driver.pos ?? "-"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        POS
+                      </Text>
+                    </View>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: displayTimeColor },
+                        ]}
+                      >
+                        {displayTime}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        TIME
+                      </Text>
+                    </View>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {driver.lapsCompleted != null
+                          ? String(driver.lapsCompleted)
+                          : driver.bestLapNumber || "-"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        LAPS
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Driver name */}
+                  <Text
+                    style={[styles.driverStatsName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.name
+                                  .replace(/#\S*/g, "")
+                                  .replace(/\(i\)/g, "")
+                                  .replace(/\*/g, "")
+                                  .trim()}
+                  </Text>
+
+                  {/* Team name */}
+                  <Text
+                    style={[
+                      styles.driverStatsTeam,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {sponsorName}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {isLive ? (
+              <View style={styles.driverStatsGrid}>
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  {driver.copyPositionDeltaText ? (
+                    <Text
+                      style={[
+                        styles.driverStatTopRight,
+                        {
+                          color:
+                            driver.positionDeltaColor || theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {driver.copyPositionDeltaText}
+                    </Text>
+                  ) : null}
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.pos ?? "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    POS
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.driverStatValue,
+                      { color: displayTimeColor },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {displayTime}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    TOTAL TIME
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.lapsCompleted ?? "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    LAPS
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {liveLapsLedText}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    LAPS LED
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {livePitsText}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    PITS
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderLeftWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {livePassesText}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    PASSES
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {liveAvgRestartText} mph
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    AVG RESTART
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {liveAvgPosText}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    AVG POS
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderLeftWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {liveAvgSpeedText} mph
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    AVG SPEED
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.driverStatsGrid}>
+                {/* POS */}
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.pos ?? "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    POS
+                  </Text>
+                </View>
+
+                {/* TIME - with delta_leader in top right if applicable */}
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  {driver.deltaLeaderText &&
+                    driver.deltaLeaderText !== "0" &&
+                    !driver.comment && (
+                      <Text
+                        style={[
+                          styles.driverStatTopRight,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {driver.deltaLeaderText}
+                      </Text>
+                    )}
+                  <Text
+                    style={[
+                      styles.driverStatValue,
+                      { color: displayTimeColor },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {displayTime}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    TIME
+                  </Text>
+                </View>
+
+                {/* BEST LAP SPEED */}
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.bestLapSpeed || "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    TOP SPEED
+                  </Text>
+                </View>
+
+                {/* BEST LAP NUMBER */}
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.bestLapNumber || "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    BEST LAP
+                  </Text>
+                </View>
+
+                {/* LAPS COMPLETED */}
+                <View
+                  style={[
+                    styles.driverStatCell,
+                    {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.lapsCompleted || "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    LAPS
+                  </Text>
+                </View>
+
+                {/* VEHICLE NUMBER */}
+                <View style={styles.driverStatCell}>
+                  <Text
+                    style={[styles.driverStatValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.vehicleNumber || "-"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.driverStatLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    CAR #
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Footer */}
+            <View
+              style={[
+                styles.driverStatsFooter,
+                { borderTopColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[styles.driverStatsFooterText, { color: theme.text }]}
+              >
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Share and Close buttons */}
+        <View style={styles.sessionCopyActions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sessionCopyActionBtnText,
+                { color: getF1TextOnColor(colors.primary) },
+              ]}
+            >
+              {sharing ? "Sharing…" : "Share"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            disabled={sharing}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sessionCopyActionBtnText,
+                { color: getF1TextOnColor(theme.surfaceSecondary) },
+              ]}
+            >
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const NascarRaceCopyCard = ({
+  visible,
+  onClose,
+  driver,
+  colors,
+  theme,
+  trackLogo,
+  trackName,
+  livePit,
+  racePayload,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const cardWidth = Math.min(width - 48, 540);
+
+  if (!visible || !driver) return null;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const uri = await cardRef.current.capture();
+      await Share.share({ url: uri, title: "Driver Stats" });
+    } catch (error) {
+      console.warn("[NascarRaceCopyCard] share failed", error);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Extract race-specific data
+  const finishingPos = Number(driver.finishing_position ?? "-");
+  const startingPos = Number(driver.starting_position ?? "-");
+  const posDelta =
+    Number.isFinite(finishingPos) && Number.isFinite(startingPos)
+      ? startingPos - finishingPos
+      : 0;
+  const posDeltaText =
+    posDelta > 0
+      ? `UP ${Math.abs(posDelta)} POS`
+      : posDelta < 0
+        ? `DOWN ${Math.abs(posDelta)} POS`
+        : "";
+  const posDeltaColor =
+    posDelta > 0 ? theme.success : posDelta < 0 ? theme.error : theme.text;
+
+  // Time logic from race
+  const diffTimeRaw = driver.diff_time ?? null;
+  const diffLapsRaw = driver.diff_laps ?? 0;
+  const finishingStatus = driver.finishing_status ?? "";
+  const totalRaceTime = racePayload?.race_list_basic?.total_race_time || "-";
+
+  const formatRaceGapTime = (rawDiffTime) => {
+    if (rawDiffTime == null || rawDiffTime === "") return "-";
+    const text = String(rawDiffTime).trim();
+    if (!text) return "-";
+    if (!/^\d+$/.test(text)) return text;
+    if (text.length === 1) return `0.00${text}`;
+    if (text.length === 2) return `0.0${text}`;
+    if (text.length === 3) return `0.${text}`;
+    return `${text.slice(0, -3)}.${text.slice(-3)}`;
+  };
+
+  const hasNonRunningStatus =
+    !!finishingStatus && finishingStatus.toLowerCase() !== "running";
+  const diffTime = Number(diffTimeRaw);
+  const diffLaps = Number(diffLapsRaw);
+
+  let displayTime = "-";
+  if (hasNonRunningStatus) {
+    displayTime = finishingStatus;
+  } else if (
+    finishingPos === 1 &&
+    (!Number.isFinite(diffTime) || diffTime === 0) &&
+    (!Number.isFinite(diffLaps) || diffLaps === 0) &&
+    totalRaceTime !== "-"
+  ) {
+    displayTime = String(totalRaceTime);
+  } else if (Number.isFinite(diffLaps) && diffLaps > 0) {
+    displayTime = `+${diffLaps} ${diffLaps === 1 ? "Lap" : "Laps"}`;
+  } else if (diffTimeRaw != null) {
+    displayTime = `+${formatRaceGapTime(diffTimeRaw)}s`;
+  }
+
+  // Laps with laps_led
+  const lapsCompleted = driver.laps_completed ?? driver.laps ?? 0;
+  const lapsLed = driver.laps_led ?? 0;
+
+  // Pit stops
+  const pitStopsArr = Array.isArray(
+    livePit[String(driver.car_number ?? driver.NASCARDriverID)],
+  )
+    ? livePit[String(driver.car_number ?? driver.NASCARDriverID)]
+    : [];
+  const pitCount = pitStopsArr.length;
+  const avgPitDuration =
+    pitCount > 0
+      ? (
+          pitStopsArr.reduce((sum, pit) => {
+            const duration = Number(pit.pit_stop_duration ?? pit.duration ?? 0);
+            return sum + duration;
+          }, 0) / pitCount
+        ).toFixed(2)
+      : 0;
+
+  // Extract from loopstats drivers array
+  const rating = driver.rating ?? driver.RTG ?? "-";
+  const passes = driver.passes_gf ?? driver.passes ?? 0;
+  const passingDiff = driver.passing_diff ?? 0;
+  const passingDiffColor =
+    passingDiff > 0
+      ? theme.success
+      : passingDiff < 0
+        ? theme.error
+        : theme.text;
+  const top15Laps = driver.top15_laps ?? driver.top_15_laps ?? 0;
+  const fastLaps = driver.fast_laps ?? 0;
+  const avgPos = driver.avg_ps ?? driver.avg_position ?? "-";
+  const fastestLapSpeed =
+    driver.bestLapSpeed ?? driver.fastest_lap_speed ?? "-";
+  const fastestLapLapNum =
+    driver.bestLapLapNum ?? driver.fastest_lap_lap_num ?? "-";
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.sessionCopyOverlay}>
+        <ViewShot ref={cardRef} options={{ format: "png", quality: 1 }}>
+          <View
+            style={[
+              styles.driverStatsCard,
+              { backgroundColor: theme.surface, width: cardWidth },
+            ]}
+          >
+            {/* Header */}
+            <View
+              style={[
+                styles.driverStatsHeader,
+                {
+                  backgroundColor: `${driver.teamColor}33`,
+                  borderBottomColor: driver.teamColor,
+                },
+              ]}
+            >
+              {/* Top row with badge and track info */}
+              <View style={styles.driverStatsHeaderTop}>
+                <View
+                  style={[
+                    styles.driverStatsBadge,
+                    { backgroundColor: driver.teamColor },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.driverStatsBadgeText,
+                      { color: getF1TextOnColor(driver.teamColor) },
+                    ]}
+                  >
+                    RACE
+                  </Text>
+                </View>
+
+                <View style={styles.driverStatsRaceInfoRight}>
+                  <Text
+                    style={[styles.driverStatsRaceName, { color: theme.text }]}
+                    numberOfLines={2}
+                  >
+                    {trackName}
+                  </Text>
+                  {trackLogo ? (
+                    <Image
+                      source={{ uri: trackLogo }}
+                      style={styles.driverStatsTrackLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={styles.driverStatsTrackFallback}>
+                      <Text
+                        style={[
+                          styles.driverStatsTrackFallbackText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {getInitials(trackName)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Headshot and info row */}
+              <View style={styles.driverStatsHeadshotRow}>
+                {/* Headshot with View wrapper */}
+                <View style={styles.driverStatsHeadshotContainer}>
+                  {driver.headshot ? (
+                    <View
+                      style={[
+                        styles.driverStatsHeadshotCircle,
+                        {
+                          borderColor: driver.teamColor,
+                          backgroundColor: `${driver.teamColor}22`,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: driver.headshot }}
+                        style={{
+                          width: "100%",
+                          height: "150%",
+                          transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                        }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.driverStatsHeadshotCircle,
+                        {
+                          backgroundColor: `${driver.teamColor}22`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.driverStatsInitials, { color: "#fff" }]}
+                      >
+                        {getInitials(driver.name)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Name, team, and top 3 stats */}
+                <View style={styles.driverStatsNameAndStatsBlock}>
+                  {/* Top 3 stats summary row */}
+                  <View style={styles.driverStatsSummaryRow}>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {finishingPos}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        POS
+                      </Text>
+                    </View>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {displayTime}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        TIME
+                      </Text>
+                    </View>
+                    <View style={styles.driverStatsSummaryCell}>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {lapsCompleted}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.driverStatsSummaryLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        LAPS
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Driver name */}
+                  <Text
+                    style={[styles.driverStatsName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {driver.name}
+                  </Text>
+
+                  {/* Team name */}
+                  <Text
+                    style={[
+                      styles.driverStatsTeam,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {driver.teamName || "Team"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Stats Grid - 9 stats for RACE */}
+            <View style={styles.driverStatsGrid}>
+              {/* POS */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {posDeltaText && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: posDeltaColor },
+                    ]}
+                  >
+                    {posDeltaText}
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {finishingPos}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  POS
+                </Text>
+              </View>
+
+              {/* TIME */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {displayTime}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  TIME
+                </Text>
+              </View>
+
+              {/* LAPS */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {lapsLed > 0 && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {lapsLed} LED
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {lapsCompleted}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  LAPS
+                </Text>
+              </View>
+
+              {/* PIT STOPS */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {avgPitDuration > 0 && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {avgPitDuration}s AVG
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {pitCount}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  PITS
+                </Text>
+              </View>
+
+              {/* RATING */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {rating ?? "-"}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  RTG
+                </Text>
+              </View>
+
+              {/* PASSES */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderBottomWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {passingDiff !== 0 && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: passingDiffColor },
+                    ]}
+                  >
+                    {passingDiff > 0 ? "+" : ""}
+                    {passingDiff} DIFF
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {passes ?? "-"}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  PASSES
+                </Text>
+              </View>
+
+              {/* TOP 15 LAPS */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {fastLaps > 0 && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {fastLaps} FAST
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {top15Laps ?? "-"}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  TOP 15 LAPS
+                </Text>
+              </View>
+
+              {/* AVG POSITION */}
+              <View
+                style={[
+                  styles.driverStatCell,
+                  {
+                    borderRightWidth: 1,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {avgPos ?? "-"}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  AVG POS
+                </Text>
+              </View>
+
+              {/* FASTEST LAP SPEED */}
+              <View style={styles.driverStatCell}>
+                {fastestLapLapNum !== "-" && (
+                  <Text
+                    style={[
+                      styles.driverStatTopRight,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Lap {fastestLapLapNum}
+                  </Text>
+                )}
+                <Text
+                  style={[styles.driverStatValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {fastestLapSpeed}
+                </Text>
+                <Text
+                  style={[
+                    styles.driverStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  BEST SPEED
+                </Text>
+              </View>
+            </View>
+
+            {/* Footer */}
+            <View
+              style={[
+                styles.driverStatsFooter,
+                { borderTopColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[styles.driverStatsFooterText, { color: theme.text }]}
+              >
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Share and Close buttons */}
+        <View style={styles.sessionCopyActions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sessionCopyActionBtnText,
+                { color: getF1TextOnColor(colors.primary) },
+              ]}
+            >
+              {sharing ? "Sharing…" : "Share"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            disabled={sharing}
+            style={[
+              styles.sessionCopyActionBtn,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sessionCopyActionBtnText,
+                { color: getF1TextOnColor(theme.surfaceSecondary) },
+              ]}
+            >
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const NascarRaceDetailsScreen = ({ route }) => {
   const { theme, colors } = useTheme();
   const params = route?.params || {};
@@ -297,6 +2146,16 @@ const NascarRaceDetailsScreen = ({ route }) => {
   const [resolvedStatus, setResolvedStatus] = useState(initialStatus);
   const [eventsPage, setEventsPage] = useState(1);
   const EVENTS_PAGE_SIZE = 20;
+  const [driversSource, setDriversSource] = useState("RACE");
+  const [stagesSource, setStagesSource] = useState("2");
+  const [sessionCardVisible, setSessionCardVisible] = useState(false);
+  const [sessionCardSource, setSessionCardSource] = useState("RACE");
+  const [driverStatsCardVisible, setDriverStatsCardVisible] = useState(false);
+  const [selectedDriverForStats, setSelectedDriverForStats] = useState(null);
+  const [selectedDriverStatsSource, setSelectedDriverStatsSource] =
+    useState(driversSource);
+  const [raceCopyCardVisible, setRaceCopyCardVisible] = useState(false);
+  const [selectedDriverForRace, setSelectedDriverForRace] = useState(null);
 
   const { viewerData, isJoined } = useGamePresence(
     raceId + "-" + params.runType,
@@ -307,69 +2166,157 @@ const NascarRaceDetailsScreen = ({ route }) => {
     [raceId, resolvedStatus],
   );
 
-  const loadRace = useCallback(async () => {
-    if (!raceId) {
-      setError("Missing race id");
-      setLoading(false);
-      return;
-    }
+  const loadRace = useCallback(
+    async (options = {}) => {
+      const { silent = false, bypassCache = false } = options;
 
-    setLoading(true);
-    setError(null);
-
-    const computed = params.status || computeNascarStatus(initialRaceDate);
-    setResolvedStatus(computed);
-
-    try {
-      const raw = await AsyncStorage.getItem(
-        `${NASCAR_CACHE_PREFIX}${raceId}:${computed}`,
-      );
-      if (raw) {
-        const cached = JSON.parse(raw);
-        if (cached?.ts && Date.now() - cached.ts < 1000 * 60 * 10) {
-          setRacePayload(cached.data);
-          setLoading(false);
-          return;
-        }
+      if (!raceId) {
+        setError("Missing race id");
+        setLoading(false);
+        return;
       }
 
-      console.log(`[NascarRaceDetailsScreen] page load status: ${computed}`);
-      const resp = await fetch(`${NASCAR_RACE_API}/${raceId}/${computed}`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-      const actual = json?.data ?? json;
-      setRacePayload(actual);
+      if (!silent) {
+        setLoading(true);
+      }
+      setError(null);
+
+      const computed = params.status || computeNascarStatus(initialRaceDate);
+      setResolvedStatus(computed);
+      const computedStatus = String(computed || "").toLowerCase();
 
       try {
-        await AsyncStorage.setItem(
-          `${NASCAR_CACHE_PREFIX}${raceId}:${computed}`,
-          JSON.stringify({ ts: Date.now(), data: actual }),
-        );
-      } catch (cacheError) {
-        console.warn(
-          "[NascarRaceDetailsScreen] cache write failed",
-          cacheError,
-        );
+        if (computedStatus !== "live" && !bypassCache) {
+          const raw = await AsyncStorage.getItem(
+            `${NASCAR_CACHE_PREFIX}${raceId}:${computed}`,
+          );
+          if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached?.ts && Date.now() - cached.ts < 1000 * 60 * 10) {
+              setRacePayload(cached.data);
+              if (!silent) {
+                setLoading(false);
+              }
+              return;
+            }
+          }
+        }
+
+        const resp = await fetch(`${NASCAR_RACE_API}/${raceId}/${computed}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        const responseStatus = String(json?.status || computed).toLowerCase();
+        const actual = json?.data ?? json;
+        setResolvedStatus(responseStatus);
+        setRacePayload(actual);
+
+        if (responseStatus !== "live") {
+          try {
+            await AsyncStorage.setItem(
+              `${NASCAR_CACHE_PREFIX}${raceId}:${responseStatus}`,
+              JSON.stringify({ ts: Date.now(), data: actual }),
+            );
+          } catch (cacheError) {
+            console.warn(
+              "[NascarRaceDetailsScreen] cache write failed",
+              cacheError,
+            );
+          }
+        }
+      } catch (fetchError) {
+        if (!silent) {
+          setError(fetchError?.message || "Failed to load NASCAR race details");
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
       }
-    } catch (fetchError) {
-      setError(fetchError?.message || "Failed to load NASCAR race details");
-    } finally {
-      setLoading(false);
-    }
-  }, [raceId, initialRaceDate, params.status]);
+    },
+    [raceId, initialRaceDate, params.status],
+  );
 
   useEffect(() => {
     loadRace();
   }, [loadRace]);
 
+  useEffect(() => {
+    if (String(resolvedStatus || "").toLowerCase() !== "live") return undefined;
+
+    const intervalId = setInterval(() => {
+      loadRace({ silent: true, bypassCache: true });
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [loadRace, resolvedStatus]);
+
   const race =
     racePayload?.weekend?.weekend_race?.[0] ||
     racePayload?.weekend_race?.[0] ||
     {};
+  const isLiveStatus = String(resolvedStatus || "").toLowerCase() === "live";
+  const mapsDrivers = racePayload?.maps?.drivers || {};
   const track = racePayload?.track || {};
   const drivers = racePayload?.lap_times?.laps || [];
   const flags = racePayload?.lap_times?.flags || [];
-  const livePit = racePayload?.live_pit || {};
+  const liveFlagRows = useMemo(
+    () =>
+      Array.isArray(racePayload?.live_flag_data)
+        ? racePayload.live_flag_data
+        : [],
+    [racePayload?.live_flag_data],
+  );
+  const liveStagePoints = useMemo(
+    () =>
+      Array.isArray(racePayload?.live_stage_points)
+        ? racePayload.live_stage_points
+        : [],
+    [racePayload?.live_stage_points],
+  );
+  const tabKeys = useMemo(
+    () =>
+      isLiveStatus
+        ? ["Main", "Drivers", "Stages", "Pit Stops", "Flag"]
+        : TAB_KEYS,
+    [isLiveStatus],
+  );
+  const livePitRows = useMemo(
+    () =>
+      Array.isArray(racePayload?.live_pit_data)
+        ? racePayload.live_pit_data
+        : [],
+    [racePayload?.live_pit_data],
+  );
+  const livePit = useMemo(() => {
+    const groupedPit = racePayload?.live_pit;
+    if (
+      groupedPit &&
+      typeof groupedPit === "object" &&
+      !Array.isArray(groupedPit) &&
+      Object.keys(groupedPit).length > 0
+    ) {
+      return groupedPit;
+    }
+
+    if (!livePitRows.length) return {};
+
+    return livePitRows.reduce((acc, pit) => {
+      const key =
+        pit?.vehicle_number ??
+        pit?.car_number ??
+        pit?.Number ??
+        pit?.number ??
+        pit?.NASCARDriverID ??
+        null;
+      if (key == null) return acc;
+      const normalizedKey = String(key);
+      if (!acc[normalizedKey]) {
+        acc[normalizedKey] = [];
+      }
+      acc[normalizedKey].push(pit);
+      return acc;
+    }, {});
+  }, [livePitRows, racePayload?.live_pit]);
   const lapNotes = racePayload?.lap_notes?.laps || {};
   const weekendRuns = racePayload?.weekend?.weekend_runs || [];
 
@@ -423,6 +2370,12 @@ const NascarRaceDetailsScreen = ({ route }) => {
       );
     }
   }, [sortedDrivers, stintsSelectedDriver]);
+
+  useEffect(() => {
+    if (!tabKeys.includes(selectedTab)) {
+      setSelectedTab("Main");
+    }
+  }, [selectedTab, tabKeys]);
 
   const handleFlowFilterScroll = useCallback((e) => {
     flowFilterScrollXRef.current = e.nativeEvent.contentOffset.x;
@@ -491,6 +2444,8 @@ const NascarRaceDetailsScreen = ({ route }) => {
   const raceTitle = race.race_name || initialRaceName;
   const raceDate = race.race_date || race.date_scheduled || initialRaceDate;
   const trackName = track.track_name || race.track_name || "Track";
+  const trackCity = track.city || "City";
+  const trackState = track.state || "State";
   const trackImage = track.track_image || track.track_image_thumbnail || null;
   const trackLogo = track.track_logo || null;
   const raceComment =
@@ -514,6 +2469,73 @@ const NascarRaceDetailsScreen = ({ route }) => {
     null;
 
   const trackCapacity = track?.capacity ?? null;
+
+  const winnerResult = useMemo(() => {
+    const raceResults = Array.isArray(
+      racePayload?.weekend?.weekend_race?.[0]?.results,
+    )
+      ? racePayload.weekend.weekend_race[0].results
+      : [];
+    if (!raceResults.length) return null;
+
+    return (
+      raceResults.find(
+        (row) =>
+          Number(
+            row?.finishing_position ?? row?.finishingPosition ?? row?.position,
+          ) === 1,
+      ) || null
+    );
+  }, [racePayload]);
+
+  const winnerDriverId =
+    winnerResult?.NASCARDriverID ??
+    winnerResult?.Nascar_Driver_ID ??
+    winnerResult?.driver_id ??
+    winnerResult?.driverId ??
+    racePayload?.race_list_basic?.winner_driver_id ??
+    race?.winner_driver_id ??
+    null;
+
+  const winnerMapEntry =
+    winnerDriverId != null ? mapsDrivers[String(winnerDriverId)] || null : null;
+
+  const winnerName =
+    winnerResult?.driver_name ||
+    winnerResult?.FullName ||
+    winnerResult?.full_name ||
+    winnerMapEntry?.name ||
+    "TBD";
+
+  const winnerTeam =
+    winnerMapEntry?.team ||
+    winnerResult?.team ||
+    getManufacturerName(
+      winnerResult?.vehicle_manufacturer ||
+        winnerResult?.manufacturer ||
+        winnerMapEntry?.manufacturer ||
+        null,
+    ) ||
+    "";
+
+  const winnerHeadshot =
+    winnerMapEntry?.image ||
+    winnerMapEntry?.headshot ||
+    winnerResult?.driver_image ||
+    winnerResult?.headshot ||
+    null;
+
+  const winnerTime =
+    racePayload?.race_list_basic?.total_race_time ||
+    race?.total_race_time ||
+    "--";
+
+  const winnerTeamColor = getManufacturerColor(
+    winnerResult?.vehicle_manufacturer ||
+      winnerResult?.manufacturer ||
+      winnerMapEntry?.manufacturer ||
+      null,
+  );
 
   const flagLabel = (state) => {
     switch (state) {
@@ -675,11 +2697,14 @@ const NascarRaceDetailsScreen = ({ route }) => {
 
   const topThree = sortedDrivers.slice(0, 3);
   const pitStops = useMemo(() => {
-    const rows = Object.values(livePit).flat();
+    const rows =
+      String(resolvedStatus || "").toLowerCase() === "live"
+        ? livePitRows
+        : Object.values(livePit).flat();
     return [...rows].sort(
       (a, b) => (a.pit_in_race_time || 0) - (b.pit_in_race_time || 0),
     );
-  }, [livePit]);
+  }, [livePit, livePitRows, resolvedStatus]);
 
   const flowRows = useMemo(() => {
     return flags.map((flag, idx) => ({
@@ -689,72 +2714,856 @@ const NascarRaceDetailsScreen = ({ route }) => {
     }));
   }, [flags]);
 
-  const renderDriverBadge = (driver, idx) => {
-    const manufacturer = getManufacturerName(driver.Manufacturer);
-    const color = getManufacturerColor(driver.Manufacturer);
-    return (
-      <View
-        key={`${driver.Number}-${idx}`}
-        style={[
-          styles.driverCard,
-          { borderColor: theme.border, backgroundColor: theme.surface },
-        ]}
-      >
-        <CardGradient
-          gradId={`driver-${driver.Number}-${idx}`}
-          accentColor={color}
-        />
-        <View style={styles.driverCardInner}>
-          <View style={styles.driverLeftCol}>
-            <View style={[styles.driverAvatar, { backgroundColor: color }]}>
-              <Text allowFontScaling={false} style={styles.driverAvatarText}>
-                {getInitials(driver.FullName)}
-              </Text>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[styles.driverPos, { color: theme.textSecondary }]}
-            >
-              #{driver.RunningPos || "--"}
-            </Text>
-          </View>
-          <View style={styles.driverMidCol}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.driverName, { color: theme.text }]}
-              numberOfLines={1}
-            >
-              {driver.FullName || "Driver"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.driverMeta, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {manufacturer} · Car #{driver.Number || "--"}
-            </Text>
-          </View>
-          <View style={styles.driverRightCol}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.driverMetric, { color: theme.text }]}
-            >
-              {driver.RunningPos || "--"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.driverMetricLabel, { color: theme.textSecondary }]}
-            >
-              POS
-            </Text>
-          </View>
-        </View>
-      </View>
+  const formatBestLapTime = useCallback((value) => {
+    if (value == null || value === "") return "-";
+    if (typeof value === "string") {
+      if (value.includes(":")) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? formatDuration(parsed) : value;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? formatDuration(parsed) : String(value);
+  }, []);
+
+  const availableDriverSources = useMemo(() => {
+    const items = [];
+    const raceRows = Array.isArray(
+      racePayload?.weekend?.weekend_race?.[0]?.results,
+    )
+      ? racePayload.weekend.weekend_race[0].results
+      : [];
+    const qualRun = (weekendRuns || []).find(
+      (run) => Number(run?.run_type) === 2,
     );
-  };
+    const qualRows = Array.isArray(qualRun?.results) ? qualRun.results : [];
+    const practiceRun = (weekendRuns || []).find(
+      (run) => Number(run?.run_type) === 1,
+    );
+    const practiceRows = Array.isArray(practiceRun?.results)
+      ? practiceRun.results
+      : [];
+
+    if (raceRows.length)
+      items.push({ key: "RACE", label: "RACE", rows: raceRows });
+    if (qualRows.length)
+      items.push({ key: "QUAL", label: "QUALIFYING", rows: qualRows });
+    if (practiceRows.length)
+      items.push({ key: "PRACTICE", label: "PRACTICE", rows: practiceRows });
+
+    return items;
+  }, [racePayload, weekendRuns]);
+
+  const sessionCardData = useMemo(() => {
+    if (sessionCardSource === "LIVE") {
+      const liveFeed = racePayload?.live_feed;
+      if (!liveFeed) return null;
+      const vehicles = Array.isArray(liveFeed?.vehicles)
+        ? liveFeed.vehicles
+        : [];
+      if (!vehicles.length) return null;
+
+      const liveRunType = Number(liveFeed?.run_type ?? 0);
+      const sourceLabel = getNascarRunTypeLabel(liveRunType);
+      const sorted = [...vehicles].sort(
+        (a, b) =>
+          Number(a?.running_position ?? 999) -
+          Number(b?.running_position ?? 999),
+      );
+      const podiumEntries = sorted.slice(0, 3).map((row, index) => {
+        const driverInfo = row?.driver || {};
+        const driverId =
+          driverInfo?.driver_id ?? row?.driver_id ?? row?.driverId ?? null;
+        const driverKey = driverId != null ? String(driverId) : null;
+        const mapEntry = driverKey ? mapsDrivers[driverKey] || null : null;
+        const manufacturer =
+          row?.vehicle_manufacturer ||
+          row?.Manufacturer ||
+          row?.manufacturer ||
+          mapEntry?.manufacturer ||
+          null;
+        const teamColor = getManufacturerColor(manufacturer) || colors.primary;
+        const driverName =
+          driverInfo?.full_name ||
+          row?.driver_name ||
+          row?.DriverName ||
+          row?.FullName ||
+          row?.full_name ||
+          mapEntry?.name ||
+          `Driver ${index + 1}`;
+        const lastName =
+          String(driverName).split(/\s+/).filter(Boolean).slice(-1)[0] ||
+          driverName;
+
+        const position = Number(row?.running_position ?? index + 1);
+        const deltaRaw = row?.delta ?? 0;
+        const elapsedTime = row?.vehicle_elapsed_time;
+        const bestLapTime =
+          row?.best_lap_time ??
+          row?.bestLapTime ??
+          row?.fastest_lap_time ??
+          row?.fastestLapTime ??
+          null;
+        const timeText = formatSessionCopyTime(bestLapTime ?? elapsedTime);
+        const deltaLeaderText =
+          position === 1 && Number(deltaRaw) === 0
+            ? "Leader"
+            : formatDeltaLeader(deltaRaw);
+        const lapsCompleted = row?.laps_completed ?? null;
+        const pitsArray = Array.isArray(row?.pit_stops) ? row.pit_stops : [];
+        const pitsCount = pitsArray.length;
+
+        return {
+          position,
+          name: driverName,
+          lastName,
+          teamName: mapEntry?.team || getManufacturerName(manufacturer),
+          teamColor,
+          headshot:
+            mapEntry?.image || row?.driver_image || row?.headshot || null,
+          timeText,
+          deltaLeaderText,
+          showDeltaLeader: deltaLeaderText != null,
+          laps: Number.isFinite(Number(lapsCompleted))
+            ? Number(lapsCompleted)
+            : lapsCompleted,
+          pits: pitsCount,
+        };
+      });
+
+      return {
+        sourceLabel,
+        raceName: liveFeed?.run_name || raceTitle,
+        sessionDate: liveFeed?.time_of_day_os
+          ? toFullDateLabel(liveFeed.time_of_day_os)
+          : raceDate
+            ? toFullDateLabel(raceDate)
+            : null,
+        trackName,
+        trackState,
+        trackLogo,
+        podiumEntries,
+        accentColor,
+      };
+    }
+
+    const source = availableDriverSources.find(
+      (item) => item.key === sessionCardSource,
+    );
+    const rows = Array.isArray(source?.rows) ? source.rows : [];
+    if (!rows.length) return null;
+
+    const preferredRunTypes =
+      sessionCardSource === "QUAL"
+        ? [2, 3, 1]
+        : sessionCardSource === "PRACTICE"
+          ? [1, 2, 3]
+          : [3, 2, 1];
+    const sessionSchedule =
+      preferredRunTypes
+        .map((runType) =>
+          scheduleItems.find((item) => Number(item?.run_type) === runType),
+        )
+        .find(Boolean) || null;
+
+    const sourceLabel =
+      source?.label ||
+      (sessionCardSource === "QUAL"
+        ? "QUALIFYING"
+        : sessionCardSource === "PRACTICE"
+          ? "PRACTICE"
+          : "RACE");
+
+    const formatRaceGapTime = (rawDiffTime) => {
+      if (rawDiffTime == null || rawDiffTime === "") return "-";
+      const text = String(rawDiffTime).trim();
+      if (!text) return "-";
+      if (!/^\d+$/.test(text)) return text;
+      if (text.length === 1) return `0.00${text}`;
+      if (text.length === 2) return `0.0${text}`;
+      if (text.length === 3) return `0.${text}`;
+      return `${text.slice(0, -3)}.${text.slice(-3)}`;
+    };
+
+    const sorted = [...rows].sort((a, b) => {
+      const aPos = Number(
+        a?.finishing_position ?? a?.finishingPosition ?? a?.position ?? 999,
+      );
+      const bPos = Number(
+        b?.finishing_position ?? b?.finishingPosition ?? b?.position ?? 999,
+      );
+      return aPos - bPos;
+    });
+
+    const podiumEntries = sorted.slice(0, 3).map((row, index) => {
+      const driverId =
+        row?.NASCARDriverID ??
+        row?.Nascar_Driver_ID ??
+        row?.driver_id ??
+        row?.driverId ??
+        null;
+      const driverKey = driverId != null ? String(driverId) : null;
+      const mapEntry = driverKey ? mapsDrivers[driverKey] || null : null;
+      const manufacturer =
+        row?.vehicle_manufacturer ||
+        row?.Manufacturer ||
+        row?.manufacturer ||
+        mapEntry?.manufacturer ||
+        null;
+      const teamColor = getManufacturerColor(manufacturer) || colors.primary;
+      const driverName =
+        row?.driver_name ||
+        row?.DriverName ||
+        row?.FullName ||
+        row?.full_name ||
+        mapEntry?.name ||
+        `Driver ${index + 1}`;
+      const lastName =
+        String(driverName).split(/\s+/).filter(Boolean).slice(-1)[0] ||
+        driverName;
+
+      const finishingPos = Number(
+        row?.finishing_position ?? row?.finishingPosition ?? row?.position,
+      );
+      const diffTimeRaw = row?.diff_time ?? row?.diffTime ?? null;
+      const diffLapsRaw = row?.diff_laps ?? row?.diffLaps ?? null;
+      const finishingStatusRaw =
+        row?.finishing_status ?? row?.finishingStatus ?? row?.status ?? null;
+      const finishingStatus = String(finishingStatusRaw || "").trim();
+      const hasNonRunningStatus =
+        !!finishingStatus && finishingStatus.toLowerCase() !== "running";
+      const raceTotalTime =
+        racePayload?.race_list_basic?.total_race_time ||
+        race?.total_race_time ||
+        null;
+
+      const deltaLeaderRaw =
+        row?.delta_leader ??
+        row?.deltaLeader ??
+        row?.gap_to_leader ??
+        row?.gapToLeader ??
+        null;
+      const lapsRaw =
+        row?.laps_completed ??
+        row?.laps ??
+        row?.lap_count ??
+        row?.lapCount ??
+        null;
+
+      let timeText = "-";
+      if (sessionCardSource === "RACE") {
+        const diffTime = Number(diffTimeRaw);
+        const diffLaps = Number(diffLapsRaw);
+
+        if (hasNonRunningStatus) {
+          timeText = finishingStatus;
+        } else if (
+          finishingPos === 1 &&
+          Number.isFinite(diffTime) &&
+          diffTime === 0 &&
+          Number.isFinite(diffLaps) &&
+          diffLaps === 0 &&
+          raceTotalTime
+        ) {
+          timeText = String(raceTotalTime);
+        } else if (Number.isFinite(diffLaps) && diffLaps > 0) {
+          timeText = `+${diffLaps} ${diffLaps === 1 ? "Lap" : "Laps"}`;
+        } else {
+          timeText = `+${formatRaceGapTime(diffTimeRaw)}s`;
+        }
+      } else {
+        const timeRaw =
+          row?.time ||
+          row?.total_time ||
+          row?.duration ||
+          row?.best_lap_time ||
+          row?.bestLapTime ||
+          row?.fastest_lap_time ||
+          row?.fastestLapTime ||
+          null;
+        timeText = formatSessionCopyTime(timeRaw);
+      }
+
+      return {
+        position: Number(
+          row?.finishing_position ??
+            row?.finishingPosition ??
+            row?.position ??
+            index + 1,
+        ),
+        name: driverName,
+        lastName,
+        teamName: mapEntry?.team || getManufacturerName(manufacturer),
+        teamColor,
+        headshot: mapEntry?.image || row?.driver_image || row?.headshot || null,
+        timeText,
+        deltaLeaderText: formatDeltaLeader(deltaLeaderRaw),
+        showDeltaLeader:
+          sessionCardSource !== "RACE" &&
+          formatDeltaLeader(deltaLeaderRaw) != null,
+        laps: Number.isFinite(Number(lapsRaw)) ? Number(lapsRaw) : lapsRaw,
+      };
+    });
+
+    return {
+      sourceLabel,
+      raceName: raceTitle,
+      sessionDate: sessionSchedule?.start_time_utc
+        ? toFullDateLabel(sessionSchedule.start_time_utc)
+        : sessionSchedule?.date_start
+          ? toFullDateLabel(sessionSchedule.date_start)
+          : raceDate
+            ? toFullDateLabel(raceDate)
+            : null,
+      trackName,
+      trackState,
+      trackLogo,
+      podiumEntries,
+      accentColor,
+    };
+  }, [
+    accentColor,
+    availableDriverSources,
+    colors.primary,
+    mapsDrivers,
+    racePayload,
+    raceDate,
+    raceTitle,
+    scheduleItems,
+    sessionCardSource,
+    trackLogo,
+    trackName,
+    trackState,
+  ]);
+
+  const openSessionCopyCard = useCallback(
+    (sourceKey) => {
+      if (!availableDriverSources.some((item) => item.key === sourceKey))
+        return;
+      setSessionCardSource(sourceKey);
+      setSessionCardVisible(true);
+    },
+    [availableDriverSources],
+  );
+
+  const closeSessionCopyCard = useCallback(() => {
+    setSessionCardVisible(false);
+  }, []);
+
+  const openDriverCopyCard = useCallback(
+    (driverData, sourceType) => {
+      setSelectedDriverForStats(driverData);
+      setSelectedDriverStatsSource(sourceType || driversSource);
+      setDriverStatsCardVisible(true);
+    },
+    [driversSource],
+  );
+
+  const closeDriverCopyCard = useCallback(() => {
+    setDriverStatsCardVisible(false);
+  }, []);
+
+  const openRaceCopyCard = useCallback((driverData) => {
+    setSelectedDriverForRace(driverData);
+    setRaceCopyCardVisible(true);
+  }, []);
+
+  const closeRaceCopyCard = useCallback(() => {
+    setRaceCopyCardVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!availableDriverSources.length) return;
+    if (!availableDriverSources.some((s) => s.key === driversSource)) {
+      setDriversSource(availableDriverSources[0].key);
+    }
+  }, [availableDriverSources, driversSource]);
+
+  useEffect(() => {
+    if (stagesSource !== "2" && stagesSource !== "1") {
+      setStagesSource("2");
+    }
+  }, [stagesSource]);
+
+  const selectedDriverRows = useMemo(() => {
+    const source = availableDriverSources.find((s) => s.key === driversSource);
+    return source?.rows || [];
+  }, [availableDriverSources, driversSource]);
+
+  const driverCards = useMemo(() => {
+    const isRaceSource = driversSource === "RACE";
+    const isQualSource = driversSource === "QUAL";
+    const raceTotalTime =
+      racePayload?.race_list_basic?.total_race_time ||
+      race?.total_race_time ||
+      null;
+    const loopstatsDrivers = Array.isArray(racePayload?.loopstats)
+      ? racePayload.loopstats.flatMap((entry) =>
+          Array.isArray(entry?.drivers) ? entry.drivers : [],
+        )
+      : [];
+    const lapTimeDrivers = Array.isArray(racePayload?.lap_times?.laps)
+      ? racePayload.lap_times.laps
+      : [];
+
+    const formatRaceGapTime = (rawDiffTime) => {
+      if (rawDiffTime == null || rawDiffTime === "") return "-";
+      const text = String(rawDiffTime).trim();
+      if (!text) return "-";
+      if (!/^\d+$/.test(text)) return text;
+      if (text.length === 1) return `0.00${text}`;
+      if (text.length === 2) return `0.0${text}`;
+      if (text.length === 3) return `0.${text}`;
+      return `${text.slice(0, -3)}.${text.slice(-3)}`;
+    };
+
+    const rows = Array.isArray(selectedDriverRows) ? selectedDriverRows : [];
+    const normalized = rows.map((row, index) => {
+      const driverId =
+        row?.NASCARDriverID ??
+        row?.Nascar_Driver_ID ??
+        row?.driver_id ??
+        row?.driverId ??
+        null;
+      const driverNo =
+        row?.car_number ??
+        row?.Number ??
+        row?.number ??
+        row?.vehicle_number ??
+        row?.car ??
+        null;
+      const mapEntry =
+        (driverId != null && mapsDrivers[String(driverId)]) ||
+        (row?.driver_id != null && mapsDrivers[String(row.driver_id)]) ||
+        null;
+      const loopstatsEntry =
+        driverId != null
+          ? loopstatsDrivers.find(
+              (entry) => String(entry?.driver_id) === String(driverId),
+            ) || null
+          : null;
+      const lapTimeEntry =
+        driverId != null
+          ? lapTimeDrivers.find(
+              (entry) => String(entry?.NASCARDriverID) === String(driverId),
+            ) || null
+          : null;
+
+      const manufacturer =
+        row?.vehicle_manufacturer ||
+        row?.Manufacturer ||
+        row?.manufacturer ||
+        mapEntry?.manufacturer ||
+        null;
+      const teamColor = getManufacturerColor(manufacturer) || colors.primary;
+
+      const posRaw =
+        row?.finishing_position ??
+        row?.finishingPosition ??
+        row?.position ??
+        row?.rank ??
+        row?.RunningPos ??
+        row?.starting_position ??
+        row?.startingPosition ??
+        index + 1;
+
+      const lapsRaw =
+        row?.laps_completed ??
+        row?.laps ??
+        row?.lap_count ??
+        row?.lapCount ??
+        null;
+      const bestLapNumberRaw =
+        row?.best_lap_number ??
+        row?.bestLapNumber ??
+        row?.best_lap_num ??
+        row?.bestLapNum ??
+        null;
+      const bestLapSpeedRaw =
+        row?.best_lap_speed ??
+        row?.bestLapSpeed ??
+        row?.lap_speed ??
+        row?.speed ??
+        null;
+
+      const timeRaw =
+        row?.best_lap_time ??
+        row?.bestLapTime ??
+        row?.best_lap ??
+        row?.fastest_lap_time ??
+        row?.fastestLapTime ??
+        row?.time ??
+        row?.total_time ??
+        null;
+
+      const startingPos = Number(
+        row?.starting_position ??
+          row?.startingPosition ??
+          row?.pos_start ??
+          null,
+      );
+
+      const finishingPos = Number(
+        row?.finishing_position ?? row?.finishingPosition ?? row?.position,
+      );
+      const diffTimeRaw = row?.diff_time ?? row?.diffTime ?? null;
+      const diffLapsRaw = row?.diff_laps ?? row?.diffLaps ?? null;
+      const finishingStatusRaw =
+        row?.finishing_status ?? row?.finishingStatus ?? row?.status ?? null;
+      const diffTime = Number(diffTimeRaw);
+      const diffLaps = Number(diffLapsRaw);
+      const finishingStatus = String(finishingStatusRaw || "").trim();
+      const hasNonRunningStatus =
+        !!finishingStatus && finishingStatus.toLowerCase() !== "running";
+      const qualPracticeCommentRaw =
+        row?.comment ??
+        row?.comments ??
+        row?.notes ??
+        row?.note ??
+        row?.message ??
+        null;
+      const qualPracticeComment = String(qualPracticeCommentRaw || "").trim();
+
+      let raceTimeText = "-";
+      let timeIsStatus = false;
+      let speedText = null;
+
+      if (hasNonRunningStatus) {
+        raceTimeText = finishingStatus;
+        timeIsStatus = true;
+      } else if (
+        finishingPos === 1 &&
+        Number.isFinite(diffTime) &&
+        diffTime === 0 &&
+        Number.isFinite(diffLaps) &&
+        diffLaps === 0 &&
+        raceTotalTime
+      ) {
+        raceTimeText = String(raceTotalTime);
+      } else if (Number.isFinite(diffLaps) && diffLaps > 0) {
+        raceTimeText = `+${diffLaps} ${diffLaps === 1 ? "Lap" : "Laps"}`;
+      } else {
+        raceTimeText = `+${formatRaceGapTime(diffTimeRaw)}s`;
+      }
+
+      const pitsCount = Array.isArray(livePit[String(driverNo)])
+        ? livePit[String(driverNo)].length
+        : Array.isArray(livePit[String(driverId)])
+          ? livePit[String(driverId)].length
+          : 0;
+
+      const parsedSpeed = Number(bestLapSpeedRaw);
+      if (isQualSource && Number.isFinite(parsedSpeed)) {
+        speedText = `${parsedSpeed.toFixed(1)} mph`;
+      }
+
+      const bestLapCandidate = Array.isArray(lapTimeEntry?.Laps)
+        ? lapTimeEntry.Laps.reduce((best, lap) => {
+            const lapSpeed = Number(lap?.LapSpeed);
+            if (!Number.isFinite(lapSpeed)) return best;
+            if (!best || lapSpeed > best.speed) {
+              return {
+                speed: lapSpeed,
+                lap: Number(lap?.Lap),
+              };
+            }
+            return best;
+          }, null)
+        : null;
+      const bestLapSpeed = Number.isFinite(bestLapCandidate?.speed)
+        ? `${bestLapCandidate.speed.toFixed(1)} mph`
+        : null;
+      const bestLapLapNum = Number.isFinite(bestLapCandidate?.lap)
+        ? bestLapCandidate.lap
+        : null;
+
+      const bestLapNumber = Number.isFinite(Number(bestLapNumberRaw))
+        ? Number(bestLapNumberRaw)
+        : null;
+
+      const finalTimeText =
+        !isRaceSource && qualPracticeComment
+          ? qualPracticeComment
+          : isRaceSource
+            ? raceTimeText
+            : formatBestLapTime(timeRaw);
+
+      const positionDeltaText =
+        startingPos != null && finishingPos != null
+          ? startingPos - finishingPos > 0
+            ? `▲ ${Math.abs(startingPos - finishingPos)}`
+            : startingPos - finishingPos < 0
+              ? `▼ ${Math.abs(startingPos - finishingPos)}`
+              : ""
+          : "";
+
+      const positionDeltaColor = positionDeltaText.includes("▲")
+        ? theme.success
+        : positionDeltaText.includes("▼")
+          ? theme.error
+          : null;
+
+      const showPositionDelta = startingPos != 0 && finishingPos != null;
+
+      const finalTimeIsStatus =
+        !isRaceSource && qualPracticeComment ? true : timeIsStatus;
+
+      const deltaLeaderText =
+        !isRaceSource && !qualPracticeComment
+          ? formatDeltaLeader(row?.delta_leader ?? row?.deltaLeader ?? null)
+          : null;
+
+      return {
+        key: `${driverId ?? driverNo ?? index}`,
+        driverNumber: driverNo != null ? String(driverNo) : "--",
+        name:
+          row?.driver_name ||
+          row?.DriverName ||
+          row?.FullName ||
+          row?.full_name ||
+          mapEntry?.name ||
+          `Driver ${index + 1}`,
+        teamName: mapEntry?.team || getManufacturerName(manufacturer),
+        teamColor,
+        headshot: mapEntry?.image || row?.driver_image || row?.headshot || null,
+        pos: Number.isFinite(Number(posRaw)) ? Number(posRaw) : null,
+        laps: isRaceSource
+          ? Number.isFinite(Number(lapsRaw))
+            ? Number(lapsRaw)
+            : null
+          : bestLapNumber,
+        lapsLabel: isRaceSource ? "LAPS" : "BEST LAP",
+        timeText: finalTimeText,
+        positionDeltaText,
+        positionDeltaColor,
+        showPositionDelta,
+        timeIsStatus: finalTimeIsStatus,
+        speedText,
+        pits: pitsCount,
+        isRaceSource,
+        isQualSource,
+        // New fields for driver stats card
+        comment: qualPracticeComment || null,
+        bestLapTime: formatBestLapTime(timeRaw),
+        bestLapSpeed: bestLapSpeed || speedText || null,
+        bestLapNumber: bestLapNumber,
+        bestLapLapNum,
+        lapsCompleted: Number.isFinite(Number(lapsRaw))
+          ? Number(lapsRaw)
+          : null,
+        vehicleNumber: driverNo != null ? String(driverNo) : null,
+        deltaLeaderText,
+        rating: loopstatsEntry?.rating ?? null,
+        passes_gf: loopstatsEntry?.passes_gf ?? null,
+        passing_diff: loopstatsEntry?.passing_diff ?? null,
+        top15_laps: loopstatsEntry?.top15_laps ?? null,
+        fast_laps: loopstatsEntry?.fast_laps ?? null,
+        avg_ps: loopstatsEntry?.avg_ps ?? null,
+        // Race copy card fields
+        finishing_position: finishingPos,
+        starting_position: Number(
+          row?.starting_position ?? row?.startingPosition ?? "-",
+        ),
+        diff_time: diffTimeRaw,
+        diff_laps: diffLapsRaw,
+        finishing_status: finishingStatusRaw,
+        laps_led: Number(row?.laps_led ?? row?.lapsLed ?? 0),
+        car_number: driverNo,
+        NASCARDriverID: driverId,
+      };
+    });
+
+    normalized.sort((a, b) => {
+      if (a.pos == null && b.pos == null) return a.name.localeCompare(b.name);
+      if (a.pos == null) return 1;
+      if (b.pos == null) return -1;
+      return a.pos - b.pos;
+    });
+
+    return normalized;
+  }, [
+    colors.primary,
+    driversSource,
+    formatBestLapTime,
+    livePit,
+    mapsDrivers,
+    race?.total_race_time,
+    racePayload?.race_list_basic?.total_race_time,
+    racePayload?.loopstats,
+    racePayload?.lap_times?.laps,
+    selectedDriverRows,
+  ]);
+
+  const startingGridEntries = useMemo(() => {
+    const gridRun = (weekendRuns || []).find(
+      (run) => Number(run?.run_type) === 2,
+    );
+    const results = Array.isArray(gridRun?.results) ? gridRun.results : [];
+
+    const entries = results.map((result, index) => {
+      const driverId =
+        result?.NASCARDriverID ??
+        result?.Nascar_Driver_ID ??
+        result?.driver_id ??
+        result?.driverId ??
+        result?.Number ??
+        result?.number ??
+        null;
+      const driverKey = driverId != null ? String(driverId) : null;
+      const mapEntry = driverKey ? mapsDrivers[driverKey] || null : null;
+      const manufacturerRaw =
+        result?.vehicle_manufacturer ||
+        result?.manufacturer ||
+        mapEntry?.manufacturer ||
+        null;
+      const teamName =
+        mapEntry?.team || result?.team || getManufacturerName(manufacturerRaw);
+      const teamColor = getManufacturerColor(manufacturerRaw) || colors.primary;
+      const positionRaw =
+        result?.finishing_position ??
+        result?.finishingPosition ??
+        result?.position ??
+        result?.rank ??
+        result?.RunningPos ??
+        index + 1;
+      const bestLapTimeRaw =
+        result?.best_lap_time ??
+        result?.bestLapTime ??
+        result?.best_lap ??
+        result?.fastest_lap_time ??
+        result?.fastestLapTime ??
+        result?.bestTime ??
+        null;
+
+      return {
+        key: driverKey || `${positionRaw}-${index}`,
+        position: Number.isFinite(Number(positionRaw))
+          ? Number(positionRaw)
+          : index + 1,
+        driverName:
+          result?.driver_name ||
+          result?.FullName ||
+          result?.full_name ||
+          mapEntry?.name ||
+          `Driver ${index + 1}`,
+        teamName: teamName || "Team",
+        teamColor,
+        headshot:
+          mapEntry?.image ||
+          mapEntry?.headshot ||
+          result?.driver_image ||
+          result?.headshot ||
+          null,
+        bestLapTime: formatBestLapTime(bestLapTimeRaw),
+      };
+    });
+
+    entries.sort(
+      (a, b) =>
+        a.position - b.position || a.driverName.localeCompare(b.driverName),
+    );
+    return entries;
+  }, [colors.primary, formatBestLapTime, mapsDrivers, weekendRuns]);
+
+  const startingGridRows = useMemo(() => {
+    const rows = [];
+    for (let i = 0; i < startingGridEntries.length; i += 2) {
+      rows.push({
+        left: startingGridEntries[i],
+        right: startingGridEntries[i + 1] || null,
+      });
+    }
+    return rows;
+  }, [startingGridEntries]);
 
   const renderMain = () => (
     <View style={styles.tabContent}>
+      {winnerResult ? (
+        <View
+          style={[
+            styles.winnerCard,
+            { borderColor: theme.border, backgroundColor: theme.surface },
+          ]}
+        >
+          <View style={styles.rightGradientOverlay} pointerEvents="none">
+            <CardGradient
+              gradId={`winner-${winnerDriverId || "na"}`}
+              accentColor={`${winnerTeamColor}33`}
+            />
+          </View>
+
+          <View style={styles.winnerTopRow}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.winnerBadgeLabel, { color: theme.text }]}
+            >
+              RACE WINNER
+            </Text>
+          </View>
+
+          <View style={styles.winnerBodyRow}>
+            <View
+              style={[
+                styles.winnerHeadshot,
+                {
+                  backgroundColor: `${winnerTeamColor}33`,
+                  borderColor: winnerTeamColor,
+                },
+              ]}
+            >
+              {winnerHeadshot ? (
+                <Image
+                  source={{ uri: winnerHeadshot }}
+                  style={styles.winnerHeadshotImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text allowFontScaling={false} style={styles.winnerInitials}>
+                  {getInitials(winnerName)}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.winnerInfoBlock}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.winnerName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {winnerName}
+              </Text>
+              {winnerTeam ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.winnerTeam, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {winnerTeam}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.winnerRightCol}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.winnerDuration, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {winnerTime}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.winnerDurationLabel,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                TIME
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       {raceComment.trim() ? (
         <SectionCard
           title="Race Comment"
@@ -817,7 +3626,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
               style={[styles.trackNameText, { color: theme.text }]}
               numberOfLines={1}
             >
-              {trackName}
+              {trackName} · {trackCity}, {trackState}
             </Text>
             <Text
               allowFontScaling={false}
@@ -927,11 +3736,1021 @@ const NascarRaceDetailsScreen = ({ route }) => {
     </View>
   );
 
-  const renderDrivers = () => (
-    <View style={styles.tabContent}>
-      {sortedDrivers.map(renderDriverBadge)}
-    </View>
-  );
+  const renderDrivers = () => {
+    if (isLiveStatus) {
+      const liveFeed = racePayload?.live_feed || {};
+      const flagStateTop = Number(liveFeed?.flag_state ?? 0);
+      const flagTextTop = flagLabel(flagStateTop);
+      const flagBorderTop = flagColor(flagStateTop);
+      const runName = liveFeed?.run_name ?? "";
+      const liveRunType = Number(liveFeed?.run_type ?? 0);
+      const elapsedTop =
+        liveFeed?.elapsed_time ?? liveFeed?.time_of_day ?? null;
+      const lapNumberTop = liveFeed?.lap_number ?? null;
+      const lapsToGoTop = liveFeed?.laps_to_go ?? null;
+      const vehicles = Array.isArray(liveFeed?.vehicles)
+        ? liveFeed.vehicles
+        : [];
+
+      const leaderRow =
+        vehicles.find((v) => Number(v?.running_position) === 1) || vehicles[0];
+      const leaderTimeText = leaderRow
+        ? Number(leaderRow?.running_position) === 1 &&
+          Number(leaderRow?.delta ?? 0) === 0 &&
+          (liveRunType === 1 || liveRunType === 2)
+          ? formatSessionCopyTime(
+              leaderRow?.best_lap_time ??
+                leaderRow?.bestLapTime ??
+                leaderRow?.fastest_lap_time ??
+                leaderRow?.fastestLapTime ??
+                null,
+            )
+          : formatElapsedClock(leaderRow?.vehicle_elapsed_time)
+        : "-";
+      const leaderDeltaValue = leaderRow?.delta ?? 0;
+      const leaderIsLeader =
+        Number(leaderRow?.running_position) === 1 &&
+        Number(leaderDeltaValue) === 0;
+      const leaderDeltaText = leaderIsLeader
+        ? "Leader"
+        : formatDeltaLeader(leaderDeltaValue) || "-";
+
+      return (
+        <View style={styles.tabContent}>
+          <View style={[styles.eventsCardsWrap, { marginBottom: 12 }]}>
+            <Pressable
+              onPress={() => {
+                setSessionCardSource("LIVE");
+                setSessionCardVisible(true);
+              }}
+            >
+              <View
+                style={[
+                  styles.eventsCard,
+                  {
+                    borderColor: flagBorderTop,
+                    backgroundColor: theme.surface,
+                  },
+                ]}
+              >
+                <View style={styles.eventsCardHeaderRow}>
+                  <View style={styles.eventsTitleRow}>
+                    <View
+                      style={[
+                        styles.eventsIconBubble,
+                        { backgroundColor: flagBorderTop },
+                      ]}
+                    >
+                      <Ionicons name="flag-outline" size={12} color="#fff" />
+                    </View>
+                    <Text
+                      style={[
+                        styles.eventsCardTitle,
+                        { color: theme.text, fontWeight: "800" },
+                      ]}
+                    >
+                      {String(flagTextTop).toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                        fontWeight: "700",
+                      }}
+                    >
+                      Time Passed: {formatElapsedClock(elapsedTop)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={{
+                    marginTop: 8,
+                    flexDirection: "row",
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  <View style={{ flex: 1, alignItems: "center" }}>
+                    <Text
+                      style={{
+                        color: theme.text,
+                        fontSize: 14,
+                        fontWeight: "800",
+                        textAlign: "center",
+                      }}
+                    >
+                      {lapNumberTop != null ? `${lapNumberTop}` : ""}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: "700",
+                        textAlign: "center",
+                      }}
+                    >
+                      CURRENT LAP
+                    </Text>
+                  </View>
+
+                  <View style={{ flex: 1, alignItems: "center" }}>
+                    <Text
+                      style={{
+                        color: theme.text,
+                        fontSize: 14,
+                        fontWeight: "800",
+                        textAlign: "center",
+                      }}
+                    >
+                      {lapsToGoTop != null ? `${lapsToGoTop}` : ""}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: "700",
+                        textAlign: "center",
+                      }}
+                    >
+                      LAPS TO GO
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.eventsCardHeaderRow,
+                    { justifyContent: "center", marginTop: 12 },
+                  ]}
+                >
+                  <View style={{ textAlign: "center" }}>
+                    <Text
+                      style={{
+                        color: theme.text,
+                        fontSize: 12,
+                        fontWeight: "800",
+                      }}
+                    >
+                      {liveFeed?.run_name || runName}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Pressable>
+          </View>
+
+          {vehicles.length ? (
+            vehicles.map((row, idx) => {
+              const vehicleNumber =
+                row?.vehicle_number ?? row?.car_number ?? row?.number ?? "-";
+              const driverInfo = row?.driver || {};
+              const driverId =
+                driverInfo?.driver_id ??
+                row?.driver_id ??
+                row?.NASCARDriverID ??
+                row?.driverId ??
+                null;
+              const mapEntry =
+                driverId != null ? mapsDrivers[String(driverId)] || null : null;
+              const manufacturer =
+                row?.vehicle_manufacturer ||
+                row?.manufacturer ||
+                mapEntry?.manufacturer ||
+                null;
+              const teamColor =
+                getManufacturerColor(manufacturer) || colors.primary;
+              const driverName =
+                driverInfo?.full_name ||
+                row?.full_name ||
+                row?.driver_name ||
+                mapEntry?.name ||
+                `#${vehicleNumber}`;
+              const sponsor = row?.sponsor_name || row?.sponsor || "";
+              const runningPos =
+                row?.running_position ??
+                row?.RunningPos ??
+                row?.position ??
+                null;
+              const startingPos =
+                row?.starting_position ??
+                row?.startingPosition ??
+                row?.pos_start ??
+                null;
+              const positionDelta =
+                liveRunType === 3 &&
+                (startingPos != null || startingPos === 0) &&
+                (runningPos != null || runningPos === 0) && (startingPos !== runningPos)
+                  ? startingPos - runningPos
+                  : null;
+              const positionDeltaText =
+                positionDelta != null
+                  ? positionDelta > 0
+                    ? `▲ ${positionDelta} · `
+                    : `▼ ${positionDelta} · `
+                  : null;
+              const copyPositionDeltaText =
+                positionDelta != null && positionDelta !== 0
+                  ? positionDelta > 0
+                    ? `UP ${positionDelta} POS`
+                    : `DOWN ${Math.abs(positionDelta)} POS`
+                  : null;
+              const positionDeltaColor =
+                positionDelta != null
+                  ? positionDelta > 0
+                    ? theme.success
+                    : theme.error
+                  : theme.text;
+              
+              const lapsCompleted = row?.laps_completed ?? row?.laps ?? row?.lap_count ?? row?.lapCount ?? null;
+
+              const deltaRaw =
+                row?.delta ?? row?.time_delta ?? row?.delta_time ?? 0;
+              const vehicleElapsed =
+                row?.vehicle_elapsed_time ??
+                row?.vehicle_elapsed ??
+                row?.elapsed_time ??
+                null;
+              const bestLapTime =
+                row?.best_lap_time ??
+                row?.bestLapTime ??
+                row?.fastest_lap_time ??
+                row?.fastestLapTime ??
+                null;
+              const bestLapNumber =
+                row?.best_lap ?? row?.bestLap ?? row?.best_lap_number ?? null;
+              const lapsLedCount = getLiveLapsLedCount(
+                row?.laps_led ?? row?.lapsLed ?? [],
+              );
+              const pitStops = Array.isArray(row?.pit_stops)
+                ? row.pit_stops
+                : [];
+              const avgPitTime = getLiveAveragePitTime(pitStops);
+              const avgPitTimeText =
+                avgPitTime != null ? formatSessionCopyTime(avgPitTime) : "-";
+              const bestLapTimeText = formatBestLapTime(bestLapTime);
+              // For practice (1) or qualifying (2) runs prefer best lap time or delta gap
+              let totalTimeText;
+              if (liveRunType === 1 || liveRunType === 2) {
+                if (bestLapTime != null) {
+                  totalTimeText = bestLapTimeText;
+                } else if (deltaRaw != null && String(deltaRaw).trim() !== "") {
+                  totalTimeText = formatSessionCopyTime(deltaRaw);
+                } else {
+                  totalTimeText = formatElapsedClock(vehicleElapsed);
+                }
+              } else {
+                totalTimeText = formatElapsedClock(vehicleElapsed);
+              }
+              const passesMade = Number(
+                row?.passes_made ?? row?.passesMade ?? 0,
+              );
+              const avgRestartSpeed = row?.average_restart_speed ?? null;
+              const avgRunningPosition = row?.average_running_position ?? null;
+              const avgSpeed = row?.average_speed ?? null;
+              const formattedDelta = String(deltaRaw).includes("-")
+                ? String(deltaRaw).replace("-", "+")
+                : `+${deltaRaw}`;
+
+              const pitCount =
+                livePit && livePit[String(vehicleNumber)]
+                  ? (livePit[String(vehicleNumber)] || []).length
+                  : Array.isArray(livePitRows)
+                    ? livePitRows.filter(
+                        (p) =>
+                          String(p?.vehicle_number) === String(vehicleNumber),
+                      ).length
+                    : 0;
+
+              const driverData = {
+                key: `live-vehicle-${String(vehicleNumber)}-${idx}`,
+                pos: Number.isFinite(Number(runningPos))
+                  ? Number(runningPos)
+                  : null,
+                positionDeltaText,
+                copyPositionDeltaText,
+                lapsCompleted,
+                positionDeltaColor,
+                showPositionDelta: positionDelta != null,
+                timeText: totalTimeText,
+                totalTimeText,
+                bestLapTime: bestLapTimeText,
+                bestLapNumber: Number.isFinite(Number(bestLapNumber))
+                  ? Number(bestLapNumber)
+                  : bestLapNumber,
+                lapsLed: lapsLedCount,
+                pits: avgPitTimeText,
+                passes: passesMade,
+                avgRestartSpeed,
+                avgRunningPosition,
+                avgSpeed,
+                sponsorName: sponsor,
+                teamName: sponsor || getManufacturerName(manufacturer),
+                teamColor,
+                headshot: mapEntry?.image || row?.driver_image || null,
+                name:
+                  driverInfo?.full_name ||
+                  row?.full_name ||
+                  row?.driver_name ||
+                  mapEntry?.name ||
+                  `#${vehicleNumber}`,
+                vehicleNumber: String(vehicleNumber),
+                sourceType: "LIVE",
+                runType: liveRunType,
+                runLabel: getNascarRunTypeLabel(liveRunType),
+              };
+
+              const cardStyle = [
+                styles.driverCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: teamColor,
+                },
+              ];
+
+              return (
+                <Pressable
+                  key={`live-vehicle-${String(vehicleNumber)}-${idx}`}
+                  onPress={() => openDriverCopyCard(driverData, "LIVE")}
+                  style={({ pressed }) => [
+                    cardStyle,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <View style={{ paddingHorizontal: 0, paddingVertical: 0 }}>
+                    <View
+                      style={[
+                        styles.driverTopRow,
+                        { paddingHorizontal: 8, paddingVertical: 10 },
+                      ]}
+                    >
+                      {mapEntry?.image || row?.driver_image ? (
+                        <View
+                          style={[
+                            styles.driverHeadshot,
+                            {
+                              borderColor: teamColor,
+                              backgroundColor: `${teamColor}22`,
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{
+                              uri: mapEntry?.image || row?.driver_image,
+                            }}
+                            style={{
+                              width: "100%",
+                              height: "150%",
+                              transform: [
+                                { translateY: 1.5 },
+                                { translateX: -2 },
+                              ],
+                            }}
+                            resizeMode="cover"
+                          />
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.driverHeadshot,
+                            {
+                              borderColor: teamColor,
+                              backgroundColor: `${teamColor}22`,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.driverInitials, { color: "#fff" }]}
+                          >
+                            {getInitials(driverName)}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.driverNameBlock}>
+                        <View style={styles.nameTopRow}>
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                              }}
+                            >
+                              {positionDelta ? (
+                                <Text
+                                  style={[
+                                    styles.driverName,
+                                    { color: positionDeltaColor, fontSize: 13 },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {positionDeltaText}
+                                </Text>
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.driverName,
+                                  { color: theme.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {driverName
+                                  .replace(/#\S*/g, "")
+                                  .replace(/\(i\)/g, "")
+                                  .replace(/\*/g, "")
+                                  .trim()}
+                              </Text>
+                            </View>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.driverMeta,
+                                { color: theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >{`#${vehicleNumber} · ${sponsor}`}</Text>
+                          </View>
+
+                          {runningPos != null && (
+                            <View style={styles.posBadgeWrap}>
+                              <View
+                                style={[
+                                  styles.posBadge,
+                                  { backgroundColor: teamColor },
+                                ]}
+                              >
+                                <Text style={styles.posBadgeText}>
+                                  {runningPos}
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.posLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                POS
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.statsRow}>
+                          <View style={styles.statCell}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.statValue, { color: theme.text }]}
+                            >
+                              {totalTimeText != "00:00" ? totalTimeText : "-"}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.statLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              TOTAL TIME
+                            </Text>
+                          </View>
+
+                          <View style={styles.statCell}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.statValue, { color: theme.text }]}
+                            >
+                              {lapsCompleted != 0 ? String(lapsCompleted) : "-"}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.statLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              LAPS
+                            </Text>
+                          </View>
+
+                          <View style={styles.statCell}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.statValue, { color: theme.text }]}
+                            >
+                              {avgPitTimeText}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.statLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              PITS
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    {row?.is_on_track && (
+                      <View
+                        style={[
+                          styles.summaryFooter,
+                          {
+                            borderTopColor: theme.surface,
+                            backgroundColor: colors.primary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            textAlign: "center",
+                            color: theme.text,
+                            fontWeight: "800",
+                            fontSize: 12,
+                          }}
+                        >
+                          {"ON TRACK"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              No driver data available.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    // non-live (existing) drivers UI
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.driverFilterBar}>
+          {availableDriverSources.map((source) => {
+            const active = driversSource === source.key;
+            return (
+              <TouchableOpacity
+                key={`driver-source-${source.key}`}
+                onPress={() => setDriversSource(source.key)}
+                onLongPress={() => openSessionCopyCard(source.key)}
+                delayLongPress={250}
+                activeOpacity={0.85}
+                style={[
+                  styles.driverFilterChip,
+                  {
+                    borderColor: active ? colors.primary : theme.border,
+                    backgroundColor: active ? colors.primary : "transparent",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.driverFilterChipText,
+                    {
+                      color: active
+                        ? getF1TextOnColor(colors.primary)
+                        : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {source.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {driverCards.length ? (
+          driverCards.map((d) => {
+            const isQualPractice =
+              driversSource === "QUAL" || driversSource === "PRACTICE";
+
+            const driverCardStyle = [
+              styles.driverCard,
+              {
+                backgroundColor: theme.surface,
+                borderColor: d.teamColor,
+              },
+            ];
+
+            const cardContent = (
+              <View style={{ paddingHorizontal: 8, paddingVertical: 10 }}>
+                <View style={styles.driverTopRow}>
+                  {d.headshot ? (
+                    <View
+                      style={[
+                        styles.driverHeadshot,
+                        {
+                          borderColor: d.teamColor,
+                          backgroundColor: `${d.teamColor}22`,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: d.headshot }}
+                        style={{
+                          width: "100%",
+                          height: "150%",
+                          transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                        }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.driverHeadshot,
+                        {
+                          borderColor: d.teamColor,
+                          backgroundColor: `${d.teamColor}22`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.driverInitials, { color: "#fff" }]}>
+                        {String(d.name)
+                          .split(" ")
+                          .map((w) => w[0] || "")
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.driverNameBlock}>
+                    <View style={styles.nameTopRow}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <View
+                          style={{ flexDirection: "row", alignItems: "center" }}
+                        >
+                          {d.showPositionDelta && (
+                            <Text
+                              style={[
+                                styles.driverPosChange,
+                                { color: d.positionDeltaColor || theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {d.positionDeltaText} · {""}
+                            </Text>
+                          )}
+                          <Text
+                            style={[styles.driverName, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {d.name}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.driverMeta,
+                            { color: theme.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >{`#${d.driverNumber} · ${d.teamName || ""}`}</Text>
+                      </View>
+                      {d.pos != null && (
+                        <View style={styles.posBadgeWrap}>
+                          <View
+                            style={[
+                              styles.posBadge,
+                              { backgroundColor: d.teamColor },
+                            ]}
+                          >
+                            <Text style={styles.posBadgeText}>{d.pos}</Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.posLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            POS
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.statsRow}>
+                      <View style={styles.statCell}>
+                        <Text
+                          style={[
+                            styles.statValue,
+                            {
+                              color: d.timeIsStatus ? theme.error : theme.text,
+                            },
+                          ]}
+                        >
+                          {d.timeText || "-"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.statLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          TIME
+                        </Text>
+                      </View>
+                      <View style={styles.statCell}>
+                        <Text style={[styles.statValue, { color: theme.text }]}>
+                          {d.laps ?? "-"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.statLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {d.lapsLabel || "LAPS"}
+                        </Text>
+                      </View>
+                      {d.isRaceSource && (
+                        <View style={styles.statCell}>
+                          <Text
+                            style={[styles.statValue, { color: theme.text }]}
+                          >
+                            {d.pits ?? 0}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.statLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            PITS
+                          </Text>
+                        </View>
+                      )}
+                      {d.isQualSource && (
+                        <View style={styles.statCell}>
+                          <Text
+                            style={[styles.statValue, { color: theme.text }]}
+                          >
+                            {d.speedText || "-"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.statLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            TOP SPD
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+
+            if (isQualPractice) {
+              return (
+                <Pressable
+                  key={`driver-${d.key}`}
+                  onPress={() => {
+                    openDriverCopyCard(d);
+                  }}
+                  style={({ pressed }) => [
+                    driverCardStyle,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  {cardContent}
+                </Pressable>
+              );
+            } else {
+              return (
+                <Pressable
+                  key={`driver-${d.key}`}
+                  onPress={() => {
+                    openRaceCopyCard(d);
+                  }}
+                  style={({ pressed }) => [
+                    driverCardStyle,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  {cardContent}
+                </Pressable>
+              );
+            }
+          })
+        ) : (
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No driver data available.
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderStages = () => {
+    const selectedStageNumber = Number(stagesSource) === 1 ? 1 : 2;
+    const stageEntry = liveStagePoints.find(
+      (stage) => Number(stage?.stage_number) === selectedStageNumber,
+    );
+    const rows = Array.isArray(stageEntry?.results)
+      ? [...stageEntry.results].sort(
+          (a, b) => Number(a?.position || 999) - Number(b?.position || 999),
+        )
+      : [];
+
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.driverFilterBar}>
+          {["2", "1"].map((stageKey) => {
+            const active = stagesSource === stageKey;
+            return (
+              <TouchableOpacity
+                key={`stages-source-${stageKey}`}
+                onPress={() => setStagesSource(stageKey)}
+                activeOpacity={0.85}
+                style={[
+                  styles.driverFilterChip,
+                  {
+                    borderColor: active ? colors.primary : theme.border,
+                    backgroundColor: active ? colors.primary : "transparent",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.driverFilterChipText,
+                    {
+                      color: active
+                        ? getF1TextOnColor(colors.primary)
+                        : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {`STAGE ${stageKey}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {rows.length ? (
+          rows.map((row, idx) => {
+            const position = Number(row?.position);
+            const vehicleNumber =
+              row?.vehicle_number ??
+              row?.car_number ??
+              row?.Number ??
+              row?.number ??
+              "-";
+            const driverId =
+              row?.driver_id ?? row?.NASCARDriverID ?? row?.driverId ?? null;
+            const mapEntry =
+              driverId != null ? mapsDrivers[String(driverId)] || null : null;
+            const driverName =
+              row?.full_name ||
+              row?.driver_name ||
+              mapEntry?.name ||
+              `#${String(vehicleNumber)}`;
+            const manufacturer =
+              row?.vehicle_manufacturer ||
+              row?.manufacturer ||
+              mapEntry?.manufacturer ||
+              null;
+            const teamColor = getManufacturerColor(manufacturer);
+            const headshot = mapEntry?.image || row?.driver_image || null;
+            const stagePointsRaw = row?.stage_points ?? row?.points ?? 0;
+            const stagePoints = Number.isFinite(Number(stagePointsRaw))
+              ? Number(stagePointsRaw)
+              : stagePointsRaw;
+
+            return (
+              <View
+                key={`stage-row-${selectedStageNumber}-${String(vehicleNumber)}-${idx}`}
+                style={[
+                  styles.stageStandingCard,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <View style={styles.stageStandingPositionCol}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.stageStandingPosition,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {Number.isFinite(position) ? position : "-"}
+                  </Text>
+                </View>
+
+                <View style={styles.stageStandingBody}>
+                  {headshot ? (
+                    <View
+                      style={[
+                        styles.stageStandingHeadshot,
+                        {
+                          borderColor: teamColor,
+                          backgroundColor: `${teamColor}22`,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: headshot }}
+                        style={{
+                          width: "100%",
+                          height: "150%",
+                          transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                        }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.stageStandingHeadshot,
+                        styles.stageStandingHeadshotFallback,
+                        {
+                          borderColor: teamColor,
+                          backgroundColor: `${teamColor}22`,
+                        },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={styles.stageStandingHeadshotText}
+                      >
+                        {getInitials(driverName)}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.stageStandingTextWrap}>
+                    <Text
+                      allowFontScaling={false}
+                      numberOfLines={1}
+                      style={[styles.stageStandingName, { color: theme.text }]}
+                    >
+                      {driverName}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      numberOfLines={1}
+                      style={[
+                        styles.stageStandingMeta,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {`Vehicle Number · #${String(vehicleNumber)}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.stageStandingPointsCol}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.stageStandingPointsVal,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {stagePoints}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.stageStandingPointsLbl,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    PTS
+                  </Text>
+                </View>
+              </View>
+            );
+          })
+        ) : (
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            {`No Stage ${selectedStageNumber} data available.`}
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   const renderEvents = () => {
     const entries = [];
@@ -1090,10 +4909,240 @@ const NascarRaceDetailsScreen = ({ route }) => {
     );
   };
 
+  const renderFlags = () => {
+    const rows = [...liveFlagRows].sort((a, b) => {
+      const lapDiff = Number(b?.lap_number || 0) - Number(a?.lap_number || 0);
+      if (lapDiff !== 0) return lapDiff;
+      const tA = parseNascarUtcDate(a?.time_of_day_os)?.getTime() || 0;
+      const tB = parseNascarUtcDate(b?.time_of_day_os)?.getTime() || 0;
+      return tB - tA;
+    });
+
+    const formatFlagTime = (value) => {
+      if (!value) return "";
+      const parsed = parseNascarUtcDate(value);
+      if (!parsed) return String(value);
+      const weekday = parsed.toLocaleDateString("en-GB", {
+        weekday: "short",
+      });
+      const day = parsed.toLocaleDateString("en-GB", {
+        day: "numeric",
+      });
+      const month = parsed.toLocaleDateString("en-GB", {
+        month: "short",
+      });
+      const time = parsed
+        .toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+        .toLowerCase();
+      return `${weekday} ${day} ${month} · ${time}`;
+    };
+
+    return (
+      <View>
+        <View style={[styles.eventsCardsWrap, { marginBottom: 12 }]}>
+          {rows.length > 0 ? (
+            rows.map((row, idx) => {
+              const state = Number(row?.flag_state ?? 0);
+              const label = flagLabel(state);
+              const border = flagColor(state);
+              const flagTextColor =
+                label === "White Flag" ||
+                label === "Yellow Flag" ||
+                label === "Red Flag"
+                  ? "#000"
+                  : "#fff";
+              const comment = String(row?.comment || "").trim();
+              const timeText = formatFlagTime(row?.time_of_day_os);
+
+              return (
+                <View key={`live-flag-${idx}`} style={styles.eventsRowWrap}>
+                  <View style={styles.eventsTimeCol}>
+                    <Text
+                      style={[styles.eventsLapText, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {`Lap ${row?.lap_number ?? "-"}`}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.eventsClockText,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {""}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.eventsCard,
+                      { borderColor: border, backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <View style={styles.eventsCardHeaderRow}>
+                      <View style={styles.eventsTitleRow}>
+                        <View
+                          style={[
+                            styles.eventsIconBubble,
+                            { backgroundColor: border },
+                          ]}
+                        >
+                          <Ionicons
+                            name="flag-outline"
+                            size={12}
+                            color={flagTextColor}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.eventsCardTitle,
+                            { color: theme.text, fontWeight: "800" },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {label.toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {comment ? (
+                      <Text
+                        style={[
+                          styles.eventsCardMainText,
+                          { color: theme.text },
+                        ]}
+                        numberOfLines={4}
+                      >
+                        {comment}
+                      </Text>
+                    ) : null}
+
+                    <View
+                      style={{
+                        marginTop: comment ? 8 : 2,
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: theme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: "700",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {timeText}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              No flag data available.
+            </Text>
+          )}
+        </View>
+
+        <SectionCard
+          title="Flag Legend"
+          theme={theme}
+          colors={colors}
+          accentColor={accentColor}
+        >
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            {[1, 2, 3, 4, 5, 8, 9, 0].map((s) => {
+              const c = flagColor(s);
+              return (
+                <View
+                  key={`flag-${s}`}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginRight: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 12,
+                      height: 12,
+                      backgroundColor: c,
+                      borderRadius: 6,
+                      marginRight: 8,
+                      borderWidth: c === "#FFFFFF" ? 1 : 0,
+                      borderColor: theme.border,
+                    }}
+                  />
+                  <Text style={{ color: theme.textSecondary }}>
+                    {flagLabel(s)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </SectionCard>
+      </View>
+    );
+  };
+
   const renderStints = () => {
-    const driverOrder = (drivers || []).map(
+    const isLiveStatus = String(resolvedStatus || "").toLowerCase() === "live";
+
+    // Build pit map depending on status:
+    // - Off status: use `live_pit` (already normalized earlier as `livePit`) which is an object keyed by driver number
+    // - Live status: group `live_pit_data` rows by vehicle_number into the same object shape
+    let pitMap = livePit || {};
+    if (isLiveStatus) {
+      // Prefer explicit live_pit if provided, otherwise build from live_pit_data
+      if (
+        racePayload?.live_pit &&
+        typeof racePayload.live_pit === "object" &&
+        !Array.isArray(racePayload.live_pit) &&
+        Object.keys(racePayload.live_pit).length > 0
+      ) {
+        pitMap = racePayload.live_pit;
+      } else {
+        const rows = Array.isArray(racePayload?.live_pit_data)
+          ? racePayload.live_pit_data
+          : livePitRows || [];
+        pitMap = rows.reduce((acc, pit) => {
+          const key =
+            pit?.vehicle_number ??
+            pit?.car_number ??
+            pit?.Number ??
+            pit?.number ??
+            pit?.NASCARDriverID ??
+            null;
+          if (key == null) return acc;
+          const k = String(key);
+          if (!acc[k]) acc[k] = [];
+          acc[k].push(pit);
+          return acc;
+        }, {});
+      }
+    }
+
+    let driverOrder = (drivers || []).map(
       (d) => d?.Number ?? d?.NASCARDriverID ?? d?.NASCARDriverID,
     );
+    if (!driverOrder || driverOrder.length === 0) {
+      try {
+        driverOrder = Object.keys(pitMap || {}).sort((a, b) => {
+          const na = Number(a);
+          const nb = Number(b);
+          if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+          return String(a).localeCompare(String(b));
+        });
+      } catch (e) {
+        /* ignore */
+      }
+    }
 
     // Get pit stops for selected driver
     const selectedDriverPits = stintsSelectedDriver
@@ -1156,12 +5205,43 @@ const NascarRaceDetailsScreen = ({ route }) => {
                       String(
                         x?.Number ?? x?.NASCARDriverID ?? x?.NASCARDriverID,
                       ) === String(dn),
-                  ) || {};
-                const name = d?.FullName || d?.Fullname || d?.Full || `#${dn}`;
-                const last = (name || "").split(" ").slice(-1)[0] || name;
+                  ) || null;
+                const pitSample =
+                  (pitMap && pitMap[String(dn)] && pitMap[String(dn)][0]) ||
+                  null;
+                // Resolve name: prefer driver record, then driverLookup, then fallback
+                const resolvedName =
+                  d?.FullName ||
+                  d?.Fullname ||
+                  d?.Full ||
+                  pitSample?.driver_name ||
+                  pitSample?.driver ||
+                  resolveDriverName(dn) ||
+                  `#${dn}`;
+                const last = (resolvedName || "").split(" ")[1] || resolvedName;
                 const label = `#${dn} · ${String(last).toUpperCase()}`;
+
+                // Resolve manufacturer for chip color: prefer driver record, then mapsDrivers, then pitMap sample
+                const manufacturerFromDriver =
+                  d?.vehicle_manufacturer ||
+                  d?.Manufacturer ||
+                  d?.manufacturer ||
+                  null;
+                const mapEntry =
+                  mapsDrivers &&
+                  mapsDrivers[String(d?.NASCARDriverID || d?.driver_id || dn)];
+                const manufacturerFromMap = mapEntry?.manufacturer || null;
+                const manufacturerFromPit =
+                  pitSample?.vehicle_manufacturer ||
+                  pitSample?.manufacturer ||
+                  null;
+                const manufacturer =
+                  manufacturerFromDriver ||
+                  manufacturerFromMap ||
+                  manufacturerFromPit ||
+                  null;
                 const color =
-                  getManufacturerColor(d?.Manufacturer) || colors.primary;
+                  getManufacturerColor(manufacturer) || colors.primary;
                 const selected = stintsSelectedDriver === String(dn);
                 return (
                   <TouchableOpacity
@@ -2042,42 +6122,197 @@ const NascarRaceDetailsScreen = ({ route }) => {
     );
   };
 
+  const renderStartingGridCard = (entry) => {
+    const initials = (entry.driverName || "")
+      .split(" ")
+      .map((part) => part[0] || "")
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+
+    return (
+      <View
+        key={entry.key}
+        style={[
+          styles.gridCard,
+          {
+            borderColor: entry.teamColor,
+            backgroundColor: theme.surface,
+          },
+        ]}
+      >
+        <View style={styles.gridCardTopRow}>
+          <Text style={[styles.gridSlotNumber, { color: theme.text }]}>
+            {entry.position}
+          </Text>
+          <View style={styles.gridHeadshotWrap}>
+            {entry.headshot ? (
+              <View
+                style={[
+                  styles.gridHeadshot,
+                  {
+                    backgroundColor: `${entry.teamColor}33`,
+                    borderColor: entry.teamColor,
+                    overflow: "hidden",
+                  },
+                ]}
+              >
+                <Image
+                  source={{ uri: entry.headshot }}
+                  style={[
+                    {
+                      width: "100%",
+                      height: "150%",
+                      transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                    },
+                  ]}
+                  resizeMode="cover"
+                  onError={() => {}}
+                />
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.gridHeadshot,
+                  styles.gridHeadshotFallback,
+                  {
+                    borderColor: entry.teamColor,
+                    backgroundColor: `${entry.teamColor}33`,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.gridHeadshotInitials,
+                    { color: entry.teamColor },
+                  ]}
+                >
+                  {initials || "D"}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.gridDriverNameBlock}>
+          <Text
+            style={[styles.gridDriverName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {entry.driverName}
+          </Text>
+          <Text
+            style={[styles.gridDriverMeta, { color: entry.teamColor }]}
+            numberOfLines={1}
+          >
+            {entry.teamName || "Team"}
+          </Text>
+        </View>
+
+        <View style={styles.gridStatsRow}>
+          <View
+            style={[styles.gridStatCell, { borderTopColor: entry.teamColor }]}
+          >
+            <Text
+              style={[styles.gridStatValue, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {entry.bestLapTime || "-"}
+            </Text>
+            <Text
+              style={[
+                styles.gridStatLabel,
+                { color: theme.textSecondary, marginBottom: -10 },
+              ]}
+            >
+              Best Lap
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderGrid = () => (
     <View style={styles.tabContent}>
-      <SectionCard
-        title="Starting Grid"
-        theme={theme}
-        colors={colors}
-        accentColor={accentColor}
+      <View
+        style={[
+          styles.gridSectionCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
       >
-        {sortedDrivers.map((driver, idx) => (
-          <View key={`${driver.Number}-grid-${idx}`} style={styles.gridRow}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.gridPos, { color: theme.textSecondary }]}
-            >
-              {driver.RunningPos || idx + 1}
-            </Text>
-            <View style={styles.gridTextWrap}>
+        <View style={styles.finishLineBar}>
+          {Array.from({ length: 14 }).map((_, idx) => (
+            <View
+              key={`finish-${idx}`}
+              style={[
+                styles.finishLineSquare,
+                { backgroundColor: idx % 2 === 0 ? "#000" : "#fff" },
+              ]}
+            />
+          ))}
+        </View>
+        <View style={[styles.finishLineBar, { marginBottom: 14 }]}>
+          {Array.from({ length: 14 }).map((_, idx) => (
+            <View
+              key={`finish-${idx}`}
+              style={[
+                styles.finishLineSquare,
+                { backgroundColor: idx % 2 === 0 ? "#fff" : "#000" },
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.gridContainer}>
+          {startingGridRows.length > 0 ? (
+            startingGridRows.map((row, idx) => (
+              <View key={`grid-row-${idx}`} style={styles.gridRowContainer}>
+                <View
+                  style={[
+                    styles.gridPositionSlot,
+                    {
+                      borderColor: row.left?.teamColor || theme.border,
+                      marginBottom: 40,
+                    },
+                  ]}
+                >
+                  {renderStartingGridCard(row.left)}
+                </View>
+                {row.right ? (
+                  <View
+                    style={[
+                      styles.gridPositionSlot,
+                      {
+                        borderColor: row.right.teamColor || theme.border,
+                        marginTop: 40,
+                      },
+                    ]}
+                  >
+                    {renderStartingGridCard(row.right)}
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.gridPositionSlot,
+                      { borderColor: "transparent" },
+                    ]}
+                  />
+                )}
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
               <Text
                 allowFontScaling={false}
-                style={[styles.gridName, { color: theme.text }]}
-                numberOfLines={1}
+                style={[styles.emptyText, { color: theme.textSecondary }]}
               >
-                {driver.FullName || "Driver"}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.gridMeta, { color: theme.textSecondary }]}
-                numberOfLines={1}
-              >
-                Car #{driver.Number || "--"} ·{" "}
-                {getManufacturerName(driver.Manufacturer)}
+                No starting grid data available
               </Text>
             </View>
-          </View>
-        ))}
-      </SectionCard>
+          )}
+        </View>
+      </View>
     </View>
   );
 
@@ -2085,10 +6320,14 @@ const NascarRaceDetailsScreen = ({ route }) => {
     switch (selectedTab) {
       case "Drivers":
         return renderDrivers();
+      case "Stages":
+        return renderStages();
       case "Events":
         return renderEvents();
-      case "Stints":
+      case "Pit Stops":
         return renderStints();
+      case "Flag":
+        return renderFlags();
       case "Flow":
         return renderFlow();
       case "Starting Grid":
@@ -2177,7 +6416,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
                 style={styles.headerMeta}
                 numberOfLines={1}
               >
-                {trackName}
+                {trackName}, {trackState}
               </Text>
             </View>
           </View>
@@ -2195,7 +6434,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabBarContent}
         >
-          {TAB_KEYS.map((tab) => (
+          {tabKeys.map((tab) => (
             <TabButton
               key={tab}
               label={tab}
@@ -2214,6 +6453,50 @@ const NascarRaceDetailsScreen = ({ route }) => {
       >
         {renderTabBody()}
       </ScrollView>
+
+      {sessionCardVisible && sessionCardData ? (
+        <NascarSessionCopyCard
+          visible={sessionCardVisible}
+          onClose={closeSessionCopyCard}
+          sourceLabel={sessionCardData.sourceLabel}
+          raceName={sessionCardData.raceName}
+          sessionDate={sessionCardData.sessionDate}
+          trackName={sessionCardData.trackName}
+          trackState={sessionCardData.trackState}
+          trackLogo={sessionCardData.trackLogo}
+          podiumEntries={sessionCardData.podiumEntries}
+          accentColor={sessionCardData.accentColor}
+          colors={colors}
+          theme={theme}
+        />
+      ) : null}
+
+      {driverStatsCardVisible && selectedDriverForStats ? (
+        <NascarDriverStatsCard
+          visible={driverStatsCardVisible}
+          onClose={closeDriverCopyCard}
+          driver={selectedDriverForStats}
+          sourceType={selectedDriverStatsSource}
+          colors={colors}
+          theme={theme}
+          trackLogo={track?.image || trackLogo}
+          trackName={trackName}
+        />
+      ) : null}
+
+      {raceCopyCardVisible && selectedDriverForRace ? (
+        <NascarRaceCopyCard
+          visible={raceCopyCardVisible}
+          onClose={closeRaceCopyCard}
+          driver={selectedDriverForRace}
+          colors={colors}
+          theme={theme}
+          trackLogo={track?.image || trackLogo}
+          trackName={trackName}
+          livePit={livePit}
+          racePayload={racePayload}
+        />
+      ) : null}
     </View>
   );
 };
@@ -2641,12 +6924,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
   },
   statLabel: {
     marginTop: 2,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
   },
@@ -2675,16 +6959,365 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "right",
   },
+  winnerCard: {
+    position: "relative",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    overflow: "hidden",
+  },
+  winnerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  winnerBodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  winnerHeadshot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  winnerHeadshotImage: {
+    width: "100%",
+    height: "150%",
+    transform: [{ translateY: 14 }, { translateX: -2 }],
+  },
+  winnerInitials: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  winnerBadgeLabel: {
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  winnerInfoBlock: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  winnerName: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  winnerTeam: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  winnerRightCol: {
+    alignItems: "flex-end",
+    minWidth: 72,
+  },
+  winnerDurationLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  winnerDuration: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  sessionCopyOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
+  },
+  sessionCopyCard: {
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  sessionCopyHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+    gap: 4,
+  },
+  sessionCopyHeaderTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  sessionCopyBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sessionCopyBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  sessionCopyRaceName: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+    color: "#fff",
+  },
+  sessionCopyRaceTime: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.92)",
+  },
+  sessionCopyVenueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sessionCopyTrackLogo: {
+    width: 48,
+    height: 12,
+  },
+  sessionCopyTrackFallback: {
+    width: 48,
+    height: 12,
+    borderRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sessionCopyTrackFallbackText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  sessionCopyVenueText: {
+    fontSize: 11,
+    fontWeight: "500",
+    flex: 1,
+  },
+  sessionCopyPodiumRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 18,
+    justifyContent: "space-around",
+  },
+  sessionCopyDriverCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 3,
+  },
+  sessionCopyHeadshotWrap: {
+    position: "relative",
+    marginBottom: 6,
+  },
+  sessionCopyPosBadge: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(0,0,0,0.15)",
+  },
+  sessionCopyPosBadgeText: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  sessionCopyDriverName: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  sessionCopyDriverTeam: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  sessionCopyDriverTime: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  sessionCopyDriverDelta: {
+    fontSize: 9,
+    fontWeight: "500",
+    textAlign: "center",
+    opacity: 0.75,
+  },
+  sessionCopyDriverLaps: {
+    fontSize: 10,
+    textAlign: "center",
+  },
+  sessionCopyActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  sessionCopyFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  sessionCopyFooterText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  sessionCopyActionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  sessionCopyActionBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  stageStandingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  stageStandingPositionCol: {
+    width: 30,
+    alignItems: "center",
+    marginRight: 8,
+  },
+  stageStandingPosition: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  stageStandingBody: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  stageStandingHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  stageStandingHeadshotFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stageStandingHeadshotText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  stageStandingTextWrap: {
+    flex: 1,
+    marginLeft: 10,
+    minWidth: 0,
+  },
+  stageStandingName: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  stageStandingMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  stageStandingPointsCol: {
+    alignItems: "center",
+    marginLeft: 12,
+    minWidth: 36,
+  },
+  stageStandingPointsVal: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  stageStandingPointsLbl: {
+    marginTop: 1,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  driverFilterBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  driverFilterChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  driverFilterChipText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
   driverCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     overflow: "hidden",
+    marginBottom: 6,
+  },
+  driverTopRow: { flexDirection: "row", alignItems: "center" },
+  driverHeadshot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  driverHeadshotCard: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  driverInitials: { fontSize: 16, fontWeight: "800" },
+  driverNameBlock: { flex: 1, marginLeft: 10 },
+  nameTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  posBadgeWrap: { alignItems: "center", justifyContent: "center" },
+  posBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  posBadgeText: { color: "white", fontSize: 14, fontWeight: "800" },
+  posLabel: { fontSize: 10, marginTop: 4, fontWeight: "700" },
+  statsRow: {
+    flexDirection: "row",
+    marginTop: 8,
+    justifyContent: "space-between",
   },
   driverCardInner: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
     gap: 10,
+  },
+  rightGradientOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: "44%",
   },
   driverLeftCol: {
     alignItems: "center",
@@ -2712,6 +7345,10 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 15,
+    fontWeight: "800",
+  },
+  driverPosChange: {
+    fontSize: 14,
     fontWeight: "800",
   },
   driverMeta: {
@@ -2745,6 +7382,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     paddingVertical: 6,
+  },
+  summaryFooter: {
+    height: 17.5,
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    width: "100%",
   },
   flowStrip: {
     gap: 8,
@@ -2789,6 +7432,310 @@ const styles = StyleSheet.create({
   gridMeta: {
     marginTop: 2,
     fontSize: 11,
+  },
+  gridSectionCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  finishLineBar: {
+    flexDirection: "row",
+    height: 14,
+    overflow: "hidden",
+  },
+  finishLineSquare: {
+    flex: 1,
+    height: "100%",
+  },
+  emptyContainer: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
+  gridContainer: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  gridRowContainer: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  gridPositionSlot: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  gridCard: {
+    minHeight: 150,
+    padding: 12,
+    justifyContent: "space-between",
+    overflow: "hidden",
+  },
+  gridCardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  gridSlotNumber: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  gridHeadshotWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gridHeadshot: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    backgroundColor: "rgba(0,0,0,0.06)",
+  },
+  gridHeadshotFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gridHeadshotInitials: {
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  gridDriverNameBlock: {
+    marginBottom: 10,
+  },
+  gridDriverName: {
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  gridDriverMeta: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  gridStatsRow: {
+    flexDirection: "row",
+  },
+  gridStatCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  gridStatValue: {
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  gridStatLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  driverStatsCard: {
+    overflow: "hidden",
+  },
+  driverStatsHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  driverStatsHeaderTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  driverStatsBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  driverStatsBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  driverStatsPosition: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  driverStatsHeadshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  driverStatsHeadshotContainer: {
+    position: "relative",
+  },
+  driverStatsHeadshot: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  driverStatsNameBlock: {
+    flex: 1,
+  },
+  driverStatsName: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: -8,
+  },
+  driverStatsTeam: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  driverStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  driverStatCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  driverStatTopRight: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    fontSize: 8,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  driverStatValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  driverStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  driverStatDelta: {
+    fontSize: 8,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 2,
+    opacity: 0.75,
+  },
+  driverStatsFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  driverStatsFooterText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  driverStatsRaceInfoRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingLeft: 20,
+  },
+  driverStatsTrackLogo: {
+    height: 36,
+    width: 40,
+    borderRadius: 2,
+  },
+  driverStatsTrackFallback: {
+    height: 36,
+    width: 40,
+    borderRadius: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  driverStatsTrackFallbackText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  driverStatsRaceName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "right",
+    flex: 1,
+  },
+  driverStatsHeadshotCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    overflow: "hidden",
+  },
+  driverStatsInitials: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  driverStatsNameAndStatsBlock: {
+    flex: 1,
+    gap: 8,
+  },
+  driverStatsSummaryRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: -2,
+  },
+  driverStatsSummaryCell: {
+    alignItems: "center",
+  },
+  driverStatsSummaryVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  driverStatsSummaryLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  driverStatsHeaderStatsGrid: {
+    flexDirection: "row",
+    marginTop: 10,
+  },
+  driverStatsHeaderStatCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  driverStatsHeaderStatValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  driverStatsHeaderStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
   },
 });
 

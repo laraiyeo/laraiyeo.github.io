@@ -7365,7 +7365,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   statCell: { flex: 1, alignItems: "center" },
-  statValue: { fontSize: 15, fontWeight: "800" },
+  statValue: { fontSize: 15, fontWeight: "800", textAlign: "center" },
   statLabel: { fontSize: 11, fontWeight: "700", marginTop: 2 },
   summaryFooter: {
     height: 12.5,

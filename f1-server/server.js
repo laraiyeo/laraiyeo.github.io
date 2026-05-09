@@ -71,6 +71,56 @@ function parseDateMs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function pickFirstValue(source, keys) {
+  if (!source || !Array.isArray(keys)) return null;
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeCurrentResultsFeed(feed) {
+  const runDataSource = Array.isArray(feed?.runData)
+    ? feed.runData
+    : Array.isArray(feed?.RunData)
+      ? feed.RunData
+      : [];
+  const resultsSource = Array.isArray(feed?.results)
+    ? feed.results
+    : Array.isArray(feed?.Results)
+      ? feed.Results
+      : [];
+
+  return {
+    runData: runDataSource.map((run) => ({
+      runType: pickFirstValue(run, ["runType", "RunType", "iRunType"]),
+      runName: pickFirstValue(run, ["runName", "RunName"]),
+      lapsInRace: pickFirstValue(run, ["lapsInRace", "LapsInRace"]),
+      lapsToGo: pickFirstValue(run, ["lapsToGo", "LapsToGo"]),
+      stage1End: pickFirstValue(run, ["stage1End", "Stage1End"]),
+      stage2End: pickFirstValue(run, ["stage2End", "Stage2End"]),
+      stage3End: pickFirstValue(run, ["stage3End", "Stage3End"]),
+      stage1Laps: pickFirstValue(run, ["stage1Laps", "Stage1Laps"]),
+      stage2Laps: pickFirstValue(run, ["stage2Laps", "Stage2Laps"]),
+      stage3Laps: pickFirstValue(run, ["stage3Laps", "Stage3Laps"]),
+      stage4Laps: pickFirstValue(run, ["stage4Laps", "Stage4Laps"]),
+    })),
+    results: resultsSource.map((result) => ({
+      number: pickFirstValue(result, ["number", "Number"]),
+      manufacturer: pickFirstValue(result, ["manufacturer", "Manufacturer"]),
+      DriverNameTag: pickFirstValue(result, ["DriverNameTag"]),
+      NASCARDriverID: pickFirstValue(result, ["NASCARDriverID"]),
+      S1Fin: pickFirstValue(result, ["S1Fin"]),
+      S2Fin: pickFirstValue(result, ["S2Fin"]),
+      S3Fin: pickFirstValue(result, ["S3Fin"]),
+      TeamOwner: pickFirstValue(result, ["TeamOwner"]),
+    })),
+  };
+}
+
 function getWinnerInfo(sessionKey, resultsArr, driversArr) {
   const sr = resultsArr.find(
     (r) =>
@@ -3539,11 +3589,10 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
     const liveRefreshMs = hasLiveScheduledEvent ? 10 * 1000 : TTL_1H;
 
     const liveUrls = {
-      live_stage_points: `https://cf.nascar.com/live/feeds/live-stage-points.json`,
+      live_stage_points: `https://cf.nascar.com/cacher/live/current-results.json`,
       live_flag_data: `https://cf.nascar.com/live/feeds/live-flag-data.json`,
       live_pit_data: `https://cf.nascar.com/live/feeds/live-pit-data.json`,
       live_feed: `https://cf.nascar.com/live/feeds/live-feed.json`,
-      live_points: `https://cf.nascar.com/live/feeds/live-points.json`,
     };
 
     const staticUrls = {
@@ -3567,7 +3616,6 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       live_flag_data: `nascar_live_flag_data:${currentYear}:${raceId}`,
       live_pit_data: `nascar_live_pit_data:${currentYear}:${raceId}`,
       live_feed: `nascar_live_feed:${currentYear}:${raceId}`,
-      live_points: `nascar_live_points:${currentYear}:${raceId}`,
     };
 
     const out = {
@@ -3595,7 +3643,6 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
         ["live_flag_data", liveUrls.live_flag_data],
         ["live_pit_data", liveUrls.live_pit_data],
         ["live_feed", liveUrls.live_feed],
-        ["live_points", liveUrls.live_points],
       ];
 
       for (const [name, url] of liveSources) {
@@ -3606,7 +3653,10 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
             url,
             liveRefreshMs,
           ).catch(() => ({ data: null }));
-          out[name] = result.data || null;
+          out[name] =
+            name === "live_stage_points"
+              ? normalizeCurrentResultsFeed(result.data || null)
+              : result.data || null;
           ensureRefreshInterval(cacheKey, url, liveRefreshMs);
         } catch (e) {
           out[name] = null;
@@ -3763,7 +3813,7 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
     out.track = trackInfo || null;
     // For race responses, restrict the drivers map to only drivers referenced
     // in the various race payload locations (loopstats, weekend results, lap_times,
-    // live_stage_points, live_feed vehicles, live_points).
+    // live_stage_points, live_feed vehicles).
     const allowed = new Set();
 
     // loopstats -> drivers
@@ -3817,10 +3867,15 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       }
     }
 
-    // live_stage_points -> results
+    // live_stage_points/current-results -> results
     if (out.live_stage_points && Array.isArray(out.live_stage_points.results)) {
       for (const r of out.live_stage_points.results) {
-        const id = r?.driver_id ?? r?.Driver_ID ?? r?.driverId ?? null;
+        const id =
+          r?.driver_id ??
+          r?.Driver_ID ??
+          r?.driverId ??
+          r?.NASCARDriverID ??
+          null;
         if (id != null) allowed.add(String(id));
       }
     }
@@ -3836,14 +3891,6 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
           drv?.driverId ??
           drv?.NASCARDriverID ??
           null;
-        if (id != null) allowed.add(String(id));
-      }
-    }
-
-    // live_points -> array of entries with driver id
-    if (out.live_points && Array.isArray(out.live_points)) {
-      for (const p of out.live_points) {
-        const id = p?.driver_id ?? p?.Driver_ID ?? p?.driverId ?? null;
         if (id != null) allowed.add(String(id));
       }
     }

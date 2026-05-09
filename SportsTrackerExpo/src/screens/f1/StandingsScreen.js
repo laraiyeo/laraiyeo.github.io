@@ -78,7 +78,7 @@ const StandingsScreen = ({ route }) => {
 
   // Helper to format color from API (adds # if missing)
   const formatColor = (color) => {
-    if (!color) return "#000000";
+    if (!color) return null;
     return color.startsWith("#") ? color : `#${color}`;
   };
 
@@ -326,7 +326,7 @@ const StandingsScreen = ({ route }) => {
           }
         }
         const lookup = normalizeTeamName(teamNameRaw) || null;
-        const teamColor = formatColor(constructorColors[lookup]) || "#000000";
+        const teamColor = formatColor(constructorColors[lookup]) || null;
 
         return {
           position: d.position_current ?? d.position ?? null,
@@ -365,7 +365,7 @@ const StandingsScreen = ({ route }) => {
           id: lookup,
           name: lookup,
           displayName: rawName,
-          color: formatColor(constructorColors[lookup]) || "#000000",
+          color: formatColor(constructorColors[lookup]) || null,
           points: t.points_current ?? t.points ?? 0,
           drivers: driversList,
         };
@@ -393,6 +393,7 @@ const StandingsScreen = ({ route }) => {
 
     const driversArr = payload.drivers || payload.data?.drivers || [];
     const ownersArr = payload.owners || payload.data?.owners || [];
+    const serverDriversMap = payload.maps?.drivers || {};
 
     // helper to find owner name by car number
     const findOwnerByCarNo = (carNo) => {
@@ -424,7 +425,7 @@ const StandingsScreen = ({ route }) => {
         d.manufacturer ||
         d.manufacturer_name ||
         "";
-      const teamColor = constructorColors[teamName] || "#000000";
+      const teamColor = constructorColors[teamName] || null;
       return {
         position: d.position ?? d.rank ?? null,
         carNo,
@@ -440,7 +441,14 @@ const StandingsScreen = ({ route }) => {
             `${d.driver_first_name || ""} ${d.driver_last_name || ""}`.trim(),
           firstName: d.driver_first_name || d.driver_first || "",
           lastName: d.driver_last_name || d.driver_last || "",
-          headshot: d.driver_image || d.headshot || null,
+          // Prefer server-provided map image keyed by nascar id, then fallback
+          headshot:
+            serverDriversMap[
+              d.driver_id?.toString() || d.driver_number?.toString()
+            ]?.image ||
+            d.driver_image ||
+            d.headshot ||
+            null,
         },
         team: {
           name: teamName,
@@ -534,18 +542,36 @@ const StandingsScreen = ({ route }) => {
     }
 
     return (
-      <Image
-        source={{ uri }}
+      <View
         style={[
           styles.driverImage,
           {
-            backgroundColor: teamColor + "50" || theme.border,
+            backgroundColor: teamColor + "50" || theme.background,
             borderWidth: 1,
             borderColor: teamColor || theme.border,
+            overflow: "hidden",
           },
         ]}
-        onError={() => setImageError(true)}
-      />
+      >
+        <Image
+          source={{ uri }}
+          style={[
+            {
+              width: "100%",
+            },
+            selectedSeries === "NASCAR"
+              ? {
+                  height: "150%",
+                  transform: [{ translateY: 1.5 }, { translateX: -2 }],
+                }
+              : {
+                  height: "100%",
+                },
+          ]}
+          resizeMode="cover"
+          onError={() => setImageError(true)}
+        />
+      </View>
     );
   };
 
