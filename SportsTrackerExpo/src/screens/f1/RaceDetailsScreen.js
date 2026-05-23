@@ -1420,80 +1420,79 @@ const RaceDetailsSessionCopyCard = ({
     .sort((a, b) => Number(a.position) - Number(b.position))
     .slice(0, 3);
 
-  const podium = (podiumSource.length > 0
-    ? podiumSource
-    : fallbackPodiumSource
+  const podium = (
+    podiumSource.length > 0 ? podiumSource : fallbackPodiumSource
   ).map((entry) => {
-      const pickArrayValue = (value) => {
-        if (Array.isArray(value)) {
-          return value[2] ?? value[1] ?? value[0] ?? null;
-        }
-        return value ?? null;
-      };
-      const driverNumber = entry?.driver_number ?? entry?.driverNumber ?? null;
-      const driver = findDriverInMaps(maps, driverNumber) || null;
-      const lapEntry = lapsByDriver?.[String(driverNumber)] || null;
-      const driverTime = lapEntry?.driver_time || null;
-      const lastLap = lapEntry?.lastLap || null;
-      const name =
-        driver?.full_name ||
-        driver?.name ||
-        driver?.displayName ||
-        driver?.longName ||
-        (driverNumber ? `#${driverNumber}` : "Driver");
-      const headshot =
-        driver?.headshot || driver?.headshot_url || driver?.headshotUrl || null;
-      const teamName =
-        DRIVER_TO_TEAM[String(driverNumber)] ||
-        driver?.team ||
-        driver?.team_name ||
-        "";
-      const teamColor =
-        TEAM_COLORS[teamName.replace(/ Racing$/i, "")] ||
-        TEAM_COLORS[teamName] ||
-        colors.primary;
+    const pickArrayValue = (value) => {
+      if (Array.isArray(value)) {
+        return value[2] ?? value[1] ?? value[0] ?? null;
+      }
+      return value ?? null;
+    };
+    const driverNumber = entry?.driver_number ?? entry?.driverNumber ?? null;
+    const driver = findDriverInMaps(maps, driverNumber) || null;
+    const lapEntry = lapsByDriver?.[String(driverNumber)] || null;
+    const driverTime = lapEntry?.driver_time || null;
+    const lastLap = lapEntry?.lastLap || null;
+    const name =
+      driver?.full_name ||
+      driver?.name ||
+      driver?.displayName ||
+      driver?.longName ||
+      (driverNumber ? `#${driverNumber}` : "Driver");
+    const headshot =
+      driver?.headshot || driver?.headshot_url || driver?.headshotUrl || null;
+    const teamName =
+      DRIVER_TO_TEAM[String(driverNumber)] ||
+      driver?.team ||
+      driver?.team_name ||
+      "";
+    const teamColor =
+      TEAM_COLORS[teamName.replace(/ Racing$/i, "")] ||
+      TEAM_COLORS[teamName] ||
+      colors.primary;
 
-      const resultDuration = pickArrayValue(entry?.duration);
-      const resultGap = pickArrayValue(entry?.gap_to_leader);
-      const fallbackDriverTime = driverTime?.time ?? null;
-      const fallbackBehind = driverTime?.behind ?? null;
+    const resultDuration = pickArrayValue(entry?.duration);
+    const resultGap = pickArrayValue(entry?.gap_to_leader);
+    const fallbackDriverTime = driverTime?.time ?? null;
+    const fallbackBehind = driverTime?.behind ?? null;
 
-      const durationToUse = resultDuration ?? fallbackDriverTime;
-      const behindToUse = resultGap ?? fallbackBehind;
-      const lapsVal =
-        entry?.number_of_laps ??
-        entry?.laps ??
-        entry?.lap_count ??
-        lastLap?.lap_number ??
-        lastLap?.lapNumber ??
-        null;
+    const durationToUse = resultDuration ?? fallbackDriverTime;
+    const behindToUse = resultGap ?? fallbackBehind;
+    const lapsVal =
+      entry?.number_of_laps ??
+      entry?.laps ??
+      entry?.lap_count ??
+      lastLap?.lap_number ??
+      lastLap?.lapNumber ??
+      null;
 
-      const behindIsLeader =
-        behindToUse === 0 || behindToUse === "0" || behindToUse === "0.000";
+    const behindIsLeader =
+      behindToUse === 0 || behindToUse === "0" || behindToUse === "0.000";
 
-      const behindDisplay = behindIsLeader
-        ? "Leader"
-        : behindToUse != null && behindToUse !== ""
-          ? (() => {
-              const value = String(behindToUse);
-              return value.startsWith("+") ? value : `+${value}`;
-            })()
-          : "-";
+    const behindDisplay = behindIsLeader
+      ? "Leader"
+      : behindToUse != null && behindToUse !== ""
+        ? (() => {
+            const value = String(behindToUse);
+            return value.startsWith("+") ? value : `+${value}`;
+          })()
+        : "-";
 
-      return {
-        position: Number(entry.position),
-        name,
-        headshot,
-        teamName,
-        teamColor,
-        duration:
-          durationToUse != null && durationToUse !== ""
-            ? formatLapTime(durationToUse)
-            : "-",
-        behindDisplay,
-        laps: lapsVal,
-      };
-    });
+    return {
+      position: Number(entry.position),
+      name,
+      headshot,
+      teamName,
+      teamColor,
+      duration:
+        durationToUse != null && durationToUse !== ""
+          ? formatLapTime(durationToUse)
+          : "-",
+      behindDisplay,
+      laps: lapsVal,
+    };
+  });
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
