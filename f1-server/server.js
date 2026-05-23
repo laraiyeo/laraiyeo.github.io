@@ -113,7 +113,10 @@ function getDriverIdentity(entry) {
     headshot_url:
       entry.headshot_url ?? entry.headshotUrl ?? entry.headshot ?? null,
     driver_id:
-      entry.driver_id ?? entry.driverId ?? entry.driver_key ?? entry.driverKey ??
+      entry.driver_id ??
+      entry.driverId ??
+      entry.driver_key ??
+      entry.driverKey ??
       null,
   };
 }
@@ -130,11 +133,12 @@ function mergeDriverMapEntry(target, source) {
   target[key] = {
     ...existing,
     ...Object.fromEntries(
-      Object.entries(source).filter(([, value]) => value != null && value !== ""),
+      Object.entries(source).filter(
+        ([, value]) => value != null && value !== "",
+      ),
     ),
     name: existing.name || source.name || source.full_name || null,
-    full_name:
-      existing.full_name || source.full_name || source.name || null,
+    full_name: existing.full_name || source.full_name || source.name || null,
     broadcast_name:
       existing.broadcast_name || source.broadcast_name || source.name || null,
     team_name: existing.team_name || source.team_name || null,
@@ -312,13 +316,11 @@ function buildPositionIntervals({
 
   for (const driverNumber of Object.keys(grouped)) {
     const snapshotsByLap = Object.create(null);
-    const driverRows = grouped[driverNumber]
-      .slice()
-      .sort((a, b) => {
-        const da = parseDateMs(a?.date || a?.timestamp || a?.t || null) || 0;
-        const db = parseDateMs(b?.date || b?.timestamp || b?.t || null) || 0;
-        return da - db;
-      });
+    const driverRows = grouped[driverNumber].slice().sort((a, b) => {
+      const da = parseDateMs(a?.date || a?.timestamp || a?.t || null) || 0;
+      const db = parseDateMs(b?.date || b?.timestamp || b?.t || null) || 0;
+      return da - db;
+    });
 
     driverRows.forEach((row, index) => {
       const snapshotMs = parseDateMs(
