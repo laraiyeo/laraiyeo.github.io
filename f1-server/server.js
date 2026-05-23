@@ -314,6 +314,21 @@ function buildPositionIntervals({
     grouped[driverNumber].push(row);
   }
 
+  if (
+    Object.keys(grouped).length === 0 &&
+    Array.isArray(positionsArr) &&
+    positionsArr.length > 0
+  ) {
+    for (const row of positionsArr) {
+      const driverNumber = String(
+        row?.driver_number || row?.driverNumber || row?.driver || "",
+      );
+      if (!driverNumber) continue;
+      if (!grouped[driverNumber]) grouped[driverNumber] = [];
+      grouped[driverNumber].push(row);
+    }
+  }
+
   for (const driverNumber of Object.keys(grouped)) {
     const snapshotsByLap = Object.create(null);
     const driverRows = grouped[driverNumber].slice().sort((a, b) => {
@@ -1753,10 +1768,9 @@ async function buildAndCacheSession(sessionKey, options = {}) {
     const resources = {};
     for (const name of resourceNames) {
       try {
-        // position should be fetched without a session filter so we can aggregate records
         let path;
         if (name === "position") {
-          path = `position`;
+          path = `position?session_key=${encodeURIComponent(sessionKey)}`;
         } else if (name === "laps") {
           // keep laps session-scoped for efficiency
           path = `${name}?session_key=${encodeURIComponent(sessionKey)}`;
