@@ -768,7 +768,10 @@ const NHLGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
-                  style={[nhlGridStyles.scoreLogoOverlay, { opacity: isFinished && !awayWins ? 0.55 : 1}]}
+                  style={[
+                    nhlGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !awayWins ? 0.55 : 1 },
+                  ]}
                   contentFit="contain"
                 />
               )}
@@ -777,7 +780,10 @@ const NHLGridCard = ({
           <Text
             style={[
               nhlGridStyles.teamAbbr,
-              { color: awayFav ? colors.primary : theme.text, opacity: isFinished && !awayWins ? 0.55 : 1 },
+              {
+                color: awayFav ? colors.primary : theme.text,
+                opacity: isFinished && !awayWins ? 0.55 : 1,
+              },
             ]}
           >
             {awayFav ? "★ " : ""}
@@ -785,7 +791,13 @@ const NHLGridCard = ({
           </Text>
           {awayRecord && (
             <Text
-              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 }]}
+              style={[
+                nhlGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                },
+              ]}
             >
               {awayRecord}
             </Text>
@@ -839,7 +851,10 @@ const NHLGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
-                  style={[nhlGridStyles.scoreLogoOverlay, { opacity: isFinished && !homeWins ? 0.55 : 1}]}
+                  style={[
+                    nhlGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !homeWins ? 0.55 : 1 },
+                  ]}
                   contentFit="contain"
                 />
               )}
@@ -848,7 +863,10 @@ const NHLGridCard = ({
           <Text
             style={[
               nhlGridStyles.teamAbbr,
-              { color: homeFav ? colors.primary : theme.text, opacity: isFinished && !homeWins ? 0.55 : 1 },
+              {
+                color: homeFav ? colors.primary : theme.text,
+                opacity: isFinished && !homeWins ? 0.55 : 1,
+              },
             ]}
           >
             {homeFav ? "★ " : ""}
@@ -856,7 +874,13 @@ const NHLGridCard = ({
           </Text>
           {homeRecord && (
             <Text
-              style={[nhlGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 }]}
+              style={[
+                nhlGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                },
+              ]}
             >
               {homeRecord}
             </Text>
@@ -1155,7 +1179,12 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
-                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !awayWins ? 0.55 : 1 }]}
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                                  },
+                                ]}
                                 contentFit="contain"
                               />
                             ) : (
@@ -1204,7 +1233,10 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 },
+                                  {
+                                    color: theme.textSecondary,
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                                  },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -1234,7 +1266,12 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
-                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                                  },
+                                ]}
                                 contentFit="contain"
                               />
                             ) : (
@@ -1283,7 +1320,10 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 },
+                                  {
+                                    color: theme.textSecondary,
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                                  },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -1491,7 +1531,13 @@ const NHLScoreboardScreen = ({ navigation }) => {
       if (!isFocusedRef.current) return;
 
       const isTodayFilter = String(filter) === getTodayDateStr();
-      if (!isTodayFilter) {
+
+      // Check if there are any live games on the selected date
+      const allGames = latestGroups.flatMap((g) => g.games);
+      const hasLiveGames = allGames.some((game) => isNhlGameLive(game));
+
+      // Only skip polling if it's not today AND there are no live games
+      if (!isTodayFilter && !hasLiveGames) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;

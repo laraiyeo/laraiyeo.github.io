@@ -36,6 +36,7 @@ export class MLBService {
     "New York Yankees": "nyy",
     "New York Mets": "nym",
     Athletics: "oak",
+    "Oakland Athletics": "oak",
     "Philadelphia Phillies": "phi",
     "Pittsburgh Pirates": "pit",
     "San Diego Padres": "sd",

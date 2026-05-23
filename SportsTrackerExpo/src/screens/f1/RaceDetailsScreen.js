@@ -1358,6 +1358,7 @@ const RaceDetailsSessionCopyCard = ({
   session,
   meeting,
   sessionResults,
+  positions,
   maps,
   lapsByDriver,
   colors,
@@ -1408,11 +1409,39 @@ const RaceDetailsSessionCopyCard = ({
     .filter(Boolean)
     .join("  •  ");
 
-  const podium = [...(sessionResults || [])]
+  const podiumSource = [...(sessionResults || [])]
     .filter((entry) => entry?.position != null)
     .sort((a, b) => Number(a.position) - Number(b.position))
+    .slice(0, 3);
+
+  const positionEntries = Object.entries(positions || {})
+    .flatMap(([driverNumber, posEntry]) => {
+      let records = posEntry;
+
+      if (!Array.isArray(records)) {
+        if (posEntry?.record) records = posEntry.record;
+        else if (posEntry?.records) records = posEntry.records;
+        else records = [];
+      }
+
+      if (!records.length) return [];
+
+      const firstRecord = records[0] || {};
+      const position = Number(firstRecord?.position ?? firstRecord?.pos);
+      if (!Number.isFinite(position)) return [];
+
+      return [{ position, driverNumber }];
+    })
+    .sort((a, b) => Number(a.position) - Number(b.position))
     .slice(0, 3)
-    .map((entry) => {
+    .map((entry) => ({
+      position: entry.position,
+      driver_number: entry.driverNumber,
+      current_position: entry.position,
+    }));
+
+  const podium = (podiumSource.length > 0 ? podiumSource : positionEntries).map(
+    (entry) => {
       const pickArrayValue = (value) => {
         if (Array.isArray(value)) {
           return value[2] ?? value[1] ?? value[0] ?? null;
@@ -1482,7 +1511,8 @@ const RaceDetailsSessionCopyCard = ({
         behindDisplay,
         laps: lapsVal,
       };
-    });
+    },
+  );
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
@@ -1781,6 +1811,8 @@ const RaceDetailsScreen = () => {
   const flowChartScrollXRef = useRef(0);
   const compareFlowChartScrollRef = useRef(null);
   const compareFlowChartScrollXRef = useRef(0);
+  const selectedSessionKeyRef = useRef(null);
+  const sessionLiveRef = useRef(false);
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1807,6 +1839,10 @@ const RaceDetailsScreen = () => {
       setSelectedSessionKey(sessionKey);
     }
   }, [sessionKey]);
+
+  useEffect(() => {
+    selectedSessionKeyRef.current = selectedSessionKey;
+  }, [selectedSessionKey]);
 
   const { viewerData, isJoined } = useGamePresence(sessionKey || meetingKey);
 
@@ -1875,16 +1911,21 @@ const RaceDetailsScreen = () => {
   }, [sessionKey, meetingKey]);
 
   useEffect(() => {
-    if (!selectedSessionKey || !session) return undefined;
+    if (!selectedSessionKey) return undefined;
 
-    const intervalId = setInterval(() => {
-      if (isSessionLive(session)) {
-        fetchSessionByKey(selectedSessionKey, { silent: true });
+    const pollSession = () => {
+      if (sessionLiveRef.current) {
+        fetchSessionByKey(selectedSessionKeyRef.current || selectedSessionKey, {
+          silent: true,
+        });
       }
-    }, 5000);
+    };
+
+    pollSession();
+    const intervalId = setInterval(pollSession, 5000);
 
     return () => clearInterval(intervalId);
-  }, [selectedSessionKey, session?.date_start, session?.date_end]);
+  }, [selectedSessionKey]);
 
   // Auto-select 1st and 2nd position drivers for Compare tab
   useEffect(() => {
@@ -1956,6 +1997,9 @@ const RaceDetailsScreen = () => {
   const overtakes = Array.isArray(payload.overtakes) ? payload.overtakes : [];
   const pits = Array.isArray(payload.pits) ? payload.pits : [];
   const stints = Array.isArray(payload.stints) ? payload.stints : [];
+  useEffect(() => {
+    sessionLiveRef.current = isSessionLive(session);
+  }, [session?.date_start, session?.date_end]);
   const EVENTS_PER_PAGE = 50;
   const STINT_NAME_COL_W = 152;
   const STINT_ROW_HEIGHT = 46;
@@ -6378,6 +6422,7 @@ const RaceDetailsScreen = () => {
         session={session}
         meeting={effectiveMeeting}
         sessionResults={sessionResults}
+        positions={payload?.positions || {}}
         maps={payload?.maps}
         lapsByDriver={payload?.laps?.byDriver}
         colors={colors}

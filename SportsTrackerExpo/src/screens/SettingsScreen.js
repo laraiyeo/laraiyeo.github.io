@@ -1581,8 +1581,8 @@ const SettingsScreen = ({ navigation }) => {
                     You're in a universe where causality flows backward, and a
                     species communicates using Fibonacci-encoded qubits. They
                     challenge you to send back the first English word whose
-                    letters match the numbers 3, 1, 4, 1, 5 (the first digits of
-                    pi), with A=1, B=2, ..., Z=26. What word do you send?
+                    letters match the numbers 8, 5, 1, 18, 20 (one of the most important
+                    organs), with A=1, B=2, ..., Z=26. What word do you send?
                   </Text>
                 </View>
 
@@ -1705,6 +1705,7 @@ const SettingsScreen = ({ navigation }) => {
           </View>
 
           {/* Chat Settings Section */}
+          {supabaseUser ? (
           <View
             style={[
               styles.section,
@@ -1800,6 +1801,7 @@ const SettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+          ) : null}
 
           {/* Favorites Section */}
           <View

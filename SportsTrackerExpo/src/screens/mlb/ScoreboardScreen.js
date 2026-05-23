@@ -312,7 +312,8 @@ const getPollingInterval = (groups) => {
 
   for (const game of allGames) {
     // Live game → fast
-    if (game.isLive || game.statusType === "I" || game.statusType === "IR") return INTERVAL_FAST;
+    if (game.isLive || game.statusType === "I" || game.statusType === "IR")
+      return INTERVAL_FAST;
     // Scheduled and starts within 5 min → fast
     const isScheduled =
       !game.isCompleted &&
@@ -429,7 +430,8 @@ const getTeamProbablePitcher = (game, side) => {
   );
 };
 
-const isMlbGameLive = (game) => !!(game?.isLive || game?.statusType === "I" || game?.statusType === "IR");
+const isMlbGameLive = (game) =>
+  !!(game?.isLive || game?.statusType === "I" || game?.statusType === "IR");
 
 const isMlbGameFinished = (game) =>
   !!(
@@ -509,7 +511,8 @@ const getGroupPitcherDebugSummary = (group) => {
   let withBothProbables = 0;
 
   group.games.forEach((game) => {
-    const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
+    const isLive =
+      game.isLive || game.statusType === "I" || game.statusType === "IR";
     const isFinished =
       game.isCompleted ||
       ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
@@ -792,7 +795,8 @@ const MLBGridCard = ({
   ).toUpperCase();
 
   const { time, ampm } = formatLocalTime(game.date);
-  const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
+  const isLive =
+    game.isLive || game.statusType === "I" || game.statusType === "IR";
   const isFinished =
     !isLive &&
     (game.isCompleted ||
@@ -880,10 +884,16 @@ const MLBGridCard = ({
           </Text>
         ) : (
           <Text
-            style={[mlbGridStyles.statusText, { color: theme.text, fontWeight: "800" }]}
+            style={[
+              mlbGridStyles.statusText,
+              { color: theme.text, fontWeight: "800" },
+            ]}
             numberOfLines={1}
           >
-            {time} <Text style={{ color: theme.textSecondary, fontWeight: "500" }}>{ampm}</Text>
+            {time}{" "}
+            <Text style={{ color: theme.textSecondary, fontWeight: "500" }}>
+              {ampm}
+            </Text>
           </Text>
         )}
         <LiveViewerBadge
@@ -940,7 +950,10 @@ const MLBGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
-                  style={[mlbGridStyles.scoreLogoOverlay, { opacity: isFinished && !awayWins ? 0.55 : 1}]}
+                  style={[
+                    mlbGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !awayWins ? 0.55 : 1 },
+                  ]}
                   resizeMode="contain"
                 />
               )}
@@ -949,7 +962,10 @@ const MLBGridCard = ({
           <Text
             style={[
               mlbGridStyles.teamAbbr,
-              { color: awayFav ? colors.primary : theme.text, opacity: isFinished && !awayWins ? 0.55 : 1 },
+              {
+                color: awayFav ? colors.primary : theme.text,
+                opacity: isFinished && !awayWins ? 0.55 : 1,
+              },
             ]}
           >
             {awayFav ? "★ " : ""}
@@ -957,7 +973,13 @@ const MLBGridCard = ({
           </Text>
           {away.record ? (
             <Text
-              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 }]}
+              style={[
+                mlbGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                },
+              ]}
             >
               {away.record}
             </Text>
@@ -1019,7 +1041,10 @@ const MLBGridCard = ({
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
-                  style={[mlbGridStyles.scoreLogoOverlay, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
+                  style={[
+                    mlbGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !homeWins ? 0.55 : 1 },
+                  ]}
                   resizeMode="contain"
                 />
               )}
@@ -1028,7 +1053,10 @@ const MLBGridCard = ({
           <Text
             style={[
               mlbGridStyles.teamAbbr,
-              { color: homeFav ? colors.primary : theme.text, opacity: isFinished && !homeWins ? 0.55 : 1 },
+              {
+                color: homeFav ? colors.primary : theme.text,
+                opacity: isFinished && !homeWins ? 0.55 : 1,
+              },
             ]}
           >
             {homeFav ? "★ " : ""}
@@ -1036,7 +1064,13 @@ const MLBGridCard = ({
           </Text>
           {home.record ? (
             <Text
-              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 }]}
+              style={[
+                mlbGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                },
+              ]}
             >
               {home.record}
             </Text>
@@ -1349,7 +1383,10 @@ const ScoreboardSection = ({
                 const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
                 const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
 
-                const isLive = game.isLive || game.statusType === "I" || game.statusType === "IR";
+                const isLive =
+                  game.isLive ||
+                  game.statusType === "I" ||
+                  game.statusType === "IR";
                 const isFinished =
                   game.isCompleted ||
                   [
@@ -1523,7 +1560,12 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: awayLogo }}
-                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !awayWins ? 0.55 : 1 }]}
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                                  },
+                                ]}
                                 resizeMode="contain"
                               />
                             ) : (
@@ -1564,7 +1606,10 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary, opacity: isFinished && !awayWins ? 0.55 : 1 },
+                                  {
+                                    color: theme.textSecondary,
+                                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                                  },
                                 ]}
                               >
                                 {away.record}
@@ -1594,7 +1639,12 @@ const ScoreboardSection = ({
                               <Image
                                 cachePolicy="memory-disk"
                                 source={{ uri: homeLogo }}
-                                style={[styles.teamLogoSmallImg, { opacity: isFinished && !homeWins ? 0.55 : 1 }]}
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                                  },
+                                ]}
                                 resizeMode="contain"
                               />
                             ) : (
@@ -1635,7 +1685,10 @@ const ScoreboardSection = ({
                               <Text
                                 style={[
                                   styles.teamRecord,
-                                  { color: theme.textSecondary, opacity: isFinished && !homeWins ? 0.55 : 1 },
+                                  {
+                                    color: theme.textSecondary,
+                                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                                  },
                                 ]}
                               >
                                 {home.record}
@@ -1931,7 +1984,12 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
           // Sort: live → scheduled → finished, then by time within group
           const getStatusPriority = (game) => {
-            if (game.isLive || game.statusType === "I" || game.statusType === "IR") return 1;
+            if (
+              game.isLive ||
+              game.statusType === "I" ||
+              game.statusType === "IR"
+            )
+              return 1;
             if (
               game.isCompleted ||
               ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
@@ -2045,7 +2103,16 @@ const MLBScoreboardScreen = ({ navigation }) => {
         filter === "today" ||
         (/^\d{8}$/.test(String(filter)) &&
           String(filter) === getTodayDateStr());
-      if (!isTodayFilter) {
+
+      // Check if there are any live games on the selected date
+      const allGames = latestGroups.flatMap((g) => g.games);
+      const hasLiveGames = allGames.some(
+        (game) =>
+          game.isLive || game.statusType === "I" || game.statusType === "IR",
+      );
+
+      // Only skip polling if it's not today AND there are no live games
+      if (!isTodayFilter && !hasLiveGames) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;

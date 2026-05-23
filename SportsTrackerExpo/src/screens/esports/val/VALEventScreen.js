@@ -5325,7 +5325,6 @@ const VALEventScreen = ({ navigation, route }) => {
                                 {mapName}
                               </Text>
                               {hasMore && (
-                                <TouchableOpacity style={styles.mapCompsToggle}>
                                   <Ionicons
                                     name={
                                       isExpanded ? "chevron-up" : "chevron-down"
@@ -5333,7 +5332,6 @@ const VALEventScreen = ({ navigation, route }) => {
                                     size={18}
                                     color={colors.primary}
                                   />
-                                </TouchableOpacity>
                               )}
                             </Wrapper>
 

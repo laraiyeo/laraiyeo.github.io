@@ -102,9 +102,7 @@ export class NBAService extends BaseCacheService {
       async () => {
         const url =
           "https://cdn.espn.com/core/nba/standings?xhr=1";
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
+        const response = await fetch(url);
         const data = await response.json();
         return data;
       },

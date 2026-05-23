@@ -486,7 +486,7 @@ export const EnglandServiceEnhanced = {
 
         console.log("Fetching standings from:", STANDINGS_URL);
         const headers = this.getBrowserHeaders();
-        const response = await fetch(STANDINGS_URL, { headers });
+        const response = await fetch(STANDINGS_URL);
         const standingsText = await response.text();
 
         console.log(

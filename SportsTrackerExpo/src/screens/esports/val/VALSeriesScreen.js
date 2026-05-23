@@ -3336,7 +3336,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                 {series.team1?.name || "Team 1"}
                               </Text>
                             </View>
-                            {team1Players.map((player) => (
+                            {team1Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
                               <View
                                 key={player.playerId}
                                 style={[
@@ -3543,7 +3543,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                         },
                                       ]}
                                     >
-                                      {player.kills - player.deaths}
+                                      {player.kills - player.deaths > 0 ? "+" : null}{player.kills - player.deaths}
                                     </Text>
                                     <Text
                                       style={[
@@ -3641,7 +3641,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                 {series.team2?.name || "Team 2"}
                               </Text>
                             </View>
-                            {team2Players.map((player) => (
+                            {team2Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
                               <View
                                 key={player.playerId}
                                 style={[
@@ -3848,7 +3848,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                         },
                                       ]}
                                     >
-                                      {player.kills - player.deaths}
+                                      {player.kills - player.deaths > 0 ? "+" : null}{player.kills - player.deaths}
                                     </Text>
                                     <Text
                                       style={[

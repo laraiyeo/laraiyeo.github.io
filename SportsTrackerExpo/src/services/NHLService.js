@@ -437,7 +437,7 @@ export class NHLService extends BaseCacheService {
         const headers = this.getBrowserHeaders();
 
         try {
-          const nhlUrl = `https://corsproxy.io/?url=${this.NHL_API_BASE}/standings/now`;
+          const nhlUrl = `${this.BACKEND_URL}/nhl/standings/`;
           // Try direct fetch first
           try {
             const res = await fetch(nhlUrl, { headers });

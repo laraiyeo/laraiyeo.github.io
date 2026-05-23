@@ -553,7 +553,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
         onPress={() => {
           const routeName = getDetailsRouteFor(item, sport);
           navigation.navigate(routeName, {
-            gameId: item.id,
+            ...(sport === "mlb" ? { gamePk: item.id } : { gameId: item.id }),
             competitionCode: item.competitionCode || null,
             sport,
           });

@@ -6407,7 +6407,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         ) || "#007bff";
     } else if (selectedPlayer.teamType === "away") {
       teamColor =
-        uropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
           awayTeamData?.team,
         ) || "#28a745";
     }

@@ -355,12 +355,14 @@ export class BaseCacheService {
   }
 
   /**
-   * Get browser-like headers for compression (for fetch requests)
+   * Get browser-like headers for fetch requests
+   * Note: We omit Accept-Encoding headers because React Native's fetch doesn't
+   * automatically decompress gzip/deflate/brotli responses like browsers do.
+   * Without these headers, the API will return uncompressed JSON.
    */
   static getBrowserHeaders() {
     return {
       Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
       "Accept-Language": "en-US,en;q=0.9",
       "Cache-Control": "no-cache",
       "User-Agent":

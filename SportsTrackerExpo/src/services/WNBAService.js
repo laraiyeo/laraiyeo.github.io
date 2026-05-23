@@ -80,7 +80,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    }, 'scoreboard');
+    }, false, 'scheduled');
   }
 
   // Fetch game details using ESPN summary
@@ -92,7 +92,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(this.convertToHttps(url), { headers });
       const data = await res.json();
       return data;
-    }, 'game_details');
+    }, false, 'live');
   }
 
   // Fetch standings
@@ -101,10 +101,10 @@ export class WNBAService extends BaseCacheService {
     return this.getCachedData(cacheKey, async () => {
       const url = 'https://cdn.espn.com/core/wnba/standings?xhr=1';
       const headers = this.getBrowserHeaders();
-      const res = await fetch(url, { headers });
+      const res = await fetch(url);
       const data = await res.json();
       return data;
-    }, 'standings');
+    }, false, 'static');
   }
 
   // Fetch teams
@@ -115,7 +115,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(this.TEAMS_API_URL, { headers });
       const data = await res.json();
       return data;
-    }, 'teams');
+    }, false, 'static');
   }
 
   // Fetch team details
@@ -127,7 +127,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    }, 'team_details');
+    }, false, 'static');
   }
 
   // Fetch team roster
@@ -139,7 +139,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    }, 'team_roster');
+    }, false, 'static');
   }
 
   // Fetch athlete details
@@ -151,7 +151,7 @@ export class WNBAService extends BaseCacheService {
       const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    }, 'athlete_details');
+    }, false, 'static');
   }
 
   // Format ESPN game structure into mobile-friendly shape

@@ -3864,7 +3864,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                               {series.team1?.shortName || "Team 1"}
                             </Text>
                           </View>
-                          {team1Players.map((player) => (
+                          {team1Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
                             <View
                               key={player.playerId}
                               style={[
@@ -4142,7 +4142,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                               {series.team2?.shortName || "Team 2"}
                             </Text>
                           </View>
-                          {team2Players.map((player) => (
+                          {team2Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
                             <View
                               key={player.playerId}
                               style={[

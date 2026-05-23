@@ -393,9 +393,9 @@ const Top5TabNavigator = () => {
         tabBarIcon: ({ color, size }) => {
           const icons = {
             Matches: "football-outline",
-            Leagues: "trophy-outline",
-            Teams: "people-outline",
-            Search: "search-outline",
+            Leagues: "trophy",
+            Teams: "people",
+            Search: "search",
           };
           return (
             <Ionicons

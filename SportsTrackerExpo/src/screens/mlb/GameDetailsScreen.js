@@ -149,14 +149,20 @@ const TeamColumn = ({
           <Image
             cachePolicy="memory-disk"
             source={{ uri: logo }}
-            style={[styles.teamLogo, { opacity: isFinished ? isWinner ? 1 : 0.55 : 1 }]}
+            style={[
+              styles.teamLogo,
+              { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
+            ]}
             resizeMode="contain"
           />
         ) : (
           <View
             style={[
               styles.teamLogoPlaceholder,
-              { backgroundColor: theme.surfaceSecondary, opacity: isWinner ? 0.6 : 0.3 },
+              {
+                backgroundColor: theme.surfaceSecondary,
+                opacity: isWinner ? 0.6 : 0.3,
+              },
             ]}
           >
             <Text
@@ -170,7 +176,13 @@ const TeamColumn = ({
           </View>
         )}
         <Text
-          style={[styles.teamName, { color: theme.text, opacity: isFinished ? isWinner ? 1 : 0.55 : 1 }]}
+          style={[
+            styles.teamName,
+            {
+              color: theme.text,
+              opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+            },
+          ]}
           numberOfLines={2}
         >
           {team?.name || "—"}
@@ -5333,7 +5345,12 @@ const PlayDetailModal = ({
                       <View
                         style={[
                           modalStyles.pitchFilterNumber,
-                          { backgroundColor: opt.color, borderColor: active ? badgeTextColor : "transparent" },
+                          {
+                            backgroundColor: opt.color,
+                            borderColor: active
+                              ? badgeTextColor
+                              : "transparent",
+                          },
                         ]}
                       >
                         <Text
@@ -5874,6 +5891,26 @@ const getTextOnColor = (hex) => {
   return lum > 0.45 ? "#000000" : "#ffffff";
 };
 
+const getTextOnGradient = (leftHex, rightHex) => {
+  if (
+    !leftHex ||
+    !rightHex ||
+    !leftHex.startsWith("#") ||
+    !rightHex.startsWith("#")
+  ) {
+    return "#ffffff";
+  }
+  const parse = (hex) => {
+    const c = hex.replace("#", "");
+    const r = parseInt(c.substr(0, 2), 16) / 255;
+    const g = parseInt(c.substr(2, 2), 16) / 255;
+    const b = parseInt(c.substr(4, 2), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const avgLum = (parse(leftHex) + parse(rightHex)) / 2;
+  return avgLum > 0.45 ? "#000000" : "#ffffff";
+};
+
 // ─── Ball / Strike circle row ────────────────────────────────────────────────
 const CountIndicator = ({ balls, strikes, theme, onColor }) => {
   // On scoring cards use the contrast color; otherwise use semantic colors
@@ -5942,13 +5979,23 @@ const PlaysPanel = ({
   colors,
 }) => {
   const [selectedPlay, setSelectedPlay] = useState(null);
+  const [playerFilterId, setPlayerFilterId] = useState(null);
+  const [playerModalVisible, setPlayerModalVisible] = useState(false);
 
   // Innings sorted descending (most recent first)
   const innings = useMemo(() => {
+    const playsSource = allPlays ?? [];
+    const filtered = playerFilterId
+      ? playsSource.filter(
+          (p) =>
+            p?.matchup?.batter?.id === playerFilterId ||
+            p?.matchup?.pitcher?.id === playerFilterId,
+        )
+      : playsSource;
     return [
-      ...new Set((allPlays ?? []).map((p) => p?.about?.inning).filter(Boolean)),
+      ...new Set(filtered.map((p) => p?.about?.inning).filter(Boolean)),
     ].sort((a, b) => b - a);
-  }, [allPlays]);
+  }, [allPlays, playerFilterId]);
 
   // Auto-select the most recent inning on load / when innings change
   const [inningFilter, setInningFilter] = useState(null);
@@ -5964,11 +6011,224 @@ const PlaysPanel = ({
     if (inningFilter == null) return [];
     return [...(allPlays ?? [])]
       .filter((p) => p?.about?.inning === inningFilter)
+      .filter((p) =>
+        playerFilterId
+          ? p?.matchup?.batter?.id === playerFilterId ||
+            p?.matchup?.pitcher?.id === playerFilterId
+          : true,
+      )
       .reverse();
-  }, [allPlays, inningFilter]);
+  }, [allPlays, inningFilter, playerFilterId]);
+
+  // Players that appear in plays (batter or pitcher)
+  const playersInPlays = useMemo(() => {
+    const ids = new Set();
+    for (const p of allPlays ?? []) {
+      const bid = p?.matchup?.batter?.id;
+      const pid = p?.matchup?.pitcher?.id;
+      if (bid) ids.add(bid);
+      if (pid) ids.add(pid);
+    }
+    const arr = [];
+    ids.forEach((id) => {
+      const info = resolvePlayer(playersMap, id) || { id };
+      arr.push({ id, info });
+    });
+    // sort by name
+    return arr.sort((a, b) =>
+      (a.info?.fullName || "").localeCompare(b.info?.fullName || ""),
+    );
+  }, [allPlays, playersMap]);
+
+  const getPlayerSide = useCallback(
+    (playerId) => {
+      if (!boxscore || !playerId) return null;
+      const key = `ID${playerId}`;
+      if (boxscore?.teams?.away?.players?.[key]) return "away";
+      if (boxscore?.teams?.home?.players?.[key]) return "home";
+      // fallback: search values
+      if (
+        Object.values(boxscore?.teams?.away?.players ?? {}).some(
+          (pl) => pl?.person?.id === playerId || pl?.id === playerId,
+        )
+      )
+        return "away";
+      if (
+        Object.values(boxscore?.teams?.home?.players ?? {}).some(
+          (pl) => pl?.person?.id === playerId || pl?.id === playerId,
+        )
+      )
+        return "home";
+      return null;
+    },
+    [boxscore],
+  );
+
+  const inningScoringMap = useMemo(() => {
+    const map = new Map();
+    for (const play of allPlays ?? []) {
+      if (play?.about?.isScoringPlay !== true) continue;
+      // if player filter is active, only consider scoring plays involving that player
+      if (
+        playerFilterId &&
+        !(
+          play?.matchup?.batter?.id === playerFilterId ||
+          play?.matchup?.pitcher?.id === playerFilterId
+        )
+      )
+        continue;
+      const inning = play?.about?.inning;
+      if (inning == null) continue;
+      const existing = map.get(inning) ?? {
+        awayScored: false,
+        homeScored: false,
+      };
+      if (play?.about?.isTopInning !== false) {
+        existing.awayScored = true;
+      } else {
+        existing.homeScored = true;
+      }
+      map.set(inning, existing);
+    }
+    return map;
+  }, [allPlays, playerFilterId]);
 
   return (
     <View style={{ paddingBottom: 24 }}>
+      {/* ── Player filter (new) ── */}
+      <View style={plStyles.playerFilterSection}>
+        <View style={plStyles.playerFilterRow}>
+          <Text style={[plStyles.playerFilterLabel, { color: theme.text }]}>
+            Player Filter
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setPlayerModalVisible(true)}
+            style={[
+              plStyles.playerSelect,
+              {
+                borderColor: playerFilterId
+                  ? getPlayerSide(playerFilterId) === "away"
+                    ? awayColor
+                    : homeColor
+                  : theme.border,
+              },
+            ]}
+          >
+            {playerFilterId ? (
+              <>
+                <Image
+                  source={{ uri: playerHeadshotUrl(playerFilterId) }}
+                  style={[plStyles.playerHeadshotSmall, { marginRight: 8 }]}
+                />
+                <Text
+                  style={[plStyles.playerName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {resolvePlayer(playersMap, playerFilterId)?.fullName ??
+                    "Player"}
+                </Text>
+              </>
+            ) : (
+              <Text
+                style={[
+                  plStyles.playerSelectLabel,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                None
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Modal visible={playerModalVisible} animationType="slide" transparent>
+        <View style={plStyles.playerModalWrap}>
+          <View
+            style={[plStyles.playerModal, { backgroundColor: theme.surface }]}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setPlayerFilterId(null);
+                setPlayerModalVisible(false);
+              }}
+              style={plStyles.playerModalItem}
+            >
+              <Text style={{ color: theme.text, fontWeight: "700" }}>None</Text>
+            </TouchableOpacity>
+            <ScrollView>
+              {playersInPlays.map((p) => {
+                const side = getPlayerSide(p.id);
+                const teamColor =
+                  side === "away"
+                    ? awayColor
+                    : side === "home"
+                      ? homeColor
+                      : theme.border;
+                return (
+                  <TouchableOpacity
+                    key={String(p.id)}
+                    style={plStyles.playerModalItem}
+                    onPress={() => {
+                      setPlayerFilterId(p.id);
+                      setPlayerModalVisible(false);
+                      // auto-select most recent inning containing this player's plays
+                      const playerInnings = [
+                        ...new Set(
+                          (allPlays ?? [])
+                            .filter(
+                              (pp) =>
+                                pp?.matchup?.batter?.id === p.id ||
+                                pp?.matchup?.pitcher?.id === p.id,
+                            )
+                            .map((pp) => pp?.about?.inning)
+                            .filter(Boolean),
+                        ),
+                      ].sort((a, b) => b - a);
+                      if (playerInnings.length > 0)
+                        setInningFilter(playerInnings[0]);
+                    }}
+                  >
+                    <View
+                      style={[
+                        plStyles.playerModalAvatar,
+                        { borderColor: teamColor },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: playerHeadshotUrl(p.id) }}
+                        style={[
+                          plStyles.playerHeadshotSmall,
+                          {
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            marginRight: 0,
+                            alignSelf: "center",
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={{ color: theme.text, marginLeft: 8 }}>
+                      {p.info?.fullName ?? `Player ${p.id}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setPlayerModalVisible(false)}
+              style={plStyles.playerModalClose}
+            >
+              <Text style={{ color: theme.error, fontWeight: "700" }}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Inning filter ── styled like the Away/Home section toggle */}
       <ScrollView
         horizontal
@@ -5978,18 +6238,94 @@ const PlaysPanel = ({
       >
         {innings.map((item) => {
           const active = inningFilter === item;
+          const scoring = inningScoringMap.get(item);
+          const awayScored = !!scoring?.awayScored;
+          const homeScored = !!scoring?.homeScored;
+          const hasScoring = awayScored || homeScored;
+          const hasGradient = awayScored && homeScored;
+          const solidBg = awayScored
+            ? awayColor
+            : homeScored
+              ? homeColor
+              : null;
+          const scoringTextColor = hasGradient
+            ? getTextOnGradient(awayColor, homeColor)
+            : solidBg
+              ? getTextOnColor(solidBg)
+              : null;
+          const chipLabelColor = scoringTextColor
+            ? scoringTextColor
+            : active
+              ? theme.text
+              : theme.textSecondary;
+
           return (
             <TouchableOpacity
               key={String(item)}
               onPress={() => setInningFilter(item)}
-              style={[plStyles.filterChip, active && plStyles.filterChipActive]}
+              style={[
+                plStyles.filterChip,
+                active && !hasScoring && plStyles.filterChipActive,
+                active && {
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  overflow: "hidden",
+                },
+              ]}
               activeOpacity={0.8}
             >
+              {!hasGradient && !!solidBg && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    plStyles.filterChipBgLayer,
+                    {
+                      backgroundColor: solidBg,
+                      opacity: active ? 1 : 0.5,
+                    },
+                  ]}
+                />
+              )}
+              {hasGradient && (
+                <Svg
+                  style={[
+                    plStyles.filterChipGradientSvg,
+                    { opacity: active ? 1 : 0.5 },
+                  ]}
+                  width="180%"
+                  height="210%"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  pointerEvents="none"
+                >
+                  <Defs>
+                    <LinearGradient
+                      id={`inningChipGrad_${String(item)}`}
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
+                      <Stop offset="0%" stopColor={awayColor} />
+                      <Stop offset="70%" stopColor={homeColor} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect
+                    x="0"
+                    y="0"
+                    width="100"
+                    height="100"
+                    rx="8"
+                    ry="8"
+                    fill={`url(#inningChipGrad_${String(item)})`}
+                  />
+                </Svg>
+              )}
               <Text
                 style={[
                   plStyles.filterChipLabel,
                   {
-                    color: active ? theme.text : theme.textSecondary,
+                    color: chipLabelColor,
                   },
                 ]}
               >
@@ -6275,11 +6611,90 @@ const plStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
+  playerFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  playerFilterSection: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: -2,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.06)",
+    padding: 8,
+  },
+  playerFilterLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  playerSelect: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  playerSelectLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  playerHeadshotSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  playerHeadshotInline: {
+    marginRight: 8,
+  },
+  playerName: {
+    fontSize: 13,
+    fontWeight: "600",
+    maxWidth: 140,
+  },
+  playerModalWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  playerModal: {
+    width: "90%",
+    maxHeight: "70%",
+    borderRadius: 12,
+    padding: 12,
+  },
+  playerModalItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.04)",
+  },
+  playerModalAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerModalClose: {
+    alignSelf: "flex-end",
+    marginTop: 8,
+  },
   filterChip: {
     alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
+    overflow: "hidden",
   },
   filterChipActive: {
     backgroundColor: "rgba(128,128,128,0.25)",
@@ -6287,6 +6702,20 @@ const plStyles = StyleSheet.create({
   filterChipLabel: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  filterChipBgLayer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  filterChipGradientSvg: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   // ── play cards ──
   playCard: {
@@ -9123,7 +9552,10 @@ const SeriesGameCard = ({
             {awayLogo ? (
               <Image
                 source={{ uri: awayLogo }}
-                style={[seriesStyles.matchTeamLogo, { opacity: !opacity ? 1 : awayWin ? 1 : 0.55 }]}
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  { opacity: !opacity ? 1 : awayWin ? 1 : 0.55 },
+                ]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -9136,7 +9568,13 @@ const SeriesGameCard = ({
                 ]}
               >
                 <Text
-                  style={[seriesStyles.logoFallbackText, { color: theme.text, opacity: !opacity ? 1 : awayWin ? 1 : 0.55 }]}
+                  style={[
+                    seriesStyles.logoFallbackText,
+                    {
+                      color: theme.text,
+                      opacity: !opacity ? 1 : awayWin ? 1 : 0.55,
+                    },
+                  ]}
                 >
                   {String(awayInfo?.abbreviation || "A").charAt(0)}
                 </Text>
@@ -9300,7 +9738,10 @@ const SeriesGameCard = ({
             {homeLogo ? (
               <Image
                 source={{ uri: homeLogo }}
-                style={[seriesStyles.matchTeamLogo, { opacity: !opacity ? 1 : homeWin ? 1 : 0.55 }]}
+                style={[
+                  seriesStyles.matchTeamLogo,
+                  { opacity: !opacity ? 1 : homeWin ? 1 : 0.55 },
+                ]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -10581,11 +11022,32 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   source={{
                     uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
                   }}
-                  style={[styles.miniLogo, { opacity: isGameFinished ? (runItBackActive ? displayedAwayWinner : awayWinner) ? 1 : 0.55 : 1 }]}
+                  style={[
+                    styles.miniLogo,
+                    {
+                      opacity: isGameFinished
+                        ? (runItBackActive ? displayedAwayWinner : awayWinner)
+                          ? 1
+                          : 0.55
+                        : 1,
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               ) : null}
-              <Text style={[styles.miniAbbr, { color: awayColor, opacity: isGameFinished ? (runItBackActive ? displayedAwayWinner : awayWinner) ? 1 : 0.55 : 1 }]}>
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color: awayColor,
+                    opacity: isGameFinished
+                      ? (runItBackActive ? displayedAwayWinner : awayWinner)
+                        ? 1
+                        : 0.55
+                      : 1,
+                  },
+                ]}
+              >
                 {awayTeam?.abbreviation ?? ""}
               </Text>
               <Text
@@ -10696,7 +11158,19 @@ const GameDetailsScreen = ({ navigation, route }) => {
               >
                 {displayedHomeScore ?? ""}
               </Text>
-              <Text style={[styles.miniAbbr, { color: homeColor, opacity: isGameFinished ? (runItBackActive ? displayedHomeWinner : homeWinner) ? 1 : 0.55 : 1 }]}>
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color: homeColor,
+                    opacity: isGameFinished
+                      ? (runItBackActive ? displayedHomeWinner : homeWinner)
+                        ? 1
+                        : 0.55
+                      : 1,
+                  },
+                ]}
+              >
                 {homeTeam?.abbreviation ?? ""}
               </Text>
               {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
@@ -10705,7 +11179,16 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   source={{
                     uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
                   }}
-                  style={[styles.miniLogo, { opacity: isGameFinished ? (runItBackActive ? displayedHomeWinner : homeWinner) ? 1 : 0.55 : 1 }]}
+                  style={[
+                    styles.miniLogo,
+                    {
+                      opacity: isGameFinished
+                        ? (runItBackActive ? displayedHomeWinner : homeWinner)
+                          ? 1
+                          : 0.55
+                        : 1,
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               ) : null}

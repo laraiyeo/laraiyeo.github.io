@@ -2041,7 +2041,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
       // determine session type: if not a race, we'll compute times using fastest lap
       const sessionName = (
-        sessionObj?.session_name ||
+        sessionObj?.session_type ||
         sessionObj?.sessionType ||
         sessionObj?.type ||
         ""
@@ -3583,7 +3583,7 @@ nascar.get("/race/:race_id/:status?", async (req, res) => {
       const startMs = parseDateMs(
         item?.start_time_utc || item?.start_time || null,
       );
-      return startMs != null && Math.abs(startMs - nowMs) <= 3 * 60 * 60 * 1000;
+      return startMs != null && Math.abs(startMs - nowMs) <= 4 * 60 * 60 * 1000;
     });
     const shouldUseLiveFeeds = status === "live";
     const liveRefreshMs = hasLiveScheduledEvent ? 10 * 1000 : TTL_1H;

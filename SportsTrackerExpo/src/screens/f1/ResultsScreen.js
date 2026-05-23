@@ -35,7 +35,7 @@ const { width } = Dimensions.get("window");
 const DATE_API_BASE =
   "https://laraiyeogithubio-production-ed10.up.railway.app/racing/date";
 const DATE_CACHE_KEY = "racing_date_list:v2";
-const DATE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours
+const DATE_CACHE_TTL = 4 * 60 * 60 * 1000; // 3 hours
 
 const DATE_ITEM_W = 90;
 const DATE_FADE_W = 50;
@@ -248,7 +248,7 @@ const resolveNascarLinkStatus = (dateStart, dateEnd, hasWinner = false) => {
   if (!startMs || Number.isNaN(startMs)) return "off";
   if (hasWinner) return "off";
   const nowMs = Date.now();
-  const liveUntilMs = endMs || startMs + 3 * 60 * 60 * 1000;
+  const liveUntilMs = endMs || startMs + 4 * 60 * 60 * 1000;
   return nowMs >= startMs && nowMs <= liveUntilMs ? "live" : "off";
 };
 
@@ -451,6 +451,33 @@ const ResultsScreen = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(new Date());
 
+  const pollingIntervalRef = useRef(null);
+
+  const checkLiveEvents = useCallback((eventsList) => {
+    if (!Array.isArray(eventsList) || eventsList.length === 0) return false;
+
+    const nowMs = Date.now();
+    return eventsList.some((event) => {
+      const isNascar = isNascarEvent(event);
+      const start =
+        event.date_start ||
+        event.dateStart ||
+        event.schedule?.start_time_utc ||
+        "";
+      const end =
+        event.date_end || event.dateEnd || event.meeting?.date_end || "";
+
+      if (isNascar) {
+        const status = resolveNascarLinkStatus(start, end);
+        return status === "live";
+      }
+
+      const startMs = start ? Date.parse(start) : null;
+      const endMs = end ? Date.parse(end) : null;
+      return startMs && endMs && nowMs >= startMs && nowMs <= endMs;
+    });
+  }, []);
+
   const availableDateSet = useMemo(
     () => new Set(availableDates),
     [availableDates],
@@ -562,6 +589,39 @@ const ResultsScreen = () => {
       }
     })();
   }, [selectedDateStr, loadDateEvents]);
+
+  // Polling for live events: update every 5 seconds if there are active sessions
+  useEffect(() => {
+    const hasLive = checkLiveEvents(events);
+
+    if (!hasLive) {
+      // No live events, clear any existing polling
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Set up polling for live events
+    if (!pollingIntervalRef.current) {
+      pollingIntervalRef.current = setInterval(() => {
+        if (selectedDateStr) {
+          loadDateEvents(selectedDateStr).catch(() => {
+            // ignore fetch errors during polling
+          });
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [events, checkLiveEvents, selectedDateStr, loadDateEvents]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -716,14 +776,14 @@ const ResultsScreen = () => {
     const viewerStatus = isNascar
       ? {
           status:
-            hasWinner || (startMs && nowMs > startMs + 3 * 60 * 60 * 1000)
+            hasWinner || (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
               ? "finished"
               : startMs && nowMs >= startMs
                 ? "live"
                 : "scheduled",
           isCompleted: !!(
             hasWinner ||
-            (startMs && nowMs > startMs + 3 * 60 * 60 * 1000)
+            (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
           ),
           reason: hasWinner
             ? "Winner present"
