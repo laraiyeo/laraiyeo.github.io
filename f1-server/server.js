@@ -82,6 +82,84 @@ function pickFirstValue(source, keys) {
   return null;
 }
 
+function getDriverIdentity(entry) {
+  if (!entry) return null;
+  const driverNumber =
+    entry.driver_number ??
+    entry.driverNumber ??
+    entry.driver ??
+    entry.number ??
+    null;
+  if (driverNumber == null || driverNumber === "") return null;
+
+  const fullName =
+    entry.full_name ??
+    entry.fullName ??
+    entry.broadcast_name ??
+    entry.broadcastName ??
+    entry.driver_name ??
+    entry.driverName ??
+    entry.name ??
+    entry.displayName ??
+    null;
+
+  return {
+    driver_number: String(driverNumber),
+    full_name: fullName,
+    name: fullName,
+    broadcast_name:
+      entry.broadcast_name ?? entry.broadcastName ?? fullName ?? null,
+    team_name: entry.team_name ?? entry.teamName ?? entry.team ?? null,
+    headshot_url:
+      entry.headshot_url ?? entry.headshotUrl ?? entry.headshot ?? null,
+    driver_id:
+      entry.driver_id ?? entry.driverId ?? entry.driver_key ?? entry.driverKey ??
+      null,
+  };
+}
+
+function mergeDriverMapEntry(target, source) {
+  if (!source || !source.driver_number) return;
+  const key = String(source.driver_number);
+  const existing = target[key] || null;
+  if (!existing) {
+    target[key] = { ...source };
+    return;
+  }
+
+  target[key] = {
+    ...existing,
+    ...Object.fromEntries(
+      Object.entries(source).filter(([, value]) => value != null && value !== ""),
+    ),
+    name: existing.name || source.name || source.full_name || null,
+    full_name:
+      existing.full_name || source.full_name || source.name || null,
+    broadcast_name:
+      existing.broadcast_name || source.broadcast_name || source.name || null,
+    team_name: existing.team_name || source.team_name || null,
+    headshot_url: existing.headshot_url || source.headshot_url || null,
+  };
+}
+
+function buildDriverMapFromSources(baseDrivers, ...sources) {
+  const driversMap = Object.create(null);
+
+  for (const driver of Array.isArray(baseDrivers) ? baseDrivers : []) {
+    const identity = getDriverIdentity(driver);
+    if (identity) mergeDriverMapEntry(driversMap, identity);
+  }
+
+  for (const source of sources) {
+    for (const entry of Array.isArray(source) ? source : []) {
+      const identity = getDriverIdentity(entry);
+      if (identity) mergeDriverMapEntry(driversMap, identity);
+    }
+  }
+
+  return driversMap;
+}
+
 function normalizeCurrentResultsFeed(feed) {
   const runDataSource = Array.isArray(feed?.runData)
     ? feed.runData
@@ -169,6 +247,10 @@ function buildPositionIntervals({
   startingGridArr,
 }) {
   const positionsMap = Object.create(null);
+  const normalizeLapNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   const raceControlDates = (Array.isArray(raceControlArr) ? raceControlArr : [])
     .map((it) => ({
       date: it?.date || null,
@@ -177,6 +259,7 @@ function buildPositionIntervals({
     }))
     .filter((it) => it.ms !== null && it.lap_number != null)
     .sort((a, b) => a.ms - b.ms);
+  const hasRaceControl = raceControlDates.length > 0;
 
   const firstLap =
     raceControlDates.length > 0 ? Number(raceControlDates[0].lap_number) : null;
@@ -184,10 +267,6 @@ function buildPositionIntervals({
     raceControlDates.length > 0
       ? Number(raceControlDates[raceControlDates.length - 1].lap_number)
       : null;
-  const normalizeLapNumber = (value) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
   const findRaceControlLap = (ms) => {
     if (ms == null || raceControlDates.length === 0) return null;
     let best = null;
@@ -233,20 +312,34 @@ function buildPositionIntervals({
 
   for (const driverNumber of Object.keys(grouped)) {
     const snapshotsByLap = Object.create(null);
-    for (const row of grouped[driverNumber]) {
+    const driverRows = grouped[driverNumber]
+      .slice()
+      .sort((a, b) => {
+        const da = parseDateMs(a?.date || a?.timestamp || a?.t || null) || 0;
+        const db = parseDateMs(b?.date || b?.timestamp || b?.t || null) || 0;
+        return da - db;
+      });
+
+    driverRows.forEach((row, index) => {
       const snapshotMs = parseDateMs(
         row?.date || row?.timestamp || row?.t || null,
       );
-      const snapshotLap = findRaceControlLap(snapshotMs);
+      const explicitLap = normalizeLapNumber(
+        row?.lap_number ?? row?.lapNumber ?? row?.lap ?? null,
+      );
+      const snapshotLap =
+        explicitLap ??
+        (hasRaceControl ? findRaceControlLap(snapshotMs) : null) ??
+        (hasRaceControl ? null : index + 1);
       const position =
         row?.position ?? row?.position_current ?? row?.pos ?? null;
-      if (snapshotLap == null || position == null) continue;
+      if (snapshotLap == null || position == null) return;
       snapshotsByLap[String(snapshotLap)] = {
         lap: snapshotLap,
         position,
         date: snapshotMs,
       };
-    }
+    });
 
     const snapshots = Object.values(snapshotsByLap)
       .map((row) => ({
@@ -1850,7 +1943,6 @@ async function buildAndCacheSession(sessionKey, options = {}) {
               if (!dn) continue;
               const copy = { ...it };
               if (copy.meeting_key) delete copy.meeting_key;
-              if (copy.session_key) delete copy.session_key;
               if (!positionMap[dn]) positionMap[dn] = [];
               positionMap[dn].push(copy);
               driversSet.add(dn);
@@ -2236,14 +2328,19 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
     // build drivers map only for referenced drivers
     const driversGlobal = normalizeArray(cache.get("drivers")?.data);
-    const driversMap = Object.create(null);
-    for (const d of driversGlobal) {
-      const dn = String(d.driver_number);
-      if (driversSet.has(dn))
-        driversMap[dn] = {
-          name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
-          headshot_url: d.headshot_url || d.headshotUrl || null,
-        };
+    const driversMap = buildDriverMapFromSources(
+      driversGlobal,
+      starting_grid || [],
+      resources.session_result || [],
+      resources.position || [],
+      resources.laps || [],
+      resources.overtakes || [],
+      resources.pit || [],
+      resources.race_control || [],
+      resources.stints || [],
+    );
+    for (const dn of Object.keys(driversMap)) {
+      if (!driversSet.has(dn)) delete driversMap[dn];
     }
 
     // build meetings/sessions maps only for referenced keys
@@ -2283,6 +2380,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         meetings: meetingsMap,
         sessions: sessionsMap,
         drivers: driversMap,
+        drivers_by_number: driversMap,
       },
     };
 
@@ -2997,14 +3095,7 @@ f1.get("/championship_drivers", async (req, res) => {
     // drivers map
     const driversEntry = cache.get("drivers");
     const driversArr = normalizeArray(driversEntry?.data);
-    const driversMap = Object.create(null);
-    for (const d of driversArr) {
-      if (!d?.driver_number) continue;
-      driversMap[String(d.driver_number)] = {
-        name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
-        headshot_url: d.headshot_url || d.headshotUrl || null,
-      };
-    }
+    const driversMap = buildDriverMapFromSources(driversArr, arr);
 
     res.json({
       source: fromCache ? "cache" : "origin",
@@ -3254,14 +3345,7 @@ f1.get("/session_result", async (req, res) => {
     }
     const driversEntry = cache.get("drivers");
     const driversArr = normalizeArray(driversEntry?.data);
-    const driversMap = Object.create(null);
-    for (const d of driversArr) {
-      if (!d?.driver_number) continue;
-      driversMap[String(d.driver_number)] = {
-        name: d.full_name || d.broadcast_name || d.fullName || d.name || null,
-        headshot_url: d.headshot_url || d.headshotUrl || null,
-      };
-    }
+    const driversMap = buildDriverMapFromSources(driversArr, arr);
 
     res.json({
       source: fromCache ? "cache" : "origin",
