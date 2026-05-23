@@ -1358,7 +1358,7 @@ const RaceDetailsSessionCopyCard = ({
   session,
   meeting,
   sessionResults,
-  positions,
+  livePositions,
   maps,
   lapsByDriver,
   colors,
@@ -1409,39 +1409,21 @@ const RaceDetailsSessionCopyCard = ({
     .filter(Boolean)
     .join("  •  ");
 
-  const podiumSource = [...(sessionResults || [])]
+  const isLiveSession = isSessionLive(session);
+  const podiumSource = isLiveSession
+    ? Array.isArray(livePositions) && livePositions.length > 0
+      ? livePositions
+      : []
+    : [];
+  const fallbackPodiumSource = [...(sessionResults || [])]
     .filter((entry) => entry?.position != null)
     .sort((a, b) => Number(a.position) - Number(b.position))
     .slice(0, 3);
 
-  const positionEntries = Object.entries(positions || {})
-    .flatMap(([driverNumber, posEntry]) => {
-      let records = posEntry;
-
-      if (!Array.isArray(records)) {
-        if (posEntry?.record) records = posEntry.record;
-        else if (posEntry?.records) records = posEntry.records;
-        else records = [];
-      }
-
-      if (!records.length) return [];
-
-      const firstRecord = records[0] || {};
-      const position = Number(firstRecord?.position ?? firstRecord?.pos);
-      if (!Number.isFinite(position)) return [];
-
-      return [{ position, driverNumber }];
-    })
-    .sort((a, b) => Number(a.position) - Number(b.position))
-    .slice(0, 3)
-    .map((entry) => ({
-      position: entry.position,
-      driver_number: entry.driverNumber,
-      current_position: entry.position,
-    }));
-
-  const podium = (podiumSource.length > 0 ? podiumSource : positionEntries).map(
-    (entry) => {
+  const podium = (podiumSource.length > 0
+    ? podiumSource
+    : fallbackPodiumSource
+  ).map((entry) => {
       const pickArrayValue = (value) => {
         if (Array.isArray(value)) {
           return value[2] ?? value[1] ?? value[0] ?? null;
@@ -1511,8 +1493,7 @@ const RaceDetailsSessionCopyCard = ({
         behindDisplay,
         laps: lapsVal,
       };
-    },
-  );
+    });
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
@@ -2939,6 +2920,35 @@ const RaceDetailsScreen = () => {
     }
     return null;
   };
+
+  const livePodiumEntries = useMemo(() => {
+    const nums = new Set();
+
+    (startingGrid || []).forEach((s) => {
+      if (s?.driver_number) nums.add(String(s.driver_number));
+    });
+
+    Object.keys(payload?.positions || {}).forEach((k) => {
+      nums.add(String(k));
+    });
+
+    (sessionResults || []).forEach((r) => {
+      if (r?.driver_number) nums.add(String(r.driver_number));
+    });
+
+    return Array.from(nums)
+      .map((dn) => {
+        const position = getCurrentPosition(dn);
+        if (position == null) return null;
+        return {
+          driver_number: dn,
+          position: Number(position),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(a.position) - Number(b.position))
+      .slice(0, 3);
+  }, [payload?.positions, sessionResults, startingGrid]);
 
   const CompareView = () => {
     if (compareDrivers.length !== 2) {
@@ -6422,7 +6432,7 @@ const RaceDetailsScreen = () => {
         session={session}
         meeting={effectiveMeeting}
         sessionResults={sessionResults}
-        positions={payload?.positions || {}}
+        livePositions={livePodiumEntries}
         maps={payload?.maps}
         lapsByDriver={payload?.laps?.byDriver}
         colors={colors}

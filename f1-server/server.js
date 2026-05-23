@@ -2007,7 +2007,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
       const formatLapGap = (lapDiff) => {
         if (!Number.isFinite(lapDiff) || lapDiff <= 0) return null;
-        const displayLaps = Math.max(1, lapDiff - 1);
+        const displayLaps = Math.max(1, Math.round(lapDiff));
         return `${displayLaps} ${displayLaps === 1 ? "Lap" : "Laps"}`;
       };
 
@@ -2026,6 +2026,25 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         if (value == null) return null;
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      const getLapProgress = (lap) => {
+        if (!lap) return null;
+        const lapNumber = toNumberOrNull(lap.lap_number ?? lap.lapNumber);
+        if (lapNumber == null) return null;
+
+        const sectorCount =
+          lap.lap_duration != null || lap.duration != null
+            ? 3
+            : lap.duration_sector_3 != null
+              ? 3
+              : lap.duration_sector_2 != null
+                ? 2
+                : lap.duration_sector_1 != null
+                  ? 1
+                  : 0;
+
+        return lapNumber + sectorCount / 10;
       };
 
       const getLapTime = (lap) => {
@@ -2102,17 +2121,19 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             }
           }
 
-          const currentLap =
+          const currentLapProgress = getLapProgress(info?.lastLap);
+          const currentLapNumber =
             info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
-          const currentLapNumber = Number(currentLap);
-          const currentLapValid = Number.isFinite(currentLapNumber)
-            ? currentLapNumber
-            : null;
+          const currentLapValid = Number.isFinite(Number(currentLapProgress))
+            ? Number(currentLapProgress)
+            : Number.isFinite(Number(currentLapNumber))
+              ? Number(currentLapNumber)
+              : null;
 
           lapsByDriver[dn].driver_time = {
             time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
             behind: null,
-            laps_used: lapsUsed,
+            laps_used: currentLapValid ?? lapsUsed,
           };
           driverTimes[dn] = {
             totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
@@ -2164,7 +2185,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             const info = lapsByDriver[dn];
             if (!info || !info.driver_time) continue;
             const lapDiff = (leaderLapNumber || 0) - (v.currentLap || 0);
-            if (lapDiff > 0) {
+            if (lapDiff >= 1) {
               info.driver_time.behind = formatLapGap(lapDiff);
             } else if (leaderTotalTime != null && v.totalTime != null) {
               info.driver_time.behind = formatGap(
