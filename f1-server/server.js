@@ -2249,9 +2249,10 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             }
           }
 
-          const latestDriverLap = lapsWithNumbers.length > 0
-            ? lapsWithNumbers[lapsWithNumbers.length - 1].lap
-            : info?.lastLap;
+          const latestDriverLap =
+            lapsWithNumbers.length > 0
+              ? lapsWithNumbers[lapsWithNumbers.length - 1].lap
+              : info?.lastLap;
           const currentLapProgress = getLapProgress(latestDriverLap);
           const currentLapNumber =
             latestDriverLap?.lap_number ?? latestDriverLap?.lapNumber ?? null;
