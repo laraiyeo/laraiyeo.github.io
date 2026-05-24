@@ -3352,7 +3352,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           onPress={openPlayer}
           onLongPress={handleLongPress}
           activeOpacity={0.8}
-          delayLongPress={500}
+          delayLongPress={250}
         >
           <View
             style={[
@@ -3526,7 +3526,7 @@ const NBAGameDetailsScreen = ({ route }) => {
               onLongPress={() => {
                 if (p && p.isScoring) setSharePlayCard(p);
               }}
-              delayLongPress={500}
+              delayLongPress={250}
               activeOpacity={0.7}
             >
               <View style={styles.playMainInfo}>

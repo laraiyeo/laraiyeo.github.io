@@ -685,7 +685,7 @@ const TeamRow = ({
     <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
-      delayLongPress={220}
+      delayLongPress={250}
       activeOpacity={0.7}
       style={[
         styles.teamRow,

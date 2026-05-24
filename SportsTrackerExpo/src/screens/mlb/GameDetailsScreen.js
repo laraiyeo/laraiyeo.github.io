@@ -6306,7 +6306,7 @@ const PlaysPanel = ({
                       x2="100%"
                       y2="0%"
                     >
-                      <Stop offset="0%" stopColor={awayColor} />
+                      <Stop offset="30%" stopColor={awayColor} />
                       <Stop offset="70%" stopColor={homeColor} />
                     </LinearGradient>
                   </Defs>
@@ -11569,7 +11569,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
           activeOpacity={0.85}
           onPress={() => handleRunItBackPress(false)}
           onLongPress={() => handleRunItBackPress(true)}
-          delayLongPress={280}
+          delayLongPress={250}
         >
           <Ionicons name="camera-reverse-outline" size={32} color={"#fff"} />
         </TouchableOpacity>

@@ -2115,7 +2115,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
 
       const formatLapGap = (lapDiff) => {
         if (!Number.isFinite(lapDiff) || lapDiff <= 0) return null;
-        const displayLaps = Math.max(1, Math.round(lapDiff));
+        const displayLaps = Math.max(1, Math.floor(lapDiff));
         return `${displayLaps} ${displayLaps === 1 ? "Lap" : "Laps"}`;
       };
 
@@ -2144,14 +2144,13 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         const sectorCount =
           lap.lap_duration != null || lap.duration != null
             ? 3
-            : lap.duration_sector_3 != null
-              ? 3
-              : lap.duration_sector_2 != null
-                ? 2
-                : lap.duration_sector_1 != null
-                  ? 1
-                  : 0;
+            : [
+                lap.duration_sector_1,
+                lap.duration_sector_2,
+                lap.duration_sector_3,
+              ].filter((value) => value != null).length;
 
+        if (sectorCount >= 3) return lapNumber + 1;
         return lapNumber + sectorCount / 10;
       };
 
@@ -2188,6 +2187,28 @@ async function buildAndCacheSession(sessionKey, options = {}) {
         if (isRaceSession) {
           let totalTime = null;
           let lapsUsed = 0;
+          const nullSectors = {
+            duration_sector_1: 0,
+            duration_sector_2: 0,
+            duration_sector_3: 0,
+            total: 0,
+          };
+
+          for (const lap of driverLaps) {
+            if (lap?.duration_sector_1 == null) {
+              nullSectors.duration_sector_1 += 1;
+              nullSectors.total += 1;
+            }
+            if (lap?.duration_sector_2 == null) {
+              nullSectors.duration_sector_2 += 1;
+              nullSectors.total += 1;
+            }
+            if (lap?.duration_sector_3 == null) {
+              nullSectors.duration_sector_3 += 1;
+              nullSectors.total += 1;
+            }
+          }
+
           const lapsWithNumbers = driverLaps
             .map((lap) => ({
               lap,
@@ -2207,7 +2228,6 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           if (lapsWithNumbers.length > 0) {
             let previousRecordedLapNumber = null;
             let previousRecordedLapTime = null;
-
             for (const entry of lapsWithNumbers) {
               if (entry.lapTime == null) continue;
 
@@ -2229,24 +2249,32 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             }
           }
 
-          const currentLapProgress = getLapProgress(info?.lastLap);
+          const latestDriverLap = lapsWithNumbers.length > 0
+            ? lapsWithNumbers[lapsWithNumbers.length - 1].lap
+            : info?.lastLap;
+          const currentLapProgress = getLapProgress(latestDriverLap);
           const currentLapNumber =
-            info?.lastLap?.lap_number ?? info?.lastLap?.lapNumber ?? null;
+            latestDriverLap?.lap_number ?? latestDriverLap?.lapNumber ?? null;
           const currentLapValid = Number.isFinite(Number(currentLapProgress))
             ? Number(currentLapProgress)
             : Number.isFinite(Number(currentLapNumber))
               ? Number(currentLapNumber)
               : null;
+          const lapsUsedDisplay = Number.isFinite(Number(currentLapValid))
+            ? Math.max(Number(currentLapValid), lapsUsed)
+            : lapsUsed;
 
           lapsByDriver[dn].driver_time = {
             time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
             behind: null,
-            laps_used: currentLapValid ?? lapsUsed,
+            laps_used: lapsUsedDisplay,
+            null_sectors: nullSectors,
           };
+          lapsByDriver[dn].null_sectors = nullSectors;
           driverTimes[dn] = {
             totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
             currentLap: currentLapValid,
-            lapsUsed,
+            lapsUsed: lapsUsedDisplay,
           };
         } else {
           // Non-race session: use fastest lap duration as the driver_time
@@ -2255,10 +2283,31 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           const fastestVal = Number.isFinite(Number(fastest))
             ? Number(fastest)
             : null;
+          const nullSectors = {
+            duration_sector_1: 0,
+            duration_sector_2: 0,
+            duration_sector_3: 0,
+            total: 0,
+          };
+          for (const lap of driverLaps) {
+            if (lap?.duration_sector_1 == null) {
+              nullSectors.duration_sector_1 += 1;
+              nullSectors.total += 1;
+            }
+            if (lap?.duration_sector_2 == null) {
+              nullSectors.duration_sector_2 += 1;
+              nullSectors.total += 1;
+            }
+            if (lap?.duration_sector_3 == null) {
+              nullSectors.duration_sector_3 += 1;
+              nullSectors.total += 1;
+            }
+          }
           lapsByDriver[dn].driver_time = {
             time: fastestVal != null ? Number(fastestVal.toFixed(3)) : null,
             behind: null,
             laps_used: fastestVal != null ? 1 : 0,
+            null_sectors,
           };
           driverTimes[dn] = {
             totalTime:
@@ -2297,7 +2346,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
               info.driver_time.behind = formatLapGap(lapDiff);
             } else if (leaderTotalTime != null && v.totalTime != null) {
               info.driver_time.behind = formatGap(
-                v.totalTime - leaderTotalTime,
+                Math.abs(leaderTotalTime - v.totalTime),
               );
             }
           }

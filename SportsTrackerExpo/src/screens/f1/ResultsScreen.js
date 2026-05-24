@@ -252,13 +252,17 @@ const resolveNascarLinkStatus = (dateStart, dateEnd, hasWinner = false) => {
   return nowMs >= startMs && nowMs <= liveUntilMs ? "live" : "off";
 };
 
-const CardGradient = ({ gradId, accentColor }) => (
-  <Svg
-    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-    width="100%"
-    height="100%"
-    pointerEvents="none"
-  >
+const CardGradient = ({ gradId, accentColor, cardHeight }) => {
+  const safeHeight = Math.max(cardHeight || 1, 1);
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width="100%"
+      height={safeHeight}
+      viewBox={`0 0 100 ${safeHeight}`}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+    >
     <Defs>
       <SvgLinearGradient
         id={`cardGrad_${gradId}`}
@@ -271,8 +275,383 @@ const CardGradient = ({ gradId, accentColor }) => (
         <Stop offset="55%" stopColor={accentColor} stopOpacity="0" />
       </SvgLinearGradient>
     </Defs>
-    <Rect width="100%" height="100%" fill={`url(#cardGrad_${gradId})`} />
+    <Rect width="100%" height={safeHeight} fill={`url(#cardGrad_${gradId})`} />
   </Svg>
+  );
+};
+
+const GameFooterRight = ({
+  gameId,
+  isNascar,
+  hasWinner,
+  winnerText,
+  carTint,
+  viewerStatus,
+  scale = 0.7,
+}) => {
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+
+  useEffect(() => {
+    console.log("[ResultsScreen] gameFooterRight mounted", { gameId });
+    return () => {
+      console.log("[ResultsScreen] gameFooterRight unmounted", { gameId });
+    };
+  }, [gameId]);
+
+  console.log("[ResultsScreen] gameFooterRight render", {
+    gameId,
+    renderCount: renderCountRef.current,
+    isNascar,
+    hasWinner,
+    winnerText,
+    viewerStatus,
+  });
+
+  return (
+    <View
+      style={[
+        styles.gameFooterRight,
+        { flexDirection: "row", alignItems: "center" },
+      ]}
+    >
+      {hasWinner ? (
+        <View style={{ marginBottom: 0 }}>
+          {isNascar ? (
+            <Image
+              source={require("../../../assets/nascar-car.png")}
+              style={[
+                styles.winnerCarNas,
+                { tintColor: carTint, transform: [{ scaleX: -1 }] },
+              ]}
+              resizeMode="contain"
+            />
+          ) : (
+            <Image
+              source={require("../../../assets/f1-car-svgrepo-com.png")}
+              style={[styles.winnerCar, { tintColor: carTint }]}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      ) : null}
+      <LiveViewerBadge
+        gameId={gameId}
+        status={viewerStatus}
+        scale={scale}
+        style={{ marginTop: 2, marginLeft: isNascar ? 8 : 0 }}
+      />
+    </View>
+  );
+};
+
+const F1EventRowCard = React.memo(
+  ({ event, idx, groupKey, theme, navigation }) => {
+    const [cardHeight, setCardHeight] = useState(0);
+    const isNascar = isNascarEvent(event);
+    const isCancelled = !!(event?.is_cancelled || event?.isCancelled);
+    const meeting = event.meeting || {};
+    const start =
+      event.date_start ||
+      event.dateStart ||
+      event.schedule?.start_time_utc ||
+      "";
+    const end = event.date_end || event.dateEnd || meeting.date_end || "";
+    const nowMs = Date.now();
+    const startMs = isNascar
+      ? (parseNascarUtcDate(start)?.getTime() ?? null)
+      : start
+        ? Date.parse(start)
+        : null;
+    const endMs = isNascar
+      ? (parseNascarUtcDate(end)?.getTime() ?? null)
+      : end
+        ? Date.parse(end)
+        : null;
+    const winnerName =
+      event.winner || event.winner_name || meeting.winner || "";
+    const winnerTeam =
+      event.winner_team || event.winnerTeam || meeting.winner_team || "";
+    const winnerManufacturer =
+      event.winner_manufacturer || event.winnerManufacturer || "";
+    const winnerParts = [
+      winnerName,
+      winnerTeam,
+      isNascar ? winnerManufacturer : null,
+    ].filter(Boolean);
+    const hasWinner = winnerParts.length > 0;
+    const nascarLinkStatus = isNascar
+      ? resolveNascarLinkStatus(start, end, hasWinner)
+      : "off";
+    const isLive = isNascar
+      ? nascarLinkStatus === "live"
+      : startMs && endMs && nowMs >= startMs && nowMs <= endMs;
+
+    const raceName = isNascar
+      ? event.race_name
+      : sanitizeF1MeetingName(
+          meeting.meeting_official_name ||
+            meeting.meeting_name ||
+            event.meeting_name ||
+            event.meeting_official_name ||
+            "",
+        );
+    const sessionName = isNascar
+      ? event.event_name || event.schedule?.event_name || ""
+      : event.session_name || event.session_type || event.sessionName || "";
+    const circuitName = isNascar
+      ? event.track_name
+      : meeting.circuit_short_name ||
+        event.circuit_short_name ||
+        event.circuitShortName ||
+        meeting.location ||
+        event.location ||
+        "";
+    const subLine = [sessionName, circuitName].filter(Boolean).join(" · ");
+
+    const leftLogo = isNascar
+      ? event.track_logo
+      : meeting.country_flag || event.country_flag || "";
+    const rightImage = isNascar
+      ? event.track_image
+      : buildCircuitImage(
+          meeting.circuit_short_name || event.circuit_short_name,
+        );
+
+    let accentColor = null;
+    if (isNascar) {
+      const m = String(winnerManufacturer || "").toLowerCase();
+      accentColor =
+        NASCAR_MANUFACTURER_COLORS[m] || countryColorMap["united states"];
+    } else {
+      accentColor =
+        getTeamColor(winnerTeam) ||
+        getCountryColor(meeting.country_name || event.country_name) ||
+        theme.surfaceSecondary;
+    }
+
+    const carTint = isNascar
+      ? accentColor
+      : getTeamColor(winnerTeam) || accentColor || theme.textSecondary;
+
+    const viewerStatus = isNascar
+      ? {
+          status:
+            hasWinner || (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
+              ? "finished"
+              : startMs && nowMs >= startMs
+                ? "live"
+                : "scheduled",
+          isCompleted: !!(
+            hasWinner ||
+            (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
+          ),
+          reason: hasWinner
+            ? "Winner present"
+            : "Finished 3 hours after date start",
+        }
+      : {
+          status:
+            hasWinner || (endMs && nowMs > endMs)
+              ? "finished"
+              : startMs && nowMs >= startMs
+                ? "live"
+                : "scheduled",
+          isCompleted: !!(hasWinner || (endMs && nowMs > endMs)),
+          reason: hasWinner ? "Winner present" : "Finished on date end",
+        };
+
+    const showFooter =
+      winnerParts.length > 0 || viewerStatus.status !== "scheduled";
+    const { time, ampm } = isNascar
+      ? formatNascarTimeParts(start)
+      : formatTimeParts(start);
+
+    return (
+      <TouchableOpacity
+        style={[styles.gameRow, { backgroundColor: theme.surface }]}
+        onLayout={(e) => {
+          const nextHeight = Math.round(e.nativeEvent.layout.height || 0);
+          setCardHeight((prev) => (prev !== nextHeight ? nextHeight : prev));
+        }}
+        activeOpacity={0.7}
+        disabled={isCancelled}
+        onPress={() => {
+          if (isCancelled) return;
+          if (isNascar) {
+            const raceId = event.race_id || event.raceId || event.id;
+            if (!raceId) return;
+            navigation.navigate("NascarRaceDetails", {
+              raceId: String(raceId),
+              runType: event.schedule?.run_type || event.run_type || "",
+              raceName,
+              raceDate: start,
+              status: nascarLinkStatus,
+              sport: "nascar",
+            });
+            return;
+          }
+          const meetingKey =
+            event.meeting_key || event.meetingKey || meeting.meeting_key;
+          const sessionKey =
+            event.session_key || event.sessionKey || meeting.session_key;
+          if (!meetingKey) return;
+          navigation.navigate("F1RaceDetails", {
+            sessionKey,
+            raceName,
+            raceDate: start,
+            sport: "f1",
+          });
+        }}
+      >
+        <CardGradient
+          gradId={`${groupKey}_${idx}`}
+          accentColor={accentColor}
+          cardHeight={cardHeight}
+        />
+
+        <View style={styles.matchRow}>
+          <View style={styles.statusContainer}>
+            {isLive ? (
+              <Text
+                allowFontScaling={false}
+                style={[styles.liveLabel, { color: theme.error }]}
+              >
+                LIVE
+              </Text>
+            ) : null}
+            <Text
+              allowFontScaling={false}
+              style={[styles.statusLine1, { color: theme.text }]}
+            >
+              {time}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.statusLine2, { color: theme.textSecondary }]}
+            >
+              {ampm}
+            </Text>
+          </View>
+
+          <View style={styles.eventBody}>
+            {leftLogo ? (
+              <Image
+                source={{ uri: leftLogo }}
+                style={styles.leftLogo}
+                resizeMode="contain"
+              />
+            ) : (
+              <View
+                style={[styles.leftLogo, { backgroundColor: theme.border }]}
+              />
+            )}
+            <View style={styles.eventTextStack}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.eventTitle, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {raceName || "Event"}
+              </Text>
+              {subLine ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.eventSubtitle, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {subLine}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.rightImageWrap}>
+            {rightImage ? (
+              <Image
+                source={{ uri: rightImage }}
+                style={[
+                  styles.trackImage,
+                  { tintColor: isNascar ? theme.text : null },
+                ]}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {showFooter ? (
+          <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
+            <View
+              style={[
+                styles.gameFooterLeft,
+                {
+                  marginTop: 0,
+                  marginBottom: 0,
+                },
+              ]}
+            >
+              {winnerParts.length > 0 ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.winnerFooterText,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {winnerParts.join(" · ")}
+                </Text>
+              ) : null}
+            </View>
+            <GameFooterRight
+              gameId={
+                event.session_key ||
+                event.race_id + "-" + event.schedule.run_type
+              }
+              isNascar={isNascar}
+              hasWinner={winnerParts.length > 0}
+              winnerText={winnerParts.join(" · ")}
+              carTint={carTint}
+              viewerStatus={viewerStatus}
+              scale={0.7}
+            />
+          </View>
+        ) : (
+          <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
+            <View style={styles.gameFooterLeft} />
+            <GameFooterRight
+              gameId={
+                event.session_key ||
+                event.race_id + "-" + event.schedule.run_type
+              }
+              isNascar={isNascar}
+              hasWinner={false}
+              winnerText=""
+              carTint={carTint}
+              viewerStatus={viewerStatus}
+              scale={0.7}
+            />
+          </View>
+        )}
+
+        {isCancelled ? (
+          <>
+            <View style={styles.cancelledOverlay} pointerEvents="none" />
+            <View style={styles.cancelledBadge} pointerEvents="none">
+              <FontAwesome5 name="ban" size={35} color={theme.error} />
+              <Text
+                allowFontScaling={false}
+                style={[styles.cancelledText, { color: theme.error }]}
+              >
+                CANCELLED
+              </Text>
+            </View>
+          </>
+        ) : null}
+      </TouchableOpacity>
+    );
+  },
 );
 
 const DatePickerBar = ({
@@ -634,24 +1013,51 @@ const ResultsScreen = () => {
     setRefreshing(false);
   }, [loadAvailableDates]);
 
+  const getEventIdentityKey = useCallback((event, groupKey) => {
+    const parts = [
+      groupKey,
+      event?.session_key || event?.sessionKey || null,
+      event?.race_id || event?.raceId || null,
+      event?.schedule?.run_type || event?.run_type || null,
+      event?.schedule?.event_name ||
+        event?.event_name ||
+        event?.race_name ||
+        null,
+      event?.date_start || event?.dateStart || null,
+      event?.date_end || event?.dateEnd || null,
+    ].filter((part) => part !== null && part !== undefined && part !== "");
+    return parts.join(":");
+  }, []);
+
   const groups = useMemo(() => {
     const f1Events = events.filter((e) => !isNascarEvent(e));
     const nascarEvents = events.filter((e) => isNascarEvent(e));
+    const dedupeGroupEvents = (groupEvents, groupKey) => {
+      const seen = new Set();
+      const deduped = [];
+      for (const ev of groupEvents) {
+        const identity = getEventIdentityKey(ev, groupKey);
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        deduped.push(ev);
+      }
+      return deduped;
+    };
     return [
       {
         key: "f1",
         label: "Formula 1",
         image: require("../../../assets/f1.png"),
-        events: f1Events,
+        events: dedupeGroupEvents(f1Events, "f1"),
       },
       {
         key: "nascar",
         label: "NASCAR",
         image: require("../../../assets/nascar.png"),
-        events: nascarEvents,
+        events: dedupeGroupEvents(nascarEvents, "nascar"),
       },
     ].filter((g) => g.events.length > 0);
-  }, [events]);
+  }, [events, getEventIdentityKey]);
 
   const minDate = availableDates.length
     ? getDateFromDateStr(availableDates[0])
@@ -683,338 +1089,6 @@ const ResultsScreen = () => {
     )
       return;
     setViewMonth(next);
-  };
-
-  const F1EventRow = ({ event, idx, groupKey }) => {
-    const [cardHeight, setCardHeight] = useState(0);
-    const isNascar = isNascarEvent(event);
-    const isCancelled = !!(event?.is_cancelled || event?.isCancelled);
-    const meeting = event.meeting || {};
-    const start =
-      event.date_start ||
-      event.dateStart ||
-      event.schedule?.start_time_utc ||
-      "";
-    const end = event.date_end || event.dateEnd || meeting.date_end || "";
-    const nowMs = Date.now();
-    const startMs = isNascar
-      ? (parseNascarUtcDate(start)?.getTime() ?? null)
-      : start
-        ? Date.parse(start)
-        : null;
-    const endMs = isNascar
-      ? (parseNascarUtcDate(end)?.getTime() ?? null)
-      : end
-        ? Date.parse(end)
-        : null;
-    const winnerName =
-      event.winner || event.winner_name || meeting.winner || "";
-    const winnerTeam =
-      event.winner_team || event.winnerTeam || meeting.winner_team || "";
-    const winnerManufacturer =
-      event.winner_manufacturer || event.winnerManufacturer || "";
-    const winnerParts = [
-      winnerName,
-      winnerTeam,
-      isNascar ? winnerManufacturer : null,
-    ].filter(Boolean);
-    const hasWinner = winnerParts.length > 0;
-    const nascarLinkStatus = isNascar
-      ? resolveNascarLinkStatus(start, end, hasWinner)
-      : "off";
-    const isLive = isNascar
-      ? nascarLinkStatus === "live"
-      : startMs && endMs && nowMs >= startMs && nowMs <= endMs;
-
-    const raceName = isNascar
-      ? event.race_name
-      : sanitizeF1MeetingName(
-          meeting.meeting_official_name ||
-            meeting.meeting_name ||
-            event.meeting_name ||
-            event.meeting_official_name ||
-            "",
-        );
-    const sessionName = isNascar
-      ? event.event_name || event.schedule?.event_name || ""
-      : event.session_name || event.session_type || event.sessionName || "";
-    const circuitName = isNascar
-      ? event.track_name
-      : meeting.circuit_short_name ||
-        event.circuit_short_name ||
-        event.circuitShortName ||
-        meeting.location ||
-        event.location ||
-        "";
-    const subLine = [sessionName, circuitName].filter(Boolean).join(" · ");
-
-    const leftLogo = isNascar
-      ? event.track_logo
-      : meeting.country_flag || event.country_flag || "";
-    const rightImage = isNascar
-      ? event.track_image
-      : buildCircuitImage(
-          meeting.circuit_short_name || event.circuit_short_name,
-        );
-
-    let accentColor = null;
-    if (isNascar) {
-      const m = String(winnerManufacturer || "").toLowerCase();
-      accentColor =
-        NASCAR_MANUFACTURER_COLORS[m] || countryColorMap["united states"];
-    } else {
-      accentColor =
-        getTeamColor(winnerTeam) ||
-        getCountryColor(meeting.country_name || event.country_name) ||
-        theme.surfaceSecondary;
-    }
-
-    const carTint = isNascar
-      ? accentColor
-      : getTeamColor(winnerTeam) || accentColor || theme.textSecondary;
-
-    const viewerStatus = isNascar
-      ? {
-          status:
-            hasWinner || (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
-              ? "finished"
-              : startMs && nowMs >= startMs
-                ? "live"
-                : "scheduled",
-          isCompleted: !!(
-            hasWinner ||
-            (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
-          ),
-          reason: hasWinner
-            ? "Winner present"
-            : "Finished 3 hours after date start",
-        }
-      : {
-          status:
-            hasWinner || (endMs && nowMs > endMs)
-              ? "finished"
-              : startMs && nowMs >= startMs
-                ? "live"
-                : "scheduled",
-          isCompleted: !!(hasWinner || (endMs && nowMs > endMs)),
-          reason: hasWinner ? "Winner present" : "Finished on date end",
-        };
-
-    const showFooter =
-      winnerParts.length > 0 || viewerStatus.status !== "scheduled";
-    const { time, ampm } = isNascar
-      ? formatNascarTimeParts(start)
-      : formatTimeParts(start);
-
-    return (
-      <TouchableOpacity
-        key={`${groupKey}_${idx}`}
-        style={[styles.gameRow, { backgroundColor: theme.surface }]}
-        onLayout={(e) => {
-          const nextHeight = Math.round(e.nativeEvent.layout.height || 0);
-          setCardHeight((prev) => (prev !== nextHeight ? nextHeight : prev));
-        }}
-        activeOpacity={0.7}
-        disabled={isCancelled}
-        onPress={() => {
-          if (isCancelled) return;
-          if (isNascar) {
-            const raceId = event.race_id || event.raceId || event.id;
-            if (!raceId) return;
-            navigation.navigate("NascarRaceDetails", {
-              raceId: String(raceId),
-              runType: event.schedule?.run_type || event.run_type || "",
-              raceName,
-              raceDate: start,
-              status: "live",
-              sport: "nascar",
-            });
-            return;
-          }
-          const meetingKey =
-            event.meeting_key || event.meetingKey || meeting.meeting_key;
-          const sessionKey =
-            event.session_key || event.sessionKey || meeting.session_key;
-          if (!meetingKey) return;
-          navigation.navigate("F1RaceDetails", {
-            sessionKey,
-            raceName,
-            raceDate: start,
-            sport: "f1",
-          });
-        }}
-      >
-        <CardGradient
-          gradId={`${groupKey}_${idx}`}
-          accentColor={accentColor}
-          cardHeight={cardHeight}
-        />
-
-        <View style={styles.matchRow}>
-          <View style={styles.statusContainer}>
-            {isLive ? (
-              <Text
-                allowFontScaling={false}
-                style={[styles.liveLabel, { color: theme.error }]}
-              >
-                LIVE
-              </Text>
-            ) : null}
-            <Text
-              allowFontScaling={false}
-              style={[styles.statusLine1, { color: theme.text }]}
-            >
-              {time}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statusLine2, { color: theme.textSecondary }]}
-            >
-              {ampm}
-            </Text>
-          </View>
-
-          <View style={styles.eventBody}>
-            {leftLogo ? (
-              <Image
-                source={{ uri: leftLogo }}
-                style={styles.leftLogo}
-                resizeMode="contain"
-              />
-            ) : (
-              <View
-                style={[styles.leftLogo, { backgroundColor: theme.border }]}
-              />
-            )}
-            <View style={styles.eventTextStack}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.eventTitle, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {raceName || "Event"}
-              </Text>
-              {subLine ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.eventSubtitle, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {subLine}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <View style={styles.rightImageWrap}>
-            {rightImage ? (
-              <Image
-                source={{ uri: rightImage }}
-                style={[
-                  styles.trackImage,
-                  { tintColor: isNascar ? theme.text : null },
-                ]}
-                resizeMode="contain"
-              />
-            ) : null}
-          </View>
-        </View>
-
-        {showFooter ? (
-          <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
-            <View
-              style={[
-                styles.gameFooterLeft,
-                {
-                  marginTop: 0,
-                  marginBottom: 0,
-                },
-              ]}
-            >
-              {winnerParts.length > 0 ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.winnerFooterText,
-                    { color: theme.textSecondary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {winnerParts.join(" · ")}
-                </Text>
-              ) : null}
-            </View>
-            {winnerParts.length > 0 && (
-              <View
-                style={[
-                  styles.gameFooterRight,
-                  {
-                    marginTop: 0,
-                    marginBottom: 0,
-                  },
-                ]}
-              >
-                {isNascar ? (
-                  <Image
-                    source={require("../../../assets/nascar-car.png")}
-                    style={[
-                      styles.winnerCarNas,
-                      { tintColor: carTint, transform: [{ scaleX: -1 }] },
-                    ]}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Image
-                    source={require("../../../assets/f1-car-svgrepo-com.png")}
-                    style={[styles.winnerCar, { tintColor: carTint }]}
-                    resizeMode="contain"
-                  />
-                )}
-              </View>
-            )}
-            <LiveViewerBadge
-              gameId={
-                event.session_key ||
-                event.race_id + "-" + event.schedule.run_type
-              }
-              status={viewerStatus}
-              scale={0.7}
-              style={{ marginTop: 2, marginLeft: isNascar ? 8 : 0 }}
-            />
-          </View>
-        ) : (
-          <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
-            <View style={styles.gameFooterLeft} />
-            <View style={styles.gameFooterRight}>
-              <LiveViewerBadge
-                gameId={
-                  event.session_key ||
-                  event.race_id + "-" + event.schedule.run_type
-                }
-                status={viewerStatus}
-                scale={0.7}
-                style={{ marginTop: 2 }}
-              />
-            </View>
-          </View>
-        )}
-
-        {isCancelled ? (
-          <>
-            <View style={styles.cancelledOverlay} pointerEvents="none" />
-            <View style={styles.cancelledBadge} pointerEvents="none">
-              <FontAwesome5 name="ban" size={35} color={theme.error} />
-              <Text
-                allowFontScaling={false}
-                style={[styles.cancelledText, { color: theme.error }]}
-              >
-                CANCELLED
-              </Text>
-            </View>
-          </>
-        ) : null}
-      </TouchableOpacity>
-    );
   };
 
   if (loading && events.length === 0) {
@@ -1096,11 +1170,13 @@ const ResultsScreen = () => {
 
                   <View style={styles.matchesList}>
                     {group.events.map((ev, idx) => (
-                      <F1EventRow
-                        key={`${group.key}_${idx}`}
+                      <F1EventRowCard
+                        key={`${getEventIdentityKey(ev, group.key)}:${idx}`}
                         event={ev}
                         idx={idx}
                         groupKey={group.key}
+                        theme={theme}
+                        navigation={navigation}
                       />
                     ))}
                   </View>
