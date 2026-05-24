@@ -2261,9 +2261,24 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             : Number.isFinite(Number(currentLapNumber))
               ? Number(currentLapNumber)
               : null;
-          const lapsUsedDisplay = Number.isFinite(Number(currentLapValid))
-            ? Math.max(Number(currentLapValid), lapsUsed)
-            : lapsUsed;
+          // Factor full missing laps (3 null sectors == 1 full missing lap)
+          const missingFullLaps = Number.isFinite(Number(nullSectors?.total))
+            ? Math.floor(Number(nullSectors.total) / 3)
+            : 0;
+
+          let lapsUsedDisplay;
+          if (Number.isFinite(Number(currentLapValid))) {
+            if (missingFullLaps > 0) {
+              // If there are full missing laps from null sectors, don't show
+              // fractional progress for the current lap — prefer whole laps.
+              const adjustedCurrent = Number(currentLapValid) - missingFullLaps;
+              lapsUsedDisplay = Math.max(Math.floor(adjustedCurrent), lapsUsed);
+            } else {
+              lapsUsedDisplay = Math.max(Number(currentLapValid), lapsUsed);
+            }
+          } else {
+            lapsUsedDisplay = lapsUsed;
+          }
 
           lapsByDriver[dn].driver_time = {
             time: totalTime != null ? Number(totalTime.toFixed(3)) : null,
