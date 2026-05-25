@@ -4,6 +4,7 @@ const cors = require("cors");
 const compression = require("compression");
 const msgpack = require("@msgpack/msgpack");
 const { createClient } = require("@supabase/supabase-js");
+const WebSocket = require("ws");
 
 const app = express();
 app.use(cors());
@@ -47,6 +48,7 @@ let supabaseAdmin = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
+    realtime: { transport: WebSocket },
   });
   console.log(
     `[sports-favs] Supabase configured projectRef=${supabaseProjectRef} keyRole=${supabaseKeyRole}`,
