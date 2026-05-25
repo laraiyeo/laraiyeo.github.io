@@ -342,7 +342,7 @@ async function processMlbNotificationsTick() {
       gameState.scoringHashes.add(hash);
 
       const desc = String(play?.result?.description || "Scoring play")
-        .split(".")[0]
+        .split(/[.,]/)[0]
         .trim();
       const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
@@ -951,7 +951,7 @@ app.post(
 
           const play = scoringPlays[index];
           const desc = String(play?.result?.description || "Scoring play")
-            .split(".")[0]
+            .split(/[.,]/)[0]
             .trim();
           const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
           const isTop =
