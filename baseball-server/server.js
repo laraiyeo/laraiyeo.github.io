@@ -3,6 +3,7 @@ const axios = require("axios");
 const cors = require("cors");
 const compression = require("compression");
 const msgpack = require("@msgpack/msgpack");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 app.use(cors());
@@ -11,6 +12,21 @@ app.use(compression());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
+
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const MLB_FAV_TABLE = "mlb_fav";
+
+let supabaseAdmin = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+  supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+} else {
+  console.warn(
+    "[sports-favs] Supabase not configured; MLB favorites will not persist across redeploys",
+  );
+}
 
 // Head URL for MLB stats API
 const BASE_URL = "https://statsapi.mlb.com/api/";
@@ -175,10 +191,24 @@ function getTeamsForGame(game) {
   };
 }
 
-function getSubscribersForGame(game) {
+function normalizeMlbFavRecord(row) {
+  return {
+    userId: row?.user_id || null,
+    subscriberId: row?.subscriber_id || null,
+    pushToken: row?.push_token || null,
+    platform: row?.platform || "unknown",
+    favoriteTeamIds: new Set(
+      Array.isArray(row?.favorite_team_ids)
+        ? row.favorite_team_ids.map((id) => String(id).trim()).filter(Boolean)
+        : [],
+    ),
+  };
+}
+
+function getSubscribersForGame(game, subscribers = []) {
   const { awayId, homeId } = getTeamsForGame(game);
   const out = [];
-  for (const subscriber of mlbNotifSubscribers.values()) {
+  for (const subscriber of subscribers) {
     if (!subscriber?.pushToken) continue;
     const favs = subscriber.favoriteTeamIds || new Set();
     if ((awayId && favs.has(awayId)) || (homeId && favs.has(homeId))) {
@@ -188,30 +218,95 @@ function getSubscribersForGame(game) {
   return out;
 }
 
-function logMlbSubscriberTokens(reason) {
-  const subscribers = [];
-  for (const subscriber of mlbNotifSubscribers.values()) {
-    subscribers.push({
-      subscriberId: subscriber?.subscriberId || "unknown",
-      pushToken: subscriber?.pushToken || null,
-      platform: subscriber?.platform || "unknown",
-      favoriteTeamIds: Array.from(subscriber?.favoriteTeamIds || []),
-    });
+async function loadMlbFavSubscribers() {
+  if (!supabaseAdmin) {
+    return Array.from(mlbNotifSubscribers.values());
   }
 
+  const { data, error } = await supabaseAdmin
+    .from(MLB_FAV_TABLE)
+    .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at");
+
+  if (error) {
+    console.warn("[sports-favs] failed to load mlb_fav rows:", error.message);
+    return Array.from(mlbNotifSubscribers.values());
+  }
+
+  const rows = Array.isArray(data) ? data.map(normalizeMlbFavRecord) : [];
+  return rows;
+}
+
+async function upsertMlbFavRow({
+  userId,
+  subscriberId,
+  pushToken,
+  platform,
+  favoriteTeamIds,
+}) {
+  const key = String(userId || subscriberId || "").trim();
+  if (!key) {
+    throw new Error("userId or subscriberId is required");
+  }
+
+  const existing = supabaseAdmin
+    ? await supabaseAdmin
+        .from(MLB_FAV_TABLE)
+        .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+        .eq("user_id", key)
+        .maybeSingle()
+        .then(({ data }) => (data ? normalizeMlbFavRecord(data) : null))
+    : mlbNotifSubscribers.get(subscriberId || key) || null;
+
+  const payload = {
+    user_id: key,
+    subscriber_id: String(subscriberId || existing?.subscriberId || key).trim(),
+    push_token:
+      pushToken !== undefined
+        ? pushToken || null
+        : existing?.pushToken || null,
+    platform: platform || existing?.platform || "unknown",
+    favorite_team_ids:
+      favoriteTeamIds !== undefined
+        ? [...new Set(favoriteTeamIds.map((id) => String(id).trim()).filter(Boolean))]
+        : Array.from(existing?.favoriteTeamIds || []),
+  };
+
+  if (supabaseAdmin) {
+    const { data, error } = await supabaseAdmin
+      .from(MLB_FAV_TABLE)
+      .upsert(payload, { onConflict: "user_id" })
+      .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+      .maybeSingle();
+
+    if (error) throw error;
+    const normalized = normalizeMlbFavRecord(data || payload);
+    mlbNotifSubscribers.set(normalized.subscriberId || normalized.userId, normalized);
+    return normalized;
+  }
+
+  const normalized = normalizeMlbFavRecord(payload);
+  mlbNotifSubscribers.set(normalized.subscriberId || normalized.userId, normalized);
+  return normalized;
+}
+
+function logMlbSubscriberTokens(reason, subscribers = []) {
+  const normalized = Array.isArray(subscribers) && subscribers.length > 0
+    ? subscribers
+    : Array.from(mlbNotifSubscribers.values());
+
   console.log(
-    `[sports-favs] mlb notif subscribers reason=${reason} count=${subscribers.length}`,
+    `[sports-favs] mlb notif subscribers reason=${reason} count=${normalized.length}`,
   );
-  if (subscribers.length === 0) {
+  if (normalized.length === 0) {
     console.log(
       `[sports-favs] mlb notif subscribers snapshot empty reason=${reason}`,
     );
     return;
   }
 
-  for (const subscriber of subscribers) {
+  for (const subscriber of normalized) {
     console.log(
-      `[sports-favs] mlb notif subscriber subscriberId=${subscriber.subscriberId} pushToken=${subscriber.pushToken || "<none>"} platform=${subscriber.platform} favorites=${subscriber.favoriteTeamIds.join(",") || "<none>"}`,
+      `[sports-favs] mlb notif subscriber subscriberId=${subscriber.subscriberId || subscriber.userId || "unknown"} userId=${subscriber.userId || "<none>"} pushToken=${subscriber.pushToken || "<none>"} platform=${subscriber.platform} favorites=${Array.from(subscriber.favoriteTeamIds || []).join(",") || "<none>"}`,
     );
   }
 }
@@ -323,8 +418,9 @@ async function processMlbNotificationsTick() {
 
   const payload = await fetchMlbScheduleForNotifications(dateStr);
   const games = flattenGames(payload);
+  const subscribers = await loadMlbFavSubscribers();
 
-  logMlbSubscriberTokens(`tick:${dateStr}`);
+  logMlbSubscriberTokens(`tick:${dateStr}`, subscribers);
   console.log(
     `[sports-favs] mlb notif tick date=${dateStr} nowPst=${nowPst} games=${games.length}`,
   );
@@ -394,12 +490,12 @@ async function processMlbNotificationsTick() {
       gameState.lastScoringSignature = scoringSignature;
     }
 
-    const subscribers = getSubscribersForGame(game);
-    if (subscribers.length === 0) continue;
+    const gameSubscribers = getSubscribersForGame(game, subscribers);
+    if (gameSubscribers.length === 0) continue;
 
     if (isGameStarted(game) && !gameState.startedSent) {
       gameState.startedSent = true;
-      for (const sub of subscribers) {
+      for (const sub of gameSubscribers) {
         pushQueue.push({
           to: sub.pushToken,
           sound: "default",
@@ -437,7 +533,7 @@ async function processMlbNotificationsTick() {
 
       const title = `⚾ ${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
 
-      for (const sub of subscribers) {
+      for (const sub of gameSubscribers) {
         pushQueue.push({
           to: sub.pushToken,
           sound: "default",
@@ -466,7 +562,7 @@ async function processMlbNotificationsTick() {
             ? `The ${homeName} Win the Game`
             : `The ${awayName} Win the Game`
           : "Game Ended";
-      for (const sub of subscribers) {
+      for (const sub of gameSubscribers) {
         pushQueue.push({
           to: sub.pushToken,
           sound: "default",
@@ -847,35 +943,41 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", cachedKeys: Object.keys(entries).length, entries });
 });
 
-app.post("/bb/notifications/register-device", (req, res) => {
+app.post("/bb/notifications/register-device", async (req, res) => {
   const subscriberId = String(req.body?.subscriberId || "").trim();
+  const userId = String(req.body?.userId || req.body?.user_id || subscriberId || "").trim();
   const pushToken = String(req.body?.pushToken || "").trim();
   const platform = String(req.body?.platform || "unknown").trim();
+  let row = null;
 
-  if (!subscriberId) {
-    return res.status(400).json({ error: "subscriberId is required" });
+  if (!userId) {
+    return res.status(400).json({ error: "userId or subscriberId is required" });
   }
 
-  const existing = mlbNotifSubscribers.get(subscriberId) || {
-    subscriberId,
-    favoriteTeamIds: new Set(),
-  };
+  try {
+    row = await upsertMlbFavRow({
+      userId,
+      subscriberId: subscriberId || userId,
+      pushToken,
+      platform,
+    });
 
-  if (pushToken) existing.pushToken = pushToken;
-  existing.platform = platform;
-  existing.updatedAt = Date.now();
-  mlbNotifSubscribers.set(subscriberId, existing);
-
-  console.log(
-    `[sports-favs] mlb register-device subscriberId=${subscriberId} platform=${platform} pushToken=${existing.pushToken || "<none>"} favoriteCount=${existing.favoriteTeamIds.size}`,
-  );
-  logMlbSubscriberTokens(`register-device:${subscriberId}`);
+    console.log(
+      `[sports-favs] mlb register-device subscriberId=${row.subscriberId || subscriberId} userId=${row.userId || userId} platform=${platform} pushToken=${row.pushToken || "<none>"} favoriteCount=${Array.isArray(row.favoriteTeamIds) ? row.favoriteTeamIds.length : row.favoriteTeamIds?.size || 0}`,
+    );
+    logMlbSubscriberTokens(`register-device:${row.subscriberId || subscriberId}`, [row]);
+  } catch (e) {
+    console.warn("[sports-favs] mlb register-device upsert failed:", e?.message || e);
+  }
 
   res.json({
     ok: true,
-    subscriberId,
-    hasPushToken: !!existing.pushToken,
-    favoriteCount: existing.favoriteTeamIds.size,
+    subscriberId: subscriberId || userId,
+    userId,
+    hasPushToken: !!pushToken,
+    favoriteCount: Array.isArray(row?.favoriteTeamIds)
+      ? row.favoriteTeamIds.length
+      : row?.favoriteTeamIds?.size || 0,
   });
 });
 
@@ -885,58 +987,104 @@ app.get("/bb/notifications/favorites/:subscriberId", (req, res) => {
     return res.status(400).json({ error: "subscriberId is required" });
   }
 
-  const existing = mlbNotifSubscribers.get(subscriberId);
-  if (!existing) {
-    return res.json({ ok: true, subscriberId, favorites: [] });
+  const userId = String(req.query?.userId || req.query?.user_id || subscriberId).trim();
+  if (supabaseAdmin) {
+    supabaseAdmin
+      .from(MLB_FAV_TABLE)
+      .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+      .or(`user_id.eq.${userId},subscriber_id.eq.${subscriberId}`)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          throw error;
+        }
+        const row = normalizeMlbFavRecord(data || { user_id: userId, subscriber_id: subscriberId, favorite_team_ids: [] });
+        return res.json({
+          ok: true,
+          subscriberId: row.subscriberId || subscriberId,
+          userId: row.userId || userId,
+          favorites: Array.from(row.favoriteTeamIds || []),
+        });
+      })
+      .catch((e) => {
+        console.warn("[sports-favs] failed to read mlb_fav favorites:", e?.message || e);
+        return res.json({ ok: true, subscriberId, userId, favorites: [] });
+      });
+    return;
   }
 
+  const existing = mlbNotifSubscribers.get(subscriberId);
   return res.json({
     ok: true,
     subscriberId,
-    favorites: [...existing.favoriteTeamIds],
+    favorites: existing ? Array.from(existing.favoriteTeamIds || []) : [],
   });
 });
 
-app.post("/bb/notifications/favorites/:subscriberId", (req, res) => {
+app.post("/bb/notifications/favorites/:subscriberId", async (req, res) => {
   const subscriberId = String(req.params.subscriberId || "").trim();
+  const userId = String(req.body?.userId || req.body?.user_id || subscriberId || "").trim();
+  const platform = String(req.body?.platform || "unknown").trim();
   const teamId = String(req.body?.teamId || "").trim();
   const teamName = String(req.body?.teamName || "").trim();
   const enabled = !!req.body?.enabled;
+  let row = null;
 
-  if (!subscriberId || !teamId) {
+  if (!userId || !teamId) {
     return res
       .status(400)
-      .json({ error: "subscriberId and teamId are required" });
+      .json({ error: "userId/subscriberId and teamId are required" });
   }
 
-  const existing = mlbNotifSubscribers.get(subscriberId) || {
-    subscriberId,
-    favoriteTeamIds: new Set(),
-  };
+  try {
+    const current = supabaseAdmin
+      ? await supabaseAdmin
+          .from(MLB_FAV_TABLE)
+          .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+          .or(`user_id.eq.${userId},subscriber_id.eq.${subscriberId}`)
+          .maybeSingle()
+          .then(({ data }) =>
+            normalizeMlbFavRecord(
+              data || { user_id: userId, subscriber_id: subscriberId, favorite_team_ids: [] },
+            ),
+          )
+      : mlbNotifSubscribers.get(subscriberId) ||
+        normalizeMlbFavRecord({
+          user_id: userId,
+          subscriber_id: subscriberId,
+          favorite_team_ids: [],
+        });
 
-  if (enabled) {
-    existing.favoriteTeamIds.add(teamId);
-  } else {
-    existing.favoriteTeamIds.delete(teamId);
+    const favorites = new Set(Array.from(current.favoriteTeamIds || []));
+    if (enabled) {
+      favorites.add(teamId);
+    } else {
+      favorites.delete(teamId);
+    }
+
+    row = await upsertMlbFavRow({
+      userId,
+      subscriberId: subscriberId || userId,
+      pushToken: current.pushToken || null,
+      platform: current.platform || platform || "unknown",
+      favoriteTeamIds: Array.from(favorites),
+    });
+
+    console.log(
+      `[sports-favs] mlb update-favorites subscriberId=${row.subscriberId || subscriberId} userId=${row.userId || userId} teamId=${teamId} enabled=${enabled} favoriteCount=${Array.isArray(row.favoriteTeamIds) ? row.favoriteTeamIds.length : row.favoriteTeamIds?.size || 0}`,
+    );
+    logMlbSubscriberTokens(`update-favorites:${row.subscriberId || subscriberId}`, [row]);
+  } catch (e) {
+    console.warn("[sports-favs] mlb update-favorites failed:", e?.message || e);
   }
-
-  if (teamName) {
-    existing.lastTeamName = teamName;
-  }
-  existing.updatedAt = Date.now();
-  mlbNotifSubscribers.set(subscriberId, existing);
-
-  console.log(
-    `[sports-favs] mlb update-favorites subscriberId=${subscriberId} teamId=${teamId} enabled=${enabled} favoriteCount=${existing.favoriteTeamIds.size}`,
-  );
-  logMlbSubscriberTokens(`update-favorites:${subscriberId}`);
 
   return res.json({
     ok: true,
-    subscriberId,
+    subscriberId: subscriberId || userId,
+    userId,
     teamId,
     enabled,
-    favorites: [...existing.favoriteTeamIds],
+    favorites: Array.from(row.favoriteTeamIds || []),
   });
 });
 
@@ -3789,6 +3937,11 @@ app.listen(PORT, async () => {
   await warmLeagues();
   await warmBBTeams();
   startMlbNotificationsLoop();
+  loadMlbFavSubscribers()
+    .then((rows) => logMlbSubscriberTokens("startup-db", rows))
+    .catch((e) =>
+      console.warn("[sports-favs] failed to log startup mlb_fav snapshot:", e?.message || e),
+    );
   // Refresh leagues periodically (every TTL_MS)
   setInterval(warmLeagues, TTL_MS);
 });
