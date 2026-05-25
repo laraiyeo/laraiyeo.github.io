@@ -82,7 +82,7 @@ function getMlbNotifDatePst() {
 
 function getMlbScheduleNotifyPath(dateStr) {
   const fields =
-    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore";
+    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore,about,halfInning";
   return `v1/schedule/games/?sportId=1&startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}&hydrate=hydrations,scoringplays&fields=${encodeURIComponent(fields)}`;
 }
 
@@ -335,8 +335,8 @@ async function processMlbNotificationsTick() {
       const FinalText =
         awayFinal && homeFinal !== "0"
           ? awayFinal < homeFinal
-            ? `The ${awayName} Win the Game`
-            : `The ${homeName} Win the Game`
+            ? `The ${homeName} Win the Game`
+            : `The ${awayName} Win the Game`
           : "Game Ended";
       for (const sub of subscribers) {
         pushQueue.push({
@@ -866,8 +866,8 @@ app.post(
         const FinalText =
           awayFinal && homeFinal !== "0"
             ? awayFinal < homeFinal
-              ? `The ${awayName} Win the Game`
-              : `The ${homeName} Win the Game`
+              ? `The ${homeName} Win the Game`
+              : `The ${awayName} Win the Game`
             : "Game Ended";
         messages.push({
           to: expoPushToken,
