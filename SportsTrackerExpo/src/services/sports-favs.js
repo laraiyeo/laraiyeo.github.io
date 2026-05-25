@@ -19,6 +19,9 @@ async function getOrCreateSubscriberId() {
   if (!subscriberId) {
     subscriberId = `sf_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await AsyncStorage.setItem(SPORTS_FAVS_SUBSCRIBER_KEY, subscriberId);
+    console.log("sports-favs: created subscriberId", subscriberId);
+  } else {
+    console.log("sports-favs: loaded subscriberId", subscriberId);
   }
   return subscriberId;
 }
@@ -54,7 +57,10 @@ async function getExpoPushTokenSafe() {
     });
   }
 
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) {
+    console.log("sports-favs: skipping push token on non-device platform");
+    return null;
+  }
 
   const perm = await Notifications.getPermissionsAsync();
   const granted =
@@ -64,6 +70,7 @@ async function getExpoPushTokenSafe() {
 
   let finalPerm = perm;
   if (!granted) {
+    console.log("sports-favs: requesting push permissions");
     finalPerm = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowBadge: true, allowSound: true },
     });
@@ -73,19 +80,36 @@ async function getExpoPushTokenSafe() {
     finalPerm?.granted ||
     finalPerm?.status === "granted" ||
     finalPerm?.ios?.status === "granted";
-  if (!finalGranted) return null;
+  if (!finalGranted) {
+    console.log("sports-favs: push permissions not granted", finalPerm);
+    return null;
+  }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  console.log("sports-favs: requesting Expo push token", { projectId: !!projectId });
   const tokenResp = await Notifications.getExpoPushTokenAsync(
     projectId ? { projectId } : {},
   );
-  return tokenResp?.data || null;
+  const token = tokenResp?.data || null;
+  console.log("sports-favs: got Expo push token", token ? token : "<none>");
+  return token;
 }
 
 async function registerDeviceIfPossible(subscriberId) {
   try {
     const token = await getExpoPushTokenSafe();
-    if (!token) return null;
+    if (!token) {
+      console.log("sports-favs: no push token available, skipping device registration", {
+        subscriberId,
+      });
+      return null;
+    }
+
+    console.log("sports-favs: registering device", {
+      subscriberId,
+      pushToken: token,
+      platform: Platform.OS,
+    });
 
     await fetch(`${BACKEND_URL}/bb/notifications/register-device`, {
       method: "POST",
@@ -97,6 +121,10 @@ async function registerDeviceIfPossible(subscriberId) {
       }),
     });
 
+    console.log("sports-favs: device registration sent", {
+      subscriberId,
+      hasToken: !!token,
+    });
     return token;
   } catch (e) {
     console.warn("sports-favs register device failed:", e?.message || e);
@@ -106,6 +134,12 @@ async function registerDeviceIfPossible(subscriberId) {
 
 async function syncFavoriteToBackend(subscriberId, teamId, teamName, enabled) {
   try {
+    console.log("sports-favs: syncing favorite to backend", {
+      subscriberId,
+      teamId,
+      teamName,
+      enabled: !!enabled,
+    });
     await fetch(
       `${BACKEND_URL}/bb/notifications/favorites/${encodeURIComponent(subscriberId)}`,
       {
@@ -118,6 +152,7 @@ async function syncFavoriteToBackend(subscriberId, teamId, teamName, enabled) {
         }),
       },
     );
+    console.log("sports-favs: favorite sync complete", { subscriberId, teamId, enabled: !!enabled });
   } catch (e) {
     console.warn("sports-favs backend sync failed:", e?.message || e);
   }
@@ -139,8 +174,13 @@ export const sportsFavs = {
     const id = normalizeTeamId(teamId);
     if (!id) return { isFavorite: false, favoriteTeamIds: [] };
 
+    console.log("sports-favs: toggleFavoriteTeam start", { teamId: id, teamName });
     const subscriberId = await getOrCreateSubscriberId();
-    await registerDeviceIfPossible(subscriberId);
+    const token = await registerDeviceIfPossible(subscriberId);
+    console.log("sports-favs: toggleFavoriteTeam registration result", {
+      subscriberId,
+      hasToken: !!token,
+    });
 
     const current = await loadFavoriteTeamIds();
     const has = current.includes(id);
@@ -150,12 +190,25 @@ export const sportsFavs = {
 
     await syncFavoriteToBackend(subscriberId, id, teamName, isFavorite);
 
+    console.log("sports-favs: toggleFavoriteTeam done", {
+      subscriberId,
+      teamId: id,
+      isFavorite,
+      favoriteCount: saved.length,
+    });
+
     return { isFavorite, favoriteTeamIds: saved };
   },
 
   async ensureRegistration() {
     const subscriberId = await getOrCreateSubscriberId();
-    return registerDeviceIfPossible(subscriberId);
+    console.log("sports-favs: ensureRegistration start", { subscriberId });
+    const token = await registerDeviceIfPossible(subscriberId);
+    console.log("sports-favs: ensureRegistration result", {
+      subscriberId,
+      hasToken: !!token,
+    });
+    return token;
   },
 };
 

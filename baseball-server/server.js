@@ -221,6 +221,12 @@ function ensureGameState(gamePk) {
   return mlbNotifState.gameStates.get(key);
 }
 
+function ordinalSuffix(n) {
+  const s = ["th", "st", "nd", "rd"],
+    v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 async function processMlbNotificationsTick() {
   const now = Date.now();
   const dateStr = getMlbNotifDatePst();
@@ -278,7 +284,7 @@ async function processMlbNotificationsTick() {
           to: sub.pushToken,
           sound: "default",
           title: `${awayName} at ${homeName}`,
-          body: "Game has started",
+          body: "⚾ Game has started",
           data: {
             sport: "mlb",
             gamePk,
@@ -296,7 +302,10 @@ async function processMlbNotificationsTick() {
       if (!hash || gameState.scoringHashes.has(hash)) continue;
       gameState.scoringHashes.add(hash);
 
-      const desc = String(play?.result?.description || "Scoring play");
+      const desc = String(play?.result?.description || "Scoring play")
+        .split(".")[0]
+        .trim();
+      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bottom"} ${ordinalSuffix(play?.about?.inning || "?")})`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
       const isTop = play?.about?.halfInning === "top";
       const awayScore = Number(
@@ -316,7 +325,7 @@ async function processMlbNotificationsTick() {
           to: sub.pushToken,
           sound: "default",
           title,
-          body: desc,
+          body: `${inningText} ${desc}`,
           data: {
             sport: "mlb",
             gamePk,
@@ -335,8 +344,8 @@ async function processMlbNotificationsTick() {
       const FinalText =
         awayFinal && homeFinal !== "0"
           ? awayFinal < homeFinal
-            ? `The ${homeName} Win the Game`
-            : `The ${awayName} Win the Game`
+            ? `⚾ The ${homeName} Win the Game`
+            : `⚾ The ${awayName} Win the Game`
           : "Game Ended";
       for (const sub of subscribers) {
         pushQueue.push({
@@ -856,7 +865,7 @@ app.post(
           to: expoPushToken,
           sound: "default",
           title: `${awayName} at ${homeName}`,
-          body: "Game has started",
+          body: "⚾ Game has started",
           data: { sport: "mlb", gamePk, type: "mlb_game_started" },
         });
       } else if (action === "finish" || action === "final") {
@@ -866,8 +875,8 @@ app.post(
         const FinalText =
           awayFinal && homeFinal !== "0"
             ? awayFinal < homeFinal
-              ? `The ${homeName} Win the Game`
-              : `The ${awayName} Win the Game`
+              ? `⚾ The ${homeName} Win the Game`
+              : `⚾ The ${awayName} Win the Game`
             : "Game Ended";
         messages.push({
           to: expoPushToken,
@@ -898,7 +907,10 @@ app.post(
           if (index >= scoringPlays.length) index = scoringPlays.length - 1;
 
           const play = scoringPlays[index];
-          const desc = String(play?.result?.description || "Scoring play");
+          const desc = String(play?.result?.description || "Scoring play")
+            .split(".")[0]
+            .trim();
+          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bottom"} ${ordinalSuffix(play?.about?.inning || "?")})`;
           const isTop =
             play?.about?.halfInning === "top" ||
             play?.about?.isTopInning === true;
@@ -917,7 +929,7 @@ app.post(
             to: expoPushToken,
             sound: "default",
             title,
-            body: desc,
+            body: `${inningText} ${desc}`,
             data: { sport: "mlb", gamePk, type: "mlb_scoring_play" },
           });
         }
