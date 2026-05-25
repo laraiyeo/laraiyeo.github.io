@@ -200,8 +200,20 @@ function logMlbSubscriberTokens(reason) {
   }
 
   console.log(
-    `[sports-favs] mlb notif subscribers reason=${reason} count=${subscribers.length} data=${JSON.stringify(subscribers)}`,
+    `[sports-favs] mlb notif subscribers reason=${reason} count=${subscribers.length}`,
   );
+  if (subscribers.length === 0) {
+    console.log(
+      `[sports-favs] mlb notif subscribers snapshot empty reason=${reason}`,
+    );
+    return;
+  }
+
+  for (const subscriber of subscribers) {
+    console.log(
+      `[sports-favs] mlb notif subscriber subscriberId=${subscriber.subscriberId} pushToken=${subscriber.pushToken || "<none>"} platform=${subscriber.platform} favorites=${subscriber.favoriteTeamIds.join(",") || "<none>"}`,
+    );
+  }
 }
 
 function normalizeExpoPushToken(rawToken) {
@@ -484,6 +496,7 @@ function startMlbNotificationsLoop() {
   console.log(
     `[sports-favs] starting mlb notification loop pollMs=${MLB_NOTIF_POLL_MS} preStartMs=${MLB_NOTIF_PRE_START_MS} idleRetryMs=${MLB_NOTIF_IDLE_RETRY_MS}`,
   );
+  logMlbSubscriberTokens("startup");
   setInterval(async () => {
     try {
       await processMlbNotificationsTick();
@@ -772,7 +785,6 @@ async function fetchAndCache(key, url) {
     const res = await axios.get(url, { timeout: 10000 });
     const payload = res.data;
     cache.set(key, { data: payload, fetchedAt: Date.now() });
-    console.log(`Fetched and cached ${key}`);
     return { data: payload, fromCache: false };
   } catch (err) {
     console.error(`Error fetching ${url}:`, err.message);
@@ -913,6 +925,11 @@ app.post("/bb/notifications/favorites/:subscriberId", (req, res) => {
   }
   existing.updatedAt = Date.now();
   mlbNotifSubscribers.set(subscriberId, existing);
+
+  console.log(
+    `[sports-favs] mlb update-favorites subscriberId=${subscriberId} teamId=${teamId} enabled=${enabled} favoriteCount=${existing.favoriteTeamIds.size}`,
+  );
+  logMlbSubscriberTokens(`update-favorites:${subscriberId}`);
 
   return res.json({
     ok: true,
