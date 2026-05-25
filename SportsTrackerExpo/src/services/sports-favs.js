@@ -35,7 +35,11 @@ async function loadFavoriteTeamIds() {
 }
 
 async function saveFavoriteTeamIds(teamIds) {
-  const cleaned = [...new Set((teamIds || []).map((id) => normalizeTeamId(id)).filter(Boolean))];
+  const cleaned = [
+    ...new Set(
+      (teamIds || []).map((id) => normalizeTeamId(id)).filter(Boolean),
+    ),
+  ];
   await AsyncStorage.setItem(SPORTS_FAVS_KEY, JSON.stringify(cleaned));
   return cleaned;
 }
@@ -102,15 +106,18 @@ async function registerDeviceIfPossible(subscriberId) {
 
 async function syncFavoriteToBackend(subscriberId, teamId, teamName, enabled) {
   try {
-    await fetch(`${BACKEND_URL}/bb/notifications/favorites/${encodeURIComponent(subscriberId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        teamId: normalizeTeamId(teamId),
-        teamName: String(teamName || "").trim(),
-        enabled: !!enabled,
-      }),
-    });
+    await fetch(
+      `${BACKEND_URL}/bb/notifications/favorites/${encodeURIComponent(subscriberId)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: normalizeTeamId(teamId),
+          teamName: String(teamName || "").trim(),
+          enabled: !!enabled,
+        }),
+      },
+    );
   } catch (e) {
     console.warn("sports-favs backend sync failed:", e?.message || e);
   }

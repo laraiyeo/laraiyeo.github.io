@@ -182,7 +182,7 @@ const TeamColumn = ({
           style={[
             styles.teamName,
             {
-              color: isFav ? (colors?.primary || theme.text) : theme.text,
+              color: isFav ? colors?.primary || theme.text : theme.text,
               opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
             },
           ]}

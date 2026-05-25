@@ -154,7 +154,7 @@ const PITCHER_LOWER_IS_BETTER = new Set([
   "Stolen Bases Allowed",
   "Ops",
   "Walks And Hits Per Inning Pitched",
-  "Earned Run Average"
+  "Earned Run Average",
 ]);
 
 const toTitleWords = (value) =>
@@ -1995,7 +1995,11 @@ const TeamPageScreen = ({ route, navigation }) => {
             "To receive game alerts you must enable notifications. Open settings now?",
             [
               { text: "Open Settings", onPress: () => resolve("open") },
-              { text: "Continue Without", style: "cancel", onPress: () => resolve("continue") },
+              {
+                text: "Continue Without",
+                style: "cancel",
+                onPress: () => resolve("continue"),
+              },
             ],
             { cancelable: true },
           ),
@@ -2345,10 +2349,14 @@ const TeamPageScreen = ({ route, navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.stickyMiniName, { color: isSportsFav ? colors.primary : theme.text }]}
+                  style={[
+                    styles.stickyMiniName,
+                    { color: isSportsFav ? colors.primary : theme.text },
+                  ]}
                   numberOfLines={1}
                 >
-                  {isSportsFav ? "★ " : ""}{team?.name ?? ""}
+                  {isSportsFav ? "★ " : ""}
+                  {team?.name ?? ""}
                 </Text>
                 {team?.division?.name ? (
                   <Text

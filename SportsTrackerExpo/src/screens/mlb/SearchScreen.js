@@ -263,11 +263,19 @@ const SearchScreen = ({ route, navigation }) => {
 
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface, borderWidth: 1, borderColor: teamColor }]}
+        style={[
+          styles.resultItem,
+          {
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: teamColor,
+          },
+        ]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <Image cachePolicy="memory-disk"
+        <Image
+          cachePolicy="memory-disk"
           source={{ uri: MLBService.getTeamLogo(teamId, isDarkMode) }}
           style={styles.teamLogo}
           defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
@@ -275,7 +283,14 @@ const SearchScreen = ({ route, navigation }) => {
         <View style={styles.teamInfo}>
           <Text
             allowFontScaling={false}
-            style={[styles.teamName, { color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.text }]}
+            style={[
+              styles.teamName,
+              {
+                color: sportsFavIds.has(String(teamId))
+                  ? colors.primary
+                  : theme.text,
+              },
+            ]}
           >
             {sportsFavIds.has(String(teamId)) ? "★ " : ""}
             {item.name}
@@ -284,7 +299,15 @@ const SearchScreen = ({ route, navigation }) => {
             allowFontScaling={false}
             style={[styles.teamDetails, { color: theme.textSecondary }]}
           >
-            <Text style={{ color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.textSecondary }}>{teamAbbr}</Text>
+            <Text
+              style={{
+                color: sportsFavIds.has(String(teamId))
+                  ? colors.primary
+                  : theme.textSecondary,
+              }}
+            >
+              {teamAbbr}
+            </Text>
             {" • "}
             {item.division?.name || "Team"}
           </Text>
@@ -302,15 +325,26 @@ const SearchScreen = ({ route, navigation }) => {
 
     return (
       <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.surface, borderWidth: 1, borderColor: teamColor }]}
+        style={[
+          styles.resultItem,
+          {
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: teamColor,
+          },
+        ]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <Image cachePolicy="memory-disk"
+        <Image
+          cachePolicy="memory-disk"
           source={{
             uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.id}/headshot/67/current`,
           }}
-          style={[styles.playerHeadshot, { borderWidth: 2, borderColor: teamColor }]}
+          style={[
+            styles.playerHeadshot,
+            { borderWidth: 2, borderColor: teamColor },
+          ]}
           defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
         />
         <View style={styles.playerInfo}>
@@ -325,9 +359,22 @@ const SearchScreen = ({ route, navigation }) => {
             style={[styles.playerDetails, { color: theme.textSecondary }]}
           >
             #{item.primaryNumber || "--"} •{" "}
-            {item.primaryPosition?.name || "N/A"} • 
-            {sportsFavIds.has(String(teamId)) ? <Text style={{ color: colors.primary }}> ★</Text> : ""}
-            <Text style={{ color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.textSecondary }}>{" "}{teamAbbr || "Free Agent"}</Text>
+            {item.primaryPosition?.name || "N/A"} •
+            {sportsFavIds.has(String(teamId)) ? (
+              <Text style={{ color: colors.primary }}> ★</Text>
+            ) : (
+              ""
+            )}
+            <Text
+              style={{
+                color: sportsFavIds.has(String(teamId))
+                  ? colors.primary
+                  : theme.textSecondary,
+              }}
+            >
+              {" "}
+              {teamAbbr || "Free Agent"}
+            </Text>
           </Text>
         </View>
       </TouchableOpacity>

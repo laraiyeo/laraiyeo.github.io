@@ -392,54 +392,45 @@ const BetLoginScreen = ({ navigation, route }) => {
         if (setIsPro) setIsPro(false);
       } catch (e) {}
 
-      Alert.alert(
-        "Success",
-        "Account created! Welcome to SportsHeart ❤.",
-        [
-          {
-            text: "OK",
-            onPress: async () => {
-              // Persist credentials locally so inputs stay filled
-              await saveCredentials(signupUsername, signupPassword, phone);
-              // Prompt for push notifications during signup onboarding
-              try {
-                registerForPushNotifications().catch((e) =>
-                  console.warn(
-                    "registerForPushNotifications (signup) failed",
-                    e,
+      Alert.alert("Success", "Account created! Welcome to SportsHeart ❤.", [
+        {
+          text: "OK",
+          onPress: async () => {
+            // Persist credentials locally so inputs stay filled
+            await saveCredentials(signupUsername, signupPassword, phone);
+            // Prompt for push notifications during signup onboarding
+            try {
+              registerForPushNotifications().catch((e) =>
+                console.warn("registerForPushNotifications (signup) failed", e),
+              );
+            } catch (e) {
+              console.warn("registerForPushNotifications (signup) error", e);
+            }
+            try {
+              console.log("BetLogin: signup success - fetching scoreboard now");
+              await fetchScoreboard();
+              console.log("BetLogin: signup - scoreboard fetch complete");
+            } catch (e) {
+              console.error("BetLogin: signup - fetchScoreboard error", e);
+            }
+            // Start rosters fetch in background
+            if (fetchRosters) {
+              fetchRosters()
+                .then(() =>
+                  console.log(
+                    "BetLogin: signup - rosters fetch started/completed",
                   ),
+                )
+                .catch((e) =>
+                  console.error("BetLogin: signup - fetchRosters error", e),
                 );
-              } catch (e) {
-                console.warn("registerForPushNotifications (signup) error", e);
-              }
-              try {
-                console.log(
-                  "BetLogin: signup success - fetching scoreboard now",
-                );
-                await fetchScoreboard();
-                console.log("BetLogin: signup - scoreboard fetch complete");
-              } catch (e) {
-                console.error("BetLogin: signup - fetchScoreboard error", e);
-              }
-              // Start rosters fetch in background
-              if (fetchRosters) {
-                fetchRosters()
-                  .then(() =>
-                    console.log(
-                      "BetLogin: signup - rosters fetch started/completed",
-                    ),
-                  )
-                  .catch((e) =>
-                    console.error("BetLogin: signup - fetchRosters error", e),
-                  );
-              }
-              InteractionManager.runAfterInteractions(() => {
-                handlePostLogin();
-              });
-            },
+            }
+            InteractionManager.runAfterInteractions(() => {
+              handlePostLogin();
+            });
           },
-        ],
-      );
+        },
+      ]);
     } catch (error) {
       console.error("Signup error:", error);
       Alert.alert("Signup Failed", error.message || "Could not create account");
