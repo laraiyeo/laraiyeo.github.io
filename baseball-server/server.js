@@ -863,11 +863,17 @@ app.post(
         const awayFinal = String(game?.teams?.away?.score ?? "0");
         const homeFinal = String(game?.teams?.home?.score ?? "0");
         const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
+        const FinalText =
+          awayFinal && homeFinal !== "0"
+            ? awayFinal < homeFinal
+              ? `The ${awayName} Win the Game`
+              : `The ${homeName} Win the Game`
+            : "Game Ended";
         messages.push({
           to: expoPushToken,
           sound: "default",
           title: finalTitle,
-          body: "Game finished",
+          body: FinalText,
           data: { sport: "mlb", gamePk, type: "mlb_game_finished" },
         });
       } else if (action === "score" || action === "scoring") {
