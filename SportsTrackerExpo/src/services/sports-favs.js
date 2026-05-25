@@ -86,7 +86,9 @@ async function getExpoPushTokenSafe() {
   }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  console.log("sports-favs: requesting Expo push token", { projectId: !!projectId });
+  console.log("sports-favs: requesting Expo push token", {
+    projectId: !!projectId,
+  });
   const tokenResp = await Notifications.getExpoPushTokenAsync(
     projectId ? { projectId } : {},
   );
@@ -99,9 +101,12 @@ async function registerDeviceIfPossible(subscriberId) {
   try {
     const token = await getExpoPushTokenSafe();
     if (!token) {
-      console.log("sports-favs: no push token available, skipping device registration", {
-        subscriberId,
-      });
+      console.log(
+        "sports-favs: no push token available, skipping device registration",
+        {
+          subscriberId,
+        },
+      );
       return null;
     }
 
@@ -152,7 +157,11 @@ async function syncFavoriteToBackend(subscriberId, teamId, teamName, enabled) {
         }),
       },
     );
-    console.log("sports-favs: favorite sync complete", { subscriberId, teamId, enabled: !!enabled });
+    console.log("sports-favs: favorite sync complete", {
+      subscriberId,
+      teamId,
+      enabled: !!enabled,
+    });
   } catch (e) {
     console.warn("sports-favs backend sync failed:", e?.message || e);
   }
@@ -174,7 +183,10 @@ export const sportsFavs = {
     const id = normalizeTeamId(teamId);
     if (!id) return { isFavorite: false, favoriteTeamIds: [] };
 
-    console.log("sports-favs: toggleFavoriteTeam start", { teamId: id, teamName });
+    console.log("sports-favs: toggleFavoriteTeam start", {
+      teamId: id,
+      teamName,
+    });
     const subscriberId = await getOrCreateSubscriberId();
     const token = await registerDeviceIfPossible(subscriberId);
     console.log("sports-favs: toggleFavoriteTeam registration result", {
