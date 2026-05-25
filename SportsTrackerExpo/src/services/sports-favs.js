@@ -365,13 +365,7 @@ export const sportsFavs = {
     const next = has ? current.filter((v) => v !== id) : [...current, id];
     const isFavorite = !has;
 
-    await syncFavoriteToSupabase(
-      subscriberId,
-      id,
-      teamName,
-      isFavorite,
-      next,
-    );
+    await syncFavoriteToSupabase(subscriberId, id, teamName, isFavorite, next);
 
     registrationPromise.then((resolvedToken) => {
       console.log("sports-favs: toggleFavoriteTeam registration async", {
