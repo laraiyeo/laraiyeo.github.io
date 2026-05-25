@@ -16,7 +16,6 @@ import {
   Dimensions,
   PanResponder,
   Alert,
-  Linking,
 } from "react-native";
 import { Image } from "expo-image";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
@@ -1984,35 +1983,6 @@ const TeamPageScreen = ({ route, navigation }) => {
         );
         setSportsFavBusy(false);
         return;
-      }
-      // Ensure device registration / permissions first so user sees prompt
-      const token = await sportsFavs.ensureRegistration();
-      if (!token) {
-        // Ask user whether to open settings or continue without notifications
-        const res = await new Promise((resolve) =>
-          Alert.alert(
-            "Enable Notifications",
-            "To receive game alerts you must enable notifications. Open settings now?",
-            [
-              { text: "Open Settings", onPress: () => resolve("open") },
-              {
-                text: "Continue Without",
-                style: "cancel",
-                onPress: () => resolve("continue"),
-              },
-            ],
-            { cancelable: true },
-          ),
-        );
-        if (res === "open") {
-          try {
-            Linking.openSettings();
-          } catch (e) {
-            console.warn("Failed to open settings", e?.message || e);
-          }
-          setSportsFavBusy(false);
-          return;
-        }
       }
 
       const next = await sportsFavs.toggleFavoriteTeam({

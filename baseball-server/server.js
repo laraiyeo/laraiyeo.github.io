@@ -141,8 +141,8 @@ function getMlbNotifDatePst() {
 
 function getMlbScheduleNotifyPath(dateStr) {
   const fields =
-    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore,about,halfInning,inning";
-  return `v1/schedule/games/?sportId=1&startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}&hydrate=hydrations,scoringplays&fields=${encodeURIComponent(fields)}`;
+    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,probablePitcher,fullName,home,scoringPlays,result,description,awayScore,homeScore,about,halfInning,inning";
+  return `v1/schedule/games/?sportId=1&startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}&hydrate=hydrations,scoringplays,probablePitcher&fields=${encodeURIComponent(fields)}`;
 }
 
 async function fetchMlbScheduleForNotifications(dateStr) {
@@ -210,9 +210,47 @@ const TEAM_NAMES = {
   158: "Brewers",
 };
 
+const TEAM_ABBRS = {
+  108: "LAA",
+  109: "ARI",
+  110: "BAL",
+  111: "BOS",
+  112: "CHC",
+  113: "CIN",
+  114: "CLE",
+  115: "COL",
+  116: "DET",
+  117: "HOU",
+  118: "KC",
+  119: "LAD",
+  120: "WSH",
+  121: "NYM",
+  133: "ATH",
+  134: "PIT",
+  135: "SD",
+  136: "SEA",
+  137: "SF",
+  138: "STL",
+  139: "TB",
+  140: "TEX",
+  141: "TOR",
+  142: "MIN",
+  143: "PHI",
+  144: "ATL",
+  145: "CWS",
+  146: "MIA",
+  147: "NYY",
+  158: "MIL",
+};
+
 function getTeamName(team) {
   const id = String(team?.id || "");
   return TEAM_NAMES[id] || team?.name || "Unknown Team";
+}
+
+function getTeamAbbr(team) {
+  const id = String(team?.id || "");
+  return TEAM_ABBRS[id] || team?.abbreviation || "UNK";
 }
 
 function getTeamsForGame(game) {
@@ -222,8 +260,12 @@ function getTeamsForGame(game) {
   return {
     awayId: String(away.id || ""),
     homeId: String(home.id || ""),
+
     awayName: getTeamName(away),
     homeName: getTeamName(home),
+
+    awayAbbr: getTeamAbbr(away),
+    homeAbbr: getTeamAbbr(home),
   };
 }
 
@@ -527,7 +569,7 @@ async function processMlbNotificationsTick() {
 
     const gameState = ensureGameState(gamePk);
 
-    const { awayName, homeName } = getTeamsForGame(game);
+    const { awayName, homeName, awayAbbr, homeAbbr } = getTeamsForGame(game);
 
     const statusKey = `${String(game?.status?.codedGameState || "")}|${String(game?.status?.detailedState || "")}`;
     if (gameState.lastStatusKey !== statusKey) {
@@ -536,6 +578,31 @@ async function processMlbNotificationsTick() {
       );
       gameState.lastStatusKey = statusKey;
     }
+
+    const formatName = (name) => {
+      const parts = String(name || "Unknown")
+        .trim()
+        .split(/\s+/);
+
+      if (parts.length === 1) return parts[0];
+
+      const suffixes = ["Jr", "Jr.", "Sr", "Sr.", "II", "III", "IV"];
+
+      const last = parts[parts.length - 1];
+      const secondLast = parts[parts.length - 2];
+
+      const lastName = suffixes.includes(last) ? `${secondLast} ${last}` : last;
+
+      return `${parts[0][0]}. ${lastName}`;
+    };
+
+    const homePitcher = formatName(
+      game?.teams?.home?.probablePitcher?.fullName,
+    );
+
+    const awayPitcher = formatName(
+      game?.teams?.away?.probablePitcher?.fullName,
+    );
 
     const scoringPlays = Array.isArray(game?.scoringPlays)
       ? game.scoringPlays
@@ -559,8 +626,8 @@ async function processMlbNotificationsTick() {
         pushQueue.push({
           to: sub.pushToken,
           sound: "default",
-          title: `⚾ ${awayName} at ${homeName}`,
-          body: "Game has started",
+          title: `⚾ ${awayName} @ ${homeName}`,
+          body: `Game has started\n${awayPitcher} (${awayAbbr}) @ ${homePitcher} (${homeAbbr})`,
           data: {
             sport: "mlb",
             gamePk,
@@ -576,7 +643,7 @@ async function processMlbNotificationsTick() {
       gameState.scoringHashes.add(hash);
 
       const desc = String(play?.result?.description || "Scoring play")
-        .split(/[.,]/)[0]
+        .split(/(?<!Jr)\.(?=\s)|,/)[0]
         .trim();
       const inningText = `(${play?.about?.halfInning === "top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
@@ -1257,7 +1324,7 @@ app.post(
         });
       }
 
-      const { awayName, homeName } = getTeamsForGame(game);
+      const { awayName, homeName, awayAbbr, homeAbbr } = getTeamsForGame(game);
       const gamePk = String(game?.gamePk || "");
 
       const messages = [];
@@ -1266,8 +1333,8 @@ app.post(
         messages.push({
           to: expoPushToken,
           sound: "default",
-          title: `⚾ ${awayName} at ${homeName}`,
-          body: "Game has started",
+          title: `⚾ ${awayName} @ ${homeName}`,
+          body: "Game has started\n",
           data: { sport: "mlb", gamePk, type: "mlb_game_started" },
         });
       } else if (action === "finish" || action === "final") {
@@ -1312,7 +1379,7 @@ app.post(
 
           const play = scoringPlays[index];
           const desc = String(play?.result?.description || "Scoring play")
-            .split(/[.,]/)[0]
+            .split(/(?<!Jr)\.(?=\s)|,/)[0]
             .trim();
           const inningText = `(${play?.about?.halfInning === "top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
           const isTop =

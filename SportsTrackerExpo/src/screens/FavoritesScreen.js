@@ -10547,6 +10547,12 @@ const FavoritesScreen = ({ navigation }) => {
           >
             Add teams to favorites by clicking the star on team pages
           </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { color: theme.textTertiary, fontSize: 12 }]}
+          >
+            MLB, NHL are currently being updated to support the favorite featur
+          </Text>
         </View>
       ) : (
         <ScrollView

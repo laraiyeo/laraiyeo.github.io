@@ -10,6 +10,8 @@ const SPORTS_FAVS_PUSH_TOKEN_KEY = "@sports_favs_push_token_v1";
 const FAVORITES_TABLE = "mlb_fav";
 const favoriteTeamIdsCache = new Map();
 let pushTokenCache = null;
+let hasRegisteredDeviceThisSession = false;
+let registrationPromise = null;
 
 function normalizeTeamId(teamId) {
   if (teamId == null) return "";
@@ -67,21 +69,19 @@ async function persistFavoriteRow({
     throw new Error("Supabase user id is required to persist MLB favorites");
   }
 
-  const currentRow = await getFavoriteRow(userId);
-  const payload = {
-    user_id: userId,
-    subscriber_id: subscriberId || currentRow?.subscriber_id || null,
-    push_token:
-      pushToken !== undefined
-        ? pushToken || null
-        : currentRow?.push_token || null,
-    platform: platform || currentRow?.platform || Platform.OS || "unknown",
-    favorite_team_ids: normalizeFavoriteTeamIds(
-      favoriteTeamIds !== undefined
-        ? favoriteTeamIds
-        : currentRow?.favorite_team_ids || [],
-    ),
-  };
+  const payload = { user_id: userId };
+  if (subscriberId !== undefined) {
+    payload.subscriber_id = subscriberId || null;
+  }
+  if (pushToken !== undefined) {
+    payload.push_token = pushToken || null;
+  }
+  if (platform !== undefined) {
+    payload.platform = platform || Platform.OS || "unknown";
+  }
+  if (favoriteTeamIds !== undefined) {
+    payload.favorite_team_ids = normalizeFavoriteTeamIds(favoriteTeamIds);
+  }
 
   const { data, error } = await supabase
     .from(FAVORITES_TABLE)
@@ -96,10 +96,12 @@ async function persistFavoriteRow({
   }
 
   const normalized = data || payload;
-  favoriteTeamIdsCache.set(
-    userId,
-    normalizeFavoriteTeamIds(normalized.favorite_team_ids),
-  );
+  if (Array.isArray(normalized.favorite_team_ids)) {
+    favoriteTeamIdsCache.set(
+      userId,
+      normalizeFavoriteTeamIds(normalized.favorite_team_ids),
+    );
+  }
   return normalized;
 }
 
@@ -239,7 +241,22 @@ async function registerDeviceIfPossible(subscriberId) {
       return null;
     }
 
-    const favoriteTeamIds = await loadFavoriteTeamIds();
+    const existing = await getFavoriteRow(userId);
+    const alreadyRegistered =
+      existing &&
+      String(existing.subscriber_id || "") === String(subscriberId || "") &&
+      String(existing.push_token || "") === String(token || "") &&
+      String(existing.platform || "").toLowerCase() ===
+        String(Platform.OS || "").toLowerCase();
+
+    if (alreadyRegistered) {
+      hasRegisteredDeviceThisSession = true;
+      console.log("sports-favs: registration already up-to-date", {
+        subscriberId,
+        userId,
+      });
+      return token;
+    }
 
     console.log("sports-favs: registering device", {
       subscriberId,
@@ -253,7 +270,6 @@ async function registerDeviceIfPossible(subscriberId) {
       subscriberId,
       pushToken: token,
       platform: Platform.OS,
-      favoriteTeamIds,
     });
 
     console.log("sports-favs: device registration sent", {
@@ -261,11 +277,37 @@ async function registerDeviceIfPossible(subscriberId) {
       userId,
       hasToken: !!token,
     });
+    hasRegisteredDeviceThisSession = true;
     return token;
   } catch (e) {
     console.warn("sports-favs register device failed:", e?.message || e);
     return null;
   }
+}
+
+function maybeRegisterDeviceInBackground(subscriberId) {
+  if (hasRegisteredDeviceThisSession || registrationPromise) {
+    return;
+  }
+
+  registrationPromise = registerDeviceIfPossible(subscriberId)
+    .then((token) => {
+      console.log("sports-favs: background registration complete", {
+        subscriberId,
+        hasToken: !!token,
+      });
+      return token;
+    })
+    .catch((e) => {
+      console.warn(
+        "sports-favs: background registration failed:",
+        e?.message || e,
+      );
+      return null;
+    })
+    .finally(() => {
+      registrationPromise = null;
+    });
 }
 
 async function syncFavoriteToSupabase(
@@ -287,7 +329,7 @@ async function syncFavoriteToSupabase(
           enabled: !!enabled,
         },
       );
-      return;
+      return false;
     }
 
     const next = Array.isArray(nextFavoriteTeamIds)
@@ -319,8 +361,10 @@ async function syncFavoriteToSupabase(
       teamId,
       enabled: !!enabled,
     });
+    return true;
   } catch (e) {
     console.warn("sports-favs supabase sync failed:", e?.message || e);
+    return false;
   }
 }
 
@@ -345,34 +389,39 @@ export const sportsFavs = {
       teamName,
     });
     const subscriberId = await getOrCreateSubscriberId();
-
-    const registrationPromise = registerDeviceIfPossible(subscriberId).catch(
-      () => null,
-    );
-
-    const token = await Promise.race([
-      registrationPromise,
-      Promise.resolve(await getCachedPushToken()),
-    ]);
-
-    console.log("sports-favs: toggleFavoriteTeam registration result", {
-      subscriberId,
-      hasToken: !!token,
-    });
+    maybeRegisterDeviceInBackground(subscriberId);
 
     const current = await loadFavoriteTeamIds();
     const has = current.includes(id);
     const next = has ? current.filter((v) => v !== id) : [...current, id];
     const isFavorite = !has;
 
-    await syncFavoriteToSupabase(subscriberId, id, teamName, isFavorite, next);
+    const synced = await syncFavoriteToSupabase(
+      subscriberId,
+      id,
+      teamName,
+      isFavorite,
+      next,
+    );
 
-    registrationPromise.then((resolvedToken) => {
-      console.log("sports-favs: toggleFavoriteTeam registration async", {
-        subscriberId,
-        hasToken: !!resolvedToken,
-      });
-    });
+    if (!synced) {
+      const fallback = await loadFavoriteTeamIds({ forceRefresh: true });
+      const fallbackIsFavorite = fallback.includes(id);
+      console.warn(
+        "sports-favs: toggleFavoriteTeam sync failed, using server state",
+        {
+          subscriberId,
+          teamId: id,
+          fallbackIsFavorite,
+          favoriteCount: fallback.length,
+        },
+      );
+      return {
+        isFavorite: fallbackIsFavorite,
+        favoriteTeamIds: fallback,
+        synced: false,
+      };
+    }
 
     const userId = await getCurrentSupabaseUserId();
     if (userId) {
@@ -386,7 +435,7 @@ export const sportsFavs = {
       favoriteCount: next.length,
     });
 
-    return { isFavorite, favoriteTeamIds: next };
+    return { isFavorite, favoriteTeamIds: next, synced: true };
   },
 
   async ensureRegistration() {
