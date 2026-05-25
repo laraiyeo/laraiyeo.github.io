@@ -216,7 +216,7 @@ const BetLoginScreen = ({ navigation, route }) => {
       showProSplash();
       return;
     }
-    navigation.navigate(returnTo);
+    navigation.navigate(returnTo, route?.params?.params || undefined);
   };
 
   const checkSession = async () => {
@@ -394,7 +394,7 @@ const BetLoginScreen = ({ navigation, route }) => {
 
       Alert.alert(
         "Success",
-        "Account created! You've been given 2500 credits to start.",
+        "Account created! Welcome to SportsHeart ❤.",
         [
           {
             text: "OK",
@@ -600,8 +600,37 @@ const BetLoginScreen = ({ navigation, route }) => {
             return;
           }
 
-          // If RPC returned null, credentials are invalid or user doesn't exist
+          // If RPC returned null, determine whether this is a missing account
+          // or a password mismatch before deciding which screen to show.
           if (!authenticatedPhone) {
+            const { data: profileRow, error: profileLookupErr } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("username", username)
+              .maybeSingle();
+
+            if (profileLookupErr) {
+              console.warn(
+                "BetLogin: profile existence lookup failed",
+                profileLookupErr,
+              );
+              Alert.alert(
+                "Account Lookup Failed",
+                "Unable to verify the username. Please try again.",
+              );
+              setLoading(false);
+              return;
+            }
+
+            if (!profileRow) {
+              Alert.alert(
+                "Login Failed",
+                "Invalid username or password. Please try again.",
+              );
+              setLoading(false);
+              return;
+            }
+
             Alert.alert(
               "Login Failed",
               "Invalid username or password. Please try again.",
@@ -918,7 +947,7 @@ const BetLoginScreen = ({ navigation, route }) => {
 
   const titleText = onboardingMode
     ? "Sign in to SportsHeart"
-    : "Welcome to SportsHeart Picks";
+    : "Welcome to SportsHeart";
   const subtitleText = onboardingMode
     ? "Log in to sync your profile"
     : "Login or create a new account";
@@ -994,7 +1023,7 @@ const BetLoginScreen = ({ navigation, route }) => {
             {showPhoneForm && (
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: theme.text, marginBottom: 8 }}>
-                  Phone
+                  Phone (no dashes)
                 </Text>
                 <View
                   style={[
@@ -1147,7 +1176,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: "absolute",
-    top: 8,
+    top: Platform.OS === "ios" ? 20 : 60,
     right: 20,
     zIndex: 10,
     padding: 4,
@@ -1159,7 +1188,7 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 8,
+    paddingTop: Platform.OS === "ios" ? 20 : 60,
     paddingHorizontal: 20,
   },
   bodyContent: {

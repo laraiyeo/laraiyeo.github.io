@@ -21,11 +21,10 @@ import ViewShot from "react-native-view-shot";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
-import { useFavorites } from "../../context/FavoritesContext";
-import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { MLBService } from "../../services/MLBService";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
+import sportsFavs from "../../services/sports-favs";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 
 const { width } = Dimensions.get("window");
@@ -937,9 +936,9 @@ const TeamRow = ({
 const StandingsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { theme, colors, getTeamLogoUrl } = useTheme();
-  const { isFavorite } = useFavorites();
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
+  const [sportsFavIds, setSportsFavIds] = useState(new Set());
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -975,6 +974,26 @@ const StandingsScreen = ({ route }) => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    let mounted = true;
+    const loadSportsFavs = async () => {
+      try {
+        const ids = await sportsFavs.listFavoriteTeams();
+        if (!mounted) return;
+        setSportsFavIds(new Set((ids || []).map((id) => String(id))));
+      } catch (e) {
+        console.warn("Standings sports-favs load failed:", e?.message || e);
+      }
+    };
+
+    loadSportsFavs();
+    const unsub = navigation.addListener("focus", loadSportsFavs);
+    return () => {
+      mounted = false;
+      unsub?.();
+    };
+  }, [navigation]);
+
   // Flatten all team records with their division id attached
   const allTeams = standings
     ? standings.flatMap((divRecord) =>
@@ -990,14 +1009,13 @@ const StandingsScreen = ({ route }) => {
   // Shared TeamRow renderer
   const renderTeamRow = (tr, rank) => {
     const mlbId = tr.team?.id?.toString();
-    const espnId = convertMLBIdToESPNId(mlbId) ?? mlbId;
     return (
       <TeamRow
         key={`${tr.team?.id}-${rank}`}
         teamRecord={tr}
         theme={theme}
         colors={colors}
-        isFav={isFavorite(espnId, "mlb")}
+        isFav={sportsFavIds.has(String(mlbId || ""))}
         getTeamLogoUrl={getTeamLogoUrl}
         rank={rank}
         sortByOpt={sortBy ?? null}

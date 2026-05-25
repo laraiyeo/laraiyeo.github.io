@@ -2776,6 +2776,67 @@ const AppContent = () => {
     };
   }, []);
 
+  // Handle MLB push notification taps and deep-link into GameDetails.
+  useEffect(() => {
+    let mounted = true;
+
+    const navigateToMlbGame = (payload) => {
+      const sport = String(payload?.sport || "").toLowerCase();
+      const gamePk = payload?.gamePk;
+      if (sport !== "mlb" || gamePk == null) return;
+
+      const go = () => {
+        navigationRef.navigate("GameDetails", {
+          sport: "mlb",
+          gamePk: String(gamePk),
+        });
+      };
+
+      if (navigationRef.isReady && navigationRef.isReady()) {
+        go();
+        return;
+      }
+
+      const waitUntilReady = () => {
+        if (!mounted) return;
+        if (navigationRef.isReady && navigationRef.isReady()) {
+          go();
+          return;
+        }
+        setTimeout(waitUntilReady, 50);
+      };
+      waitUntilReady();
+    };
+
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        try {
+          const payload = response?.notification?.request?.content?.data || {};
+          navigateToMlbGame(payload);
+        } catch (e) {
+          if (__DEV__) {
+            console.warn("Push response navigation failed", e?.message || e);
+          }
+        }
+      },
+    );
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (!mounted || !response) return;
+        const payload = response?.notification?.request?.content?.data || {};
+        navigateToMlbGame(payload);
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+      try {
+        sub?.remove?.();
+      } catch {}
+    };
+  }, []);
+
   const showLoginGate =
     isOnboardingComplete &&
     !loginDontShow &&

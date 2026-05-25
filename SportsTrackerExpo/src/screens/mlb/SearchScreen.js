@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
 import WBCService from "../../services/WBCService";
 import { MLBService } from "../../services/MLBService";
+import sportsFavs from "../../services/sports-favs";
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
@@ -26,6 +27,21 @@ const SearchScreen = ({ route, navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const [sportsFavIds, setSportsFavIds] = useState(new Set());
+
+  const loadSportsFavs = useCallback(async () => {
+    try {
+      const ids = await sportsFavs.listFavoriteTeams();
+      setSportsFavIds(new Set((ids || []).map((id) => String(id))));
+    } catch (e) {
+      console.warn("SearchScreen: failed to load sports-favs", e?.message || e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSportsFavs();
+  }, [loadSportsFavs]);
 
   // Debounce search to avoid too many API calls
   useEffect(() => {
@@ -259,15 +275,18 @@ const SearchScreen = ({ route, navigation }) => {
         <View style={styles.teamInfo}>
           <Text
             allowFontScaling={false}
-            style={[styles.teamName, { color: theme.text }]}
+            style={[styles.teamName, { color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.text }]}
           >
+            {sportsFavIds.has(String(teamId)) ? "★ " : ""}
             {item.name}
           </Text>
           <Text
             allowFontScaling={false}
             style={[styles.teamDetails, { color: theme.textSecondary }]}
           >
-            {teamAbbr} • {item.division?.name || "Team"}
+            <Text style={{ color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.textSecondary }}>{teamAbbr}</Text>
+            {" • "}
+            {item.division?.name || "Team"}
           </Text>
         </View>
       </TouchableOpacity>
@@ -306,7 +325,9 @@ const SearchScreen = ({ route, navigation }) => {
             style={[styles.playerDetails, { color: theme.textSecondary }]}
           >
             #{item.primaryNumber || "--"} •{" "}
-            {item.primaryPosition?.name || "N/A"} • {teamAbbr || "Free Agent"}
+            {item.primaryPosition?.name || "N/A"} • 
+            {sportsFavIds.has(String(teamId)) ? <Text style={{ color: colors.primary }}> ★</Text> : ""}
+            <Text style={{ color: sportsFavIds.has(String(teamId)) ? colors.primary : theme.textSecondary }}>{" "}{teamAbbr || "Free Agent"}</Text>
           </Text>
         </View>
       </TouchableOpacity>

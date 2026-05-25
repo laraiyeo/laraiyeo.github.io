@@ -2261,23 +2261,23 @@ async function buildAndCacheSession(sessionKey, options = {}) {
             : Number.isFinite(Number(currentLapNumber))
               ? Number(currentLapNumber)
               : null;
-          // Factor full missing laps (3 null sectors == 1 full missing lap)
-          const missingFullLaps = Number.isFinite(Number(nullSectors?.total))
-            ? Math.floor(Number(nullSectors.total) / 3)
-            : 0;
+          const nullSectorTotal = Number(nullSectors?.total) || 0;
+          const nullSectorRemainder = nullSectorTotal % 3;
+          const nullSectorFraction =
+            nullSectorRemainder === 1
+              ? 0.2
+              : nullSectorRemainder === 2
+                ? 0.1
+                : 0;
 
-          let lapsUsedDisplay;
-          if (Number.isFinite(Number(currentLapValid))) {
-            if (missingFullLaps > 0) {
-              // If there are full missing laps from null sectors, don't show
-              // fractional progress for the current lap — prefer whole laps.
-              const adjustedCurrent = Number(currentLapValid) - missingFullLaps;
-              lapsUsedDisplay = Math.max(Math.floor(adjustedCurrent), lapsUsed);
-            } else {
-              lapsUsedDisplay = Math.max(Number(currentLapValid), lapsUsed);
-            }
-          } else {
-            lapsUsedDisplay = lapsUsed;
+          let lapsUsedDisplay = null;
+          if (Number.isFinite(Number(lapsUsed))) {
+            const baseLaps = Math.floor(Number(lapsUsed));
+            lapsUsedDisplay = Number(
+              (baseLaps + nullSectorFraction).toFixed(1),
+            );
+          } else if (Number.isFinite(Number(currentLapValid))) {
+            lapsUsedDisplay = Number(Number(currentLapValid).toFixed(1));
           }
 
           lapsByDriver[dn].driver_time = {
@@ -2289,7 +2289,7 @@ async function buildAndCacheSession(sessionKey, options = {}) {
           lapsByDriver[dn].null_sectors = nullSectors;
           driverTimes[dn] = {
             totalTime: totalTime != null ? Number(totalTime.toFixed(3)) : null,
-            currentLap: currentLapValid,
+            currentLap: lapsUsedDisplay,
             lapsUsed: lapsUsedDisplay,
           };
         } else {

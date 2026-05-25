@@ -8,6 +8,7 @@ import {
   FlatList,
   Dimensions,
   Image,
+  Platform,
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: Platform.OS === "ios" ? 20 : 60,
     alignItems: "flex-end",
   },
   skipText: {

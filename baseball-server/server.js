@@ -8,6 +8,7 @@ const app = express();
 app.use(cors());
 // enable gzip/deflate compression (and brotli when Node chooses)
 app.use(compression());
+app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
@@ -21,6 +22,320 @@ const TTL_MS = 30 * 60 * 1000; // 30 minutes
 const refreshIntervals = new Map();
 // track special modes for bracket polling
 const bracketModes = new Map();
+
+// ----------------------------------------------------------------------------
+// sports-favs MLB notifications state
+// ----------------------------------------------------------------------------
+const mlbNotifSubscribers = new Map();
+const mlbNotifState = {
+  dateStr: null,
+  suspendUntilMs: 0,
+  doneForDate: false,
+  gameStates: new Map(),
+};
+
+const MLB_NOTIF_POLL_MS = 5000;
+const MLB_NOTIF_PRE_START_MS = 30 * 60 * 1000;
+const MLB_NOTIF_IDLE_RETRY_MS = 5 * 60 * 1000;
+
+function getDatePartsInTimeZone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const out = {};
+  for (const p of parts) {
+    if (p.type !== "literal") out[p.type] = p.value;
+  }
+  return {
+    year: Number(out.year),
+    month: Number(out.month),
+    day: Number(out.day),
+    hour: Number(out.hour),
+  };
+}
+
+function toIsoDateFromParts({ year, month, day }) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function getMlbNotifDatePst() {
+  const now = new Date();
+  const pst = getDatePartsInTimeZone(now, "America/Los_Angeles");
+  const base = new Date(Date.UTC(pst.year, pst.month - 1, pst.day));
+  if (pst.hour < 2) {
+    base.setUTCDate(base.getUTCDate() - 1);
+  }
+  return toIsoDateFromParts({
+    year: base.getUTCFullYear(),
+    month: base.getUTCMonth() + 1,
+    day: base.getUTCDate(),
+  });
+}
+
+function getMlbScheduleNotifyPath(dateStr) {
+  const fields =
+    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore";
+  return `v1/schedule/games/?sportId=1&startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}&hydrate=hydrations,scoringplays&fields=${encodeURIComponent(fields)}`;
+}
+
+async function fetchMlbScheduleForNotifications(dateStr) {
+  const path = getMlbScheduleNotifyPath(dateStr);
+  const url = `${BASE_URL}${path}`;
+  const res = await axios.get(url, { timeout: 10000 });
+  return res.data || { dates: [] };
+}
+
+function flattenGames(payload) {
+  const dates = Array.isArray(payload?.dates) ? payload.dates : [];
+  return dates.flatMap((d) => (Array.isArray(d?.games) ? d.games : []));
+}
+
+function isGameStarted(game) {
+  const code = String(game?.status?.codedGameState || "").toUpperCase();
+  const detailed = String(game?.status?.detailedState || "").toLowerCase();
+  if (detailed.includes("pre-game") || detailed.includes("scheduled")) return false;
+  return !["P", "S"].includes(code);
+}
+
+function isGameFinished(game) {
+  const code = String(game?.status?.codedGameState || "").toUpperCase();
+  const detailed = String(game?.status?.detailedState || "").toLowerCase();
+  if (["F", "O", "R", "D", "C"].includes(code)) return true;
+  return (
+    detailed.includes("final") ||
+    detailed.includes("postponed") ||
+    detailed.includes("cancelled") ||
+    detailed.includes("completed")
+  );
+}
+
+function getTeamsForGame(game) {
+  const away = game?.teams?.away?.team || {};
+  const home = game?.teams?.home?.team || {};
+  return {
+    awayId: String(away.id || ""),
+    homeId: String(home.id || ""),
+    awayName: String(away.name || "Away"),
+    homeName: String(home.name || "Home"),
+  };
+}
+
+function getSubscribersForGame(game) {
+  const { awayId, homeId } = getTeamsForGame(game);
+  const out = [];
+  for (const subscriber of mlbNotifSubscribers.values()) {
+    if (!subscriber?.pushToken) continue;
+    const favs = subscriber.favoriteTeamIds || new Set();
+    if ((awayId && favs.has(awayId)) || (homeId && favs.has(homeId))) {
+      out.push(subscriber);
+    }
+  }
+  return out;
+}
+
+async function sendExpoPushNotifications(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return;
+  const batches = [];
+  for (let i = 0; i < messages.length; i += 100) {
+    batches.push(messages.slice(i, i + 100));
+  }
+
+  for (const batch of batches) {
+    try {
+      // Log batch meta (count + message types)
+      const types = [...new Set((batch || []).map((m) => m?.data?.type || "unknown"))];
+      console.log(`[sports-favs] sending push batch size=${batch.length} types=${types.join(",")}`);
+      const resp = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(batch),
+      });
+
+      // Log response status for observability
+      try {
+        const bodyText = await resp.text();
+        console.log(`[sports-favs] Expo push response status=${resp.status} body=${bodyText.slice(0,200)}`);
+      } catch (e) {
+        console.log(`[sports-favs] Expo push response status=${resp.status} (no body)`);
+      }
+    } catch (e) {
+      console.warn("[sports-favs] Expo push send failed:", e.message);
+    }
+  }
+}
+
+function buildScoringHash(play) {
+  const result = play?.result || {};
+  return [
+    String(result.description || ""),
+    String(result.awayScore ?? ""),
+    String(result.homeScore ?? ""),
+  ].join("|");
+}
+
+function ensureGameState(gamePk) {
+  const key = String(gamePk || "");
+  if (!mlbNotifState.gameStates.has(key)) {
+    mlbNotifState.gameStates.set(key, {
+      startedSent: false,
+      scoringHashes: new Set(),
+      finishedSent: false,
+    });
+  }
+  return mlbNotifState.gameStates.get(key);
+}
+
+async function processMlbNotificationsTick() {
+  const now = Date.now();
+  const dateStr = getMlbNotifDatePst();
+
+  if (mlbNotifState.dateStr !== dateStr) {
+    mlbNotifState.dateStr = dateStr;
+    mlbNotifState.suspendUntilMs = 0;
+    mlbNotifState.doneForDate = false;
+    mlbNotifState.gameStates = new Map();
+  }
+
+  if (mlbNotifState.doneForDate) return;
+  if (mlbNotifState.suspendUntilMs && now < mlbNotifState.suspendUntilMs) return;
+
+  const payload = await fetchMlbScheduleForNotifications(dateStr);
+  const games = flattenGames(payload);
+
+  if (games.length === 0) {
+    mlbNotifState.suspendUntilMs = now + MLB_NOTIF_IDLE_RETRY_MS;
+    return;
+  }
+
+  const firstStartMs = games
+    .map((g) => new Date(g?.gameDate || "").getTime())
+    .filter((ts) => Number.isFinite(ts))
+    .sort((a, b) => a - b)[0];
+
+  if (Number.isFinite(firstStartMs)) {
+    const pollStart = firstStartMs - MLB_NOTIF_PRE_START_MS;
+    const anyStarted = games.some((g) => isGameStarted(g));
+    if (!anyStarted && now < pollStart) {
+      mlbNotifState.suspendUntilMs = pollStart;
+      return;
+    }
+  }
+
+  const allFinished = games.every((g) => isGameFinished(g));
+
+  const pushQueue = [];
+  for (const game of games) {
+    const gamePk = String(game?.gamePk || "");
+    if (!gamePk) continue;
+
+    const gameState = ensureGameState(gamePk);
+    const subscribers = getSubscribersForGame(game);
+    if (subscribers.length === 0) continue;
+
+    const { awayName, homeName } = getTeamsForGame(game);
+
+    if (isGameStarted(game) && !gameState.startedSent) {
+      gameState.startedSent = true;
+      for (const sub of subscribers) {
+        pushQueue.push({
+          to: sub.pushToken,
+          sound: "default",
+          title: `${awayName} at ${homeName}`,
+          body: "Game has started",
+          data: {
+            sport: "mlb",
+            gamePk,
+            type: "mlb_game_started",
+          },
+        });
+      }
+    }
+
+    const scoringPlays = Array.isArray(game?.scoringPlays) ? game.scoringPlays : [];
+    for (const play of scoringPlays) {
+      const hash = buildScoringHash(play);
+      if (!hash || gameState.scoringHashes.has(hash)) continue;
+      gameState.scoringHashes.add(hash);
+
+      const desc = String(play?.result?.description || "Scoring play");
+      // Determine scoring team: top of inning -> away scored, bottom -> home scored
+      const isTop = play?.about?.halfInning === "top";
+      const awayScore = Number(play?.result?.awayScore ?? (game?.teams?.away?.score ?? 0));
+      const homeScore = Number(play?.result?.homeScore ?? (game?.teams?.home?.score ?? 0));
+
+      const awayScoreDisplay = isTop ? `[${awayScore}]` : `${awayScore}`;
+      const homeScoreDisplay = !isTop ? `[${homeScore}]` : `${homeScore}`;
+
+      const title = `${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
+
+      for (const sub of subscribers) {
+        pushQueue.push({
+          to: sub.pushToken,
+          sound: "default",
+          title,
+          body: desc,
+          data: {
+            sport: "mlb",
+            gamePk,
+            type: "mlb_scoring_play",
+          },
+        });
+      }
+    }
+
+    // Send finished-game notification (one per game)
+    if (isGameFinished(game) && !gameState.finishedSent) {
+      gameState.finishedSent = true;
+      const awayFinal = String(game?.teams?.away?.score ?? "0");
+      const homeFinal = String(game?.teams?.home?.score ?? "0");
+      const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
+      const FinalText = awayFinal && homeFinal !== "0" ? awayFinal < homeFinal ? `The ${awayName} Win the Game` : `The ${homeName} Win the Game` : "Game Ended";
+      for (const sub of subscribers) {
+        pushQueue.push({
+          to: sub.pushToken,
+          sound: "default",
+          title: finalTitle,
+          body: FinalText,
+          data: {
+            sport: "mlb",
+            gamePk,
+            type: "mlb_game_finished",
+          },
+        });
+      }
+    }
+  }
+
+  await sendExpoPushNotifications(pushQueue);
+
+  if (allFinished) {
+    mlbNotifState.doneForDate = true;
+    mlbNotifState.suspendUntilMs = Number.MAX_SAFE_INTEGER;
+  } else {
+    mlbNotifState.suspendUntilMs = 0;
+  }
+}
+
+function startMlbNotificationsLoop() {
+  setInterval(async () => {
+    try {
+      await processMlbNotificationsTick();
+    } catch (e) {
+      console.warn("[sports-favs] notification tick failed:", e.message);
+    }
+  }, MLB_NOTIF_POLL_MS);
+}
 
 // Embedded explicit allowedTree literal to preserve selected starred fields
 // NOTE: This is a static whitelist embedded to avoid runtime file reads.
@@ -364,8 +679,191 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", cachedKeys: Object.keys(entries).length, entries });
 });
 
+app.post("/bb/notifications/register-device", (req, res) => {
+  const subscriberId = String(req.body?.subscriberId || "").trim();
+  const pushToken = String(req.body?.pushToken || "").trim();
+  const platform = String(req.body?.platform || "unknown").trim();
+
+  if (!subscriberId) {
+    return res.status(400).json({ error: "subscriberId is required" });
+  }
+
+  const existing = mlbNotifSubscribers.get(subscriberId) || {
+    subscriberId,
+    favoriteTeamIds: new Set(),
+  };
+
+  if (pushToken) existing.pushToken = pushToken;
+  existing.platform = platform;
+  existing.updatedAt = Date.now();
+  mlbNotifSubscribers.set(subscriberId, existing);
+
+  res.json({
+    ok: true,
+    subscriberId,
+    hasPushToken: !!existing.pushToken,
+    favoriteCount: existing.favoriteTeamIds.size,
+  });
+});
+
+app.get("/bb/notifications/favorites/:subscriberId", (req, res) => {
+  const subscriberId = String(req.params.subscriberId || "").trim();
+  if (!subscriberId) {
+    return res.status(400).json({ error: "subscriberId is required" });
+  }
+
+  const existing = mlbNotifSubscribers.get(subscriberId);
+  if (!existing) {
+    return res.json({ ok: true, subscriberId, favorites: [] });
+  }
+
+  return res.json({
+    ok: true,
+    subscriberId,
+    favorites: [...existing.favoriteTeamIds],
+  });
+});
+
+app.post("/bb/notifications/favorites/:subscriberId", (req, res) => {
+  const subscriberId = String(req.params.subscriberId || "").trim();
+  const teamId = String(req.body?.teamId || "").trim();
+  const teamName = String(req.body?.teamName || "").trim();
+  const enabled = !!req.body?.enabled;
+
+  if (!subscriberId || !teamId) {
+    return res.status(400).json({ error: "subscriberId and teamId are required" });
+  }
+
+  const existing = mlbNotifSubscribers.get(subscriberId) || {
+    subscriberId,
+    favoriteTeamIds: new Set(),
+  };
+
+  if (enabled) {
+    existing.favoriteTeamIds.add(teamId);
+  } else {
+    existing.favoriteTeamIds.delete(teamId);
+  }
+
+  if (teamName) {
+    existing.lastTeamName = teamName;
+  }
+  existing.updatedAt = Date.now();
+  mlbNotifSubscribers.set(subscriberId, existing);
+
+  return res.json({
+    ok: true,
+    subscriberId,
+    teamId,
+    enabled,
+    favorites: [...existing.favoriteTeamIds],
+  });
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "Baseball server running", baseUrl: BASE_URL });
+});
+
+// Manual test endpoint for sending notifications to a specific Expo push token
+// Usage examples:
+// POST /bb/notifications/test/:pushToken/:teamId/start
+// POST /bb/notifications/test/:pushToken/:teamId/finish
+// POST /bb/notifications/test/:pushToken/:teamId/score/:index?  (index is 1-based)
+app.post("/bb/notifications/test/:pushToken/:teamId/:action/:index?", async (req, res) => {
+  try {
+    const pushToken = String(req.params.pushToken || "").trim();
+    const teamId = String(req.params.teamId || "").trim();
+    const action = String(req.params.action || "").trim().toLowerCase();
+    const idxRaw = req.params.index;
+
+    if (!pushToken) return res.status(400).json({ error: "pushToken is required" });
+    if (!teamId) return res.status(400).json({ error: "teamId is required" });
+
+    const dateStr = getMlbNotifDatePst();
+    const payload = await fetchMlbScheduleForNotifications(dateStr);
+    const games = flattenGames(payload);
+
+    // find a game that includes the teamId as away or home
+    const game = games.find((g) => {
+      const { awayId, homeId } = getTeamsForGame(g);
+      return String(awayId) === String(teamId) || String(homeId) === String(teamId);
+    });
+
+    if (!game) {
+      return res.status(404).json({ error: "No game found for that team on the notification date" });
+    }
+
+    const { awayName, homeName } = getTeamsForGame(game);
+    const gamePk = String(game?.gamePk || "");
+
+    const messages = [];
+
+    if (action === "start") {
+      messages.push({
+        to: pushToken,
+        sound: "default",
+        title: `${awayName} at ${homeName}`,
+        body: "Game has started",
+        data: { sport: "mlb", gamePk, type: "mlb_game_started" },
+      });
+    } else if (action === "finish" || action === "final") {
+      const awayFinal = String(game?.teams?.away?.score ?? "0");
+      const homeFinal = String(game?.teams?.home?.score ?? "0");
+      const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
+      messages.push({
+        to: pushToken,
+        sound: "default",
+        title: finalTitle,
+        body: "Game finished",
+        data: { sport: "mlb", gamePk, type: "mlb_game_finished" },
+      });
+    } else if (action === "score" || action === "scoring") {
+      const scoringPlays = Array.isArray(game?.scoringPlays) ? game.scoringPlays : [];
+      if (scoringPlays.length === 0) {
+        messages.push({
+          to: pushToken,
+          sound: "default",
+          title: `${awayName} at ${homeName}`,
+          body: "No scoring plays available for this game",
+          data: { sport: "mlb", gamePk, type: "mlb_scoring_play" },
+        });
+      } else {
+        let index = null;
+        if (idxRaw !== undefined) {
+          const parsed = Number.parseInt(String(idxRaw), 10);
+          if (Number.isFinite(parsed) && parsed > 0) index = parsed - 1;
+        }
+        if (index === null || index < 0) index = scoringPlays.length - 1;
+        if (index >= scoringPlays.length) index = scoringPlays.length - 1;
+
+        const play = scoringPlays[index];
+        const desc = String(play?.result?.description || "Scoring play");
+        const isTop = play?.about?.halfInning === "top" || play?.about?.isTopInning === true;
+        const awayScore = Number(play?.result?.awayScore ?? (game?.teams?.away?.score ?? 0));
+        const homeScore = Number(play?.result?.homeScore ?? (game?.teams?.home?.score ?? 0));
+
+        const awayScoreDisplay = isTop ? `[${awayScore}]` : `${awayScore}`;
+        const homeScoreDisplay = !isTop ? `[${homeScore}]` : `${homeScore}`;
+        const title = `${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
+
+        messages.push({
+          to: pushToken,
+          sound: "default",
+          title,
+          body: desc,
+          data: { sport: "mlb", gamePk, type: "mlb_scoring_play" },
+        });
+      }
+    } else {
+      return res.status(400).json({ error: `Unknown action: ${action}` });
+    }
+
+    await sendExpoPushNotifications(messages);
+    return res.json({ ok: true, sent: messages.length, messages });
+  } catch (e) {
+    console.error("Test notification error:", e?.message || e);
+    return res.status(500).json({ error: "Failed to send test notification", details: e?.message || String(e) });
+  }
 });
 
 // Warm cache for leagues on startup and refresh periodically
@@ -3081,6 +3579,7 @@ app.listen(PORT, async () => {
   console.log(`Baseball server listening on port ${PORT}`);
   await warmLeagues();
   await warmBBTeams();
+  startMlbNotificationsLoop();
   // Refresh leagues periodically (every TTL_MS)
   setInterval(warmLeagues, TTL_MS);
 });

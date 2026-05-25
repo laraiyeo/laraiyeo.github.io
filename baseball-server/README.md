@@ -20,6 +20,9 @@ Endpoints
 - `GET /health` — health + cache metadata
 - `GET /leagues` — cached fetch of `v1/leagues?sportId=51` (TTL 30m)
 - `GET /proxy/<path>` — generic cached proxy to the MLB API (head: `https://statsapi.mlb.com/api/`)
+- `POST /bb/notifications/register-device` — registers a subscriber + Expo push token for MLB notifications
+- `GET /bb/notifications/favorites/{subscriberId}` — returns current MLB favorite team IDs for a subscriber
+- `POST /bb/notifications/favorites/{subscriberId}` — toggles a favorite team (`teamId`, `teamName`, `enabled`)
 
 New WBC endpoints
 
@@ -35,4 +38,9 @@ New WBC endpoints
 Notes
 
 - The server warms the `/leagues` cache on startup and refreshes it every 30 minutes.
+- MLB sports-favs notifications poll MLB schedule every 5s only during the active window:
+	- starts 30 minutes before first game of the MLB day
+	- MLB day uses America/Los_Angeles and rolls at 2:00 AM PT
+	- stops once all games for that date are final/postponed/cancelled
+- Notification payloads include `sport: "mlb"` and `gamePk` for deep-linking to GameDetails.
 - For Railway, the included `Procfile` declares the `web` process.

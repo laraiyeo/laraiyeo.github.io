@@ -38,6 +38,7 @@ import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
+import sportsFavs from "../../services/sports-favs";
 import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
@@ -108,6 +109,8 @@ const TeamColumn = ({
   theme,
   scoreOpacity,
   onPress,
+  colors,
+  isFav,
 }) => {
   const logo = WBCService.getTeamLogo(team?.id, isDarkMode);
   const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
@@ -179,12 +182,13 @@ const TeamColumn = ({
           style={[
             styles.teamName,
             {
-              color: theme.text,
+              color: isFav ? (colors?.primary || theme.text) : theme.text,
               opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
             },
           ]}
           numberOfLines={2}
         >
+          {isFav ? "★ " : ""}
           {team?.name || "—"}
         </Text>
       </TouchableOpacity>
@@ -9827,6 +9831,24 @@ const GameDetailsScreen = ({ navigation, route }) => {
     new Set(),
   );
 
+  // sports-favs state
+  const [sportsFavIds, setSportsFavIds] = useState(new Set());
+
+  const loadSportsFavs = useCallback(async () => {
+    try {
+      const ids = await sportsFavs.listFavoriteTeams();
+      setSportsFavIds(new Set((ids || []).map((id) => String(id))));
+    } catch (e) {
+      console.warn("GameDetails: failed to load sports-favs", e?.message || e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSportsFavs();
+    const sub = navigation?.addListener?.("focus", loadSportsFavs);
+    return () => sub?.remove?.();
+  }, [loadSportsFavs, navigation]);
+
   // Mirror streamModalVisible into a ref so the polling interval can check it
   // without a stale closure (same pattern as feedRef below).
   const streamModalVisibleRef = useRef(false);
@@ -10936,6 +10958,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
               side="away"
               isDarkMode={isDarkMode}
               theme={theme}
+              colors={colors}
+              isFav={sportsFavIds.has(String(awayTeam?.id))}
               scoreOpacity={gameScoreOpacity}
               onPress={() =>
                 awayTeam?.id != null &&
@@ -10988,6 +11012,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
               side="home"
               isDarkMode={isDarkMode}
               theme={theme}
+              colors={colors}
+              isFav={sportsFavIds.has(String(homeTeam?.id))}
               scoreOpacity={gameScoreOpacity}
               onPress={() =>
                 homeTeam?.id != null &&
@@ -11039,7 +11065,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniAbbr,
                   {
-                    color: awayColor,
+                    color: sportsFavIds.has(String(awayTeam?.id))
+                      ? colors.primary
+                      : awayColor,
                     opacity: isGameFinished
                       ? (runItBackActive ? displayedAwayWinner : awayWinner)
                         ? 1
@@ -11048,6 +11076,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   },
                 ]}
               >
+                {sportsFavIds.has(String(awayTeam?.id)) ? "★ " : ""}
                 {awayTeam?.abbreviation ?? ""}
               </Text>
               <Text
@@ -11162,7 +11191,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniAbbr,
                   {
-                    color: homeColor,
+                    color: sportsFavIds.has(String(homeTeam?.id))
+                      ? colors.primary
+                      : homeColor,
                     opacity: isGameFinished
                       ? (runItBackActive ? displayedHomeWinner : homeWinner)
                         ? 1
@@ -11172,6 +11203,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 ]}
               >
                 {homeTeam?.abbreviation ?? ""}
+                {sportsFavIds.has(String(homeTeam?.id)) ? " ★" : ""}
               </Text>
               {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
                 <Image

@@ -15,8 +15,11 @@ import {
   RefreshControl,
   Dimensions,
   PanResponder,
+  Alert,
+  Linking,
 } from "react-native";
 import { Image } from "expo-image";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -25,6 +28,8 @@ import Svg, {
 } from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
 import { MLBService } from "../../services/MLBService";
+import sportsFavs from "../../services/sports-favs";
+import { supabase } from "../../config/supabase";
 
 const { width } = Dimensions.get("window");
 // Roster stat chip sizing (account for margins/padding of bubble + dropdown)
@@ -1899,6 +1904,8 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [gamesComparator, setGamesComparator] = useState(">=");
   const [minGamesPlayed, setMinGamesPlayed] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(180);
+  const [isSportsFav, setIsSportsFav] = useState(false);
+  const [sportsFavBusy, setSportsFavBusy] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -1927,6 +1934,94 @@ const TeamPageScreen = ({ route, navigation }) => {
   useEffect(() => {
     loadTeam(false);
   }, [loadTeam]);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const fav = await sportsFavs.isFavoriteTeam(resolvedId);
+        if (mounted) setIsSportsFav(fav);
+      } catch (e) {
+        console.warn("sports-favs check failed:", e?.message || e);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [resolvedId]);
+
+  const isLoggedIn = useIsLoggedIn();
+
+  const onToggleSportsFav = useCallback(async () => {
+    if (sportsFavBusy) return;
+    setSportsFavBusy(true);
+    try {
+      // Re-check supabase session in case auth state hasn't propagated yet
+      let actuallyLoggedIn = isLoggedIn;
+      try {
+        const { data } = await supabase.auth.getSession();
+        actuallyLoggedIn = !!data?.session;
+      } catch (e) {
+        // ignore and fall back to hook value
+      }
+
+      if (!actuallyLoggedIn) {
+        Alert.alert(
+          "Sign In Required",
+          "You must sign in to receive notifications.",
+          [
+            {
+              text: "Sign In",
+              onPress: () =>
+                navigation.navigate("BetLogin", {
+                  returnTo: "TeamPage",
+                  params: { teamId: resolvedId },
+                }),
+            },
+            { text: "Cancel", style: "cancel" },
+          ],
+        );
+        setSportsFavBusy(false);
+        return;
+      }
+      // Ensure device registration / permissions first so user sees prompt
+      const token = await sportsFavs.ensureRegistration();
+      if (!token) {
+        // Ask user whether to open settings or continue without notifications
+        const res = await new Promise((resolve) =>
+          Alert.alert(
+            "Enable Notifications",
+            "To receive game alerts you must enable notifications. Open settings now?",
+            [
+              { text: "Open Settings", onPress: () => resolve("open") },
+              { text: "Continue Without", style: "cancel", onPress: () => resolve("continue") },
+            ],
+            { cancelable: true },
+          ),
+        );
+        if (res === "open") {
+          try {
+            Linking.openSettings();
+          } catch (e) {
+            console.warn("Failed to open settings", e?.message || e);
+          }
+          setSportsFavBusy(false);
+          return;
+        }
+      }
+
+      const next = await sportsFavs.toggleFavoriteTeam({
+        teamId: resolvedId,
+        teamName: team?.name || MLBService.getTeamNameById(resolvedId) || "",
+      });
+      setIsSportsFav(!!next?.isFavorite);
+    } catch (e) {
+      console.warn("sports-favs toggle failed:", e?.message || e);
+    } finally {
+      setSportsFavBusy(false);
+    }
+  }, [sportsFavBusy, resolvedId, team?.name]);
 
   const team = teamData?.team ?? null;
   const rosterPlayers = teamData?.roster ?? [];
@@ -2172,6 +2267,30 @@ const TeamPageScreen = ({ route, navigation }) => {
                 </Text>
               ) : null}
             </View>
+            <TouchableOpacity
+              onPress={onToggleSportsFav}
+              disabled={sportsFavBusy}
+              activeOpacity={0.8}
+              style={[
+                styles.favoriteStarBtn,
+                {
+                  borderColor: teamColor + "66",
+                  backgroundColor: isSportsFav
+                    ? teamColor + "22"
+                    : theme.surface,
+                },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.favoriteStarText,
+                  { color: isSportsFav ? teamColor : theme.textSecondary },
+                ]}
+              >
+                {isSportsFav ? "★" : "☆"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2226,10 +2345,10 @@ const TeamPageScreen = ({ route, navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.stickyMiniName, { color: theme.text }]}
+                  style={[styles.stickyMiniName, { color: isSportsFav ? colors.primary : theme.text }]}
                   numberOfLines={1}
                 >
-                  {team?.name ?? ""}
+                  {isSportsFav ? "★ " : ""}{team?.name ?? ""}
                 </Text>
                 {team?.division?.name ? (
                   <Text
@@ -2488,6 +2607,20 @@ const styles = StyleSheet.create({
   headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
   headerLeague: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
   headerDivision: { fontSize: 12 },
+  favoriteStarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  favoriteStarText: {
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 24,
+  },
 
   // Tab pills (hero header)
   tabPills: {

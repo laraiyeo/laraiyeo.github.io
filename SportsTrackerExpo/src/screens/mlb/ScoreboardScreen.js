@@ -14,9 +14,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
-import { useFavorites } from "../../context/FavoritesContext";
 import { MLBService } from "../../services/MLBService";
-import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
+import sportsFavs from "../../services/sports-favs";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import WBCService from "../../services/WBCService";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
@@ -823,14 +822,8 @@ const MLBGridCard = ({
     homeScore != null &&
     parseInt(homeScore, 10) > parseInt(awayScore, 10);
 
-  const awayFav = isFavorite(
-    convertMLBIdToESPNId(away.id?.toString()) || away.id?.toString(),
-    "mlb",
-  );
-  const homeFav = isFavorite(
-    convertMLBIdToESPNId(home.id?.toString()) || home.id?.toString(),
-    "mlb",
-  );
+  const awayFav = isFavorite(away.id?.toString());
+  const homeFav = isFavorite(home.id?.toString());
 
   const gradId = `mg_${game.id}`;
   const awayProbable = getTeamProbablePitcher(game, "away");
@@ -1446,15 +1439,9 @@ const ScoreboardSection = ({
                   statusLine2 = ampm;
                 }
 
-                // Favorites
-                const awayEspnId =
-                  convertMLBIdToESPNId(away.id?.toString()) ||
-                  away.id?.toString();
-                const homeEspnId =
-                  convertMLBIdToESPNId(home.id?.toString()) ||
-                  home.id?.toString();
-                const awayFav = isFavorite(awayEspnId, "mlb");
-                const homeFav = isFavorite(homeEspnId, "mlb");
+                // Favorites (sports-favs)
+                const awayFav = isFavorite(away.id?.toString());
+                const homeFav = isFavorite(home.id?.toString());
 
                 return (
                   <TouchableOpacity
@@ -1875,9 +1862,24 @@ const ScoreboardSection = ({
 
 const MLBScoreboardScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { isFavorite } = useFavorites();
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
+
+  const [sportsFavIds, setSportsFavIds] = useState(new Set());
+
+  const isFavorite = useCallback(
+    (teamId) => sportsFavIds.has(String(teamId || "")),
+    [sportsFavIds],
+  );
+
+  const loadSportsFavs = useCallback(async () => {
+    try {
+      const ids = await sportsFavs.listFavoriteTeams();
+      setSportsFavIds(new Set((ids || []).map((id) => String(id))));
+    } catch (e) {
+      console.warn("Scoreboard sports-favs load failed:", e?.message || e);
+    }
+  }, []);
 
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -2148,6 +2150,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   // Start/stop polling based on screen focus
   useFocusEffect(
     useCallback(() => {
+      loadSportsFavs();
       isFocusedRef.current = true;
       // Always refresh when returning to this screen so game detail -> back
       // immediately reflects latest scores.
