@@ -6,8 +6,10 @@ import { Platform } from "react-native";
 import { supabase } from "../config/supabase";
 
 const SPORTS_FAVS_SUBSCRIBER_KEY = "@sports_favs_subscriber_id_v1";
+const SPORTS_FAVS_PUSH_TOKEN_KEY = "@sports_favs_push_token_v1";
 const FAVORITES_TABLE = "mlb_fav";
 const favoriteTeamIdsCache = new Map();
+let pushTokenCache = null;
 
 function normalizeTeamId(teamId) {
   if (teamId == null) return "";
@@ -136,6 +138,30 @@ async function loadFavoriteTeamIds({ forceRefresh = false } = {}) {
   }
 }
 
+async function getCachedPushToken() {
+  if (pushTokenCache) return pushTokenCache;
+  try {
+    const cached = await AsyncStorage.getItem(SPORTS_FAVS_PUSH_TOKEN_KEY);
+    const normalized = String(cached || "").trim();
+    if (!normalized) return null;
+    pushTokenCache = normalized;
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
+async function persistCachedPushToken(token) {
+  const normalized = String(token || "").trim();
+  if (!normalized) return;
+  pushTokenCache = normalized;
+  try {
+    await AsyncStorage.setItem(SPORTS_FAVS_PUSH_TOKEN_KEY, normalized);
+  } catch {
+    // non-fatal cache failure
+  }
+}
+
 async function getExpoPushTokenSafe() {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -182,6 +208,7 @@ async function getExpoPushTokenSafe() {
     projectId ? { projectId } : {},
   );
   const token = tokenResp?.data || null;
+  await persistCachedPushToken(token);
   console.log("sports-favs: got Expo push token", token ? token : "<none>");
   return token;
 }
@@ -197,7 +224,10 @@ async function registerDeviceIfPossible(subscriberId) {
       return null;
     }
 
-    const token = await getExpoPushTokenSafe();
+    let token = await getCachedPushToken();
+    if (!token) {
+      token = await getExpoPushTokenSafe();
+    }
     if (!token) {
       console.log(
         "sports-favs: no push token available, skipping mlb_fav registration",
@@ -238,7 +268,13 @@ async function registerDeviceIfPossible(subscriberId) {
   }
 }
 
-async function syncFavoriteToSupabase(subscriberId, teamId, teamName, enabled) {
+async function syncFavoriteToSupabase(
+  subscriberId,
+  teamId,
+  teamName,
+  enabled,
+  nextFavoriteTeamIds,
+) {
   try {
     const userId = await getCurrentSupabaseUserId();
     if (!userId) {
@@ -254,10 +290,16 @@ async function syncFavoriteToSupabase(subscriberId, teamId, teamName, enabled) {
       return;
     }
 
-    const current = await loadFavoriteTeamIds({ forceRefresh: true });
-    const next = enabled
-      ? [...current, normalizeTeamId(teamId)]
-      : current.filter((value) => value !== normalizeTeamId(teamId));
+    const next = Array.isArray(nextFavoriteTeamIds)
+      ? normalizeFavoriteTeamIds(nextFavoriteTeamIds)
+      : enabled
+        ? [
+            ...(await loadFavoriteTeamIds({ forceRefresh: true })),
+            normalizeTeamId(teamId),
+          ]
+        : (await loadFavoriteTeamIds({ forceRefresh: true })).filter(
+            (value) => value !== normalizeTeamId(teamId),
+          );
 
     console.log("sports-favs: syncing favorite to Supabase", {
       subscriberId,
@@ -303,7 +345,16 @@ export const sportsFavs = {
       teamName,
     });
     const subscriberId = await getOrCreateSubscriberId();
-    const token = await registerDeviceIfPossible(subscriberId);
+
+    const registrationPromise = registerDeviceIfPossible(subscriberId).catch(
+      () => null,
+    );
+
+    const token = await Promise.race([
+      registrationPromise,
+      Promise.resolve(await getCachedPushToken()),
+    ]);
+
     console.log("sports-favs: toggleFavoriteTeam registration result", {
       subscriberId,
       hasToken: !!token,
@@ -314,7 +365,20 @@ export const sportsFavs = {
     const next = has ? current.filter((v) => v !== id) : [...current, id];
     const isFavorite = !has;
 
-    await syncFavoriteToSupabase(subscriberId, id, teamName, isFavorite);
+    await syncFavoriteToSupabase(
+      subscriberId,
+      id,
+      teamName,
+      isFavorite,
+      next,
+    );
+
+    registrationPromise.then((resolvedToken) => {
+      console.log("sports-favs: toggleFavoriteTeam registration async", {
+        subscriberId,
+        hasToken: !!resolvedToken,
+      });
+    });
 
     const userId = await getCurrentSupabaseUserId();
     if (userId) {

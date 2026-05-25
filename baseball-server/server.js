@@ -17,11 +17,45 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const MLB_FAV_TABLE = "mlb_fav";
 
+function getSupabaseProjectRef(url) {
+  try {
+    const host = new URL(url).hostname;
+    return host.split(".")[0] || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function getJwtRole(token) {
+  try {
+    const parts = String(token || "").split(".");
+    if (parts.length < 2) return "unknown";
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    );
+    return String(payload?.role || "unknown");
+  } catch {
+    return "unknown";
+  }
+}
+
+const supabaseProjectRef = getSupabaseProjectRef(SUPABASE_URL);
+const supabaseKeyRole = getJwtRole(SUPABASE_SERVICE_ROLE_KEY);
+let hasLoggedZeroSubscriberRows = false;
+
 let supabaseAdmin = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
+  console.log(
+    `[sports-favs] Supabase configured projectRef=${supabaseProjectRef} keyRole=${supabaseKeyRole}`,
+  );
+  if (supabaseKeyRole !== "service_role") {
+    console.warn(
+      `[sports-favs] Supabase key role is '${supabaseKeyRole}', expected 'service_role'. Reads may return 0 rows due to RLS.`,
+    );
+  }
 } else {
   console.warn(
     "[sports-favs] Supabase not configured; MLB favorites will not persist across redeploys",
@@ -235,6 +269,15 @@ async function loadMlbFavSubscribers() {
   }
 
   const rows = Array.isArray(data) ? data.map(normalizeMlbFavRecord) : [];
+  if (rows.length === 0 && !hasLoggedZeroSubscriberRows) {
+    hasLoggedZeroSubscriberRows = true;
+    console.warn(
+      `[sports-favs] mlb_fav returned 0 rows (projectRef=${supabaseProjectRef}, keyRole=${supabaseKeyRole}). Verify the server uses the same SUPABASE_URL as the app and a service_role key.`,
+    );
+  }
+  if (rows.length > 0) {
+    hasLoggedZeroSubscriberRows = false;
+  }
   return rows;
 }
 
@@ -956,6 +999,34 @@ app.get("/health", (req, res) => {
     entries[k] = { ageMs: Date.now() - v.fetchedAt };
   }
   res.json({ status: "ok", cachedKeys: Object.keys(entries).length, entries });
+});
+
+app.get("/bb/notifications/debug/subscribers", async (req, res) => {
+  try {
+    const rows = await loadMlbFavSubscribers();
+    const normalized = rows.map((row) => ({
+      userId: row.userId,
+      subscriberId: row.subscriberId,
+      pushToken: row.pushToken,
+      platform: row.platform,
+      favoriteTeamIds: Array.from(row.favoriteTeamIds || []),
+    }));
+
+    return res.json({
+      ok: true,
+      supabaseConfigured: !!supabaseAdmin,
+      projectRef: supabaseProjectRef,
+      keyRole: supabaseKeyRole,
+      count: normalized.length,
+      rows: normalized,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to load subscriber snapshot",
+      details: e?.message || String(e),
+    });
+  }
 });
 
 app.post("/bb/notifications/register-device", async (req, res) => {
