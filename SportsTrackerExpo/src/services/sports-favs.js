@@ -16,18 +16,21 @@ function normalizeTeamId(teamId) {
 
 function normalizeFavoriteTeamIds(teamIds) {
   return [
-    ...new Set((teamIds || []).map((id) => normalizeTeamId(id)).filter(Boolean)),
+    ...new Set(
+      (teamIds || []).map((id) => normalizeTeamId(id)).filter(Boolean),
+    ),
   ];
 }
 
 async function getCurrentSupabaseUserId() {
   try {
-    const {
-      data: { user } = {},
-    } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await supabase.auth.getUser();
     return user?.id || null;
   } catch (e) {
-    console.warn("sports-favs: failed to resolve Supabase user", e?.message || e);
+    console.warn(
+      "sports-favs: failed to resolve Supabase user",
+      e?.message || e,
+    );
     return null;
   }
 }
@@ -37,7 +40,9 @@ async function getFavoriteRow(userId) {
 
   const { data, error } = await supabase
     .from(FAVORITES_TABLE)
-    .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+    .select(
+      "user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at",
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -65,7 +70,9 @@ async function persistFavoriteRow({
     user_id: userId,
     subscriber_id: subscriberId || currentRow?.subscriber_id || null,
     push_token:
-      pushToken !== undefined ? pushToken || null : currentRow?.push_token || null,
+      pushToken !== undefined
+        ? pushToken || null
+        : currentRow?.push_token || null,
     platform: platform || currentRow?.platform || Platform.OS || "unknown",
     favorite_team_ids: normalizeFavoriteTeamIds(
       favoriteTeamIds !== undefined
@@ -77,7 +84,9 @@ async function persistFavoriteRow({
   const { data, error } = await supabase
     .from(FAVORITES_TABLE)
     .upsert(payload, { onConflict: "user_id" })
-    .select("user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at")
+    .select(
+      "user_id,subscriber_id,push_token,platform,favorite_team_ids,updated_at",
+    )
     .maybeSingle();
 
   if (error) {
@@ -85,7 +94,10 @@ async function persistFavoriteRow({
   }
 
   const normalized = data || payload;
-  favoriteTeamIdsCache.set(userId, normalizeFavoriteTeamIds(normalized.favorite_team_ids));
+  favoriteTeamIdsCache.set(
+    userId,
+    normalizeFavoriteTeamIds(normalized.favorite_team_ids),
+  );
   return normalized;
 }
 
@@ -116,7 +128,10 @@ async function loadFavoriteTeamIds({ forceRefresh = false } = {}) {
     favoriteTeamIdsCache.set(userId, ids);
     return [...ids];
   } catch (e) {
-    console.warn("sports-favs: failed to load favorite team ids", e?.message || e);
+    console.warn(
+      "sports-favs: failed to load favorite team ids",
+      e?.message || e,
+    );
     return [];
   }
 }
@@ -227,12 +242,15 @@ async function syncFavoriteToSupabase(subscriberId, teamId, teamName, enabled) {
   try {
     const userId = await getCurrentSupabaseUserId();
     if (!userId) {
-      console.log("sports-favs: no Supabase user available, skipping favorite sync", {
-        subscriberId,
-        teamId,
-        teamName,
-        enabled: !!enabled,
-      });
+      console.log(
+        "sports-favs: no Supabase user available, skipping favorite sync",
+        {
+          subscriberId,
+          teamId,
+          teamName,
+          enabled: !!enabled,
+        },
+      );
       return;
     }
 
