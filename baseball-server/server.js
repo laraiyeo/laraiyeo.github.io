@@ -344,7 +344,7 @@ async function processMlbNotificationsTick() {
       const desc = String(play?.result?.description || "Scoring play")
         .split(".")[0]
         .trim();
-      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")})`;
+      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
       const isTop = play?.about?.halfInning === "top";
       const awayScore = Number(
@@ -383,7 +383,7 @@ async function processMlbNotificationsTick() {
       const homeWinner = game?.teams?.home?.isWinner;
       const finalTitle = `⚾ ${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
       const FinalText =
-        awayWinner && homeWinner
+        awayWinner || homeWinner
           ? homeWinner
             ? `The ${homeName} Win the Game`
             : `The ${awayName} Win the Game`
@@ -916,7 +916,7 @@ app.post(
         const homeWinner = game?.teams?.home?.isWinner;
         const finalTitle = `⚾ ${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
         const FinalText =
-          awayWinner && homeWinner
+          awayWinner || homeWinner
             ? homeWinner
               ? `The ${homeName} Win the Game`
               : `The ${awayName} Win the Game`
@@ -953,7 +953,7 @@ app.post(
           const desc = String(play?.result?.description || "Scoring play")
             .split(".")[0]
             .trim();
-          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")})`;
+          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
           const isTop =
             play?.about?.halfInning === "top" ||
             play?.about?.isTopInning === true;
