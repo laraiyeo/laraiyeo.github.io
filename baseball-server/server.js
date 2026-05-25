@@ -344,7 +344,7 @@ async function processMlbNotificationsTick() {
       const desc = String(play?.result?.description || "Scoring play")
         .split(/[.,]/)[0]
         .trim();
-      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
+      const inningText = `(${play?.about?.halfInning === "top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
       const isTop = play?.about?.halfInning === "top";
       const awayScore = Number(
@@ -953,7 +953,7 @@ app.post(
           const desc = String(play?.result?.description || "Scoring play")
             .split(/[.,]/)[0]
             .trim();
-          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
+          const inningText = `(${play?.about?.halfInning === "top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")}) ·`;
           const isTop =
             play?.about?.halfInning === "top" ||
             play?.about?.isTopInning === true;
