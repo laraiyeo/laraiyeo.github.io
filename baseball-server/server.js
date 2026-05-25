@@ -841,11 +841,9 @@ app.post(
       });
 
       if (!game) {
-        return res
-          .status(404)
-          .json({
-            error: "No game found for that team on the notification date",
-          });
+        return res.status(404).json({
+          error: "No game found for that team on the notification date",
+        });
       }
 
       const { awayName, homeName } = getTeamsForGame(game);
@@ -925,12 +923,10 @@ app.post(
       return res.json({ ok: true, sent: messages.length, messages });
     } catch (e) {
       console.error("Test notification error:", e?.message || e);
-      return res
-        .status(500)
-        .json({
-          error: "Failed to send test notification",
-          details: e?.message || String(e),
-        });
+      return res.status(500).json({
+        error: "Failed to send test notification",
+        details: e?.message || String(e),
+      });
     }
   },
 );
