@@ -82,7 +82,7 @@ function getMlbNotifDatePst() {
 
 function getMlbScheduleNotifyPath(dateStr) {
   const fields =
-    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore,about,halfInning";
+    "dates,games,gamePk,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,score,isWinner,home,scoringPlays,result,description,awayScore,homeScore,about,halfInning,inning";
   return `v1/schedule/games/?sportId=1&startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}&hydrate=hydrations,scoringplays&fields=${encodeURIComponent(fields)}`;
 }
 
@@ -118,14 +118,53 @@ function isGameFinished(game) {
   );
 }
 
+const TEAM_NAMES = {
+  108: "Angels",
+  109: "Diamondbacks",
+  110: "Orioles",
+  111: "Red Sox",
+  112: "Cubs",
+  113: "Reds",
+  114: "Guardians",
+  115: "Rockies",
+  116: "Tigers",
+  117: "Astros",
+  118: "Royals",
+  119: "Dodgers",
+  120: "Nationals",
+  121: "Mets",
+  133: "Athletics",
+  134: "Pirates",
+  135: "Padres",
+  136: "Mariners",
+  137: "Giants",
+  138: "Cardinals",
+  139: "Rays",
+  140: "Rangers",
+  141: "Blue Jays",
+  142: "Twins",
+  143: "Phillies",
+  144: "Braves",
+  145: "White Sox",
+  146: "Marlins",
+  147: "Yankees",
+  158: "Brewers",
+};
+
+function getTeamName(team) {
+  const id = String(team?.id || "");
+  return TEAM_NAMES[id] || team?.name || "Unknown Team";
+}
+
 function getTeamsForGame(game) {
   const away = game?.teams?.away?.team || {};
   const home = game?.teams?.home?.team || {};
+
   return {
     awayId: String(away.id || ""),
     homeId: String(home.id || ""),
-    awayName: String(away.name || "Away"),
-    homeName: String(home.name || "Home"),
+    awayName: getTeamName(away),
+    homeName: getTeamName(home),
   };
 }
 
@@ -283,8 +322,8 @@ async function processMlbNotificationsTick() {
         pushQueue.push({
           to: sub.pushToken,
           sound: "default",
-          title: `${awayName} at ${homeName}`,
-          body: "⚾ Game has started",
+          title: `⚾ ${awayName} at ${homeName}`,
+          body: "Game has started",
           data: {
             sport: "mlb",
             gamePk,
@@ -305,7 +344,7 @@ async function processMlbNotificationsTick() {
       const desc = String(play?.result?.description || "Scoring play")
         .split(".")[0]
         .trim();
-      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bottom"} ${ordinalSuffix(play?.about?.inning || "?")})`;
+      const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")})`;
       // Determine scoring team: top of inning -> away scored, bottom -> home scored
       const isTop = play?.about?.halfInning === "top";
       const awayScore = Number(
@@ -318,7 +357,7 @@ async function processMlbNotificationsTick() {
       const awayScoreDisplay = isTop ? `[${awayScore}]` : `${awayScore}`;
       const homeScoreDisplay = !isTop ? `[${homeScore}]` : `${homeScore}`;
 
-      const title = `${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
+      const title = `⚾ ${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
 
       for (const sub of subscribers) {
         pushQueue.push({
@@ -340,12 +379,14 @@ async function processMlbNotificationsTick() {
       gameState.finishedSent = true;
       const awayFinal = String(game?.teams?.away?.score ?? "0");
       const homeFinal = String(game?.teams?.home?.score ?? "0");
-      const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
+      const awayWinner = game?.teams?.away?.isWinner;
+      const homeWinner = game?.teams?.home?.isWinner;
+      const finalTitle = `⚾ ${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
       const FinalText =
-        awayFinal && homeFinal !== "0"
-          ? awayFinal < homeFinal
-            ? `⚾ The ${homeName} Win the Game`
-            : `⚾ The ${awayName} Win the Game`
+        awayWinner && homeWinner
+          ? homeWinner
+            ? `The ${homeName} Win the Game`
+            : `The ${awayName} Win the Game`
           : "Game Ended";
       for (const sub of subscribers) {
         pushQueue.push({
@@ -864,19 +905,21 @@ app.post(
         messages.push({
           to: expoPushToken,
           sound: "default",
-          title: `${awayName} at ${homeName}`,
-          body: "⚾ Game has started",
+          title: `⚾ ${awayName} at ${homeName}`,
+          body: "Game has started",
           data: { sport: "mlb", gamePk, type: "mlb_game_started" },
         });
       } else if (action === "finish" || action === "final") {
         const awayFinal = String(game?.teams?.away?.score ?? "0");
         const homeFinal = String(game?.teams?.home?.score ?? "0");
-        const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
+        const awayWinner = game?.teams?.away?.isWinner;
+        const homeWinner = game?.teams?.home?.isWinner;
+        const finalTitle = `⚾ ${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
         const FinalText =
-          awayFinal && homeFinal !== "0"
-            ? awayFinal < homeFinal
-              ? `⚾ The ${homeName} Win the Game`
-              : `⚾ The ${awayName} Win the Game`
+          awayWinner && homeWinner
+            ? homeWinner
+              ? `The ${homeName} Win the Game`
+              : `The ${awayName} Win the Game`
             : "Game Ended";
         messages.push({
           to: expoPushToken,
@@ -910,7 +953,7 @@ app.post(
           const desc = String(play?.result?.description || "Scoring play")
             .split(".")[0]
             .trim();
-          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bottom"} ${ordinalSuffix(play?.about?.inning || "?")})`;
+          const inningText = `(${play?.about?.halfInning === "Top" ? "Top" : "Bot"} ${ordinalSuffix(play?.about?.inning || "?")})`;
           const isTop =
             play?.about?.halfInning === "top" ||
             play?.about?.isTopInning === true;
@@ -923,7 +966,7 @@ app.post(
 
           const awayScoreDisplay = isTop ? `[${awayScore}]` : `${awayScore}`;
           const homeScoreDisplay = !isTop ? `[${homeScore}]` : `${homeScore}`;
-          const title = `${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
+          const title = `⚾ ${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
 
           messages.push({
             to: expoPushToken,
