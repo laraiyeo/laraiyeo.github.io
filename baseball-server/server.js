@@ -142,6 +142,22 @@ function getSubscribersForGame(game) {
   return out;
 }
 
+function normalizeExpoPushToken(rawToken) {
+  const token = String(rawToken || "").trim();
+  if (!token) return "";
+
+  const wrappedMatch = token.match(/^ExponentPushToken\[(.+)\]$/i);
+  if (wrappedMatch && wrappedMatch[1]) {
+    return `ExponentPushToken[${wrappedMatch[1]}]`;
+  }
+
+  if (token.toLowerCase().startsWith("exponentpushtoken[")) {
+    return token;
+  }
+
+  return `ExponentPushToken[${token}]`;
+}
+
 async function sendExpoPushNotifications(messages) {
   if (!Array.isArray(messages) || messages.length === 0) return;
   const batches = [];
@@ -787,7 +803,10 @@ app.get("/", (req, res) => {
   res.json({ message: "Baseball server running", baseUrl: BASE_URL });
 });
 
-// Manual test endpoint for sending notifications to a specific Expo push token
+// Manual test endpoint for sending notifications to a specific Expo push token.
+// Pass the inner token value only, for example:
+// POST /bb/notifications/test/wN30RqDxV2AJVoVlln96Rp/147/start
+// The server will reconstruct it to ExponentPushToken[wN30RqDxV2AJVoVlln96Rp].
 // Usage examples:
 // POST /bb/notifications/test/:pushToken/:teamId/start
 // POST /bb/notifications/test/:pushToken/:teamId/finish
@@ -803,7 +822,9 @@ app.post(
         .toLowerCase();
       const idxRaw = req.params.index;
 
-      if (!pushToken)
+      const expoPushToken = normalizeExpoPushToken(pushToken);
+
+      if (!expoPushToken)
         return res.status(400).json({ error: "pushToken is required" });
       if (!teamId) return res.status(400).json({ error: "teamId is required" });
 
@@ -834,7 +855,7 @@ app.post(
 
       if (action === "start") {
         messages.push({
-          to: pushToken,
+          to: expoPushToken,
           sound: "default",
           title: `${awayName} at ${homeName}`,
           body: "Game has started",
@@ -845,7 +866,7 @@ app.post(
         const homeFinal = String(game?.teams?.home?.score ?? "0");
         const finalTitle = `${awayName} ${awayFinal} - ${homeFinal} ${homeName}`;
         messages.push({
-          to: pushToken,
+          to: expoPushToken,
           sound: "default",
           title: finalTitle,
           body: "Game finished",
@@ -857,7 +878,7 @@ app.post(
           : [];
         if (scoringPlays.length === 0) {
           messages.push({
-            to: pushToken,
+            to: expoPushToken,
             sound: "default",
             title: `${awayName} at ${homeName}`,
             body: "No scoring plays available for this game",
@@ -889,7 +910,7 @@ app.post(
           const title = `${awayName} ${awayScoreDisplay} - ${homeScoreDisplay} ${homeName}`;
 
           messages.push({
-            to: pushToken,
+            to: expoPushToken,
             sound: "default",
             title,
             body: desc,
