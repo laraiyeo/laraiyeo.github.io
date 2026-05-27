@@ -927,9 +927,7 @@ const MLBGridCard = ({
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: awayFav
-                      ? colors.primary
-                      : awayWins
+                    color: awayWins
                         ? colors.primary
                         : theme.text,
                     fontWeight: awayWins ? "700" : "400",
@@ -1018,9 +1016,7 @@ const MLBGridCard = ({
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: homeFav
-                      ? colors.primary
-                      : homeWins
+                    color: homeWins
                         ? colors.primary
                         : theme.text,
                     fontWeight: homeWins ? "700" : "400",
