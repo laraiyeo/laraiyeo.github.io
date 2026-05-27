@@ -13,7 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../../context/ThemeContext";
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -156,7 +156,15 @@ function CareerStatsBubble({ statistics, theme, colors, accentColor }) {
   );
 }
 
-function SeasonRow({ stat, last, theme, isDarkMode, accentColor, teamColor, navigation }) {
+function SeasonRow({
+  stat,
+  last,
+  theme,
+  isDarkMode,
+  accentColor,
+  teamColor,
+  navigation,
+}) {
   const details = stat.season?.details ?? [];
   const league = stat.season?.league;
 
@@ -186,7 +194,13 @@ function SeasonRow({ stat, last, theme, isDarkMode, accentColor, teamColor, navi
         {showLogo ? (
           <Image
             source={{ uri: logoUri }}
-            style={[cStyles.seasonLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
+            style={[
+              cStyles.seasonLogo,
+              {
+                tintColor:
+                  league?.id === 8 && isDarkMode ? theme.text : undefined,
+              },
+            ]}
             resizeMode="contain"
           />
         ) : (

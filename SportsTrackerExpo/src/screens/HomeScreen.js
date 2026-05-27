@@ -95,7 +95,7 @@ const HomeScreen = () => {
   const fetchErrors = useCallback(async () => {
     try {
       const res = await fetch(
-        "https://laraiyeogithubio-production-f5af.up.railway.app/api/error",
+        "https://sportsheart-main.up.railway.app/api/error",
       );
       if (!res.ok) return;
       const j = await res.json();
@@ -240,251 +240,310 @@ const HomeScreen = () => {
           },
         ]}
       >
-        {errors && errors.length > 0 ? ( <>
-          <View
-            style={{
-              marginTop: 0,
-              marginHorizontal: 0,
-              borderRadius: 12,
-              paddingVertical: 0,
-              paddingHorizontal: 0,
-              height: 105,
-            }}
-          >
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const width =
-                  e.nativeEvent.layoutMeasurement.width ||
-                  Dimensions.get("window").width;
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setCurrentErrorIndex(index);
+        {errors && errors.length > 0 ? (
+          <>
+            <View
+              style={{
+                marginTop: 0,
+                marginHorizontal: 0,
+                borderRadius: 12,
+                paddingVertical: 0,
+                paddingHorizontal: 0,
+                height: 105,
               }}
             >
-              {errors.map((err, idx) => (
-                <TouchableOpacity
-                  key={err.id || idx}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setSelectedErrorIndex(idx);
-                    setSelectedError(err);
-                    setShowErrorModal(true);
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const width =
+                    e.nativeEvent.layoutMeasurement.width ||
+                    Dimensions.get("window").width;
+                  const index = Math.round(
+                    e.nativeEvent.contentOffset.x / width,
+                  );
+                  setCurrentErrorIndex(index);
+                }}
+              >
+                {errors.map((err, idx) => (
+                  <TouchableOpacity
+                    key={err.id || idx}
+                    activeOpacity={0.9}
+                    onPress={() => {
+                      setSelectedErrorIndex(idx);
+                      setSelectedError(err);
+                      setShowErrorModal(true);
+                    }}
+                    style={[
+                      styles.errorBanner,
+                      {
+                        backgroundColor:
+                          err.status === "green"
+                            ? theme.success
+                            : err.status === "red"
+                              ? theme.error
+                              : theme.warning,
+                        marginTop: 0,
+                        marginHorizontal: 0,
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        width: Dimensions.get("window").width - 40,
+                        overflow: "hidden",
+                      },
+                    ]}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.errorHeader,
+                          {
+                            color: ["green", "red"].includes(err.status)
+                              ? "#fff"
+                              : "#000",
+                            flex: 1,
+                            marginBottom: 0,
+                            flexShrink: 1,
+                          },
+                        ]}
+                        allowFontScaling={false}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {err.header}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.errorTs,
+                          {
+                            color: ["green", "red"].includes(err.status)
+                              ? "#fff"
+                              : "#000",
+                            marginLeft: 12,
+                            alignSelf: "flex-start",
+                            marginTop: 2,
+                          },
+                        ]}
+                        allowFontScaling={false}
+                      >
+                        {formatTs(err.ts)}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.errorMsg,
+                        {
+                          color: ["green", "red"].includes(err.status)
+                            ? "#fff"
+                            : "#000",
+                          marginTop: 6,
+                          flexShrink: 1,
+                        },
+                      ]}
+                      numberOfLines={3}
+                      ellipsizeMode="tail"
+                    >
+                      {err.message}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {errors.length > 1 && (
+                <View
+                  style={{
+                    alignItems: "center",
+                    marginTop: 6,
+                    marginBottom: -12,
                   }}
+                >
+                  <Text
+                    style={[
+                      styles.errorIndicator,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {currentErrorIndex + 1} / {errors.length}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Modal
+              visible={showErrorModal}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowErrorModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View
                   style={[
-                    styles.errorBanner,
+                    styles.modalContent,
                     {
-                      backgroundColor:
-                        err.status === "green"
-                          ? theme.success
-                          : err.status === "red"
-                            ? theme.error
-                            : theme.warning,
-                      marginTop: 0,
-                      marginHorizontal: 0,
-                      borderRadius: 12,
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      width: Dimensions.get("window").width - 40,
-                      overflow: "hidden",
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
                     },
                   ]}
                 >
                   <View
                     style={{
-                      flexDirection: "row",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
+                      padding: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.border,
+                      alignItems: "left",
+                      justifyContent: "center",
                     }}
                   >
                     <Text
-                      style={[
-                        styles.errorHeader,
-                        {
-                          color: ["green", "red"].includes(err.status)
-                            ? "#fff"
-                            : "#000",
-                          flex: 1,
-                          marginBottom: 0,
-                          flexShrink: 1,
-                        },
-                      ]}
-                      allowFontScaling={false}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                      style={{
+                        color: theme.text,
+                        fontWeight: "700",
+                        fontSize: 16,
+                        textAlign: "left",
+                      }}
                     >
-                      {err.header}
+                      {"Error Details"}
                     </Text>
-                    <Text
-                      style={[
-                        styles.errorTs,
-                        {
-                          color: ["green", "red"].includes(err.status)
-                            ? "#fff"
-                            : "#000",
-                          marginLeft: 12,
-                          alignSelf: "flex-start",
-                          marginTop: 2,
-                        },
-                      ]}
-                      allowFontScaling={false}
+                    <TouchableOpacity
+                      onPress={() => setShowErrorModal(false)}
+                      style={{ position: "absolute", right: 12, top: 12 }}
                     >
-                      {formatTs(err.ts)}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.errorMsg,
-                      {
-                        color: ["green", "red"].includes(err.status)
-                          ? "#fff"
-                          : "#000",
-                        marginTop: 6,
-                        flexShrink: 1,
-                      },
-                    ]}
-                    numberOfLines={3}
-                    ellipsizeMode="tail"
-                  >
-                    {err.message}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {errors.length > 1 && (
-              <View
-                style={{
-                  alignItems: "center",
-                  marginTop: 6,
-                  marginBottom: -12,
-                }}
-              >
-                <Text
-                  style={[
-                    styles.errorIndicator,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {currentErrorIndex + 1} / {errors.length}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Modal
-            visible={showErrorModal}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowErrorModal(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View
-                style={[
-                  styles.modalContent,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <View
-                  style={{
-                    padding: 12,
-                    borderBottomWidth: 1,
-                    borderBottomColor: theme.border,
-                    alignItems: "left",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: theme.text,
-                      fontWeight: "700",
-                      fontSize: 16,
-                      textAlign: "left",
-                    }}
-                  >
-                    {"Error Details"}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowErrorModal(false)}
-                    style={{ position: "absolute", right: 12, top: 12 }}
-                  >
-                    <Text style={{ color: colors.primary, fontWeight: "700" }}>Close</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ padding: 16, maxHeight: 440, alignItems: "center" }}>
-                  {selectedError ? (
-                    <View>
                       <Text
-                        style={{
-                      color:
-                        selectedError && selectedError.status === "green"
-                          ? theme.success
-                          : selectedError && selectedError.status === "red"
-                          ? theme.error
-                          : selectedError && selectedError.status === "yellow"
-                          ? theme.warning
-                          : theme.text,
-                          fontWeight: "700",
-                          fontSize: 16,
-                          marginBottom: 8,
-                          textAlign: "center",
-                        }}
+                        style={{ color: colors.primary, fontWeight: "700" }}
                       >
-                        {selectedError.header}
+                        Close
                       </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View
+                    style={{
+                      padding: 16,
+                      maxHeight: 440,
+                      alignItems: "center",
+                    }}
+                  >
+                    {selectedError ? (
+                      <View>
+                        <Text
+                          style={{
+                            color:
+                              selectedError && selectedError.status === "green"
+                                ? theme.success
+                                : selectedError &&
+                                    selectedError.status === "red"
+                                  ? theme.error
+                                  : selectedError &&
+                                      selectedError.status === "yellow"
+                                    ? theme.warning
+                                    : theme.text,
+                            fontWeight: "700",
+                            fontSize: 16,
+                            marginBottom: 8,
+                            textAlign: "center",
+                          }}
+                        >
+                          {selectedError.header}
+                        </Text>
+                        <Text
+                          style={{
+                            color: theme.textSecondary,
+                            marginBottom: 8,
+                            textAlign: "center",
+                          }}
+                        >
+                          {selectedError.message}
+                        </Text>
+                        <Text
+                          style={{
+                            color: theme.textTertiary,
+                            fontSize: 12,
+                            textAlign: "center",
+                          }}
+                        >
+                          {selectedError.ts ? formatTs(selectedError.ts) : ""}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={{ color: theme.textSecondary }}>
+                        No details
+                      </Text>
+                    )}
+                  </View>
+
+                  {errors && errors.length > 1 && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        padding: 12,
+                        paddingTop: 0,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() => {
+                          const ni = Math.max(0, selectedErrorIndex - 1);
+                          setSelectedErrorIndex(ni);
+                          setSelectedError(errors[ni]);
+                        }}
+                        disabled={selectedErrorIndex === 0}
+                        style={{ paddingHorizontal: 12 }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              selectedErrorIndex === 0
+                                ? theme.textSecondary
+                                : colors.primary,
+                          }}
+                        >
+                          Prev
+                        </Text>
+                      </TouchableOpacity>
+
                       <Text
                         style={{
                           color: theme.textSecondary,
-                          marginBottom: 8,
-                          textAlign: "center",
+                          alignSelf: "center",
                         }}
                       >
-                        {selectedError.message}
+                        {selectedErrorIndex + 1} / {errors.length}
                       </Text>
-                      <Text style={{ color: theme.textTertiary, fontSize: 12, textAlign: "center" }}>
-                        {selectedError.ts ? formatTs(selectedError.ts) : ""}
-                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          const ni = Math.min(
+                            errors.length - 1,
+                            selectedErrorIndex + 1,
+                          );
+                          setSelectedErrorIndex(ni);
+                          setSelectedError(errors[ni]);
+                        }}
+                        disabled={selectedErrorIndex >= errors.length - 1}
+                        style={{ paddingHorizontal: 12 }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              selectedErrorIndex >= errors.length - 1
+                                ? theme.textSecondary
+                                : colors.primary,
+                          }}
+                        >
+                          Next
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  ) : (
-                    <Text style={{ color: theme.textSecondary }}>No details</Text>
                   )}
                 </View>
-
-                {errors && errors.length > 1 && (
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", padding: 12, paddingTop: 0 }}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        const ni = Math.max(0, selectedErrorIndex - 1);
-                        setSelectedErrorIndex(ni);
-                        setSelectedError(errors[ni]);
-                      }}
-                      disabled={selectedErrorIndex === 0}
-                      style={{ paddingHorizontal: 12 }}
-                    >
-                      <Text style={{ color: selectedErrorIndex === 0 ? theme.textSecondary : colors.primary }}>Prev</Text>
-                    </TouchableOpacity>
-
-                    <Text style={{ color: theme.textSecondary, alignSelf: "center" }}>
-                      {selectedErrorIndex + 1} / {errors.length}
-                    </Text>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        const ni = Math.min(errors.length - 1, selectedErrorIndex + 1);
-                        setSelectedErrorIndex(ni);
-                        setSelectedError(errors[ni]);
-                      }}
-                      disabled={selectedErrorIndex >= errors.length - 1}
-                      style={{ paddingHorizontal: 12 }}
-                    >
-                      <Text style={{ color: selectedErrorIndex >= errors.length - 1 ? theme.textSecondary : colors.primary }}>Next</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
-            </View>
-          </Modal>
+            </Modal>
           </>
         ) : (
           <>

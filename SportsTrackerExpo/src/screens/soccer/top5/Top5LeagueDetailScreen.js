@@ -36,7 +36,7 @@ import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { useTheme } from "../../../context/ThemeContext";
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 function parseHexColor(hex) {

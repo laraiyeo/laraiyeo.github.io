@@ -733,8 +733,7 @@ const BetSettingsScreen = ({ navigation }) => {
       }
 
       const base =
-        process.env.PUBLIC_API_URL ||
-        "https://laraiyeogithubio-production-f5af.up.railway.app";
+        process.env.PUBLIC_API_URL || "https://sportsheart-main.up.railway.app";
       if (!base) {
         setRedeemMessage("Server not configured");
         setRedeemLoading(false);

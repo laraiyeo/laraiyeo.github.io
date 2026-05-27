@@ -9,11 +9,11 @@ function decodeJwt(token) {
     const payload = parts[1];
     const padded = payload.padEnd(
       payload.length + ((4 - (payload.length % 4)) % 4),
-      "="
+      "=",
     );
     const decoded = Buffer.from(
       padded.replace(/-/g, "+").replace(/_/g, "/"),
-      "base64"
+      "base64",
     ).toString("utf8");
     return JSON.parse(decoded);
   } catch (e) {
@@ -71,7 +71,7 @@ function buildBetsMetadata(betslipData, totalStake = 0, potentialPayout = 0) {
 export const createBetslip = async (
   betslipData,
   totalStake = 0,
-  potentialPayout = 0
+  potentialPayout = 0,
 ) => {
   try {
     const {
@@ -155,7 +155,7 @@ export const createBetslip = async (
           p_potential_payout: rpcPotential,
           p_betslip_url: resolvedBetslipUrl,
           p_user_username: username,
-        }
+        },
       );
 
       if (!rpcError) {
@@ -180,7 +180,7 @@ export const createBetslip = async (
         } catch (e) {
           console.log(
             "createBetslip: place_betslip RPC succeeded (no profile)",
-            { rpcData }
+            { rpcData },
           );
           return {
             success: true,
@@ -193,7 +193,7 @@ export const createBetslip = async (
         // Detailed RPC error logging
         console.error(
           "createBetslip RPC place_betslip error:",
-          JSON.stringify(rpcError, Object.getOwnPropertyNames(rpcError), 2)
+          JSON.stringify(rpcError, Object.getOwnPropertyNames(rpcError), 2),
         );
         // Also log error fields if available
         try {
@@ -202,7 +202,7 @@ export const createBetslip = async (
             rpcError?.message,
             rpcError?.details,
             rpcError?.hint,
-            rpcError?.code
+            rpcError?.code,
           );
         } catch (e) {}
       }
@@ -210,7 +210,7 @@ export const createBetslip = async (
       console.error(
         "createBetslip: place_betslip RPC threw:",
         e?.message || e,
-        e
+        e,
       );
     }
 
@@ -229,8 +229,7 @@ export const createBetslip = async (
       }
       if (authToken) {
         serverCalled = true;
-        const SERVER_BASE =
-          "https://laraiyeogithubio-production-f5af.up.railway.app";
+        const SERVER_BASE = "https://sportsheart-main.up.railway.app";
         const resp = await fetch(`${SERVER_BASE}/api/betslips`, {
           method: "POST",
           headers: {
@@ -265,14 +264,14 @@ export const createBetslip = async (
           console.warn(
             "createBetslip: server endpoint rejected request",
             resp.status,
-            json
+            json,
           );
         }
       }
     } catch (e) {
       console.warn(
         "createBetslip: server endpoint call failed",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -294,14 +293,14 @@ export const createBetslip = async (
       if (insertRes.error) {
         console.warn(
           "createBetslip: aggregated insert failed:",
-          insertRes.error
+          insertRes.error,
         );
         serverFallback = true;
       }
     } catch (dbErr) {
       console.error(
         "createBetslip: aggregated insert exception:",
-        dbErr?.message || dbErr
+        dbErr?.message || dbErr,
       );
       serverFallback = true;
     }
@@ -356,7 +355,7 @@ export const createBetslip = async (
       if (e2) {
         console.error(
           "createBetslip: fallback singlePayload insert failed:",
-          e2
+          e2,
         );
         return {
           success: false,
@@ -375,7 +374,7 @@ export const createBetslip = async (
     } catch (e3) {
       console.error(
         "createBetslip: fallback insert exception:",
-        e3?.message || e3
+        e3?.message || e3,
       );
       return {
         success: false,
@@ -406,7 +405,7 @@ export const placeBet = async (
   amount,
   odds,
   betslipUrl = null,
-  betRaw = null
+  betRaw = null,
 ) => {
   try {
     // Normalize and log inputs
@@ -471,10 +470,10 @@ export const placeBet = async (
           typeof originalOddsRaw === "string"
             ? originalOddsRaw
             : originalOddsRaw != null
-            ? String(originalOddsRaw)
-            : oddsValue != null
-            ? String(oddsValue)
-            : null;
+              ? String(originalOddsRaw)
+              : oddsValue != null
+                ? String(oddsValue)
+                : null;
       }
       if (!betObj.id) {
         betObj.id = `bet-${gameId}-${Math.random().toString(36).slice(2, 8)}`;
@@ -487,10 +486,10 @@ export const placeBet = async (
           typeof originalOddsRaw === "string"
             ? originalOddsRaw
             : originalOddsRaw != null
-            ? String(originalOddsRaw)
-            : oddsValue != null
-            ? String(oddsValue)
-            : null,
+              ? String(originalOddsRaw)
+              : oddsValue != null
+                ? String(oddsValue)
+                : null,
         team: selection,
         type:
           selection === "Over" || selection === "Under" ? "Total" : "Moneyline",
@@ -516,16 +515,15 @@ export const placeBet = async (
     } = buildBetsMetadata(
       { bets: singleBets },
       amount,
-      +(amount * oddsValue).toFixed(2)
+      +(amount * oddsValue).toFixed(2),
     );
 
     const singleBetslipData = _betslipObject;
 
     // Ensure we have a betslip URL: prefer explicit betslipUrl param, then resolved value, otherwise build a server endpoint URL
-    const SERVER_BASE =
-      "https://laraiyeogithubio-production-f5af.up.railway.app";
+    const SERVER_BASE = "https://sportsheart-main.up.railway.app";
     const constructedBetslipUrl = `${SERVER_BASE}/api/betslip?gameId=${encodeURIComponent(
-      String(gameId)
+      String(gameId),
     )}&moneyline=${encodeURIComponent(String(selection))}`;
     const finalBetslipUrl =
       betslipUrl || _resolvedBetslipUrl || constructedBetslipUrl;
@@ -757,7 +755,7 @@ export const savePushToken = async (expoPushToken, platform) => {
       },
       {
         onConflict: "user_id", // Update if user_id already exists
-      }
+      },
     );
 
     if (error) throw error;
@@ -836,8 +834,7 @@ export const getDailyRewardState = async (profileId) => {
     }
 
     if (authToken) {
-      const SERVER_BASE =
-        "https://laraiyeogithubio-production-f5af.up.railway.app";
+      const SERVER_BASE = "https://sportsheart-main.up.railway.app";
       const resp = await fetch(`${SERVER_BASE}/api/daily/state`, {
         method: "GET",
         headers: {
@@ -1139,8 +1136,7 @@ export const claimDailyReward = async (profileId) => {
       }
 
       if (authToken) {
-        const SERVER_BASE =
-          "https://laraiyeogithubio-production-f5af.up.railway.app";
+        const SERVER_BASE = "https://sportsheart-main.up.railway.app";
         console.log("claimDailyReward: calling server /api/daily/claim", {
           profileId,
           tokenSource: tokenSource || "unknown",
@@ -1177,7 +1173,7 @@ export const claimDailyReward = async (profileId) => {
               status: resp.status,
               statusText: resp.statusText,
               body: parsed || rawText,
-            })
+            }),
           );
         } catch (e) {}
 
@@ -1191,7 +1187,7 @@ export const claimDailyReward = async (profileId) => {
               const state = {
                 claimedDays: [false, false, false, false, false, false, false],
                 nextAvailableAt: new Date(
-                  now.getTime() + 24 * 60 * 60 * 1000
+                  now.getTime() + 24 * 60 * 60 * 1000,
                 ).toISOString(),
               };
               const dayNum = json.day || 1;
@@ -1315,7 +1311,7 @@ export const claimDailyReward = async (profileId) => {
       if (updateError) {
         console.error(
           "claimDailyReward: failed to update profile",
-          updateError.message || updateError
+          updateError.message || updateError,
         );
       }
 
@@ -1324,7 +1320,7 @@ export const claimDailyReward = async (profileId) => {
         const refetch = await supabase
           .from("profiles")
           .select(
-            "id,username,credits,is_pro,daily_available_day,daily_claimed,daily_next_available_at,daily_claimed_at,updated_at"
+            "id,username,credits,is_pro,daily_available_day,daily_claimed,daily_next_available_at,daily_claimed_at,updated_at",
           )
           .eq("id", uid)
           .maybeSingle();
@@ -1343,13 +1339,13 @@ export const claimDailyReward = async (profileId) => {
               updatePayload,
               rawUpdateRes: rawUpdateRes || null,
               refetchAfterUpdate: refetchAfterUpdate || null,
-            })
+            }),
           );
         } catch (e) {}
       } catch (e) {
         console.warn(
           "claimDailyReward: failed to refetch profile",
-          e?.message || e
+          e?.message || e,
         );
       }
     } catch (e) {
@@ -1368,7 +1364,7 @@ export const claimDailyReward = async (profileId) => {
     } catch (e) {
       console.warn(
         "claimDailyReward: failed to write credit_ledger",
-        e?.message || e
+        e?.message || e,
       );
     }
 

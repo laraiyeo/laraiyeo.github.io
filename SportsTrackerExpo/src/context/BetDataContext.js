@@ -10,8 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BetDataContext = createContext();
 
-const API_BASE_URL =
-  "https://laraiyeogithubio-production-f5af.up.railway.app/api";
+const API_BASE_URL = "https://sportsheart-main.up.railway.app/api";
 
 export const BetDataProvider = ({ children }) => {
   const [scoreboardData, setScoreboardData] = useState({});

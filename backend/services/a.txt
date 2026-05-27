@@ -1,4 +1,4 @@
-https://laraiyeogithubio-production.up.railway.app/api/sports/mlb/standings
+https://sportsheart-baseball.up.railway.app/api/sports/mlb/standings
 
 {
   "hasChanges": true,

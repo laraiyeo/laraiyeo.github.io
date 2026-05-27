@@ -1,7 +1,7 @@
 // WBC Service - lightweight wrapper around the backend /wbc endpoints
 // Mirrors the pattern used in other services but intentionally lightweight.
 
-const BASE_BACKEND = "https://laraiyeogithubio-production.up.railway.app"; // replace with your production backend URL
+const BASE_BACKEND = "https://sportsheart-baseball.up.railway.app"; // replace with your production backend URL
 
 // --------------------- team logo lookup (editable) ---------------------
 // Mapping: teamId -> { abbr: string, useMLB: boolean, color?: string }

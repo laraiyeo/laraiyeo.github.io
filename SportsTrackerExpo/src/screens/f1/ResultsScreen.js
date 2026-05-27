@@ -33,7 +33,7 @@ import { LiveViewerBadge } from "../../components/ViewerCounter";
 const { width } = Dimensions.get("window");
 
 const DATE_API_BASE =
-  "https://laraiyeogithubio-production-ed10.up.railway.app/racing/date";
+  "https://sportsheart-motorsports.up.railway.app/racing/date";
 const DATE_CACHE_KEY = "racing_date_list:v2";
 const DATE_CACHE_TTL = 4 * 60 * 60 * 1000; // 3 hours
 
@@ -263,20 +263,24 @@ const CardGradient = ({ gradId, accentColor, cardHeight }) => {
       preserveAspectRatio="none"
       pointerEvents="none"
     >
-    <Defs>
-      <SvgLinearGradient
-        id={`cardGrad_${gradId}`}
-        x1="0%"
-        y1="0%"
-        x2="100%"
-        y2="0%"
-      >
-        <Stop offset="0%" stopColor={accentColor} stopOpacity="0.25" />
-        <Stop offset="55%" stopColor={accentColor} stopOpacity="0" />
-      </SvgLinearGradient>
-    </Defs>
-    <Rect width="100%" height={safeHeight} fill={`url(#cardGrad_${gradId})`} />
-  </Svg>
+      <Defs>
+        <SvgLinearGradient
+          id={`cardGrad_${gradId}`}
+          x1="0%"
+          y1="0%"
+          x2="100%"
+          y2="0%"
+        >
+          <Stop offset="0%" stopColor={accentColor} stopOpacity="0.25" />
+          <Stop offset="55%" stopColor={accentColor} stopOpacity="0" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect
+        width="100%"
+        height={safeHeight}
+        fill={`url(#cardGrad_${gradId})`}
+      />
+    </Svg>
   );
 };
 

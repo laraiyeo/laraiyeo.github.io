@@ -4,8 +4,7 @@
 import { BaseCacheService } from "./BaseCacheService";
 
 export class NHLService extends BaseCacheService {
-  static BACKEND_URL =
-    "https://laraiyeogithubio-production-0255.up.railway.app";
+  static BACKEND_URL = "https://sportsheart-hockey.up.railway.app";
   static SCOREBOARD_API_URL = `${this.BACKEND_URL}/nhl/scoreboard`;
   static TEAM_COLOR_MAP = {
     ANA: "#F47A38",

@@ -2,21 +2,21 @@
 // Fetches fixture data from the football proxy server (SportMonks-based data).
 // Response format: { leagueId: { id, name, image_path, country, matches: [...] } }
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 
 const FINISHED_STATES = new Set([
-    "FT",
-    "AET",
-    "FT_PEN",
-    "POSTP",
-    "CANC",
-    "ABAN",
-    "WO",
-    "WALKOVER",
-    "CUT",
-    "AWA",
-    "POST",
-    "POSTPONED",
+  "FT",
+  "AET",
+  "FT_PEN",
+  "POSTP",
+  "CANC",
+  "ABAN",
+  "WO",
+  "WALKOVER",
+  "CUT",
+  "AWA",
+  "POST",
+  "POSTPONED",
 ]);
 const SCHEDULED_STATES = new Set(["NS", "TBA", "DELAYED"]);
 

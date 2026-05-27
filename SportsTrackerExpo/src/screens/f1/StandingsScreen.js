@@ -221,7 +221,7 @@ const StandingsScreen = ({ route }) => {
       if (selectedSeries === "NASCAR") {
         // Fetch NASCAR standings and cache
         const NASCAR_URL =
-          "https://laraiyeogithubio-production-ed10.up.railway.app/nascar/standings";
+          "https://sportsheart-motorsports.up.railway.app/nascar/standings";
         const NASCAR_CACHE_KEY = "NASCAR_STANDINGS_CACHE_KEY";
         const NASCAR_TTL = 1000 * 60 * 30; // 30 min
 
@@ -261,7 +261,7 @@ const StandingsScreen = ({ route }) => {
 
       // reuse existing F1 cache + mapping logic
       const STANDINGS_URL =
-        "https://laraiyeogithubio-production-ed10.up.railway.app/f1/standings";
+        "https://sportsheart-motorsports.up.railway.app/f1/standings";
       const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
       const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
 

@@ -35,7 +35,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000;
 
 const { width } = Dimensions.get("window");

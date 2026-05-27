@@ -149,9 +149,9 @@ const VehiclesScreen = () => {
 
   // Shared standings cache constants
   const F1_STANDINGS_URL =
-    "https://laraiyeogithubio-production-ed10.up.railway.app/f1/standings";
+    "https://sportsheart-motorsports.up.railway.app/f1/standings";
   const NASCAR_STANDINGS_URL =
-    "https://laraiyeogithubio-production-ed10.up.railway.app/nascar/standings";
+    "https://sportsheart-motorsports.up.railway.app/nascar/standings";
   const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
   const NASCAR_STANDINGS_CACHE_KEY = "NASCAR_STANDINGS_CACHE_KEY";
   const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour

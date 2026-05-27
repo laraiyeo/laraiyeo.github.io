@@ -34,7 +34,7 @@ import { useGamePresence } from "../../hooks/useGamePresence";
 const { width } = Dimensions.get("window");
 
 const NASCAR_RACE_API =
-  "https://laraiyeogithubio-production-ed10.up.railway.app/nascar/race";
+  "https://sportsheart-motorsports.up.railway.app/nascar/race";
 const NASCAR_CACHE_PREFIX = "nascar_race_details:";
 const TAB_KEYS = [
   "Main",
@@ -2424,7 +2424,8 @@ const NascarRaceDetailsScreen = ({ route }) => {
   const liveStageRunData = useMemo(
     () =>
       Array.isArray(racePayload?.live_stage_points?.runData) &&
-      racePayload.live_stage_points.runData.length && racePayload.live_stage_points.runData?.[0]?.stage2Laps != 0
+      racePayload.live_stage_points.runData.length &&
+      racePayload.live_stage_points.runData?.[0]?.stage2Laps != 0
         ? racePayload.live_stage_points.runData[0]
         : null,
     [racePayload?.live_stage_points],
@@ -2575,7 +2576,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
 
           const last =
             parts.length >= 2
-              ? parts[1] + (parts[2] ? " " + parts[2] : "") 
+              ? parts[1] + (parts[2] ? " " + parts[2] : "")
               : cleanedName;
           const label = `#${dn} · ${String(last).toUpperCase()}`;
           const color = getManufacturerColor(d?.Manufacturer) || colors.primary;
@@ -2960,7 +2961,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
           row?.full_name ||
           mapEntry?.name ||
           `Driver ${index + 1}`;
-          
+
         const cleanedName = String(driverName)
           .replace(/[#*]/g, "") // remove # and *
           .replace(/\(i\)/gi, "") // remove (i)
@@ -2982,7 +2983,10 @@ const NascarRaceDetailsScreen = ({ route }) => {
           row?.fastest_lap_time ??
           row?.fastestLapTime ??
           null;
-        const timeText = liveRunType != 3 ? formatSessionCopyTime(bestLapTime) : formatElapsedClock(elapsedTime);
+        const timeText =
+          liveRunType != 3
+            ? formatSessionCopyTime(bestLapTime)
+            : formatElapsedClock(elapsedTime);
         const deltaLeaderText =
           position === 1 && Number(deltaRaw) === 0
             ? "Leader"
@@ -3497,7 +3501,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
           ? theme.error
           : null;
 
-      const showPositionDelta = (startingPos !== finishingPos) && isRaceSource;
+      const showPositionDelta = startingPos !== finishingPos && isRaceSource;
 
       const finalTimeIsStatus =
         !isRaceSource && qualPracticeComment ? true : timeIsStatus;
@@ -4312,7 +4316,7 @@ const NascarRaceDetailsScreen = ({ route }) => {
                 copyPositionDeltaText,
                 lapsCompleted,
                 positionDeltaColor,
-                showPositionDelta: (positionDelta != null || positionDelta != 0),
+                showPositionDelta: positionDelta != null || positionDelta != 0,
                 timeText: totalTimeText,
                 totalTimeText,
                 bestLapTime: bestLapTimeText,

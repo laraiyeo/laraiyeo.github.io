@@ -13,7 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../../context/ThemeContext";
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000;
 
 function isPlaceholder(uri) {
@@ -166,7 +166,13 @@ function SeasonRow({ stat, last, theme, isDarkMode, accentColor, navigation }) {
         {showLogo ? (
           <Image
             source={{ uri: logoUri }}
-            style={[rStyles.seasonLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
+            style={[
+              rStyles.seasonLogo,
+              {
+                tintColor:
+                  league?.id === 8 && isDarkMode ? theme.text : undefined,
+              },
+            ]}
             resizeMode="contain"
           />
         ) : (
@@ -232,7 +238,13 @@ function SeasonRow({ stat, last, theme, isDarkMode, accentColor, navigation }) {
   return inner;
 }
 
-function SeasonStatsBubble({ statistics, theme, isDarkMode, accentColor, navigation }) {
+function SeasonStatsBubble({
+  statistics,
+  theme,
+  isDarkMode,
+  accentColor,
+  navigation,
+}) {
   if (!statistics?.length) return null;
 
   const sorted = [...statistics].sort((a, b) =>

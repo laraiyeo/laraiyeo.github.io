@@ -2430,7 +2430,7 @@ const AppContent = () => {
               console.log("Received push-to-start token:", token);
               try {
                 const resp = await fetch(
-                  `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-push-to-start`,
+                  `https://sportsheart-football.up.railway.app/live-activity/register-push-to-start`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

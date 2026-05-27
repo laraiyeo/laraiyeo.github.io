@@ -172,4 +172,4 @@
   }
 ]
 
-https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?gameId=757761_uefa&moneylineReg=BRU&totalCorner=+7&totalCards=o3.5&cardSpread=BRU+0.5&cornerSpread=KAI+1.5&awayPoints=4-&moneyline1H=BRU&awayPoints1H=0.5+&p1=303793&p1_goals=yes&p2=352291&p2_cards=yes
+https://sportsheart-main.up.railway.app/api/betslip?gameId=757761_uefa&moneylineReg=BRU&totalCorner=+7&totalCards=o3.5&cardSpread=BRU+0.5&cornerSpread=KAI+1.5&awayPoints=4-&moneyline1H=BRU&awayPoints1H=0.5+&p1=303793&p1_goals=yes&p2=352291&p2_cards=yes

@@ -864,7 +864,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             to: "to",
             threes: "3pm",
             "3pt": "3pm",
-            "threePointersMade": "3pm",
+            threePointersMade: "3pm",
             "points+rebounds+assists": "pra",
             "points+assists": "pa",
             "points+rebounds": "pr",
@@ -1087,7 +1087,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       });
 
       console.log("Built query:", query);
-      const apiUrl = `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
+      const apiUrl = `https://sportsheart-main.up.railway.app/api/betslip?${query}`;
       console.log("Fetching betslip:", apiUrl);
 
       try {

@@ -3573,10 +3573,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       try {
         setLoading(true);
         const url = useEventId
-          ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
+          ? `https://sportsheart-main.up.railway.app/api/summary/${String(
               sportToUse,
             ).toLowerCase()}/${useEventId}`
-          : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
+          : `https://sportsheart-main.up.railway.app/api/summary/${String(
               sportToUse,
             ).toLowerCase()}/${game.id}`;
         const response = await fetch(url);
@@ -3646,7 +3646,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const intervalId = setInterval(async () => {
       try {
         const response = await fetch(
-          `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${
+          `https://sportsheart-main.up.railway.app/api/summary/${
             useEventId
               ? String(sportToUse).toLowerCase() + "/" + useEventId
               : String(sportToUse).toLowerCase() + "/" + game.id

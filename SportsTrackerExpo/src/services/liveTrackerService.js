@@ -2,7 +2,7 @@
 // Simple service to fetch and cache the diary payload for the app session
 
 const DEFAULT_DIARY_URL =
-  "https://laraiyeogithubio-production.up.railway.app/public/today.json";
+  "https://sportsheart-baseball.up.railway.app/public/today.json";
 
 function buildDiaryUrl(sport = "football") {
   const base = DEFAULT_DIARY_URL.replace(/\/public\/.*$/, "");
@@ -30,7 +30,7 @@ async function updateDiaryForSport(sport = "football") {
       console.warn(
         `liveTrackerService: updateDiaryForSport ${sport} fetch failed`,
         res.status,
-        url
+        url,
       );
       return null;
     }
@@ -46,8 +46,7 @@ async function updateDiaryForSport(sport = "football") {
 function startAutoRefresh() {
   if (autoRefreshIntervalId) return;
   // Immediately fetch both diaries and then schedule periodic refreshes
-  (async () => {
-  })();
+  (async () => {})();
   autoRefreshIntervalId = setInterval(() => {
     updateDiaryForSport("football");
     updateDiaryForSport("basketball");
@@ -55,7 +54,7 @@ function startAutoRefresh() {
   console.log(
     "liveTrackerService: started auto-refresh every",
     AUTO_REFRESH_MS,
-    "ms"
+    "ms",
   );
 }
 
@@ -153,7 +152,7 @@ function normalize(str) {
 async function initDiary(
   url = DEFAULT_DIARY_URL,
   fetchImpl = fetch,
-  sport = null
+  sport = null,
 ) {
   try {
     // infer sport if not provided

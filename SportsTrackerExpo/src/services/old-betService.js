@@ -9,11 +9,11 @@ function decodeJwt(token) {
     const payload = parts[1];
     const padded = payload.padEnd(
       payload.length + ((4 - (payload.length % 4)) % 4),
-      "="
+      "=",
     );
     const decoded = Buffer.from(
       padded.replace(/-/g, "+").replace(/_/g, "/"),
-      "base64"
+      "base64",
     ).toString("utf8");
     return JSON.parse(decoded);
   } catch (e) {
@@ -24,7 +24,7 @@ function decodeJwt(token) {
 export const createBetslip = async (
   betslipData,
   totalStake = 0,
-  potentialPayout = 0
+  potentialPayout = 0,
 ) => {
   try {
     const {
@@ -119,8 +119,7 @@ export const createBetslip = async (
       }
       if (authToken) {
         serverCalled = true;
-        const SERVER_BASE =
-          "https://laraiyeogithubio-production-f5af.up.railway.app";
+        const SERVER_BASE = "https://sportsheart-main.up.railway.app";
         const resp = await fetch(`${SERVER_BASE}/api/betslips`, {
           method: "POST",
           headers: {
@@ -155,14 +154,14 @@ export const createBetslip = async (
           console.warn(
             "createBetslip: server endpoint rejected request",
             resp.status,
-            json
+            json,
           );
         }
       }
     } catch (e) {
       console.warn(
         "createBetslip: server endpoint call failed",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -184,14 +183,14 @@ export const createBetslip = async (
       if (insertRes.error) {
         console.warn(
           "createBetslip: aggregated insert failed:",
-          insertRes.error
+          insertRes.error,
         );
         serverFallback = true;
       }
     } catch (dbErr) {
       console.error(
         "createBetslip: aggregated insert exception:",
-        dbErr?.message || dbErr
+        dbErr?.message || dbErr,
       );
       serverFallback = true;
     }
@@ -245,7 +244,7 @@ export const createBetslip = async (
       if (e2) {
         console.error(
           "createBetslip: fallback singlePayload insert failed:",
-          e2
+          e2,
         );
         return {
           success: false,
@@ -264,7 +263,7 @@ export const createBetslip = async (
     } catch (e3) {
       console.error(
         "createBetslip: fallback insert exception:",
-        e3?.message || e3
+        e3?.message || e3,
       );
       return {
         success: false,
@@ -541,7 +540,7 @@ export const savePushToken = async (expoPushToken, platform) => {
       },
       {
         onConflict: "user_id", // Update if user_id already exists
-      }
+      },
     );
 
     if (error) throw error;

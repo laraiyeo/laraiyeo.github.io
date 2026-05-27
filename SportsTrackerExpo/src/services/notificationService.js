@@ -4,8 +4,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_URL =
-  "https://laraiyeogithubio-production-f5af.up.railway.app/api";
+export const API_URL = "https://sportsheart-main.up.railway.app/api";
 
 // Helper: append a small debug entry to persistent push debug log
 const PUSH_DEBUG_KEY = "@push_debug_log";
@@ -88,12 +87,12 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
             status: "permission_denied",
             response: finalPerm,
             ts: new Date().toISOString(),
-          })
+          }),
         );
       } catch (e) {
         console.warn(
           "Failed to persist permission denial info",
-          e?.message || e
+          e?.message || e,
         );
       }
       return;
@@ -102,7 +101,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       const tokenResp = await Notifications.getExpoPushTokenAsync(
-        projectId ? { projectId } : {}
+        projectId ? { projectId } : {},
       );
       // tokenResp shape can vary across SDKs; log entire response for diagnostics
       console.log("getExpoPushTokenAsync response:", tokenResp);
@@ -118,7 +117,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
             status: null,
             response: tokenResp || null,
             ts: new Date().toISOString(),
-          })
+          }),
         );
         await appendPushDebug({
           type: "token_persisted_initial",
@@ -127,7 +126,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
       } catch (e) {
         console.warn(
           "Failed to persist initial push registration",
-          e?.message || e
+          e?.message || e,
         );
       }
     } catch (e) {
@@ -171,7 +170,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
               status: res.status,
               response: text,
               ts: new Date().toISOString(),
-            })
+            }),
           );
           await appendPushDebug({
             type: "upsert_persisted",
@@ -206,7 +205,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
             token: token || null,
             error: error?.message || String(error),
             ts: new Date().toISOString(),
-          })
+          }),
         );
         await appendPushDebug({
           type: "upsert_exception_persisted",
@@ -215,7 +214,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
       } catch (e2) {
         console.warn(
           "Failed to persist push registration error",
-          e2?.message || e2
+          e2?.message || e2,
         );
       }
     }

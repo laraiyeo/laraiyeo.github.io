@@ -654,8 +654,7 @@ const SettingsScreen = ({ navigation }) => {
       }
 
       const base =
-        process.env.PUBLIC_API_URL ||
-        "https://laraiyeogithubio-production-f5af.up.railway.app";
+        process.env.PUBLIC_API_URL || "https://sportsheart-main.up.railway.app";
       if (!base) {
         setRedeemMessage("Server not configured");
         setRedeemLoading(false);
@@ -952,7 +951,13 @@ const SettingsScreen = ({ navigation }) => {
                   },
                 ]}
               >
-                <Text allowFontScaling={false} style={[styles.profileButtonText, { color: supabaseUser ? "#fff" : colors.primary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.profileButtonText,
+                    { color: supabaseUser ? "#fff" : colors.primary },
+                  ]}
+                >
                   {supabaseUser ? "Settings" : "Login/Create Account"}
                 </Text>
               </TouchableOpacity>
@@ -1581,8 +1586,9 @@ const SettingsScreen = ({ navigation }) => {
                     You're in a universe where causality flows backward, and a
                     species communicates using Fibonacci-encoded qubits. They
                     challenge you to send back the first English word whose
-                    letters match the numbers 8, 5, 1, 18, 20 (one of the most important
-                    organs), with A=1, B=2, ..., Z=26. What word do you send?
+                    letters match the numbers 8, 5, 1, 18, 20 (one of the most
+                    important organs), with A=1, B=2, ..., Z=26. What word do
+                    you send?
                   </Text>
                 </View>
 
@@ -1706,101 +1712,104 @@ const SettingsScreen = ({ navigation }) => {
 
           {/* Chat Settings Section */}
           {supabaseUser ? (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
             <View
               style={[
-                styles.sectionHeader,
-                { borderBottomColor: theme.border },
+                styles.section,
+                { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionTitle, { color: theme.text }]}
+              <View
+                style={[
+                  styles.sectionHeader,
+                  { borderBottomColor: theme.border },
+                ]}
               >
-                Chat Settings
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionSubtitle, { color: theme.textSecondary }]}
-              >
-                Customize your chat appearance
-              </Text>
-            </View>
-
-            {/* Name Color Setting */}
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
+                  style={[styles.sectionTitle, { color: theme.text }]}
                 >
-                  Name Color
+                  Chat Settings
                 </Text>
                 <Text
                   allowFontScaling={false}
                   style={[
-                    styles.settingDescription,
+                    styles.sectionSubtitle,
                     { color: theme.textSecondary },
                   ]}
                 >
-                  Choose your name color in chat
+                  Customize your chat appearance
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[
-                  styles.colorPreviewButton,
-                  { backgroundColor: userColor },
-                ]}
-                onPress={() => setColorModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[styles.colorDot, { backgroundColor: userColor }]}
-                />
-              </TouchableOpacity>
-            </View>
 
-            {/* Muted Users Setting */}
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
-                >
-                  Muted Users
-                </Text>
-                <Text
-                  allowFontScaling={false}
+              {/* Name Color Setting */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingLabel, { color: theme.text }]}
+                  >
+                    Name Color
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Choose your name color in chat
+                  </Text>
+                </View>
+                <TouchableOpacity
                   style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary },
+                    styles.colorPreviewButton,
+                    { backgroundColor: userColor },
                   ]}
+                  onPress={() => setColorModalVisible(true)}
+                  activeOpacity={0.7}
                 >
-                  Manage users you've muted in chat
-                </Text>
+                  <View
+                    style={[styles.colorDot, { backgroundColor: userColor }]}
+                  />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[
-                  styles.openSettingsButton,
-                  { backgroundColor: colors.secondary },
-                ]}
-                onPress={() => navigation.navigate("MutedUsers")}
-                activeOpacity={0.7}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={styles.openSettingsButtonText}
+
+              {/* Muted Users Setting */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingLabel, { color: theme.text }]}
+                  >
+                    Muted Users
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Manage users you've muted in chat
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.openSettingsButton,
+                    { backgroundColor: colors.secondary },
+                  ]}
+                  onPress={() => navigation.navigate("MutedUsers")}
+                  activeOpacity={0.7}
                 >
-                  Manage
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    allowFontScaling={false}
+                    style={styles.openSettingsButtonText}
+                  >
+                    Manage
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           ) : null}
 
           {/* Favorites Section */}

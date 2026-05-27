@@ -412,7 +412,7 @@ const BetBetsScreen = () => {
         });
       });
 
-      return `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
+      return `https://sportsheart-main.up.railway.app/api/betslip?${query}`;
     } catch (e) {
       return null;
     }
@@ -895,7 +895,7 @@ const BetBetsScreen = () => {
             const token = await AsyncStorage.getItem("@bet_token");
             const base =
               process.env.PUBLIC_API_URL ||
-              "https://laraiyeogithubio-production-f5af.up.railway.app";
+              "https://sportsheart-main.up.railway.app";
             if (token && base && base.length > 0) {
               const url = base.replace(/\/$/, "") + "/api/betslips";
               try {
@@ -3633,11 +3633,11 @@ const BetBetsScreen = () => {
               }
             } else {
               const payload = eventData.bets[resolvedBetKey] || null;
-                payload?.won === true
-                  ? pick.status = "winning"
-                  : payload?.won === false
-                    ? pick.status = "losing"
-                    : pick.status = "pending";
+              payload?.won === true
+                ? (pick.status = "winning")
+                : payload?.won === false
+                  ? (pick.status = "losing")
+                  : (pick.status = "pending");
             }
             // Prefer canonical game names/scores/status from event payload when not pre
             try {

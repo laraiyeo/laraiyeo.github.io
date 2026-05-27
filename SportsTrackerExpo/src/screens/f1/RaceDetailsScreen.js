@@ -41,8 +41,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import ViewShot from "react-native-view-shot";
 
-const SERVER_BASE =
-  "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
+const SERVER_BASE = "https://sportsheart-motorsports.up.railway.app/f1";
 const { width } = Dimensions.get("window");
 
 const BASE_TABS = [

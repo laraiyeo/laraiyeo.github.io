@@ -111,7 +111,7 @@ import { API_URL } from "../../../services/notificationService";
 
 const { width } = Dimensions.get("window");
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 
 // Streaming API base (shared pattern used elsewhere)
 const STREAM_API_BASE = "https://streamed.pk/api";
@@ -11377,10 +11377,13 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             const isOld =
               startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
             const isScheduled = shortNameOf(fx) === "NS";
-            const scheduledTtlMs = isScheduled ? getScheduledCacheMs(fx, ts) : 0;
-            const persistTtlMs = isFinishedState(code) || isOld
-              ? GAME_CACHE_TTL_MS
-              : scheduledTtlMs;
+            const scheduledTtlMs = isScheduled
+              ? getScheduledCacheMs(fx, ts)
+              : 0;
+            const persistTtlMs =
+              isFinishedState(code) || isOld
+                ? GAME_CACHE_TTL_MS
+                : scheduledTtlMs;
 
             if (persistTtlMs > 0) {
               AsyncStorage.setItem(
@@ -11739,7 +11742,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               if (pushToken) {
                 try {
                   const res = await fetch(
-                    `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-activity-token`,
+                    `https://sportsheart-football.up.railway.app/live-activity/register-activity-token`,
                     {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -11774,7 +11777,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       );
                       try {
                         const r = await fetch(
-                          `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-activity-token`,
+                          `https://sportsheart-football.up.railway.app/live-activity/register-activity-token`,
                           {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },

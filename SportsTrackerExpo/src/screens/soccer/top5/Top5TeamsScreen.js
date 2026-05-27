@@ -17,7 +17,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import { useBetSlip } from "../../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../../services/ads";
 
-const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 const CACHE_KEY = "top5:teams:v1";
 const CACHE_TTL = 12 * 60 * 60 * 1000;
 const RANK_CACHE_KEY = "top5:rank:v1";

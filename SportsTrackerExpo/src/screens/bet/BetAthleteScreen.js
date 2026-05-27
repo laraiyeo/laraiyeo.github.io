@@ -125,7 +125,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `https://laraiyeogithubio-production-f5af.up.railway.app/api/athlete/${sport.toLowerCase()}/${athleteId}`,
+        `https://sportsheart-main.up.railway.app/api/athlete/${sport.toLowerCase()}/${athleteId}`,
       );
       const data = await response.json();
       setAthleteData(data);
@@ -139,7 +139,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       if (data.gameId) {
         try {
           const scoreboardResponse = await fetch(
-            `https://laraiyeogithubio-production-f5af.up.railway.app/api/scoreboard/${sport.toLowerCase()}`,
+            `https://sportsheart-main.up.railway.app/api/scoreboard/${sport.toLowerCase()}`,
           );
           const scoreboardData = await scoreboardResponse.json();
 
@@ -302,7 +302,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     variations.forEach((v) => {
       const re = new RegExp(
         `(^|[\\s:–—-])${escapeRegExp(v)}(?=$|[\\s:–—-])`,
-        "gi"
+        "gi",
       );
       cleaned = cleaned.replace(re, "");
     });

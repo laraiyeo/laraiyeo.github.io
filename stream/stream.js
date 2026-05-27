@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+  const API_BASE = "https://sportsheart-football.up.railway.app";
   const POLL_INTERVAL = 5000;
 
   const params = new URLSearchParams(window.location.search);

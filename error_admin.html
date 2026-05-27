@@ -81,7 +81,7 @@
 
     <script>
       (function () {
-        const base = "https://laraiyeogithubio-production-f5af.up.railway.app/api/error";
+        const base = "https://sportsheart-main.up.railway.app/api/error";
         let adminCodeLocal = null;
         const access = document.getElementById("access");
         const panel = document.getElementById("panel");
@@ -104,7 +104,8 @@
           if (!code) return alert("Enter admin code");
           try {
             const resp = await fetch(
-              "https://laraiyeogithubio-production-f5af.up.railway.app/error_admin/" + encodeURIComponent(code),
+              "https://sportsheart-main.up.railway.app/error_admin/" +
+                encodeURIComponent(code),
             );
             const text = await resp.text();
             if (text === "Access Granted") {

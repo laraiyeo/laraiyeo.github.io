@@ -30,8 +30,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 
-const DRIVER_BASE =
-  "https://laraiyeogithubio-production-ed10.up.railway.app/f1";
+const DRIVER_BASE = "https://sportsheart-motorsports.up.railway.app/f1";
 const CACHE_TTL = 60 * 60 * 1000;
 const TABS = ["Main", "Season Stats"];
 const MEETINGS_CACHE_KEY = "f1_meetings_cache:v2";
