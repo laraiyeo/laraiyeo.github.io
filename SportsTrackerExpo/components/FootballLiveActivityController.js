@@ -11,7 +11,8 @@ let FootballLiveActivity = null;
 if (Platform.OS === "ios") {
   try {
     // eslint-disable-next-line global-require
-    FootballLiveActivity = require("../widgets/FootballLiveActivity");
+    const widgetModule = require("../widgets/FootballLiveActivity");
+    FootballLiveActivity = widgetModule?.default || widgetModule;
   } catch (e) {
     FootballLiveActivity = null;
     console.warn(

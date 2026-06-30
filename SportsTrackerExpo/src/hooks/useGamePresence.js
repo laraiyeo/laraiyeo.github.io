@@ -4,26 +4,20 @@ import { PresenceService } from "../services/PresenceService";
 
 export const useGamePresence = (gameId) => {
   const [viewerData, setViewerData] = useState({ count: 0, viewers: [] });
-  const [isJoined, setIsJoined] = useState(false);
+  const [isRecorded, setIsRecorded] = useState(false);
   const unsubscribeRef = useRef(null);
-  const isJoinedRef = useRef(false); // Track isJoined state with ref to avoid stale closure
-
-  useEffect(() => {
-    isJoinedRef.current = isJoined;
-  }, [isJoined]);
 
   useEffect(() => {
     if (!gameId) return;
 
-    // Join the game presence tracking
-    const joinGame = async () => {
+    // Record the game view
+    const recordGameView = async () => {
       try {
-        const success = await PresenceService.joinGame(gameId);
-        setIsJoined(success);
-        isJoinedRef.current = success;
+        const success = await PresenceService.recordGameView(gameId);
+        setIsRecorded(success);
       } catch (error) {
         console.error(
-          "❌ useGamePresence - Error joining game presence:",
+          "❌ useGamePresence - Error recording game view:",
           error,
         );
       }
@@ -44,7 +38,7 @@ export const useGamePresence = (gameId) => {
       }
     };
 
-    joinGame();
+    recordGameView();
     subscribeToViewers();
 
     // Cleanup on unmount or gameId change
@@ -53,35 +47,13 @@ export const useGamePresence = (gameId) => {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
-
-      // Use the ref value to avoid stale closure
-      if (gameId && isJoinedRef.current) {
-        try {
-          PresenceService.leaveGame(gameId);
-        } catch (error) {
-          console.error("🧹 useGamePresence - Error calling leaveGame:", error);
-        }
-        setIsJoined(false);
-        isJoinedRef.current = false;
-      } else {
-      }
     };
   }, [gameId]);
-
-  // Also cleanup when component unmounts
-  useEffect(() => {
-    return () => {
-      if (gameId && isJoined) {
-        PresenceService.leaveGame(gameId);
-      }
-    };
-  }, []);
 
   return {
     viewerCount: viewerData.count,
     viewers: viewerData.viewers,
-    isJoined,
-    peak: viewerData.peak || null,
+    isRecorded,
   };
 };
 
@@ -126,7 +98,6 @@ export const useGamePresenceReadOnly = (gameId) => {
   return {
     viewerCount: viewerData.count,
     viewers: viewerData.viewers,
-    peak: viewerData.peak || null,
   };
 };
 

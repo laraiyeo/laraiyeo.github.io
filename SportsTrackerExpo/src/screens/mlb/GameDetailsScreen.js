@@ -23,6 +23,7 @@ import {
   TouchableWithoutFeedback,
   Alert,
   Image as RNImage,
+  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import Svg, {
@@ -43,6 +44,7 @@ import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import ChatComponent from "../../components/ChatComponent";
+import MLBLiveActivityController from "../../../components/MLBLiveActivityController";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
@@ -113,9 +115,11 @@ const TeamColumn = ({
   isFav,
 }) => {
   const logo = WBCService.getTeamLogo(team?.id, isDarkMode);
+
   const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
     status?.codedGameState,
   );
+
   const isFinished =
     !isLive &&
     (status?.isCompleted ||
@@ -123,75 +127,107 @@ const TeamColumn = ({
         status?.codedGameState,
       ));
 
+  const showScore = score != null && (isLive || isFinished);
+
   return (
-    <View style={[styles.teamColumn, { alignItems: "center" }]}>
-      {score != null && (isLive || isFinished) && (
-        <Animated.Text
-          style={[
-            styles.teamScore,
-            {
-              color: isLive
-                ? theme.text
-                : isWinner
-                  ? theme.text
-                  : theme.textSecondary,
-              fontWeight: isLive ? "800" : isWinner ? "800" : "400",
-              opacity: scoreOpacity ?? 1,
-            },
-          ]}
-        >
-          {score}
-        </Animated.Text>
-      )}
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={onPress ? 0.7 : 1}
-        style={{ alignItems: "center", alignSelf: "stretch" }}
-      >
-        {logo ? (
-          <Image
-            cachePolicy="memory-disk"
-            source={{ uri: logo }}
-            style={[
-              styles.teamLogo,
-              { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
-            ]}
-            resizeMode="contain"
-          />
-        ) : (
-          <View
-            style={[
-              styles.teamLogoPlaceholder,
-              {
-                backgroundColor: theme.surfaceSecondary,
-                opacity: isWinner ? 0.6 : 0.3,
-              },
-            ]}
-          >
-            <Text
+    <View style={styles.teamSide}>
+      <TouchableOpacity onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
+        <View style={styles.logoScoreRow}>
+          {/* LEFT SCORE (home) */}
+          {side === "home" && showScore && (
+            <Animated.Text
               style={[
-                styles.teamLogoPlaceholderText,
-                { color: theme.textSecondary, opacity: isWinner ? 0.8 : 0.5 },
+                styles.teamScore1,
+                {
+                  color: isLive
+                    ? theme.text
+                    : isWinner
+                      ? theme.text
+                      : theme.textSecondary,
+                  fontWeight: isLive || isWinner ? "800" : "400",
+                  opacity: scoreOpacity ?? 1,
+                },
               ]}
             >
-              {(team?.name || "?").charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-        <Text
-          style={[
-            styles.teamName,
-            {
-              color: isFav ? colors?.primary || theme.text : theme.text,
-              opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
-            },
-          ]}
-          numberOfLines={2}
-        >
-          {isFav ? "★ " : ""}
-          {team?.name || "—"}
-        </Text>
+              {score}
+            </Animated.Text>
+          )}
+
+          {/* LOGO */}
+          {logo ? (
+            <Image
+              cachePolicy="memory-disk"
+              source={{ uri: logo }}
+              style={[
+                styles.teamLogo1,
+                { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
+              ]}
+              resizeMode="contain"
+            />
+          ) : (
+            <View
+              style={[
+                styles.teamLogoPlaceholder,
+                {
+                  backgroundColor: theme.surfaceSecondary,
+                  opacity: isWinner ? 0.6 : 0.3,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.teamLogoPlaceholderText,
+                  {
+                    color: theme.textSecondary,
+                    opacity: isWinner ? 0.8 : 0.5,
+                  },
+                ]}
+              >
+                {(team?.name || "?").charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+
+          {/* RIGHT SCORE (away) */}
+          {side === "away" && showScore && (
+            <Animated.Text
+              style={[
+                styles.teamScore1,
+                {
+                  color: isLive
+                    ? theme.text
+                    : isWinner
+                      ? theme.text
+                      : theme.textSecondary,
+                  fontWeight: isLive || isWinner ? "800" : "400",
+                  opacity: scoreOpacity ?? 1,
+                },
+              ]}
+            >
+              {score}
+            </Animated.Text>
+          )}
+        </View>
       </TouchableOpacity>
+
+      {/* TEAM NAME */}
+      <View style={styles.teamNameRow}>
+        <View style={styles.teamNameBlock}>
+          <Text
+            style={[
+              styles.teamName1,
+              {
+                color: isFav ? colors?.primary || theme.text : theme.text,
+                opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+              },
+            ]}
+            numberOfLines={2}
+          >
+            {isFav ? "★ " : ""}
+            {team?.name || "—"}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 };
@@ -4103,7 +4139,7 @@ const PlayerShareCardModal = ({
           <TouchableOpacity
             onPress={handleShare}
             disabled={sharing}
-            style={[scStyles.actionBtn, { backgroundColor: teamColor }]}
+            style={[scStyles.actionBtn, { backgroundColor: colors.secondary }]}
           >
             {sharing ? (
               <Text style={scStyles.actionBtnTxt}>Sharing…</Text>
@@ -4595,7 +4631,7 @@ const ShareCardModal = ({
           <TouchableOpacity
             onPress={handleShare}
             disabled={sharing}
-            style={[scStyles.actionBtn, { backgroundColor: teamColor }]}
+            style={[scStyles.actionBtn, { backgroundColor: colors.secondary }]}
           >
             {sharing ? (
               <Text style={scStyles.actionBtnTxt}>Sharing…</Text>
@@ -6889,6 +6925,34 @@ const fmtGameTime = (isoString) => {
   }
 };
 
+const fmtGameTime2 = (isoString) => {
+  if (!isoString) return null;
+  const _iso = normalizeUtcIso(isoString);
+  const d = new Date(_iso);
+  if (isNaN(d.getTime())) return null;
+  try {
+    const dateFmt = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${timeFmt.format(d)} • ${dateFmt.format(d)}`;
+  } catch {
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const day = d.getDate();
+    const time = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${time} • ${month} ${day}`;
+  }
+};
+
 const isMlbSeriesLiveState = (status) => {
   const code = String(status?.codedGameState || status?.statusCode || "");
   return !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(code);
@@ -6959,7 +7023,7 @@ const StatusBadge = ({
     ? replayPlay?.about?.inning
     : linescore?.currentInning;
   const inningState = linescore?.inningState;
-  const gameTimeStr = fmtGameTime(gameDateTime);
+  const gameTimeStr = fmtGameTime2(gameDateTime);
   const replayOuts = replayPlay?.count?.outs ?? null;
   const replayIsTop = replayPlay?.about?.isTopInning !== false;
 
@@ -6993,22 +7057,22 @@ const StatusBadge = ({
           {toOrdinal(inning)}
         </Text>
       )}
-      {!isLive && !!gameTimeStr && !replayActive && (
-        <Text
-          style={[styles.gameTimeLabel, { color: theme.text }]}
-          numberOfLines={1}
-        >
-          {gameTimeStr}
-        </Text>
-      )}
       <Text
         style={[
           styles.statusTop,
           { color: isLive ? theme.success : theme.textSecondary },
         ]}
       >
-        {topLabel || "—"}
+        {topLabel.toUpperCase() || "—"}
       </Text>
+      {!isLive && !!gameTimeStr && !replayActive && (
+        <Text
+          style={[styles.gameTimeLabel, { color: theme.textTertiary }]}
+          numberOfLines={1}
+        >
+          {gameTimeStr}
+        </Text>
+      )}
       {!!bottomLabel && (
         <Text style={[styles.statusBottom, { color: theme.textSecondary }]}>
           {bottomLabel}
@@ -9790,6 +9854,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [liveActivityModalVisible, setLiveActivityModalVisible] =
+    useState(false);
   const [seriesGames, setSeriesGames] = useState([]);
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [seriesError, setSeriesError] = useState("");
@@ -9830,6 +9896,73 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [runItBackSelectedPlayerIds, setRunItBackSelectedPlayerIds] = useState(
     new Set(),
   );
+
+  const openLiveActivityModal = useCallback(() => {
+    setLiveActivityModalVisible(true);
+  }, []);
+
+  const closeLiveActivityModal = useCallback(() => {
+    setLiveActivityModalVisible(false);
+  }, []);
+
+  // Show Live Activity button only between 2:00 AM PST today and 2:00 AM PST tomorrow
+const isWithinPstWindow = useCallback((gameDate) => {
+  try {
+    const game = new Date(gameDate);
+    const now = new Date();
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+    });
+
+    const getParts = (date) =>
+      Object.fromEntries(
+        formatter
+          .formatToParts(date)
+          .filter((p) => p.type !== "literal")
+          .map((p) => [p.type, p.value])
+      );
+
+    const nowParts = getParts(now);
+    const gameParts = getParts(game);
+
+    const todayPst =
+      `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
+
+    const gamePst =
+      `${gameParts.year}-${gameParts.month}-${gameParts.day}`;
+
+    const gameHour = Number(gameParts.hour);
+
+    // Same PST day after 2 AM
+    if (gamePst === todayPst && gameHour >= 2) {
+      return true;
+    }
+
+    // Next PST day before 2 AM
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const tomorrowParts = getParts(tomorrow);
+
+    const tomorrowPst =
+      `${tomorrowParts.year}-${tomorrowParts.month}-${tomorrowParts.day}`;
+
+    if (gamePst === tomorrowPst && gameHour < 2) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}, []);
 
   // sports-favs state
   const [sportsFavIds, setSportsFavIds] = useState(new Set());
@@ -10903,6 +11036,30 @@ const GameDetailsScreen = ({ navigation, route }) => {
     setAvailableStreams({});
   };
 
+  const clearAllLiveActivities = useCallback(async () => {
+  try {
+    // Clear local storage
+    await AsyncStorage.removeItem("@mlb_live_activity_state_v1");
+    
+    // Show confirmation
+    Alert.alert(
+      "Live Activities Cleared",
+      "All stored Live Activity states have been cleared.",
+      [{ text: "OK" }]
+    );
+    
+    // Refresh the controller state
+    if (typeof closeLiveActivityModal === 'function') {
+      closeLiveActivityModal();
+    }
+  } catch (error) {
+    console.error("Failed to clear Live Activities:", error);
+    Alert.alert("Error", "Failed to clear Live Activities");
+  }
+}, []);
+
+const show = false;
+
   // ── Loading / error states ────────────────────────────────────────────────
   if (loading) {
     return (
@@ -10950,25 +11107,25 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
           {/* Team row */}
           <View style={styles.teamsRow}>
-            <TeamColumn
-              status={status}
-              team={awayTeam}
-              score={displayedAwayScore}
-              isWinner={runItBackActive ? displayedAwayWinner : awayWinner}
-              side="away"
-              isDarkMode={isDarkMode}
-              theme={theme}
-              colors={colors}
-              isFav={sportsFavIds.has(String(awayTeam?.id))}
-              scoreOpacity={gameScoreOpacity}
-              onPress={() =>
-                awayTeam?.id != null &&
-                navigation.navigate("TeamPage", {
-                  teamId: awayTeam.id,
-                  sport: "mlb",
-                })
-              }
-            />
+<TeamColumn
+  status={status}
+  team={awayTeam}
+  score={displayedAwayScore}
+  isWinner={runItBackActive ? displayedAwayWinner : awayWinner}
+  side="away"
+  isDarkMode={isDarkMode}
+  theme={theme}
+  colors={colors}
+  isFav={sportsFavIds.has(String(awayTeam?.id))}
+  scoreOpacity={gameScoreOpacity}
+  onPress={() =>
+    awayTeam?.id != null &&
+    navigation.navigate("TeamPage", {
+      teamId: awayTeam.id,
+      sport: "mlb",
+    })
+  }
+/>
 
             <View style={{ flex: 1, alignItems: "center" }}>
               <StatusBadge
@@ -11002,27 +11159,54 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   </View>
                 </TouchableOpacity>
               )}
+
+              {Platform.OS === "ios" && !isGameFinished && isLoggedIn && show && isWithinPstWindow(gameDateTime) && (
+                <TouchableOpacity
+                  style={[
+                    styles.streamBtn,
+                    {
+                      borderColor: colors.secondary,
+                      marginTop: 8,
+                      paddingHorizontal: 6,
+                      paddingVertical: 6,
+                    },
+                  ]}
+                  onPress={openLiveActivityModal}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.streamBtnInner}>
+                    <Text
+                      style={[
+                        styles.streamBtnText,
+                        { color: colors.secondary, fontSize: 10 },
+                      ]}
+                    >
+                      Live Activity
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
-            <TeamColumn
-              status={status}
-              team={homeTeam}
-              score={displayedHomeScore}
-              isWinner={runItBackActive ? displayedHomeWinner : homeWinner}
-              side="home"
-              isDarkMode={isDarkMode}
-              theme={theme}
-              colors={colors}
-              isFav={sportsFavIds.has(String(homeTeam?.id))}
-              scoreOpacity={gameScoreOpacity}
-              onPress={() =>
-                homeTeam?.id != null &&
-                navigation.navigate("TeamPage", {
-                  teamId: homeTeam.id,
-                  sport: "mlb",
-                })
-              }
-            />
+<TeamColumn
+  status={status}
+  team={homeTeam}
+  score={displayedHomeScore}
+  isWinner={runItBackActive ? displayedHomeWinner : homeWinner}
+  side="home"
+  isDarkMode={isDarkMode}
+  theme={theme}
+  colors={colors}
+  isFav={sportsFavIds.has(String(homeTeam?.id))}
+  scoreOpacity={gameScoreOpacity}
+  onPress={() =>
+    homeTeam?.id != null &&
+    navigation.navigate("TeamPage", {
+      teamId: homeTeam.id,
+      sport: "mlb",
+    })
+  }
+/>
           </View>
         </View>
 
@@ -11142,7 +11326,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   status?.detailedState === "Final"
                     ? `Final${inning !== 9 ? `/${inning}` : ""}`
                     : (status?.detailedState ?? "");
-                const miniTimeStr = fmtGameTime(gameDateTime);
+                const miniTimeStr = fmtGameTime2(gameDateTime);
                 return (
                   <>
                     <Text
@@ -11266,6 +11450,203 @@ const GameDetailsScreen = ({ navigation, route }) => {
             </ScrollView>
           </View>
         </View>
+
+        <Modal
+          visible={liveActivityModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeLiveActivityModal}
+        >
+          <TouchableWithoutFeedback onPress={closeLiveActivityModal}>
+            <View style={styles.liveActivityBackdrop}>
+              <TouchableWithoutFeedback>
+                <View
+                  style={[
+                    styles.liveActivityCard,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.liveActivityHeader,
+                      { borderBottomColor: theme.border },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.liveActivityTitle, { color: theme.text }]}
+                    >
+                      MLB Live Activity
+                    </Text>
+                    <TouchableOpacity
+                      onPress={closeLiveActivityModal}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.liveActivityCloseBtn,
+                        { backgroundColor: theme.error },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.liveActivityCloseText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        ×
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <MLBLiveActivityController
+                    gamePk={gamePk}
+                    embedded
+                    children={({
+                      liveActivityActive,
+                      busy,
+                      pendingAction,
+                      startLiveActivity,
+                      stopLiveActivity,
+                    }) => (
+                      <View style={styles.liveActivityBody}>
+                        <View
+                          style={[
+                            styles.liveActivityGameInfo,
+                            { borderBottomColor: theme.border },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.liveActivityGameTitle,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {awayTeam?.name || "Away"} vs{" "}
+                            {homeTeam?.name || "Home"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.liveActivityGameMeta,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {venue || "Venue"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.liveActivityGameMeta,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {gameDateTime ? fmtGameTime(gameDateTime) : ""}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.liveActivityStateText,
+                              {
+                                color: liveActivityActive
+                                  ? colors.primary
+                                  : theme.textSecondary,
+                              },
+                            ]}
+                          >
+                            {liveActivityActive
+                              ? "Live Activity for a game is active"
+                              : "No active Live Activity found"}
+                          </Text>
+                        </View>
+
+    <View style={styles.liveActivityActionsRow}>
+      <TouchableOpacity
+        onPress={closeLiveActivityModal}
+        activeOpacity={0.85}
+        style={[
+          styles.liveActivityActionBtn,
+          styles.liveActivityCancelBtn,
+          { borderColor: theme.border },
+        ]}
+      >
+        <Text
+          style={[
+            styles.liveActivityActionText,
+            { color: theme.text },
+          ]}
+        >
+          Cancel
+        </Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        onPress={
+          liveActivityActive ? undefined : startLiveActivity
+        }
+        activeOpacity={0.85}
+        style={[
+          styles.liveActivityActionBtn,
+          styles.liveActivityPrimaryBtn,
+          {
+            backgroundColor: liveActivityActive
+              ? colors.secondary
+              : colors.primary,
+            borderColor: liveActivityActive
+              ? colors.primary
+              : colors.secondary,
+          },
+        ]}
+        disabled={busy || !gamePk || liveActivityActive}
+      >
+        <Text style={styles.liveActivityActionPrimaryText}>
+          {busy
+            ? pendingAction === "start"
+              ? "Starting..."
+              : "Processing..."
+            : liveActivityActive
+            ? "Active"
+            : "Start"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+    
+    {/* Add Clear All button */}
+    <View style={styles.liveActivityActionsRow}>
+      <TouchableOpacity
+        onPress={async () => {
+          const confirmed = await new Promise(resolve => {
+            Alert.alert(
+              "Clear All Live Activities",
+              "This will remove all stored Live Activity states. Are you sure?",
+              [
+                { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                { text: "Clear All", style: "destructive", onPress: () => resolve(true) }
+              ]
+            );
+          });
+          
+          if (confirmed) {
+            await clearAllLiveActivities();
+          }
+        }}
+        activeOpacity={0.85}
+        style={[
+          styles.liveActivityActionBtn,
+          { 
+            backgroundColor: theme.error,
+            borderColor: theme.error,
+            marginTop: 10,
+          },
+        ]}
+      >
+        <Text style={[styles.liveActivityActionPrimaryText, { color: '#fff' }]}>
+          Clear All
+        </Text>
+      </TouchableOpacity>
+    </View>
+                      </View>
+                    )}
+                  />
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
 
         {/* ── Error notice (non-blocking) ──────────────────────────── */}
         {!!error && (
@@ -12582,6 +12963,65 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
+  teamSide: {
+  flex: 1,
+  alignItems: "center",
+  gap: 8,
+},
+logoScoreRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+teamLogo1: {
+  width: 65,
+  height: 60,
+},
+teamScore1: {
+  fontSize: 42,
+  lineHeight: 48,
+  fontWeight: "800",
+  minWidth: 24,
+  textAlign: "center",
+},
+teamNameRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+  maxWidth: 130,
+},
+teamNameBlock: {
+  alignItems: "center",
+  justifyContent: "center",
+  maxWidth: 130,
+},
+teamNamePowerPlayRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+  flexWrap: "wrap",
+},
+  teamName1: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
+    maxWidth: 130,
+    textAlign: "center",
+  },
+teamPowerPlayText: {
+  fontSize: 11,
+  fontWeight: "800",
+  lineHeight: 14,
+},
+teamRecord: {
+  marginTop: 2,
+  fontSize: 11,
+  fontWeight: "600",
+  lineHeight: 14,
+  textAlign: "center",
+},
   teamColumn: {
     flex: 1,
     maxWidth: (width - 40) * 0.38,
@@ -12623,13 +13063,13 @@ const styles = StyleSheet.create({
   },
   gameTimeLabel: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "400",
     textAlign: "center",
-    marginBottom: 4,
+    marginTop: 4,
   },
   statusTop: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
     textAlign: "center",
     flexWrap: "wrap",
   },
@@ -12843,6 +13283,103 @@ const styles = StyleSheet.create({
   streamModalTitle: {
     fontSize: 18,
     fontWeight: "bold",
+  },
+  liveActivityBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  liveActivityCard: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  liveActivityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  liveActivityTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    flex: 1,
+    paddingRight: 12,
+  },
+  liveActivityCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveActivityCloseText: {
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "700",
+    marginTop: -2,
+  },
+  liveActivityBody: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  liveActivityGameInfo: {
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    textAlign: "center",
+  },
+  liveActivityGameTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 22,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  liveActivityGameMeta: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  liveActivityStateText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  liveActivityActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  liveActivityActionBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  liveActivityCancelBtn: {
+    backgroundColor: "transparent",
+  },
+  liveActivityPrimaryBtn: {
+    borderWidth: 0,
+  },
+  liveActivityActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  liveActivityActionPrimaryText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#fff",
   },
   streamCloseButton: {
     width: 35,

@@ -677,6 +677,32 @@ const WNBAScoreboardScreen = ({ navigation }) => {
                 {item.venue}
               </Text>
             )}
+                            {
+                            item.notes ? (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  marginBottom: -2,
+                                }}
+                              >
+                                <Ionicons
+                                  name="trophy"
+                                  size={16}
+                                  color={colors.primary}
+                                  style={{ marginRight: 8 }}
+                                />
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.playoffIndicator,
+                                    { color: colors.primary, fontWeight: "700" },
+                                  ]}
+                                >
+                                  {item.notes}
+                                </Text>
+                              </View>
+                            ) : null}
             {item.broadcast && (
               <Text
                 allowFontScaling={false}

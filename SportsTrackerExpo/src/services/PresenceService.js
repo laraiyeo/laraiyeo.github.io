@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   runTransaction,
   get,
+  increment,
 } from "firebase/database";
 import { initializeApp, getApps } from "firebase/app";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -99,87 +100,42 @@ export class PresenceService {
   }
 
   /**
-   * Join a game (start tracking presence for specific game)
+   * Record a view for a game (increment cumulative viewer count)
    */
-  static async joinGame(gameId) {
+  static async recordGameView(gameId) {
     try {
       this.init();
       const userId = await this.getUserId();
-
-      // Create presence object
-      const presenceData = {
-        userId,
-        joinedAt: serverTimestamp(),
-        lastSeen: serverTimestamp(),
-        platform: "mobile",
-        version: "1.0.0",
-      };
 
       // Reference to this user's presence in this game
       const userGamePresenceRef = ref(
         this.database,
         `presence/games/${gameId}/viewers/${userId}`,
       );
-      await set(userGamePresenceRef, presenceData);
-      // Set up disconnect handler - remove user when they disconnect
-      onDisconnect(userGamePresenceRef).remove();
 
-      // Store reference for later cleanup
-      this.userPresenceRefs.set(gameId, {
-        ref: userGamePresenceRef,
-        userId,
-        gameId,
-      });
-
-      // Update last seen every 30 seconds
-      const heartbeatInterval = setInterval(() => {
-        set(
-          ref(
-            this.database,
-            `presence/games/${gameId}/viewers/${userId}/lastSeen`,
-          ),
-          serverTimestamp(),
+      // Check if this user has already viewed this game
+      const snapshot = await get(userGamePresenceRef);
+      if (!snapshot.exists()) {
+        // First time viewing this game - record the view
+        await set(userGamePresenceRef, true);
+        
+        // Increment the total viewer count
+        const viewerCountRef = ref(
+          this.database,
+          `presence/games/${gameId}/viewerCount`,
         );
-      }, 30000);
-
-      // Store interval for cleanup
-      this.userPresenceRefs.get(gameId).heartbeatInterval = heartbeatInterval;
+        await set(viewerCountRef, increment(1));
+      }
 
       return true;
     } catch (error) {
-      console.error("❌ PresenceService.joinGame - Error joining game:", error);
-      console.error("❌ PresenceService.joinGame - Error details:", {
+      console.error("❌ PresenceService.recordGameView - Error recording view:", error);
+      console.error("❌ PresenceService.recordGameView - Error details:", {
         code: error.code,
         message: error.message,
         name: error.name,
       });
       return false;
-    }
-  }
-
-  /**
-   * Leave a game (stop tracking presence)
-   */
-  static async leaveGame(gameId) {
-    try {
-      const presenceData = this.userPresenceRefs.get(gameId);
-      if (!presenceData) {
-        return;
-      }
-
-      // Clear heartbeat
-      if (presenceData.heartbeatInterval) {
-        clearInterval(presenceData.heartbeatInterval);
-      }
-      await set(presenceData.ref, null);
-
-      // Clean up
-      this.userPresenceRefs.delete(gameId);
-    } catch (error) {
-      console.error(
-        "❌ PresenceService.leaveGame - Error leaving game:",
-        error,
-      );
     }
   }
 
@@ -190,133 +146,16 @@ export class PresenceService {
     try {
       this.init();
 
-      const gameViewersRef = ref(
+      const gameViewerCountRef = ref(
         this.database,
-        `presence/games/${gameId}/viewers`,
+        `presence/games/${gameId}/viewerCount`,
       );
 
       const unsubscribe = onValue(
-        gameViewersRef,
+        gameViewerCountRef,
         (snapshot) => {
-          const viewers = snapshot.val() || {};
-          const currentTime = Date.now();
-
-          // Filter out stale viewers (haven't been seen in 2 minutes)
-          const activeViewers = Object.entries(viewers).filter(
-            ([userId, data]) => {
-              if (!data.lastSeen) return false;
-
-              const lastSeenTime =
-                typeof data.lastSeen === "number"
-                  ? data.lastSeen
-                  : new Date(data.lastSeen).getTime();
-
-              return currentTime - lastSeenTime < 2 * 60 * 1000; // 2 minutes
-            },
-          );
-
-          const viewerCount = activeViewers.length;
-          const viewerData = {
-            count: viewerCount,
-            viewers: activeViewers.map(([userId, data]) => ({
-              userId,
-              joinedAt: data.joinedAt,
-              platform: data.platform || "unknown",
-            })),
-          };
-
-          // Update stored peak for this game if current active viewers exceed it.
-          const peakRef = ref(this.database, `presence/games/${gameId}/peak`);
-
-          (async () => {
-            try {
-              // Log database URL if available to help diagnose rule/project mismatches
-              try {
-                const dbUrl =
-                  this.database?.app?.options?.databaseURL ||
-                  this.database?.app?.options?.databaseURL;
-              } catch (e) {
-                // ignore
-              }
-
-              // Read current peak value to inspect permissions/errors
-              let currentPeakVal = null;
-              try {
-                const peakSnap = await get(peakRef);
-                currentPeakVal = peakSnap.exists() ? peakSnap.val() : null;
-                console.log(
-                  "PresenceService: current peak value:",
-                  currentPeakVal,
-                );
-              } catch (readErr) {
-                console.error(
-                  "❌ PresenceService.subscribeToGameViewers - Error reading peak before transaction:",
-                  readErr,
-                );
-              }
-
-              const intendedPeak = {
-                count: viewerCount,
-                recordedAt: Date.now(),
-              };
-
-              const currentPeakCount =
-                (currentPeakVal && currentPeakVal.count) || 0;
-
-              // If there's no higher peak to set, skip writes and return current peak
-              if (!(viewerCount > currentPeakCount)) {
-                // No update needed
-                callback({ ...viewerData, peak: currentPeakVal });
-                return;
-              }
-
-              // Try a direct set for debugging to capture permission errors clearly.
-              console.log(
-                "PresenceService: attempting debug set of peak:",
-                intendedPeak,
-              );
-              try {
-                await set(peakRef, intendedPeak);
-                console.log("PresenceService: debug set succeeded");
-              } catch (setErr) {
-                console.error("❌ PresenceService: debug set failed:", {
-                  message: setErr?.message,
-                  name: setErr?.name,
-                  code: setErr?.code,
-                  stack: setErr?.stack,
-                  toString: String(setErr),
-                });
-              }
-
-              const txResult = await runTransaction(peakRef, (currentPeak) => {
-                const currentPeakCountInner =
-                  (currentPeak && currentPeak.count) || 0;
-                if (viewerCount > currentPeakCountInner) {
-                  return intendedPeak;
-                }
-                return currentPeak;
-              });
-
-              const peakVal =
-                (txResult.snapshot && txResult.snapshot.val()) || null;
-              console.log("PresenceService: runTransaction result:", {
-                committed: txResult.committed,
-                peakVal,
-              });
-
-              // Attach peak info to the data passed back to consumers
-              callback({ ...viewerData, peak: peakVal });
-            } catch (err) {
-              // Provide rich diagnostics for permission_denied and other errors
-              try {
-              } catch (logErr) {
-                console.error("Error logging transaction error:", logErr);
-              }
-
-              // Fallback: return viewer data without peak
-              callback(viewerData);
-            }
-          })();
+          const viewerCount = snapshot.exists() ? snapshot.val() : 0;
+          callback({ count: viewerCount, viewers: [] });
         },
         (error) => {
           console.error(
@@ -384,11 +223,6 @@ export class PresenceService {
    * Cleanup all presence tracking
    */
   static async cleanup() {
-    // Leave all games
-    for (const gameId of this.userPresenceRefs.keys()) {
-      await this.leaveGame(gameId);
-    }
-
     // Unsubscribe from all listeners
     for (const gameId of this.gameViewerListeners.keys()) {
       this.unsubscribeFromGameViewers(gameId);
@@ -412,27 +246,8 @@ export class PresenceService {
             const stats = {};
 
             Object.entries(gamesData).forEach(([gameId, gameData]) => {
-              const viewers = gameData.viewers || {};
-              const activeViewers = Object.entries(viewers).filter(
-                ([userId, data]) => {
-                  if (!data.lastSeen) return false;
-
-                  const lastSeenTime =
-                    typeof data.lastSeen === "number"
-                      ? data.lastSeen
-                      : new Date(data.lastSeen).getTime();
-
-                  return Date.now() - lastSeenTime < 2 * 60 * 1000;
-                },
-              );
-
               stats[gameId] = {
-                totalViewers: activeViewers.length,
-                platforms: activeViewers.reduce((acc, [, data]) => {
-                  const platform = data.platform || "unknown";
-                  acc[platform] = (acc[platform] || 0) + 1;
-                  return acc;
-                }, {}),
+                totalViewers: gameData.viewerCount || 0,
               };
             });
 

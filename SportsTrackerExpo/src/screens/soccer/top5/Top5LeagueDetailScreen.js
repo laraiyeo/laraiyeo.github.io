@@ -18,12 +18,14 @@ import {
   FlatList,
   Modal,
   Pressable,
+  Animated,
   useWindowDimensions,
 } from "react-native";
 import {
   Ionicons,
   MaterialCommunityIcons,
   FontAwesome5,
+  FontAwesome6,
 } from "@expo/vector-icons";
 import Svg, {
   Defs,
@@ -37,7 +39,7 @@ import * as Sharing from "expo-sharing";
 import { useTheme } from "../../../context/ThemeContext";
 
 const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 function parseHexColor(hex) {
   if (!hex || typeof hex !== "string") return null;
@@ -443,7 +445,7 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                       </Text>
                       {mode === "full" && recent.length > 0 && (
                         <View style={stStyles.formRow}>
-                          {recent.map((r, ri) => (
+                          {recent.reverse().map((r, ri) => (
                             <View
                               key={ri}
                               style={[
@@ -4321,14 +4323,1163 @@ function StatsTab({ stageStats, teamsInSeason, theme, colors }) {
   );
 }
 
-const TABS = [
-  { key: "standings", label: "Standings", icon: "podium-outline" },
-  { key: "teams", label: "Teams", icon: "people-outline" },
-  { key: "matches", label: "Matches", icon: "football-outline" },
-  { key: "totw", label: "TOTW", icon: "star-outline" },
-  { key: "teamstats", label: "Team Stats", icon: "pie-chart-outline" },
-  { key: "stats", label: "Stats", icon: "stats-chart-outline" },
-];
+// ─── Bracket: resolve placeholder names from standings ────────────────────
+const BRACKET_DEBUG = true;
+const bracketLog = (...args) => {
+  if (BRACKET_DEBUG) console.log("[BracketResolver]", ...args);
+};
+
+const ORDINAL_PLACEHOLDER_RE =
+  /^(\d+)(st|nd|rd|th)\s+group\s+([a-z])(?:\/[a-z]+)*\s*$/i;
+
+function resolvePlaceholderName(name, standings) {
+  if (!name || !standings?.length || name.includes("/")) {
+    return null;
+  }
+  const trimmed = String(name).trim();
+  const m = trimmed.match(ORDINAL_PLACEHOLDER_RE);
+  if (!m) {
+    return null;
+  }
+  const position = parseInt(m[1], 10);
+  const groupLetter = m[3].toUpperCase();
+  const targetGroupName = `Group ${groupLetter}`;
+
+  // Build a lookup from the relevant group stage: find the stage whose entries
+  // contain this group, filter to just that group's entries, sort by points,
+  // and pick the entry at the given position.
+  for (const stage of standings) {
+    const allEntries = stage?.entries || [];
+    if (!allEntries.length) continue;
+
+    // Check if this stage has entries belonging to the target group
+    const groupEntries = allEntries.filter(
+      (e) =>
+        String(e?.group || "").toLowerCase() === targetGroupName.toLowerCase(),
+    );
+    if (!groupEntries.length) continue; // not this stage
+
+    // Sort group entries by points descending (same logic as StandingsTab)
+    const sorted = [...groupEntries].sort((a, b) => {
+      const pa = a.points ?? 0;
+      const pb = b.points ?? 0;
+      return pb - pa;
+    });
+
+    const idx = position - 1;
+    if (idx < 0 || idx >= sorted.length) {
+      continue;
+    }
+
+    const participant = sorted[idx]?.participant;
+    if (!participant) {
+      continue;
+    }
+    return {
+      name: participant.name,
+      short_code: participant.short_code,
+      image_path: participant.image_path,
+      colorPrimary: participant.colorPrimary,
+      colorSecondary: participant.colorSecondary,
+    };
+  }
+
+  return null;
+}
+
+function enrichBracketStageFixtures(fixtures, standings, resolvePlaceholders) {
+  if (!resolvePlaceholders) {
+    return fixtures;
+  }
+  const result = (fixtures || []).map((fixture) => {
+    const originalParticipants = fixture.participants || [];
+    const newParticipants = originalParticipants.map((p) => {
+      const resolved = resolvePlaceholderName(p.name, standings);
+      if (resolved) {
+        return { ...p, ...resolved, _resolved: true };
+      }
+      return p;
+    });
+    return { ...fixture, participants: newParticipants };
+  });
+  return result;
+}
+
+// ─── Brackets Tab ──────────────────────────────────────────────────────────
+const BracketsTab = ({ brackets, standings, theme, colors, navigation }) => {
+  const stages = useMemo(() => brackets?.stages || [], [brackets]);
+  const edges = useMemo(() => brackets?.edges || [], [brackets]);
+  const [activeStageId, setActiveStageId] = useState(null);
+  const [resolvePlaceholders, setResolvePlaceholders] = useState(false);
+  const scrollRef = useRef(null);
+  const cardRefs = useRef({}).current;
+  const highlightLayoutMap = useRef({}).current;
+  // Pulsing highlight: which fixture ID to highlight (the target child match)
+  const [highlightFixtureId, setHighlightFixtureId] = useState(null);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (highlightFixtureId == null) {
+      pulseAnim.setValue(0);
+      return;
+    }
+    // Auto-scroll to the highlighted fixture after a short delay for rendering
+    const scrollTimer = setTimeout(() => {
+      const cardRef = cardRefs[highlightFixtureId];
+      console.log("[BracketScroll] scroll attempt", {
+        fixtureId: highlightFixtureId,
+        hasCardRef: !!cardRef,
+      });
+      if (cardRef && scrollRef.current) {
+        cardRef.measureInWindow((x, y, width, height) => {
+          // Get scroll view's own position to compute content offset
+          scrollRef.current.measureInWindow((sx, sy, sw, sh) => {
+            const contentY = y - sy - 60;
+            const targetY = Math.max(0, contentY);
+            console.log("[BracketScroll] measureInWindow", {
+              cardY: y,
+              scrollY: sy,
+              contentY,
+              targetY,
+            });
+            scrollRef.current.scrollTo({ y: targetY, animated: true });
+          });
+        });
+      } else {
+        console.log(
+          "[BracketScroll] cannot scroll - cardRef or scrollRef missing",
+        );
+      }
+    }, 600);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      { iterations: 3 },
+    );
+    loop.start();
+    const timer = setTimeout(() => {
+      loop.stop();
+      setHighlightFixtureId(null);
+      pulseAnim.setValue(0);
+    }, 3000);
+    return () => {
+      loop.stop();
+      clearTimeout(timer);
+      clearTimeout(scrollTimer);
+    };
+  }, [highlightFixtureId, pulseAnim, highlightLayoutMap]);
+
+  const currentStageIdx = useMemo(() => {
+    if (!stages.length) return -1;
+    if (activeStageId == null) return 0;
+    const idx = stages.findIndex((s) => s.stage_id === activeStageId);
+    return idx >= 0 ? idx : 0;
+  }, [stages, activeStageId]);
+  const currentStage = stages[currentStageIdx] || null;
+  const enrichedFixtures = useMemo(() => {
+    if (!currentStage) return [];
+    return enrichBracketStageFixtures(
+      currentStage.fixtures,
+      standings,
+      resolvePlaceholders,
+    );
+  }, [currentStage, standings, resolvePlaceholders]);
+
+  // Build edge-based groups for the current stage's fixtures.
+  // Groups are by child_fixture_id. Fixtures are rendered ONCE per group,
+  // deduplicated across groups. If a parent feeds multiple children
+  // (winner→Final, loser→3rd Place), it's rendered in the first group only,
+  // and all advancement buttons are shown together for that group.
+  const fixtureGroups = useMemo(() => {
+    if (!enrichedFixtures.length) return [];
+
+    const fixtureMap = new Map(enrichedFixtures.map((f) => [f.id, f]));
+
+    // Build child fixture lookup across ALL stages
+    const allStages = brackets?.stages || [];
+    const allFixturesById = new Map();
+    for (const st of allStages) {
+      for (const fx of st.fixtures || []) {
+        allFixturesById.set(fx.id, {
+          ...fx,
+          stage_id: st.stage_id,
+          stage_name: st.stage_name,
+        });
+      }
+    }
+
+    const stageFixtureIds = new Set(enrichedFixtures.map((f) => f.id));
+    const relevantEdges = edges.filter((e) =>
+      stageFixtureIds.has(e.parent_fixture_id),
+    );
+
+    // Build map: child_fixture_id → { childFixture, parents: [{id, outcome, slot}] }
+    const childOutcomeMap = new Map();
+    const allParentIds = new Set();
+    for (const edge of relevantEdges) {
+      const childId = edge.child_fixture_id;
+      if (!childOutcomeMap.has(childId)) {
+        childOutcomeMap.set(childId, {
+          childFixture: allFixturesById.get(childId) || null,
+          parents: [],
+        });
+      }
+      childOutcomeMap.get(childId).parents.push({
+        id: edge.parent_fixture_id,
+        outcome: edge.parent_outcome,
+        slot: edge.child_slot,
+      });
+      allParentIds.add(edge.parent_fixture_id);
+    }
+
+    // Sort children by match number
+    const sortedChildIds = [...childOutcomeMap.keys()].sort((a, b) => {
+      const aD = String(childOutcomeMap.get(a).childFixture?.details || a);
+      const bD = String(childOutcomeMap.get(b).childFixture?.details || b);
+      const aM = aD.match(/(\d+)/);
+      const bM = bD.match(/(\d+)/);
+      return (aM ? parseInt(aM[1], 10) : a) - (bM ? parseInt(bM[1], 10) : b);
+    });
+
+    // Deduplicate parent fixtures across groups — only render each fixture once
+    const renderedParentIds = new Set();
+    const groups = [];
+    for (const childId of sortedChildIds) {
+      const entry = childOutcomeMap.get(childId);
+      const { childFixture, parents } = entry;
+      const unseenParents = parents.filter((p) => !renderedParentIds.has(p.id));
+      for (const p of unseenParents) renderedParentIds.add(p.id);
+
+      const parentUniqueIds = [...new Set(unseenParents.map((p) => p.id))];
+      const fixtures = parentUniqueIds
+        .map((id) => fixtureMap.get(id))
+        .filter(Boolean);
+      fixtures.sort((a, b) =>
+        (a.starting_at || "").localeCompare(b.starting_at || ""),
+      );
+
+      const childDetailsRaw = String(childFixture?.details || childId);
+      const childSortMatch = childDetailsRaw.match(/(\d+)/);
+      const childSortKey = childSortMatch
+        ? parseInt(childSortMatch[1], 10)
+        : childId;
+
+      // Build paths using ALL parents (not just unseen) for proper button display
+      const pathOutcomes = [...new Set(parents.map((p) => p.outcome))];
+
+      groups.push({
+        key: `edge_child_${childId}`,
+        childFixtureId: childId,
+        childFixture,
+        childSortKey,
+        fixtures,
+        paths: parents.map((p) => ({
+          parentId: p.id,
+          outcome: p.outcome,
+          slot: p.slot,
+          childFixtureId: childId,
+          childFixture: childFixture,
+        })),
+        hasWinner: pathOutcomes.includes("winner"),
+        hasLoser: pathOutcomes.includes("loser"),
+      });
+    }
+
+    groups.sort((a, b) => a.childSortKey - b.childSortKey);
+
+    // Merge paths-only groups (no fixtures) into preceding groups sharing parent IDs
+    const mergedGroups = [];
+    for (const group of groups) {
+      if (group.fixtures.length > 0) {
+        mergedGroups.push({ ...group });
+      } else {
+        const parentIdsInGroup = new Set(group.paths.map((p) => p.parentId));
+        let merged = false;
+        for (let i = mergedGroups.length - 1; i >= 0; i--) {
+          const prev = mergedGroups[i];
+          const prevParentIds = new Set(prev.paths.map((p) => p.parentId));
+          for (const pid of parentIdsInGroup) {
+            if (prevParentIds.has(pid)) {
+              // Merge this group's paths into the previous group
+              prev.paths = [...prev.paths, ...group.paths];
+              prev.hasWinner = prev.paths.some((p) => p.outcome === "winner");
+              prev.hasLoser = prev.paths.some((p) => p.outcome === "loser");
+              merged = true;
+              break;
+            }
+          }
+          if (merged) break;
+        }
+        if (!merged) {
+          mergedGroups.push({ ...group });
+        }
+      }
+    }
+
+    // Standalone fixtures
+    const standalone = enrichedFixtures
+      .filter((f) => !allParentIds.has(f.id))
+      .sort((a, b) => (a.starting_at || "").localeCompare(b.starting_at || ""));
+
+    const standaloneGroups = standalone.map((f) => ({
+      key: `standalone_${f.id}`,
+      childFixtureId: null,
+      childFixture: null,
+      childSortKey: 99999,
+      fixtures: [f],
+      paths: [],
+      hasWinner: false,
+      hasLoser: false,
+    }));
+
+    return [...mergedGroups, ...standaloneGroups];
+  }, [enrichedFixtures, edges, brackets]);
+
+  if (!stages.length) {
+    return (
+      <View style={bkStyles.empty}>
+        <Text style={{ color: theme.textSecondary }}>
+          No bracket data available
+        </Text>
+      </View>
+    );
+  }
+  const renderMatchCard = (fixture, idx) => {
+    const isHighlighted =
+      highlightFixtureId != null && fixture.id === highlightFixtureId;
+    const home = fixture.participants?.find((p) => p.meta?.location === "home");
+    const away = fixture.participants?.find((p) => p.meta?.location === "away");
+    if (!home || !away) return null;
+    const draw = !home.winner && !away.winner;
+    const homeColor = home.colorPrimary || colors.primary;
+    const awayColor = away.colorPrimary || colors.secondary || colors.primary;
+    const isPlaceholderMatch =
+      fixture.placeholder ||
+      fixture.participants?.some(
+        (p) => !p._resolved && (!p.name || /winner|loser|group/i.test(p.name)),
+      );
+    const cardBorderColor = isHighlighted
+      ? pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [theme.border, colors.primary],
+        })
+      : theme.border;
+    const cardBorderWidth = isHighlighted ? 2.5 : StyleSheet.hairlineWidth;
+    const gradId = `bk_grad_${fixture.id}_${idx}`;
+    const resolvedHomeColor =
+      home._resolved || !home.placeholder
+        ? home.colorPrimary || colors.primary
+        : theme.surface;
+    const resolvedAwayColor =
+      away._resolved || !away.placeholder
+        ? away.colorPrimary || colors.secondary || colors.primary
+        : theme.surface;
+    return (
+      <TouchableOpacity
+        key={`${fixture.id}_${idx}`}
+        ref={
+          isHighlighted
+            ? (ref) => {
+                cardRefs[fixture.id] = ref;
+              }
+            : undefined
+        }
+        onLayout={
+          isHighlighted
+            ? (e) => {
+                const y = e.nativeEvent.layout.y;
+                console.log(
+                  "[BracketScroll] onLayout fallback for",
+                  fixture.id,
+                  "=",
+                  y,
+                );
+                highlightLayoutMap[fixture.id] = y;
+              }
+            : undefined
+        }
+        style={[
+          bkStyles.matchCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: cardBorderColor,
+            borderWidth: cardBorderWidth,
+          },
+        ]}
+        activeOpacity={fixture.id && !isPlaceholderMatch ? 0.75 : 1}
+        onPress={() => {
+          if (fixture.id && navigation) {
+            navigation.navigate("Top5GameDetail", {
+              fixtureId: fixture.id,
+              homeTeamId: home.id,
+              awayTeamId: away.id,
+              matchTitle: !isPlaceholderMatch
+                ? `${home.short_code || home.name} vs ${away.short_code || away.name}`
+                : `${fixture.details || "Match Detail"}`,
+            });
+          }
+        }}
+      >
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+        >
+          <Defs>
+            <SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop
+                offset="0%"
+                stopColor={resolvedHomeColor}
+                stopOpacity="0.35"
+              />
+              <Stop
+                offset="35%"
+                stopColor={resolvedHomeColor}
+                stopOpacity="0"
+              />
+              <Stop
+                offset="65%"
+                stopColor={resolvedAwayColor}
+                stopOpacity="0"
+              />
+              <Stop
+                offset="100%"
+                stopColor={resolvedAwayColor}
+                stopOpacity="0.35"
+              />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+        </Svg>
+        <View style={bkStyles.matchContent}>
+          <View style={bkStyles.teamSide}>
+            <View
+              style={[
+                bkStyles.teamLogoWrap,
+                { opacity: draw ? 1 : home.winner ? 1 : 0.5 },
+              ]}
+            >
+              {home.image_path && !home.image_path.includes("placeholder") ? (
+                <Image
+                  source={{ uri: home.image_path }}
+                  style={bkStyles.teamLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View
+                  style={[
+                    bkStyles.teamLogoFallback,
+                    { backgroundColor: homeColor + "30" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      bkStyles.teamLogoFallbackText,
+                      { color: homeColor },
+                    ]}
+                  >
+                    {(home.name || "H")[0]}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              style={[
+                bkStyles.teamName,
+                {
+                  color: draw
+                    ? theme.text
+                    : home.winner
+                      ? colors.primary
+                      : theme.textSecondary,
+                  textDecorationLine: draw
+                    ? null
+                    : home.winner
+                      ? null
+                      : "line-through",
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {home.short_code || home.name || "TBD"}
+            </Text>
+          </View>
+          <View style={bkStyles.scoreBlock}>
+            {fixture.scores?.length > 0 ? (
+              <>
+                <View style={bkStyles.scoreRow}>
+                  <Text
+                    style={[
+                      bkStyles.scoreText,
+                      {
+                        color: draw
+                          ? theme.text
+                          : home.winner
+                            ? colors.primary
+                            : theme.textSecondary,
+                      },
+                    ]}
+                  >
+                    {fixture.scores.find((s) => s.score?.participant === "home")
+                      ?.score?.goals ?? "10"}
+                  </Text>
+                  <Text
+                    style={[bkStyles.scoreDash, { color: theme.textTertiary }]}
+                  >
+                    -
+                  </Text>
+                  <Text
+                    style={[
+                      bkStyles.scoreText,
+                      {
+                        color: draw
+                          ? theme.text
+                          : away.winner
+                            ? colors.primary
+                            : theme.textSecondary,
+                      },
+                    ]}
+                  >
+                    {fixture.scores.find((s) => s.score?.participant === "away")
+                      ?.score?.goals ?? "10"}
+                  </Text>
+                </View>
+                <Text
+                  style={[bkStyles.matchDetail, { color: theme.textTertiary }]}
+                >
+                  {fixture.details || ""}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[bkStyles.vsText, { color: theme.textTertiary }]}>
+                  VS
+                </Text>
+                {fixture.starting_at && (
+                  <Text
+                    style={[bkStyles.timeText, { color: theme.textSecondary }]}
+                  >
+                    {(() => {
+                      try {
+                        const d = new Date(
+                          fixture.starting_at.replace(" ", "T") + "Z",
+                        );
+                        return (
+                          d.toLocaleTimeString("en-US", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          }) +
+                          " • " +
+                          d.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        );
+                      } catch {
+                        return "--";
+                      }
+                    })()}
+                  </Text>
+                )}
+                <Text
+                  style={[bkStyles.matchDetail, { color: theme.textTertiary }]}
+                >
+                  {fixture.details || ""}
+                </Text>
+              </>
+            )}
+          </View>
+          <View style={bkStyles.teamSide}>
+            <View
+              style={[
+                bkStyles.teamLogoWrap,
+                { opacity: draw ? 1 : away.winner ? 1 : 0.5 },
+              ]}
+            >
+              {away.image_path && !away.image_path.includes("placeholder") ? (
+                <Image
+                  source={{ uri: away.image_path }}
+                  style={bkStyles.teamLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View
+                  style={[
+                    bkStyles.teamLogoFallback,
+                    { backgroundColor: awayColor + "30" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      bkStyles.teamLogoFallbackText,
+                      { color: awayColor },
+                    ]}
+                  >
+                    {(away.name || "A")[0]}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              style={[
+                bkStyles.teamName,
+                {
+                  color: draw
+                    ? theme.text
+                    : away.winner
+                      ? colors.primary
+                      : theme.textSecondary,
+                  textDecorationLine: draw
+                    ? null
+                    : away.winner
+                      ? null
+                      : "line-through",
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {away.short_code || away.name || "TBD"}
+            </Text>
+          </View>
+        </View>
+        {fixture.venue?.name && (
+          <View style={[bkStyles.venueRow, { borderTopColor: theme.border }]}>
+            <Ionicons
+              name="location-outline"
+              size={11}
+              color={theme.textTertiary}
+            />
+            <Text
+              style={[bkStyles.venueText, { color: theme.textTertiary }]}
+              numberOfLines={1}
+            >
+              {fixture.venue.name}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+  return (
+    <View style={{ flex: 1 }}>
+      <View
+        style={[
+          bkStyles.filterBar,
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
+        ]}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={bkStyles.filterContent}
+        >
+          {stages.map((stage, sIdx) => {
+            const active = sIdx === currentStageIdx;
+            return (
+              <TouchableOpacity
+                key={stage.stage_id}
+                style={[
+                  bkStyles.filterChip,
+                  active && {
+                    backgroundColor: colors.primary + "20",
+                    borderColor: colors.primary,
+                  },
+                ]}
+                activeOpacity={0.7}
+                onPress={() => setActiveStageId(stage.stage_id)}
+              >
+                <Text
+                  style={[
+                    bkStyles.filterChipText,
+                    {
+                      color: active ? colors.primary : theme.textSecondary,
+                      fontWeight: active ? "700" : "500",
+                    },
+                  ]}
+                >
+                  {stage.stage_name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32, paddingTop: 8 }}
+      >
+        {enrichedFixtures.length === 0 ? (
+          <Text style={[bkStyles.emptyText, { color: theme.textTertiary }]}>
+            No fixtures for this stage
+          </Text>
+        ) : (
+          <>
+            {currentStage && (
+              <View
+                style={[
+                  bkStyles.stageBadge,
+                  { backgroundColor: colors.primary + "18" },
+                ]}
+              >
+                <Text
+                  style={[bkStyles.stageBadgeText, { color: colors.primary }]}
+                >
+                  {currentStage.stage_name}
+                </Text>
+                <Text
+                  style={[
+                    bkStyles.stageBadgeCount,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {enrichedFixtures.length} match
+                  {enrichedFixtures.length !== 1 ? "es" : ""}
+                </Text>
+              </View>
+            )}
+            {fixtureGroups.map((group, gIdx) => (
+              <View key={group.key}>
+                {/* Outcome paths row — WINNER/LOSER buttons in a single row */}
+                {group.childFixtureId != null &&
+                  group.childFixture &&
+                  group.paths.length > 0 && (
+                    <View style={bkStyles.pathsRow}>
+                      {(() => {
+                        const loserPaths = group.paths.filter(
+                          (p) => p.outcome === "loser",
+                        );
+                        const winnerPaths = group.paths.filter(
+                          (p) => p.outcome === "winner",
+                        );
+                        const otherPaths = group.paths.filter(
+                          (p) =>
+                            p.outcome !== "winner" && p.outcome !== "loser",
+                        );
+                        const btns = [];
+
+                        // LOSER button
+                        if (loserPaths.length > 0) {
+                          const loserRef = loserPaths[0];
+                          const loserChildFixture = loserRef.childFixture || group.childFixture;
+                          const loserChildId = loserRef.childFixtureId || group.childFixtureId;
+                          btns.push(
+                            <TouchableOpacity
+                              key="loser_btn"
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                console.log(
+                                  "[BracketNav] Navigating to loser child",
+                                  { childFixtureId: loserChildId },
+                                );
+                                const ts = loserChildFixture?.stage_id;
+                                if (ts && ts !== activeStageId) {
+                                  setActiveStageId(ts);
+                                  setHighlightFixtureId(loserChildId);
+                                } else {
+                                  setHighlightFixtureId(loserChildId);
+                                }
+                              }}
+                              style={[
+                                bkStyles.pathBtn,
+                                {
+                                  backgroundColor:
+                                    (theme.error || "#e03131") + "18",
+                                  borderColor: theme.error || "#e03131",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  bkStyles.pathBtnLabel,
+                                  { color: theme.error || "#e03131" },
+                                ]}
+                              >
+                                LOSER
+                              </Text>
+                              <Text
+                                style={[
+                                  bkStyles.pathBtnDetail,
+                                  { color: theme.textTertiary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                →{" "}
+                                {loserChildFixture?.details ||
+                                  loserChildFixture?.name ||
+                                  `Match #${loserChildId}`}
+                              </Text>
+                            </TouchableOpacity>,
+                          );
+                        }
+
+                        // WINNER button
+                        if (winnerPaths.length > 0) {
+                          const winnerRef = winnerPaths[0];
+                          const winnerChildFixture = winnerRef.childFixture || group.childFixture;
+                          const winnerChildId = winnerRef.childFixtureId || group.childFixtureId;
+                          btns.push(
+                            <TouchableOpacity
+                              key="winner_btn"
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                console.log(
+                                  "[BracketNav] Navigating to winner child",
+                                  { childFixtureId: winnerChildId },
+                                );
+                                const ts = winnerChildFixture?.stage_id;
+                                if (ts && ts !== activeStageId) {
+                                  setActiveStageId(ts);
+                                  setHighlightFixtureId(winnerChildId);
+                                } else {
+                                  setHighlightFixtureId(winnerChildId);
+                                }
+                              }}
+                              style={[
+                                bkStyles.pathBtn,
+                                {
+                                  backgroundColor:
+                                    (theme.success || "#28a745") + "18",
+                                  borderColor: theme.success || "#28a745",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  bkStyles.pathBtnLabel,
+                                  { color: theme.success || "#28a745" },
+                                ]}
+                              >
+                                WINNER
+                              </Text>
+                              <Text
+                                style={[
+                                  bkStyles.pathBtnDetail,
+                                  { color: theme.textTertiary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                →{" "}
+                                {winnerChildFixture?.details ||
+                                  winnerChildFixture?.name ||
+                                  `Match #${winnerChildId}`}
+                              </Text>
+                            </TouchableOpacity>,
+                          );
+                        }
+
+                        // Generic fallback button
+                        if (btns.length === 0 && otherPaths.length > 0) {
+                          btns.push(
+                            <TouchableOpacity
+                              key="generic_btn"
+                              activeOpacity={0.75}
+                              onPress={() => {
+                                const otherRef = otherPaths[0];
+                                const otherChildFixture = otherRef.childFixture || group.childFixture;
+                                const otherChildId = otherRef.childFixtureId || group.childFixtureId;
+                                const ts = otherChildFixture?.stage_id;
+                                if (ts && ts !== activeStageId) {
+                                  setActiveStageId(ts);
+                                  setHighlightFixtureId(otherChildId);
+                                } else {
+                                  setHighlightFixtureId(otherChildId);
+                                }
+                              }}
+                              style={[
+                                bkStyles.pathBtn,
+                                {
+                                  backgroundColor: theme.surfaceSecondary,
+                                  borderColor: theme.border,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  bkStyles.pathBtnDetail,
+                                  { color: theme.textTertiary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                Advance →{" "}
+                                {otherChildFixture?.details ||
+                                  otherChildFixture?.name ||
+                                  `Match #${otherChildId}`}
+                              </Text>
+                            </TouchableOpacity>,
+                          );
+                        }
+
+                        return btns;
+                      })()}
+                    </View>
+                  )}
+                {group.fixtures.map((fixture, idx) =>
+                  renderMatchCard(fixture, idx),
+                )}
+                {/* Gap after group — thicker separator between groups */}
+                {gIdx < fixtureGroups.length - 1 && (
+                  <View style={bkStyles.groupGap}>
+                    <View
+                      style={[
+                        bkStyles.groupGapLine,
+                        { backgroundColor: colors.primary + "30" },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        bkStyles.groupGapDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        bkStyles.groupGapLine,
+                        { backgroundColor: colors.primary + "30" },
+                      ]}
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+          </>
+        )}
+      </ScrollView>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setResolvePlaceholders((v) => !v)}
+        style={[
+          bkStyles.floatingBtn,
+          {
+            backgroundColor: resolvePlaceholders
+              ? colors.primary
+              : theme.surface,
+            borderColor: colors.primary,
+          },
+        ]}
+      >
+        <FontAwesome6
+          name="futbol"
+          size={20}
+          color={resolvePlaceholders ? "#fff" : colors.primary}
+        />
+        <Text
+          style={[
+            bkStyles.floatingBtnText,
+            { color: resolvePlaceholders ? "#fff" : colors.primary },
+          ]}
+        >
+          {resolvePlaceholders ? "AS IT STANDS" : "RAW"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const bkStyles = StyleSheet.create({
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
+  emptyText: { fontSize: 13, textAlign: "center", paddingVertical: 24 },
+  filterBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8,
+  },
+  filterContent: { paddingHorizontal: 12, gap: 8, alignItems: "center" },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  filterChipText: { fontSize: 12 },
+  filterChipCount: { fontSize: 11, fontWeight: "700" },
+  stageBadge: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  stageBadgeText: { fontSize: 13, fontWeight: "700" },
+  stageBadgeCount: { fontSize: 12, fontWeight: "600" },
+  matchCard: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  matchContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+  },
+  teamSide: { flex: 1, alignItems: "center", gap: 6 },
+  teamLogoWrap: { width: 36, height: 36 },
+  teamLogo: { width: 36, height: 36 },
+  teamLogoFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  teamLogoFallbackText: { fontSize: 13, fontWeight: "800" },
+  teamName: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    maxWidth: 80,
+  },
+  scoreBlock: { alignItems: "center", paddingHorizontal: 6, minWidth: 72 },
+  scoreRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  scoreText: {
+    fontSize: 26,
+    fontWeight: "800",
+    minWidth: 20,
+    textAlign: "center",
+  },
+  scoreDash: { fontSize: 16, fontWeight: "400", marginHorizontal: 10 },
+  vsText: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  timeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  matchDetail: { fontSize: 9, marginTop: 3, textAlign: "center" },
+  venueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  venueText: { fontSize: 10, fontWeight: "500", flexShrink: 1 },
+  floatingBtn: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    elevation: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  floatingBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4 },
+  groupGap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 14,
+    paddingHorizontal: 40,
+  },
+  groupGapLine: { flex: 1, height: 1 },
+  groupGapDot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 8 },
+  groupLabel: {
+    marginHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 6,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  groupLabelPulse: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  groupLabelText: { fontSize: 10, fontWeight: "600", marginLeft: 4 },
+  groupLabelArrow: { fontSize: 11, fontWeight: "700" },
+  pathsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  pathBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pathBtnLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  pathBtnDetail: {
+    fontSize: 9,
+    fontWeight: "600",
+    marginTop: 2,
+    textAlign: "center",
+  },
+});
+
+const TABS = (bracketsExist) => {
+  const base = [
+    { key: "standings", label: "Standings", icon: "podium-outline" },
+    { key: "teams", label: "Teams", icon: "people-outline" },
+    { key: "matches", label: "Matches", icon: "football-outline" },
+  ];
+  if (bracketsExist) {
+    base.push({
+      key: "brackets",
+      label: "Bracket",
+      icon: "network-wired",
+      iconFamily: "FA6",
+    });
+  }
+  base.push(
+    { key: "totw", label: "TOTW", icon: "star-outline" },
+    { key: "teamstats", label: "Team Stats", icon: "pie-chart-outline" },
+    { key: "stats", label: "Stats", icon: "stats-chart-outline" },
+  );
+  return base;
+};
 
 export default function Top5LeagueDetailScreen({ route, navigation }) {
   const { leagueId, leagueName } = route.params;
@@ -4340,6 +5491,8 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("standings");
+  const bracketsExist = !!data?.brackets?.stages?.length;
+  const tabs = useMemo(() => TABS(bracketsExist), [bracketsExist]);
 
   const cacheKey = `top5:league:${leagueId}:v1`;
 
@@ -4489,7 +5642,7 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           style={[styles.tabBar, { borderTopColor: theme.border }]}
           contentContainerStyle={styles.tabBarContent}
         >
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const isActive = tab.key === activeTab;
             return (
               <TouchableOpacity
@@ -4498,11 +5651,19 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
                 onPress={() => setActiveTab(tab.key)}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={tab.icon}
-                  size={20}
-                  color={isActive ? colors.primary : theme.textTertiary}
-                />
+                {tab.iconFamily === "FA6" ? (
+                  <FontAwesome6
+                    name={tab.icon}
+                    size={20}
+                    color={isActive ? colors.primary : theme.textTertiary}
+                  />
+                ) : (
+                  <Ionicons
+                    name={tab.icon}
+                    size={20}
+                    color={isActive ? colors.primary : theme.textTertiary}
+                  />
+                )}
                 <Text
                   style={[
                     styles.tabLabel,
@@ -4532,6 +5693,14 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
       {activeTab === "standings" ? (
         <StandingsTab
           stages={data?.standings ?? []}
+          theme={theme}
+          colors={colors}
+          navigation={navigation}
+        />
+      ) : activeTab === "brackets" ? (
+        <BracketsTab
+          brackets={data?.brackets}
+          standings={data?.standings ?? []}
           theme={theme}
           colors={colors}
           navigation={navigation}
@@ -4590,15 +5759,29 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           <View
             style={[styles.placeholder, { backgroundColor: theme.surface }]}
           >
-            <Ionicons
-              name={TABS.find((t) => t.key === activeTab)?.icon}
-              size={40}
-              color={theme.textTertiary}
-            />
+            {(() => {
+              const tabMeta = tabs.find((t) => t.key === activeTab);
+              if (tabMeta?.iconFamily === "FA6") {
+                return (
+                  <FontAwesome6
+                    name={tabMeta.icon}
+                    size={40}
+                    color={theme.textTertiary}
+                  />
+                );
+              }
+              return (
+                <Ionicons
+                  name={tabMeta?.icon}
+                  size={40}
+                  color={theme.textTertiary}
+                />
+              );
+            })()}
             <Text
               style={[styles.placeholderText, { color: theme.textSecondary }]}
             >
-              {TABS.find((t) => t.key === activeTab)?.label} coming soon
+              {tabs.find((t) => t.key === activeTab)?.label} coming soon
             </Text>
           </View>
         </ScrollView>

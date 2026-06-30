@@ -28,7 +28,7 @@ const StandingsScreen = ({ route }) => {
   const SERIES_PREFERENCE_KEY = "SPORTS_TRACKER_SELECTED_SERIES";
 
   const [selectedType, setSelectedType] = useState("DRIVERS");
-  const [selectedSeries, setSelectedSeries] = useState("F1"); // 'F1' or 'NASCAR'
+  const [selectedSeries, setSelectedSeries] = useState("NASCAR"); // 'F1' or 'NASCAR'
   const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [driverStandings, setDriverStandings] = useState([]);
   const [constructorStandings, setConstructorStandings] = useState([]);
@@ -1048,7 +1048,7 @@ const StandingsScreen = ({ route }) => {
     },
     typeButtonText: {
       fontSize: 14,
-      fontWeight: "600",
+      fontWeight: "700",
     },
     activeTypeButtonText: {
       color: "#fff",
@@ -1108,12 +1108,12 @@ const StandingsScreen = ({ route }) => {
     // removed right gradient per design
     seriesContainer: {
       flexDirection: "row",
-      justifyContent: "center",
-      marginHorizontal: 20,
-      marginVertical: 8,
-      borderRadius: 8,
-      backgroundColor: theme.surface,
-      padding: 6,
+      marginHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 8,
+      padding: 4,
+      borderRadius: 10,
+      backgroundColor: "rgba(255,255,255,0.06)",
     },
     seriesButton: {
       flex: 1,

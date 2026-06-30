@@ -311,7 +311,7 @@ const getPollingInterval = (groups) => {
 
   for (const game of allGames) {
     // Live game → fast
-    if (game.isLive || game.statusType === "I" || game.statusType === "IR")
+    if (game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR")
       return INTERVAL_FAST;
     // Scheduled and starts within 5 min → fast
     const isScheduled =
@@ -430,7 +430,12 @@ const getTeamProbablePitcher = (game, side) => {
 };
 
 const isMlbGameLive = (game) =>
-  !!(game?.isLive || game?.statusType === "I" || game?.statusType === "IR");
+  !!(
+    game?.isLive ||
+    game?.statusType === "I" ||
+    game?.statusType === "II" ||
+    game?.statusType === "IR"
+  );
 
 const isMlbGameFinished = (game) =>
   !!(
@@ -511,7 +516,7 @@ const getGroupPitcherDebugSummary = (group) => {
 
   group.games.forEach((game) => {
     const isLive =
-      game.isLive || game.statusType === "I" || game.statusType === "IR";
+      game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR";
     const isFinished =
       game.isCompleted ||
       ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
@@ -795,7 +800,7 @@ const MLBGridCard = ({
 
   const { time, ampm } = formatLocalTime(game.date);
   const isLive =
-    game.isLive || game.statusType === "I" || game.statusType === "IR";
+    game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR";
   const isFinished =
     !isLive &&
     (game.isCompleted ||
@@ -1375,6 +1380,7 @@ const ScoreboardSection = ({
                 const isLive =
                   game.isLive ||
                   game.statusType === "I" ||
+                  game.statusType === "II" ||
                   game.statusType === "IR";
                 const isFinished =
                   game.isCompleted ||
@@ -1985,6 +1991,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
             if (
               game.isLive ||
               game.statusType === "I" ||
+              game.statusType === "II" ||
               game.statusType === "IR"
             )
               return 1;
@@ -2106,7 +2113,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
       const allGames = latestGroups.flatMap((g) => g.games);
       const hasLiveGames = allGames.some(
         (game) =>
-          game.isLive || game.statusType === "I" || game.statusType === "IR",
+          game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR",
       );
 
       // Only skip polling if it's not today AND there are no live games

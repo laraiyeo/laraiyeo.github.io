@@ -336,7 +336,7 @@ const SettingsScreen = ({ navigation }) => {
       const best = free[0];
       const uses = Number(best?.uses || 0);
       const code = best?.code || "Promo";
-      setFreePromoLabel(`${code} (${uses})`);
+      setFreePromoLabel(`Use: ${code}`);
     } catch (e) {
       setFreePromoLabel("No free promo codes");
     }

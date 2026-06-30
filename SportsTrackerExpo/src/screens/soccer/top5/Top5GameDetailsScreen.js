@@ -111,6 +111,14 @@ import { API_URL } from "../../../services/notificationService";
 
 const { width } = Dimensions.get("window");
 
+const DEBUG_GAME_DETAILS = true;
+
+const logDebug = (...args) => {
+  if (DEBUG_GAME_DETAILS) {
+    console.log("[Top5GameDetails]", ...args);
+  }
+};
+
 const FOOTBALL_BASE = "https://sportsheart-football.up.railway.app";
 
 // Streaming API base (shared pattern used elsewhere)
@@ -345,12 +353,12 @@ const parseAggregate = (fixture) => {
   return { homeAgg, awayAgg };
 };
 
-const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
+const GAME_CACHE_KEY = (id) => `@gameDetail_v2:${id}`;
 const GAME_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const GAME_AUX_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const GAME_H2H_CACHE_KEY = (homeId, awayId) =>
-  `@gameDetail_h2h_v1:${homeId}:${awayId}`;
-const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v1:${fixtureId}`;
+  `@gameDetail_h2h_v2:${homeId}:${awayId}`;
+const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v2:${fixtureId}`;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const PRE_START_CUTOFF_MS = 5 * 60 * 1000;
 const PRE_START_WINDOW_MS = ONE_HOUR_MS + PRE_START_CUTOFF_MS;
@@ -370,11 +378,40 @@ const LIVE_SHORT_NAMES = new Set([
   "INPLAY_PEN",
   "ET",
   "PEN",
+  "INT",
 ]);
+
+const clearGameCache = async (fixtureId, homeTeamId, awayTeamId) => {
+  logDebug("clearGameCache called", { fixtureId, homeTeamId, awayTeamId });
+  try {
+    const keysToRemove = [
+      GAME_CACHE_KEY(fixtureId),
+      GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
+      GAME_FACTS_CACHE_KEY(fixtureId),
+    ];
+    logDebug("clearGameCache: keys to remove", keysToRemove);
+    await AsyncStorage.multiRemove(keysToRemove);
+    logDebug("Game cache cleared successfully - AsyncStorage keys removed");
+  } catch (error) {
+    logDebug("Error clearing game cache:", error);
+    console.error("Error clearing game cache:", error);
+  }
+};
 
 const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
 
 const parseUtcDateTime = (dateStr) => {
+  const raw = String(dateStr || "").trim();
+  if (!raw) return null;
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const parsed = new Date(hasZone ? iso : `${iso}Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+// For display formatting only — adds 4h timezone offset
+const parseUtcForDisplay = (dateStr) => {
   const raw = String(dateStr || "").trim();
   if (!raw) return null;
   const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
@@ -438,27 +475,56 @@ const startMsOf = (fixture) => {
 
 const getScheduledCacheMs = (fixture, nowMs = Date.now()) => {
   const startMs = startMsOf(fixture);
+  logDebug("getScheduledCacheMs called", {
+    startMs: startMs ? new Date(startMs).toISOString() : null,
+    startMsNum: startMs,
+    nowMs: new Date(nowMs).toISOString(),
+    nowMsNum: nowMs,
+    isFinite: Number.isFinite(startMs),
+    hasStarted: Number.isFinite(startMs) && startMs <= nowMs,
+    startingAt_raw: fixture?.starting_at,
+  });
   if (!Number.isFinite(startMs) || startMs <= nowMs) {
-    return ONE_HOUR_MS;
+    logDebug("getScheduledCacheMs result: 0 (game started or no start time)");
+    return 0; // Game has started or no start time — cache expires immediately so we re-fetch
   }
   const msUntilStart = startMs - nowMs;
+  logDebug(
+    "getScheduledCacheMs msUntilStart:",
+    msUntilStart,
+    "PRE_START_WINDOW_MS:",
+    PRE_START_WINDOW_MS,
+  );
   if (msUntilStart <= PRE_START_WINDOW_MS) {
-    return Math.max(0, msUntilStart - PRE_START_CUTOFF_MS);
+    const result = Math.max(0, msUntilStart - PRE_START_CUTOFF_MS);
+    logDebug("getScheduledCacheMs result (within pre-start window):", result);
+    return result;
   }
+  logDebug("getScheduledCacheMs result (far away):", ONE_HOUR_MS);
   return ONE_HOUR_MS;
 };
 
 const getFixturePolicy = (fixture) => {
   if (!fixture) {
+    logDebug("getFixturePolicy: no fixture, returning default");
     return { mode: "default", intervalMs: INTERVAL_SLOW, cacheMs: 0 };
   }
 
   const short = shortNameOf(fixture);
+  logDebug("getFixturePolicy called", {
+    short_name: short,
+    state: fixture?.state?.state,
+    fixtureId: fixture?.id,
+    hasPeriods: !!fixture?.periods?.length,
+  });
+
   if (LIVE_SHORT_NAMES.has(short)) {
+    logDebug("getFixturePolicy: LIVE match, using FAST interval");
     return { mode: "live", intervalMs: INTERVAL_FAST, cacheMs: INTERVAL_FAST };
   }
 
   if (short === "FT") {
+    logDebug("getFixturePolicy: FINISHED match, using FINISHED interval");
     return {
       mode: "finished",
       intervalMs: INTERVAL_FINISHED,
@@ -470,12 +536,33 @@ const getFixturePolicy = (fixture) => {
     const now = Date.now();
     const startMs = startMsOf(fixture);
     const scheduledCacheMs = getScheduledCacheMs(fixture, now);
+
+    // Check if this scheduled match has crossed its start time (transition to live)
+    const hasStarted = Number.isFinite(startMs) && startMs <= now;
+    logDebug("getFixturePolicy NS check", {
+      hasStarted,
+      startMs: startMs ? new Date(startMs).toISOString() : null,
+      now: new Date(now).toISOString(),
+      diff: Number.isFinite(startMs) ? (startMs - now) / 1000 + "s" : "N/A",
+      scheduledCacheMs,
+    });
+
+    if (hasStarted) {
+      logDebug("getFixturePolicy: NS -> TRANSITION (started)");
+      return {
+        mode: "transition",
+        intervalMs: INTERVAL_FAST,
+        cacheMs: 0,
+      };
+    }
+
     const withinHour =
       Number.isFinite(startMs) &&
       startMs > now &&
       startMs - now <= 60 * 60 * 1000;
 
     if (withinHour) {
+      logDebug("getFixturePolicy: NS -> SCHEDULED_SOON");
       return {
         mode: "scheduled_soon",
         intervalMs: INTERVAL_SOON,
@@ -483,6 +570,7 @@ const getFixturePolicy = (fixture) => {
       };
     }
 
+    logDebug("getFixturePolicy: NS -> SCHEDULED (far away)");
     return {
       mode: "scheduled",
       intervalMs: INTERVAL_SLOW,
@@ -490,6 +578,7 @@ const getFixturePolicy = (fixture) => {
     };
   }
 
+  logDebug("getFixturePolicy: unknown state, returning default");
   return {
     mode: "default",
     intervalMs: INTERVAL_SLOW,
@@ -499,7 +588,7 @@ const getFixturePolicy = (fixture) => {
 
 const formatFixtureTime = (fixture) => {
   try {
-    const date = parseUtcDateTime(fixture?.starting_at);
+    const date = parseUtcForDisplay(fixture?.starting_at);
     if (!date) return { time: "--:--", ampm: "" };
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -508,6 +597,20 @@ const formatFixtureTime = (fixture) => {
     return { time: `${h}:${minutes}`, ampm };
   } catch (_) {
     return { time: "--:--", ampm: "" };
+  }
+};
+
+const formatFixtureDate = (fixture) => {
+  try {
+    const date = parseUtcForDisplay(fixture?.starting_at);
+    if (!date) return "--";
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  } catch (_) {
+    return "--";
   }
 };
 
@@ -566,16 +669,23 @@ const getStatusInfo = (fixture, nowMs = Date.now(), snapshotTsMs = nowMs) => {
 
   if (isFinished) {
     const { time, ampm } = formatFixtureTime(fixture);
+    const date = formatFixtureDate(fixture);
     return {
       line1: short || "FT",
-      line2: `${time} ${ampm}`,
+      line2: `${time} ${ampm} • ${date}`,
       isLive: false,
       isFinished: true,
     };
   }
 
   const { time, ampm } = formatFixtureTime(fixture);
-  return { line1: time, line2: ampm, isLive: false, isFinished: false };
+  const date = formatFixtureDate(fixture);
+  return {
+    line1: long || "SCHEDULED",
+    line2: `${time} ${ampm} • ${date}`,
+    isLive: false,
+    isFinished: false,
+  };
 };
 
 // ─── Goal time formatter ──────────────────────────────────────────────────────
@@ -947,6 +1057,7 @@ const TeamSide = ({
   score,
   redCards = 0,
   isWinner,
+  draw,
   isFinished,
   isLive,
   scoreOpacity,
@@ -968,9 +1079,14 @@ const TeamSide = ({
         style={[
           styles.teamScore,
           {
-            color: isWinner ? theme.text : theme.textSecondary,
+            color:
+              isFinished && draw
+                ? theme.text
+                : isWinner
+                  ? theme.text
+                  : theme.textSecondary,
             fontWeight: isWinner ? "800" : "400",
-            opacity: isFinished && !isWinner ? 0.6 : 1,
+            opacity: isFinished && draw ? 1 : isFinished && !isWinner ? 0.6 : 1,
             opacity: scoreOpacity ?? 1,
           },
         ]}
@@ -982,7 +1098,13 @@ const TeamSide = ({
   const logoNode = logoUri ? (
     <Image
       source={{ uri: logoUri }}
-      style={styles.teamLogo}
+      style={[
+        styles.teamLogo,
+        {
+          opacity:
+            isFinished && draw ? 1 : isFinished ? (!isWinner ? 0.6 : 1) : 1,
+        },
+      ]}
       contentFit="contain"
       cachePolicy="memory-disk"
     />
@@ -1061,7 +1183,19 @@ const TeamSide = ({
           </View>
         ) : null}
         <Text
-          style={[styles.teamName, { color: theme.text }]}
+          style={[
+            styles.teamName,
+            {
+              color:
+                isFinished && draw
+                  ? theme.text
+                  : isFinished
+                    ? isWinner
+                      ? theme.text
+                      : theme.textSecondary
+                    : theme.text,
+            },
+          ]}
           numberOfLines={2}
           textBreakStrategy="simple"
         >
@@ -1676,7 +1810,12 @@ const TopPerformersSection = ({
   );
 
   return (
-    <View style={[tpStyles.card, { backgroundColor: theme.surface }]}>
+    <View
+      style={[
+        tpStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
       <View style={[tpStyles.headerRow, { borderBottomColor: theme.border }]}>
         <Text style={[tpStyles.headerTitle, { color: theme.text }]}>
           TOP PERFORMERS
@@ -6608,6 +6747,142 @@ const StatsSection = ({
   );
 };
 
+// ─── Countdown section ───────────────────────────────────────────────────────
+const CountdownSection = ({
+  startingAt,
+  nowMs,
+  theme,
+  colors,
+  homeColor,
+  awayColor,
+}) => {
+  const countdown = useMemo(() => {
+    const startTime = parseUtcForDisplay(startingAt);
+    if (!startTime) return null;
+
+    const diffMs = startTime.getTime() - nowMs;
+    if (diffMs <= 0) {
+      return { expired: true, units: [] };
+    }
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+    const totalWeeks = Math.floor(totalDays / 7);
+
+    // Pick the best 3 units based on the total time remaining
+    let units = [];
+
+    if (totalWeeks >= 1) {
+      // weeks, days, hours
+      const weeks = totalWeeks;
+      const days = totalDays % 7;
+      const hours = totalHours % 24;
+      if (weeks > 0)
+        units.push({ value: weeks, label: `${weeks > 1 ? "WKS" : "WEEK"}` });
+      if (days > 0)
+        units.push({ value: days, label: `DAY${days > 1 ? "S" : ""}` });
+      if (hours > 0)
+        units.push({ value: hours, label: `${hours > 1 ? "HRS" : "HOUR"}` });
+      if (units.length === 0)
+        units.push({ value: 0, label: `${hours > 1 ? "HRS" : "HOUR"}` });
+    } else if (totalDays >= 1) {
+      // days, hours, minutes
+      const days = totalDays;
+      const hours = totalHours % 24;
+      const minutes = totalMinutes % 60;
+      if (days > 0)
+        units.push({ value: days, label: `DAY${days > 1 ? "S" : ""}` });
+      if (hours > 0)
+        units.push({ value: hours, label: `${hours > 1 ? "HRS" : "HOUR"}` });
+      if (minutes > 0 || units.length < 3)
+        units.push({ value: minutes, label: `MIN${minutes > 1 ? "S" : ""}` });
+    } else {
+      // hours, minutes, seconds (always show at least seconds)
+      const hours = totalHours;
+      const minutes = totalMinutes % 60;
+      const seconds = totalSeconds % 60;
+      if (hours > 0)
+        units.push({ value: hours, label: `${hours > 1 ? "HRS" : "HOUR"}` });
+      units.push({ value: minutes, label: `MIN${minutes > 1 ? "S" : ""}` });
+      units.push({ value: seconds, label: `SEC${seconds > 1 ? "S" : ""}` });
+    }
+
+    // Ensure max 3 units
+    if (units.length > 3) units = units.slice(0, 3);
+
+    return { expired: false, units };
+  }, [startingAt, nowMs]);
+
+  if (!countdown) return null;
+
+  if (countdown.expired) {
+    return (
+      <View
+        style={[
+          cdStyles.card,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={[cdStyles.headerRow, { borderBottomColor: theme.border }]}>
+          <Text style={[cdStyles.headerTitle, { color: theme.text }]}>
+            COUNTDOWN
+          </Text>
+        </View>
+        <View style={cdStyles.body}>
+          <View style={cdStyles.expiredWrap}>
+            <View
+              style={[cdStyles.liveDot, { backgroundColor: theme.success }]}
+            />
+            <Text style={[cdStyles.expiredText, { color: theme.success }]}>
+              STARTING SOON
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        cdStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={[cdStyles.headerRow, { borderBottomColor: theme.border }]}>
+        <Text style={[cdStyles.headerTitle, { color: theme.text }]}>
+          COUNTDOWN
+        </Text>
+      </View>
+      <View style={cdStyles.body}>
+        <View style={cdStyles.unitsRow}>
+          {countdown.units.map((unit, idx) => (
+            <React.Fragment key={unit.label}>
+              <View style={cdStyles.unitCol}>
+                <Text style={[cdStyles.unitValue, { color: theme.text }]}>
+                  {String(unit.value).padStart(2, "0")}
+                </Text>
+                <Text
+                  style={[cdStyles.unitLabel, { color: theme.textSecondary }]}
+                >
+                  {unit.label}
+                </Text>
+              </View>
+              {idx < countdown.units.length - 1 && (
+                <Text style={[cdStyles.colon, { color: theme.textTertiary }]}>
+                  :
+                </Text>
+              )}
+            </React.Fragment>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
 // ─── Game Info section ───────────────────────────────────────────────────────
 const degreesToCompass = (deg) => {
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -6619,6 +6894,7 @@ const GameInfoSection = ({
   weather,
   league,
   round,
+  group,
   startingAt,
   theme,
   isDarkMode,
@@ -6647,11 +6923,14 @@ const GameInfoSection = ({
       ? league.image_path
       : null;
   const country = league?.country ?? null;
-  const countryImgUri =
-    country?.image_path && !country.image_path.includes("placeholder")
-      ? country.image_path
-      : null;
+  const countryImgSource =
+    country?.name === "World"
+      ? require("../../../../assets/world.png")
+      : country?.image_path && !country.image_path.includes("placeholder")
+        ? { uri: country.image_path }
+        : null;
   const roundName = round?.name ?? null;
+  const groupName = group?.name ?? null;
 
   const hasMeta = !!league || !!country || !!startingAt;
 
@@ -6659,7 +6938,7 @@ const GameInfoSection = ({
   let dateBottom = null;
   try {
     if (startingAt) {
-      const d = parseUtcDateTime(startingAt);
+      const d = parseUtcForDisplay(startingAt);
       if (d && !Number.isNaN(d.getTime())) {
         const days = [
           "Sunday",
@@ -6715,7 +6994,12 @@ const GameInfoSection = ({
   ];
 
   return (
-    <View style={[giStyles.card, { backgroundColor: theme.surface }]}>
+    <View
+      style={[
+        giStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
       <View style={[giStyles.headerRow, { borderBottomColor: theme.border }]}>
         <Text style={[giStyles.headerTitle, { color: theme.text }]}>
           GAME INFO
@@ -6823,91 +7107,106 @@ const GameInfoSection = ({
               style={[giStyles.divider, { backgroundColor: theme.border }]}
             />
           )}
-          <View style={giStyles.metaRow}>
-            <View style={giStyles.metaLeft}>
-              {(league?.name || leagueImgUri) && (
-                <View style={giStyles.metaLine}>
-                  {leagueImgUri ? (
-                    <Image
-                      source={{ uri: leagueImgUri }}
-                      style={[
-                        giStyles.metaLogo,
-                        {
-                          tintColor:
-                            league?.id === 8 && isDarkMode
-                              ? theme.text
-                              : undefined,
-                        },
-                      ]}
-                      contentFit="contain"
-                      cachePolicy="memory-disk"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        giStyles.metaLogoPlaceholder,
-                        { backgroundColor: theme.surfaceSecondary },
-                      ]}
-                    />
-                  )}
-                  <Text
-                    style={[giStyles.metaPrimaryText, { color: theme.text }]}
-                    numberOfLines={1}
-                  >
-                    {league?.name || "League"}{" "}
-                    {roundName && `∙ Round ${roundName}`}
-                  </Text>
-                </View>
-              )}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (league?.id && navigation) {
+                navigation.navigate("Top5LeagueDetail", {
+                  leagueId: league.id,
+                  leagueName: league.name || "League",
+                });
+              }
+            }}
+            disabled={!league?.id || !navigation}
+            style={{ width: "100%" }}
+          >
+            <View style={giStyles.metaRow}>
+              <View style={giStyles.metaLeft}>
+                {(league?.name || leagueImgUri) && (
+                  <View style={giStyles.metaLine}>
+                    {leagueImgUri ? (
+                      <Image
+                        source={{ uri: leagueImgUri }}
+                        style={[
+                          giStyles.metaLogo,
+                          {
+                            tintColor:
+                              league?.id === 8 && isDarkMode
+                                ? theme.text
+                                : undefined,
+                          },
+                        ]}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          giStyles.metaLogoPlaceholder,
+                          { backgroundColor: theme.surfaceSecondary },
+                        ]}
+                      />
+                    )}
+                    <Text
+                      style={[giStyles.metaPrimaryText, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {league?.name || "League"}
+                      {roundName && ` ∙ Round ${roundName}`}
+                      {groupName && ` ∙ ${groupName}`}
+                    </Text>
+                  </View>
+                )}
 
-              {(country?.name || countryImgUri) && (
-                <View style={giStyles.metaLine}>
-                  {countryImgUri ? (
-                    <Image
-                      source={{ uri: countryImgUri }}
-                      style={giStyles.metaLogo}
-                      contentFit="contain"
-                      cachePolicy="memory-disk"
-                    />
-                  ) : (
-                    <View
+                {(country?.name || countryImgSource) && (
+                  <View style={giStyles.metaLine}>
+                    {countryImgSource ? (
+                      <Image
+                        source={countryImgSource}
+                        style={giStyles.metaLogo}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          giStyles.metaLogoPlaceholder,
+                          { backgroundColor: theme.surfaceSecondary },
+                        ]}
+                      />
+                    )}
+                    <Text
                       style={[
-                        giStyles.metaLogoPlaceholder,
-                        { backgroundColor: theme.surfaceSecondary },
+                        giStyles.metaSecondaryText,
+                        { color: theme.textSecondary },
                       ]}
-                    />
-                  )}
+                      numberOfLines={1}
+                    >
+                      {country?.name || "Country"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={giStyles.metaRight}>
+                {dateTop ? (
+                  <Text style={[giStyles.metaDateTop, { color: theme.text }]}>
+                    {dateTop}
+                  </Text>
+                ) : null}
+                {dateBottom ? (
                   <Text
                     style={[
-                      giStyles.metaSecondaryText,
+                      giStyles.metaDateBottom,
                       { color: theme.textSecondary },
                     ]}
-                    numberOfLines={1}
                   >
-                    {country?.name || "Country"}
+                    {dateBottom}
                   </Text>
-                </View>
-              )}
+                ) : null}
+              </View>
             </View>
-
-            <View style={giStyles.metaRight}>
-              {dateTop ? (
-                <Text style={[giStyles.metaDateTop, { color: theme.text }]}>
-                  {dateTop}
-                </Text>
-              ) : null}
-              {dateBottom ? (
-                <Text
-                  style={[
-                    giStyles.metaDateBottom,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {dateBottom}
-                </Text>
-              ) : null}
-            </View>
-          </View>
+          </TouchableOpacity>
         </>
       ) : null}
     </View>
@@ -6923,7 +7222,12 @@ const RefereesSection = ({ referees, theme, navigation }) => {
   if (!refs.length) return null;
 
   return (
-    <View style={[refStyles.card, { backgroundColor: theme.surface }]}>
+    <View
+      style={[
+        refStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
       <View style={[refStyles.headerRow, { borderBottomColor: theme.border }]}>
         <Text style={[refStyles.headerTitle, { color: theme.text }]}>
           REFEREES
@@ -7225,7 +7529,7 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
 
   let topDate = "";
   try {
-    const d = parseUtcDateTime(match?.starting_at);
+    const d = parseUtcForDisplay(match?.starting_at);
     if (!d) throw new Error("Invalid match start date");
     const months = [
       "Jan",
@@ -8814,6 +9118,20 @@ const SoccerPlayerDetailModal = ({
       ? `${duelsWon}-${duelsTotal}`
       : "—";
 
+  const xg = statNum(getLineupStat("expected goals (xg)", "xg"));
+  const xgDisplay = xg != null ? `${xg.toFixed(2)} XG` : "";
+
+  const xgot = statNum(
+    getLineupStat("expected goals on target (xgot)", "xgot"),
+  );
+  const xgotDisplay = xgot != null ? `${xgot.toFixed(2)} XGOT` : "";
+
+  const cmin = statNum(getLineupStat("cumulative minutes played"));
+  const cminDisplay = cmin != null ? `${cmin} C. MIN` : "";
+
+  const chances = statNum(getLineupStat("chances created"));
+  const chancesDisplay = chances != null ? `${chances} CC` : "";
+
   const statsObj = {
     rating: statNum(getLineupRating("rating")),
     goals: statNum(getLineupStat("goals", "goal")),
@@ -8847,7 +9165,7 @@ const SoccerPlayerDetailModal = ({
       { label: "PASS", value: passDisplay, pct: passPct },
       { label: "REC", value: statsObj.recovery },
       { label: "TCH", value: statsObj.touches },
-      { label: "MIN", value: statsObj.minutes },
+      { label: "MIN", value: statsObj.minutes, pct: cminDisplay },
       { label: "YC", value: statsObj.yellowCards },
       { label: "RC", value: statsObj.redCards },
     ];
@@ -8860,31 +9178,31 @@ const SoccerPlayerDetailModal = ({
       { label: "PASS", value: passDisplay, pct: passPct },
       { label: "DUEL", value: duelsDisplay, pct: duelsPct },
       { label: "SHB", value: statsObj.blockedShots },
-      { label: "MIN", value: statsObj.minutes },
+      { label: "MIN", value: statsObj.minutes, pct: cminDisplay },
       { label: "YC", value: statsObj.yellowCards },
     ];
   } else if (isMF) {
     shareStatItems = [
       { label: "RTG", value: statsObj.rating },
-      { label: "GLS", value: statsObj.goals },
-      { label: "AST", value: statsObj.assists },
+      { label: "GLS", value: statsObj.goals, pct: xgDisplay },
+      { label: "AST", value: statsObj.assists, pct: chancesDisplay },
       { label: "SHT", value: statsObj.shots },
       { label: "DUEL", value: duelsDisplay, pct: duelsPct },
       { label: "TCH", value: statsObj.touches },
       { label: "PASS", value: passDisplay, pct: passPct },
-      { label: "MIN", value: statsObj.minutes },
+      { label: "MIN", value: statsObj.minutes, pct: cminDisplay },
       { label: "YC", value: statsObj.yellowCards },
     ];
   } else {
     shareStatItems = [
       { label: "RTG", value: statsObj.rating },
-      { label: "GLS", value: statsObj.goals },
-      { label: "AST", value: statsObj.assists },
+      { label: "GLS", value: statsObj.goals, pct: xgDisplay },
+      { label: "AST", value: statsObj.assists, pct: chancesDisplay },
       { label: "SHT", value: statsObj.shots },
-      { label: "SOT", value: statsObj.shotsOnTarget },
+      { label: "SOT", value: statsObj.shotsOnTarget, pct: xgotDisplay },
       { label: "TCH", value: statsObj.touches },
       { label: "PASS", value: passDisplay, pct: passPct },
-      { label: "MIN", value: statsObj.minutes },
+      { label: "MIN", value: statsObj.minutes, pct: cminDisplay },
       { label: "YC", value: statsObj.yellowCards },
     ];
   }
@@ -8921,7 +9239,7 @@ const SoccerPlayerDetailModal = ({
   const gameDateParts = (() => {
     if (!startingAt) return null;
     try {
-      const d = parseUtcDateTime(startingAt);
+      const d = parseUtcForDisplay(startingAt);
       if (!d) return null;
       const monthDate = d.toLocaleDateString("en-US", {
         month: "short",
@@ -9638,7 +9956,6 @@ const FactsSection = ({
         .map((fact) => String(fact?.category || "overall").toLowerCase())
         .filter(Boolean),
     );
-    if (!set.has("overall")) set.add("overall");
     const ordered = [...set].sort((a, b) => a.localeCompare(b));
     const overall = ordered.filter((item) => item === "overall");
     const rest = ordered.filter((item) => item !== "overall");
@@ -10396,7 +10713,7 @@ const FactsSection = ({
 
   // Lines 9138-9227: renderGoalLine split into two halves (Over/Under)
   const renderGoalLine = (fact) => {
-    if (Number(fact?.type_id) !== 76103) return null;
+    if (!fact?.data?.over && !fact?.data?.under) return null;
     const over = fact?.data?.over ?? {};
     const under = fact?.data?.under ?? {};
     const thresholds = Object.keys({ ...over, ...under }).sort((a, b) => {
@@ -10879,8 +11196,261 @@ const FactsSection = ({
     );
   };
 
+  // Add this helper function near the other helper functions
+  const capitalizeWords = (str) => {
+    return str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  // Add this helper function for getting comparison color
+  const getComparisonColor = (label, theme) => {
+    const lowerLabel = label.toLowerCase();
+    if (lowerLabel.includes("high")) return theme.error || "#e03131";
+    if (lowerLabel.includes("low")) return theme.success || "#28a745";
+    return theme.warning || "#ffc107";
+  };
+
+  // Add this render function with the other render functions
+  const renderStatisticsComparisons = (fact) => {
+    const dataObj = fact?.data ?? {};
+
+    const blocks = Object.keys(dataObj).filter((key) => dataObj[key]?.historic);
+
+    if (blocks.length === 0) return null;
+
+    return (
+      <View style={factsStyles.metricsColumn}>
+        {blocks.map((key) => {
+          const blockData = dataObj[key];
+          if (!blockData) return null;
+
+          // Extract values based on data structure
+          let value,
+            historicMean,
+            comparisonLabel,
+            comparisonMethod,
+            datapoints,
+            comparedTo;
+
+          if (blockData.values?.value != null) {
+            // For shots on target comparison structure
+            value = blockData.values.value;
+            historicMean = blockData.historic?.mean;
+            comparisonLabel = blockData.comparison?.label;
+            comparisonMethod = blockData.comparison?.method;
+            datapoints =
+              blockData.context?.value_datapoints ||
+              blockData.context?.datapoints;
+            comparedTo = blockData.context?.compared_to;
+          } else if (blockData.live?.value != null) {
+            // For free kicks live comparison structure
+            value = blockData.live.value;
+            historicMean = blockData.historic?.mean;
+            comparisonLabel = blockData.comparison?.label;
+            comparisonMethod = blockData.comparison?.method;
+            datapoints = blockData.context?.datapoints;
+            comparedTo = blockData.context?.compared_to;
+          }
+
+          // Format values
+          const formattedValue = value != null ? Number(value).toFixed(2) : "-";
+          const formattedHistoric =
+            historicMean != null ? Number(historicMean).toFixed(2) : "-";
+          const comparisonText =
+            comparisonMethod && historicMean != null
+              ? `${comparisonMethod}: ${formattedHistoric}`
+              : historicMean != null
+                ? formattedHistoric
+                : "-";
+          const contextText =
+            datapoints && comparedTo
+              ? `${datapoints} ${capitalizeWords(comparedTo)} Matches`
+              : "-";
+
+          return (
+            <View
+              key={key}
+              style={[
+                factsStyles.metricCol,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.surfaceSecondary,
+                },
+              ]}
+            >
+              <View style={factsStyles.statComparisonTop}>
+                <Text
+                  style={[
+                    factsStyles.statComparisonLabel,
+                    { color: theme.text },
+                  ]}
+                >
+                  {key.toUpperCase()}
+                </Text>
+                <Text
+                  style={[
+                    factsStyles.statComparisonValue,
+                    { color: theme.text },
+                  ]}
+                >
+                  {formattedValue}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  factsStyles.statHistoricText,
+                  { color: theme.textTertiary },
+                ]}
+              >
+                {comparisonText}
+              </Text>
+              {comparisonLabel && (
+                <View style={factsStyles.statComparisonBottom}>
+                  <Text
+                    style={[
+                      factsStyles.statComparisonIndicator,
+                      { color: getComparisonColor(comparisonLabel, theme) },
+                    ]}
+                  >
+                    {comparisonLabel.toUpperCase()}
+                  </Text>
+                  <Text
+                    style={[
+                      factsStyles.statContextText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {contextText}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // Add this new render function with the other render functions
+  // Add this new render function with the other render functions
+  // Update the renderStreakFacts function
+  const renderStreakFacts = (fact) => {
+    const dataObj = fact?.data ?? {};
+
+    const hasDirectStreak = dataObj.old_streak && dataObj.new_streak;
+
+    // Check if we have the required streak data structure
+    const hasHomeStreak = dataObj.home?.old_streak && dataObj.home?.new_streak;
+    const hasAwayStreak = dataObj.away?.old_streak && dataObj.away?.new_streak;
+    const hasStreakData = hasDirectStreak || hasHomeStreak || hasAwayStreak;
+
+    if (!hasStreakData) return null;
+
+    const blocks = [];
+    if (hasHomeStreak) blocks.push("home");
+    if (hasAwayStreak) blocks.push("away");
+    if (hasDirectStreak) blocks.push("all");
+
+    return (
+      <View style={factsStyles.metricsRow}>
+        {blocks.map((key) => {
+          const blockData = key === "all" ? dataObj : dataObj[key];
+          const oldStreak = blockData.old_streak;
+          const newStreak = blockData.new_streak;
+          const label = blockData.label;
+
+          // Get label color based on streak status
+          let labelColor = theme.text;
+          if (label === "broken") {
+            labelColor = theme.error || "#e03131";
+          } else if (label === "extended") {
+            labelColor = theme.success || "#28a745";
+          }
+
+          return (
+            <View
+              key={key}
+              style={[
+                factsStyles.metricCol,
+                {
+                  borderColor: theme.surface,
+                  backgroundColor: theme.surface,
+                },
+              ]}
+            >
+              <View style={factsStyles.streakBubbleRow}>
+                <View
+                  style={[
+                    factsStyles.streakBubble,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.streakBubbleValue,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {oldStreak.streak}/{oldStreak.matches}
+                  </Text>
+                  <Text
+                    style={[
+                      factsStyles.streakBubbleLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    OLD
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    factsStyles.streakBubble,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.streakBubbleValue,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {newStreak.streak}/{newStreak.matches}
+                  </Text>
+                  <Text
+                    style={[
+                      factsStyles.streakBubbleLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    NEW
+                  </Text>
+                </View>
+              </View>
+              <Text
+                style={[factsStyles.streakStatusLabel, { color: labelColor }]}
+              >
+                {String(label).toUpperCase()}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // Update the renderFactBody function to include the new renderer
   const renderFactBody = (fact) => {
     return (
+      renderStreakFacts(fact) ||
+      renderStatisticsComparisons(fact) ||
       renderGoalLine(fact) ||
       renderTimingBars(fact) ||
       renderDateScoreCard(fact) ||
@@ -10962,7 +11532,10 @@ const FactsSection = ({
             CATEGORY
           </Text>
           <Text style={[factsStyles.categoryBtnValue, { color: theme.text }]}>
-            {String(categoryFilter || "overall").toUpperCase()}
+            {String(categoryFilter || "overall")
+              .split("_")
+              .join(" ")
+              .toUpperCase()}
           </Text>
           <Ionicons name="chevron-down" size={15} color={theme.textSecondary} />
         </TouchableOpacity>
@@ -11082,7 +11655,7 @@ const FactsSection = ({
                       { color: selected ? theme.text : theme.textSecondary },
                     ]}
                   >
-                    {cat.toUpperCase()}
+                    {cat.split("_").join(" ").toUpperCase()}
                   </Text>
                   {selected ? (
                     <Ionicons name="checkmark" size={16} color={theme.text} />
@@ -11202,33 +11775,73 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   );
 
   const loadData = useCallback(
-    async (silent = false, background = false) => {
+    async (silent = false, background = false, force = false) => {
       const now = Date.now();
-      const cached = fetchCacheRef.current;
-      if (cached) {
-        const policy = getFixturePolicy(cached.data?.fixtureData ?? null);
-        const cacheMs = policy.cacheMs ?? 0;
-        const canUseCache =
-          cacheMs > 0 &&
-          now - cached.ts < cacheMs &&
-          !(background && policy.mode === "live");
+      logDebug("loadData called", {
+        fixtureId,
+        silent,
+        background,
+        force,
+        now: new Date(now).toISOString(),
+      });
 
-        if (canUseCache) {
-          setData(cached.data);
-          setSnapshotTsMs(cached.ts);
-          return cached.data;
+      // ONLY check in-memory cache if NOT forcing refresh
+      if (!force) {
+        const cached = fetchCacheRef.current;
+        if (cached) {
+          const policy = getFixturePolicy(cached.data?.fixtureData ?? null);
+          const cacheMs = policy.cacheMs ?? 0;
+          const cacheAge = now - cached.ts;
+          const canUseCache =
+            cacheMs > 0 &&
+            cacheAge < cacheMs &&
+            !(background && policy.mode === "live");
+
+          logDebug("loadData in-memory cache check", {
+            hasCache: true,
+            cacheAge,
+            cacheMs,
+            policyMode: policy.mode,
+            canUseCache,
+            background,
+            force,
+          });
+
+          if (canUseCache) {
+            logDebug("loadData: USING in-memory cache");
+            setData(cached.data);
+            setSnapshotTsMs(cached.ts);
+            return cached.data;
+          } else {
+            logDebug("loadData: in-memory cache cannot be used", {
+              cacheAge,
+              cacheMs,
+              policyMode: policy.mode,
+            });
+          }
+        } else {
+          logDebug("loadData: no in-memory cache found");
         }
+      } else {
+        logDebug("loadData: FORCE mode, bypassing in-memory cache");
       }
 
-      if (inFlightRef.current) return inFlightRef.current;
+      // ONLY check in-flight if NOT forcing refresh
+      if (!force && inFlightRef.current) {
+        logDebug(
+          "loadData: request already in-flight, returning existing promise",
+        );
+        return inFlightRef.current;
+      }
 
+      logDebug("loadData: proceeding with fetch");
       const promise = (async () => {
         if (!silent) setLoading(true);
         setError(null);
         try {
           // If stream modal is open, skip updating to avoid disrupting playback
           if (streamModalVisibleRef.current) {
-            console.log("Stream modal open, skipping Top5 game update");
+            logDebug("loadData: stream modal open, SKIPPING update");
             return dataRef.current;
           }
           const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
@@ -11236,17 +11849,35 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
 
           // ── AsyncStorage cache for finished / old games ───────────────────
-          if (!silent) {
+          if (!silent && !force) {
             try {
               const raw = await AsyncStorage.getItem(GAME_CACHE_KEY(fixtureId));
+
               if (raw) {
                 const { data: cachedData, ts, expiresAt } = JSON.parse(raw);
                 const tsNum = Number(ts) || Date.now();
                 const expiresAtNum = Number(expiresAt);
+                const now2 = Date.now();
                 const isCacheValid = Number.isFinite(expiresAtNum)
-                  ? Date.now() < expiresAtNum
-                  : Date.now() - tsNum < GAME_CACHE_TTL_MS;
+                  ? now2 < expiresAtNum
+                  : now2 - tsNum < GAME_CACHE_TTL_MS;
+
+                logDebug("loadData AsyncStorage cache", {
+                  hasCache: true,
+                  ts: new Date(tsNum).toISOString(),
+                  expiresAt: Number.isFinite(expiresAtNum)
+                    ? new Date(expiresAtNum).toISOString()
+                    : "N/A",
+                  age: now2 - tsNum,
+                  isCacheValid,
+                  fixtureId,
+                  hasFixtureData: !!cachedData?.fixtureData,
+                });
+
                 if (isCacheValid) {
+                  logDebug(
+                    "loadData: USING AsyncStorage cache, SKIPPING network",
+                  );
                   setData(cachedData);
                   setSnapshotTsMs(tsNum);
                   // Populate the in-memory fetch cache so subsequent calls
@@ -11255,19 +11886,38 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     data: cachedData,
                     ts: tsNum,
                   };
-                  console.log(
-                    `Top5: using AsyncStorage cache for ${fixtureId}, age=${Date.now() - tsNum}ms`,
-                  );
                   return cachedData;
+                } else {
+                  logDebug(
+                    "loadData: AsyncStorage cache EXPIRED, proceeding to network",
+                  );
                 }
+              } else {
+                logDebug("loadData: no AsyncStorage cache found");
               }
-            } catch (_) {}
+            } catch (_) {
+              logDebug("loadData: AsyncStorage cache read error", _);
+            }
+          } else if (force) {
+            logDebug("loadData: FORCE mode, WILL SKIP AsyncStorage cache read");
+          } else {
+            logDebug(
+              "loadData: silent background fetch, skipping AsyncStorage cache",
+            );
           }
 
           let responseData = null;
 
           if (background) {
-            const gameRes = await fetch(gameUrl);
+            logDebug("loadData: background fetch (game only, no h2h/facts)");
+            const gameRes = await fetch(gameUrl, {
+              cache: "no-store",
+              headers: {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+            });
             if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
 
             const gameJson = await gameRes.json();
@@ -11294,38 +11944,67 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
               if (h2hRaw) {
                 const parsed = JSON.parse(h2hRaw);
-                if (
-                  Date.now() - Number(parsed?.ts ?? 0) <
-                    GAME_AUX_CACHE_TTL_MS &&
-                  Array.isArray(parsed?.data)
-                ) {
+                const h2hAge = Date.now() - Number(parsed?.ts ?? 0);
+                const isFresh = h2hAge < GAME_AUX_CACHE_TTL_MS;
+                logDebug("loadData h2h cache", {
+                  hasCache: true,
+                  age: h2hAge,
+                  isFresh,
+                  ttl: GAME_AUX_CACHE_TTL_MS,
+                });
+                if (isFresh && Array.isArray(parsed?.data)) {
                   cachedH2hData = parsed.data;
                   shouldFetchH2h = false;
+                  logDebug("loadData: using cached H2H data");
                 }
               }
 
               if (factsRaw) {
                 const parsed = JSON.parse(factsRaw);
-                if (
-                  Date.now() - Number(parsed?.ts ?? 0) <
-                    GAME_AUX_CACHE_TTL_MS &&
-                  Array.isArray(parsed?.data)
-                ) {
+                const factsAge = Date.now() - Number(parsed?.ts ?? 0);
+                const isFresh = factsAge < GAME_AUX_CACHE_TTL_MS;
+                logDebug("loadData facts cache", {
+                  hasCache: true,
+                  age: factsAge,
+                  isFresh,
+                  ttl: GAME_AUX_CACHE_TTL_MS,
+                });
+                if (isFresh && Array.isArray(parsed?.data)) {
                   cachedFactsData = parsed.data;
                   shouldFetchFacts = false;
+                  logDebug("loadData: using cached facts data");
                 }
               }
-            } catch (_) {}
+            } catch (_) {
+              logDebug("loadData: error reading aux caches", _);
+            }
 
+            logDebug("loadData: full fetch (game + h2h + facts)", {
+              shouldFetchH2h,
+              shouldFetchFacts,
+            });
+            const fetchOpts = {
+              cache: "no-store",
+              headers: {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+            };
             const [gameRes, h2hRes, factsRes] = await Promise.all([
-              fetch(gameUrl),
-              shouldFetchH2h ? fetch(h2hUrl) : Promise.resolve(null),
-              shouldFetchFacts ? fetch(factsUrl) : Promise.resolve(null),
+              fetch(gameUrl, fetchOpts),
+              shouldFetchH2h ? fetch(h2hUrl, fetchOpts) : Promise.resolve(null),
+              shouldFetchFacts
+                ? fetch(factsUrl, fetchOpts)
+                : Promise.resolve(null),
             ]);
 
             if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
 
             const gameJson = await gameRes.json();
+            logDebug("loadData: game response received", {
+              hasFixtureData: !!gameJson?.data?.fixtureData,
+            });
 
             let h2hData = cachedH2hData;
             if (h2hRes) {
@@ -11336,8 +12015,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
                   JSON.stringify({ data: h2hData, ts: Date.now() }),
                 ).catch(() => {});
+                logDebug(
+                  "loadData: H2H data fetched and cached, items:",
+                  h2hData?.length,
+                );
               } else {
-                console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
+                logDebug(`loadData: h2h fetch error: HTTP ${h2hRes.status}`);
               }
             }
 
@@ -11350,8 +12033,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   GAME_FACTS_CACHE_KEY(fixtureId),
                   JSON.stringify({ data: matchFacts, ts: Date.now() }),
                 ).catch(() => {});
+                logDebug(
+                  "loadData: facts data fetched and cached, items:",
+                  matchFacts?.length,
+                );
               } else {
-                console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
+                logDebug(
+                  `loadData: facts fetch error: HTTP ${factsRes.status}`,
+                );
               }
             }
 
@@ -11363,6 +12052,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               matchFacts,
             };
           }
+
+          logDebug("loadData: setting response data", {
+            hasFixture: !!responseData?.fixtureData,
+            h2hCount: responseData?.h2hData?.length ?? 0,
+            factsCount: responseData?.matchFacts?.length ?? 0,
+          });
 
           setData(responseData);
           const ts = Date.now();
@@ -11385,6 +12080,16 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 ? GAME_CACHE_TTL_MS
                 : scheduledTtlMs;
 
+            logDebug("loadData: cache persistence check", {
+              state: code,
+              isFinished: isFinishedState(code),
+              isOld,
+              isScheduled,
+              scheduledTtlMs,
+              persistTtlMs,
+              willPersist: persistTtlMs > 0,
+            });
+
             if (persistTtlMs > 0) {
               AsyncStorage.setItem(
                 GAME_CACHE_KEY(fixtureId),
@@ -11394,15 +12099,26 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   expiresAt: ts + persistTtlMs,
                 }),
               ).catch(() => {});
+              logDebug("loadData: data persisted to AsyncStorage cache", {
+                key: GAME_CACHE_KEY(fixtureId),
+                expiresAt: new Date(ts + persistTtlMs).toISOString(),
+              });
+            } else {
+              logDebug("loadData: data NOT persisted (persistTtlMs=0)", {
+                state: code,
+                isScheduled,
+              });
             }
           }
           return responseData;
         } catch (err) {
+          logDebug("loadData: FETCH ERROR", err);
           console.error("Top5 game fetch error:", err);
-          if (!silent) setError("Failed to load match data.");
+          if (!silent) setError("Failed to match data.");
           return null;
         } finally {
           if (!silent) setLoading(false);
+          logDebug("loadData: completed");
         }
       })();
 
@@ -11419,21 +12135,19 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   // Fetch immediately when stream modal closes (resume updates)
   useEffect(() => {
     if (showStreamModal === false && dataRef.current) {
+      logDebug("stream modal closed, triggering refresh");
       // Do a silent fetch so we don't show the full-screen loading UI
       // when the modal closes; just refresh the data in-place.
       loadData(true, false)
         .then((fresh) => {
-          // After refreshing, ensure polling interval reflects latest state
-          try {
-            // schedulePolling may be defined later; call if available
-            if (typeof schedulePolling === "function") {
-              schedulePolling(
-                fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
-              );
-            }
-          } catch (_) {}
+          logDebug("stream modal refresh complete", { hasFresh: !!fresh });
+          if (typeof schedulePolling === "function") {
+            schedulePolling(
+              fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
+            );
+          }
         })
-        .catch(() => {});
+        .catch((e) => logDebug("stream modal refresh error", e));
     }
   }, [showStreamModal, loadData]);
 
@@ -11444,15 +12158,47 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   const schedulePolling = useCallback(
     (fixture) => {
-      if (!isFocusedRef.current) return;
-      const desired = getFixturePolicy(fixture).intervalMs;
+      if (!isFocusedRef.current) {
+        logDebug("schedulePolling: NOT focused, skipping");
+        return;
+      }
 
-      if (currentIntervalMs.current === desired && intervalRef.current) return;
+      const policy = getFixturePolicy(fixture);
+      const desired = policy.intervalMs;
 
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      logDebug("schedulePolling called", {
+        desired,
+        currentInterval: currentIntervalMs.current,
+        hasExistingInterval: !!intervalRef.current,
+        policyMode: policy.mode,
+        policyCacheMs: policy.cacheMs,
+        fixtureState: fixture?.state?.short_name,
+      });
+
+      if (currentIntervalMs.current === desired && intervalRef.current) {
+        logDebug("schedulePolling: interval unchanged, keeping existing");
+        return;
+      }
+
+      if (intervalRef.current) {
+        logDebug("schedulePolling: clearing existing interval");
+        clearInterval(intervalRef.current);
+      }
       currentIntervalMs.current = desired;
+
+      if (desired == null) {
+        logDebug("schedulePolling: desired is null, not setting new interval");
+        intervalRef.current = null;
+        return;
+      }
+
+      logDebug("schedulePolling: setting new interval at", desired, "ms");
       intervalRef.current = setInterval(async () => {
+        logDebug(
+          "polling interval triggered, calling loadData(background=true)",
+        );
         const fresh = await loadData(true, true);
+        logDebug("polling interval: loadData returned", { hasFresh: !!fresh });
         schedulePolling(
           fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
         );
@@ -11463,16 +12209,25 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   useFocusEffect(
     useCallback(() => {
+      logDebug("useFocusEffect: screen focused");
       isFocusedRef.current = true;
       const hasExistingData = !!dataRef.current?.fixtureData;
+      logDebug("useFocusEffect: hasExistingData", hasExistingData);
       loadData(hasExistingData, false).then((fresh) => {
+        logDebug("useFocusEffect: initial load complete", {
+          hasFresh: !!fresh,
+          freshFixtureState: fresh?.fixtureData?.state?.short_name,
+          currentFixtureState: dataRef.current?.fixtureData?.state?.short_name,
+        });
         schedulePolling(
           fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
         );
       });
       return () => {
+        logDebug("useFocusEffect: screen losing focus, cleaning up");
         isFocusedRef.current = false;
         if (intervalRef.current) {
+          logDebug("useFocusEffect: clearing polling interval");
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           currentIntervalMs.current = null;
@@ -11482,10 +12237,36 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   );
 
   const onRefresh = async () => {
+    logDebug("onRefresh triggered", {
+      fixtureId,
+      homeTeamId,
+      awayTeamId,
+      hasInMemoryCache: !!fetchCacheRef.current,
+    });
+
     setRefreshing(true);
-    const fresh = await loadData(true, false);
+
+    // Clear cached data when refreshing
+    if (fixtureId && homeTeamId && awayTeamId) {
+      logDebug("onRefresh: clearing AsyncStorage caches");
+      await clearGameCache(fixtureId, homeTeamId, awayTeamId);
+    }
+
+    // Clear in-memory cache
+    logDebug("onRefresh: clearing in-memory caches");
+    fetchCacheRef.current = null;
+    inFlightRef.current = null;
+
+    // Force refresh (bypasses all caches including AsyncStorage)
+    logDebug("onRefresh: calling loadData with force=true");
+    const fresh = await loadData(true, false, true);
+    logDebug("onRefresh: loadData returned", {
+      hasFresh: !!fresh,
+      hasFixture: !!fresh?.fixtureData,
+    });
     schedulePolling(fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null);
     setRefreshing(false);
+    logDebug("onRefresh: completed");
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -12385,6 +13166,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               score={homeScore}
               redCards={redCardsByTeam.home}
               isWinner={homeWins}
+              draw={!homeWins && !awayWins}
               isFinished={finished}
               isLive={live}
               scoreOpacity={gameScoreOpacity}
@@ -12529,6 +13311,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               score={awayScore}
               redCards={redCardsByTeam.away}
               isWinner={awayWins}
+              draw={!homeWins && !awayWins}
               isFinished={finished}
               isLive={live}
               scoreOpacity={gameScoreOpacity}
@@ -12618,20 +13401,57 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {home?.image_path ? (
                 <Image
                   source={{ uri: home.image_path }}
-                  style={styles.miniLogo}
+                  style={[
+                    styles.miniLogo,
+                    {
+                      opacity:
+                        statusInfo.isFinished && !homeWins && !awayWins
+                          ? 1
+                          : statusInfo.isFinished
+                            ? homeWins
+                              ? 1
+                              : 0.55
+                            : 1,
+                    },
+                  ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
               ) : null}
-              <Text style={[styles.miniAbbr, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color:
+                      statusInfo.isFinished && !homeWins && !awayWins
+                        ? theme.text
+                        : statusInfo.isFinished
+                          ? homeWins
+                            ? theme.text
+                            : theme.textSecondary
+                          : theme.text,
+                  },
+                ]}
+              >
                 {homeAbbr}
               </Text>
               <Text
                 style={[
                   styles.miniScore,
                   {
-                    color: homeWins ? theme.text : theme.textSecondary,
-                    fontWeight: homeWins ? "800" : "500",
+                    color:
+                      statusInfo.isFinished && !homeWins && !awayWins
+                        ? theme.text
+                        : statusInfo.isFinished
+                          ? homeWins
+                            ? theme.text
+                            : theme.textSecondary
+                          : theme.text,
+                    fontWeight: statusInfo.isFinished
+                      ? homeWins
+                        ? "800"
+                        : "500"
+                      : "800",
                   },
                 ]}
               >
@@ -12707,20 +13527,57 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniScore,
                   {
-                    color: awayWins ? theme.text : theme.textSecondary,
-                    fontWeight: awayWins ? "800" : "500",
+                    color:
+                      statusInfo.isFinished && !homeWins && !awayWins
+                        ? theme.text
+                        : statusInfo.isFinished
+                          ? awayWins
+                            ? theme.text
+                            : theme.textSecondary
+                          : theme.text,
+                    fontWeight: statusInfo.isFinished
+                      ? awayWins
+                        ? "800"
+                        : "500"
+                      : "800",
                   },
                 ]}
               >
                 {awayScore ?? ""}
               </Text>
-              <Text style={[styles.miniAbbr, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color:
+                      statusInfo.isFinished && !homeWins && !awayWins
+                        ? theme.text
+                        : statusInfo.isFinished
+                          ? awayWins
+                            ? theme.text
+                            : theme.textSecondary
+                          : theme.text,
+                  },
+                ]}
+              >
                 {awayAbbr}
               </Text>
               {away?.image_path ? (
                 <Image
                   source={{ uri: away.image_path }}
-                  style={styles.miniLogo}
+                  style={[
+                    styles.miniLogo,
+                    {
+                      opacity:
+                        statusInfo.isFinished && !homeWins && !awayWins
+                          ? 1
+                          : statusInfo.isFinished
+                            ? awayWins
+                              ? 1
+                              : 0.55
+                            : 1,
+                    },
+                  ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
@@ -12815,11 +13672,22 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 colors={colors}
                 onPlayerPress={openPlayerModal}
               />
+              {isScheduledGame && (
+                <CountdownSection
+                  startingAt={fixture.starting_at ?? null}
+                  nowMs={nowMs}
+                  theme={theme}
+                  colors={colors}
+                  homeColor={homeColor}
+                  awayColor={awayColor}
+                />
+              )}
               <GameInfoSection
                 venue={fixture.venue ?? null}
                 weather={fixture.weatherreport ?? null}
                 league={fixture.league ?? null}
                 round={fixture.round ?? null}
+                group={fixture.group ?? null}
                 startingAt={fixture.starting_at ?? null}
                 theme={theme}
                 isDarkMode={isDarkMode}
@@ -13431,12 +14299,12 @@ const styles = StyleSheet.create({
   logoScoreRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 16,
   },
   scoreLogo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 16,
   },
   teamLogo: {
     width: 64,
@@ -13977,7 +14845,6 @@ const motmStyles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 14,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
   headerRow: {
@@ -14111,7 +14978,6 @@ const evStyles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 14,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
   headerRow: {
@@ -14549,6 +15415,86 @@ const tpStyles = StyleSheet.create({
   },
 });
 
+// ─── Countdown styles ────────────────────────────────────────────────────────
+const cdStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerAccent: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
+  unitsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  unitCol: {
+    alignItems: "center",
+    minWidth: 54,
+  },
+  unitValue: {
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34,
+    fontVariant: ["tabular-nums"],
+  },
+  unitLabel: {
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  colon: {
+    fontSize: 24,
+    fontWeight: "700",
+    lineHeight: 34,
+    marginBottom: 16,
+    marginHorizontal: 2,
+  },
+  expiredWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  expiredText: {
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+});
+
 // ─── Game Info styles ─────────────────────────────────────────────────────────
 const giStyles = StyleSheet.create({
   card: {
@@ -14879,6 +15825,10 @@ const factsStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
+  metricsColumn: {
+    flexDirection: "column",
+    gap: 8,
+  },
   metricCol: {
     flex: 1,
     borderWidth: StyleSheet.hairlineWidth,
@@ -15195,6 +16145,77 @@ const factsStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.25,
+  },
+  statComparisonTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  statComparisonLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  statComparisonValue: {
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+  statHistoricText: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  statComparisonBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  statComparisonIndicator: {
+    fontSize: 9,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  statContextText: {
+    fontSize: 9,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  streakBubbleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 8,
+  },
+  streakBubble: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  streakBubbleLabel: {
+    marginTop: 2,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.25,
+    textTransform: "uppercase",
+  },
+  streakBubbleValue: {
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+  streakStatusLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: -8,
   },
 });
 
@@ -17226,11 +18247,11 @@ const spmStyles = StyleSheet.create({
   },
   shareSummaryRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
     marginBottom: 2,
   },
   shareSummaryCell: {
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 1,
   },
   shareSummaryVal: {

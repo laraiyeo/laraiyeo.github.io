@@ -94,6 +94,14 @@ const soccerLeagues = [
     ],
   },
 ] : [],
+  {
+    id: "fifa.world",
+    name: "FIFA World Cup",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "FIFA World Cup", logo: "4" },
+    competitions: [],
+  },
 
   ...(show
     ? [
@@ -177,14 +185,6 @@ const soccerLeagues = [
     flag: null,
     type: "competition",
     mainLeague: { name: "Europa Conference League", logo: "20296" },
-    competitions: [],
-  },
-  {
-    id: "fifa.world",
-    name: "FIFA World Cup",
-    flag: null,
-    type: "competition",
-    mainLeague: { name: "FIFA World Cup", logo: "4" },
     competitions: [],
   },
 ];

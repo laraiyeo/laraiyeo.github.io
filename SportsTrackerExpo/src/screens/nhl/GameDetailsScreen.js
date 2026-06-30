@@ -496,6 +496,19 @@ const formatLocalTime = (dateString) => {
   }
 };
 
+const formatLocalDate = (dateString) => {
+  try {
+    const date = new Date(dateString);
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  } catch {
+    return "--";
+  }
+};
+
 const isNhlPlayoffGameType = (gameType) => Number(gameType) === 3;
 
 const getNhlExtraPeriodLabel = ({ number, gameType, longForm = false }) => {
@@ -610,7 +623,8 @@ const getStatusLines = (game, nowMs) => {
   }
   if (isNhlGameFinished(game)) {
     const { time, ampm } = formatLocalTime(game.startTimeUtc);
-    return { line1: game.statusMain || "FT", line2: `${time} ${ampm}`.trim() };
+    const date = formatLocalDate(game.startTimeUtc);
+    return { line1: game.statusMain || "FT", line2: `${time} ${ampm} • ${date}`.trim() };
   }
   return { line1: game.statusMain || "--", line2: game.statusSub || "" };
 };
@@ -9595,7 +9609,7 @@ const NHLGoalShareCardModal = ({
           <TouchableOpacity
             style={[
               nhlShareCommonStyles.actionBtn,
-              { backgroundColor: teamColor },
+              { backgroundColor: colors.secondary },
             ]}
             onPress={handleShare}
             disabled={sharing}
@@ -10015,7 +10029,7 @@ const NHLPlayerShareCardModal = ({
             disabled={sharing}
             style={[
               nhlShareCommonStyles.actionBtn,
-              { backgroundColor: teamColor },
+              { backgroundColor: colors.secondary },
             ]}
           >
             <View style={nhlShareCommonStyles.actionBtnRow}>
@@ -11471,7 +11485,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               style={[styles.leagueName, { color: theme.textTertiary }]}
               numberOfLines={1}
             >
-              {[game.venue, game.leagueName].filter(Boolean).join(" - ")}
+              {[game.venue, game.leagueName].filter(Boolean).join(" · ")}
             </Text>
           </View>
 

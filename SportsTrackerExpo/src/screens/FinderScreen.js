@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 import { useFavorites } from "../context/FavoritesContext";
+import { getAPITeamId } from "../utils/TeamIdMapping";
 import { NBAService } from "../services/NBAService";
 import { NFLService } from "../services/NFLService";
 import { WNBAService } from "../services/WNBAService";
@@ -609,7 +610,10 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate("TeamPage", {
-                    teamId: awayTeam.id,
+                    teamId:
+                      sport === "mlb"
+                        ? getAPITeamId(awayTeam.id, "mlb") || awayTeam.id
+                        : awayTeam.id,
                     sport,
                   })
                 }
@@ -695,7 +699,10 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate("TeamPage", {
-                    teamId: homeTeam.id,
+                    teamId:
+                      sport === "mlb"
+                        ? getAPITeamId(homeTeam.id, "mlb") || homeTeam.id
+                        : homeTeam.id,
                     sport,
                   })
                 }

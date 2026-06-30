@@ -120,7 +120,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
 
   // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
   const getCacheDuration = (filter) => {
-    return filter === "today" || filter === "upcoming" ? 30000 : 300000; // 30s for today/upcoming, 5min for others
+    return filter === "today" || filter === "upcoming" ? 5000 : 50000; // 30s for today/upcoming, 5min for others
   };
 
   const getNoGamesMessage = (dateFilter) => {
@@ -173,7 +173,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
     ) {
       const interval = setInterval(() => {
         loadScoreboard(true, selectedDateFilter);
-      }, 30000); // 30 seconds for soccer
+      }, 5000); // 30 seconds for soccer
 
       setUpdateInterval(interval);
 

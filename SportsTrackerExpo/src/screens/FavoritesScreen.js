@@ -18,6 +18,7 @@ import { useFavorites } from "../context/FavoritesContext";
 import YearFallbackUtils from "../utils/YearFallbackUtils";
 import { ChampionsLeagueServiceEnhanced } from "../services/soccer/ChampionsLeagueServiceEnhanced";
 import { MLBService } from "../services/MLBService";
+import { WBCService } from "../services/WBCService";
 import {
   getAPITeamId,
   convertMLBIdToESPNId,
@@ -49,7 +50,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -726,7 +727,7 @@ const selectBestF1Time = (driver) => {
     // Priority 1: categories[1].gapToLeader (if exists and valid)
     if (categories[1] && categories[1].name === "gapToLeader") {
       const gapStat = categories[1].stats?.find(
-        (stat) => stat.name === "gapToLeader"
+        (stat) => stat.name === "gapToLeader",
       );
       if (gapStat) {
         if (gapStat.value === 0) {
@@ -736,7 +737,7 @@ const selectBestF1Time = (driver) => {
       } else {
         // gapToLeader category exists but no gapToLeader stat - check if this is position 1
         const positionStat = categories[1].stats?.find(
-          (stat) => stat.name === "position"
+          (stat) => stat.name === "position",
         );
         if (positionStat && positionStat.value === 1) {
           return "Leader";
@@ -1005,7 +1006,7 @@ const FavoritesScreen = ({ navigation }) => {
           eventId: f?.currentGame?.eventId || null,
           updatedAt: f?.currentGame?.updatedAt || null,
         }))
-        .sort((a, b) => (a.teamId || "").localeCompare(b.teamId || ""))
+        .sort((a, b) => (a.teamId || "").localeCompare(b.teamId || "")),
     );
 
     if (favoritesHash && favoritesHash !== newHash) {
@@ -1043,7 +1044,7 @@ const FavoritesScreen = ({ navigation }) => {
     performCleanup();
   }, []); // Run once on mount
 
-  // Daily cleanup effect - monitor for 2 AM EST rollover and clear old games
+  // Daily cleanup effect - monitor for 2 AM rollover and clear old games
   useEffect(() => {
     // Initialize current game day
     const initialGameDay = getCurrentGameDay();
@@ -1108,7 +1109,7 @@ const FavoritesScreen = ({ navigation }) => {
     try {
       await AsyncStorage.setItem(
         "favorites_section_order",
-        JSON.stringify(order)
+        JSON.stringify(order),
       );
     } catch (e) {}
   };
@@ -1184,7 +1185,7 @@ const FavoritesScreen = ({ navigation }) => {
 
         if (sub && sub.remove) sub.remove();
       };
-    }, [getFavoriteTeams, favorites])
+    }, [getFavoriteTeams, favorites]),
   );
 
   // Set up continuous refresh for live games
@@ -1210,7 +1211,7 @@ const FavoritesScreen = ({ navigation }) => {
       return shouldGameReceiveUpdates(
         game,
         statusInfo,
-        game.sport || "Unknown"
+        game.sport || "Unknown",
       );
     });
 
@@ -1260,7 +1261,7 @@ const FavoritesScreen = ({ navigation }) => {
             return shouldGameReceiveUpdates(
               game,
               statusInfo,
-              game.sport || "Unknown"
+              game.sport || "Unknown",
             );
           });
 
@@ -1289,9 +1290,12 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Set up periodic refresh every 5 minutes to catch date changes and game updates
   useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      fetchFavoriteGames(false); // Use poll mode for periodic refresh
-    }, 5 * 60 * 1000); // 5 minutes
+    const refreshInterval = setInterval(
+      () => {
+        fetchFavoriteGames(false); // Use poll mode for periodic refresh
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
 
     return () => clearInterval(refreshInterval);
   }, []);
@@ -1356,7 +1360,7 @@ const FavoritesScreen = ({ navigation }) => {
           return shouldGameReceiveUpdates(
             game,
             statusInfo,
-            game.sport || "Unknown"
+            game.sport || "Unknown",
           );
         });
 
@@ -1396,7 +1400,7 @@ const FavoritesScreen = ({ navigation }) => {
             const sport = String(f.sport || "").toLowerCase();
             const leagueCode = String(f.actualLeagueCode || "").toLowerCase();
             const competition = String(
-              f.currentGame?.competition || ""
+              f.currentGame?.competition || "",
             ).toLowerCase();
             // Only consider teams that are explicitly MLB and have MLB competition and the stored currentGame is scheduled
             const isMLBTeam = sport === "mlb" || leagueCode === "mlb";
@@ -1404,9 +1408,9 @@ const FavoritesScreen = ({ navigation }) => {
               f.currentGame && (f.currentGame.eventId || f.currentGame.gameId);
             const isScheduled = Boolean(
               f.currentGame &&
-                (f.currentGame.isScheduled ||
-                  f.currentGame.gameDataWithStatus?.header?.competitions?.[0]
-                    ?.status?.type?.state === "pre")
+              (f.currentGame.isScheduled ||
+                f.currentGame.gameDataWithStatus?.header?.competitions?.[0]
+                  ?.status?.type?.state === "pre"),
             );
             return (
               isMLBTeam &&
@@ -1431,13 +1435,13 @@ const FavoritesScreen = ({ navigation }) => {
                 if (
                   !shouldFetchGame(
                     fav.currentGame,
-                    fav.displayName || fav.teamName || "Unknown"
+                    fav.displayName || fav.teamName || "Unknown",
                   )
                 ) {
                   return;
                 }
 
-                const url = `https://statsapi.mlb.com/api/v1.1/game/${eventId}/feed/live`;
+                const url = `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${eventId}`;
                 const json = await fetchJsonWithCache(url);
 
                 const coded =
@@ -1462,7 +1466,7 @@ const FavoritesScreen = ({ navigation }) => {
                   fav.currentGame?.status ||
                   null;
                 const prevLinescoreJson = JSON.stringify(
-                  fav.currentGame?.linescore || fav.liveData?.linescore || null
+                  fav.currentGame?.linescore || fav.liveData?.linescore || null,
                 );
                 const newLinescoreJson = JSON.stringify(linescore || null);
                 if (
@@ -1472,7 +1476,7 @@ const FavoritesScreen = ({ navigation }) => {
                   await updateTeamCurrentGame(fav.teamId, updatedCurrentGame);
                 }
               } catch (err) {}
-            })
+            }),
           );
         } catch (err) {}
       }, 25 * 1000); // 25 seconds
@@ -1491,14 +1495,14 @@ const FavoritesScreen = ({ navigation }) => {
       return;
     }
 
-    // Wait for auto-population to complete before proceeding
+    // If auto-population is running in the background, do NOT block the UI.
+    // Auto-population will update the `favorites` state and trigger a refresh
+    // when it completes; showing instant cards immediately improves perceived load.
     if (autoPopulating) {
-      // Wait up to 10 seconds for auto-population
-      let attempts = 0;
-      while (autoPopulating && attempts < 20) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        attempts++;
-      }
+      if (DEBUG)
+        console.log(
+          "FavoritesScreen: autoPopulating in progress; continuing without blocking fetch.",
+        );
     }
 
     try {
@@ -1511,7 +1515,7 @@ const FavoritesScreen = ({ navigation }) => {
       if (!forceRefresh && lastFetchTime && now - lastFetchTime < 10000) {
         if (DEBUG)
           console.log(
-            "Skipping fetch - too soon since last fetch (10s cooldown)"
+            "Skipping fetch - too soon since last fetch (10s cooldown)",
           );
         setLoading(false);
         setRefreshing(false);
@@ -1593,12 +1597,12 @@ const FavoritesScreen = ({ navigation }) => {
             } = require("../utils/TeamPageUtils");
             const result = await fetchF1DriverCurrentRace(
               team.teamId,
-              updateTeamCurrentGame
+              updateTeamCurrentGame,
             );
             if (result && result.success) {
               // Get the updated team data
               const updatedTeam = getFavoriteTeams().find(
-                (t) => t.teamId === team.teamId
+                (t) => t.teamId === team.teamId,
               );
               currentGameData = updatedTeam?.currentGame || null;
             } else {
@@ -1642,7 +1646,7 @@ const FavoritesScreen = ({ navigation }) => {
             currentGameData.eventId
           ) {
             // Ensure eventLink is set for the stored game
-            currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
+            currentGameData.eventLink = `/wbc/gameFeed/${currentGameData.eventId}`;
           }
 
         if (
@@ -1657,7 +1661,7 @@ const FavoritesScreen = ({ navigation }) => {
           // Still perform a background enhancement fetch to get full game details, but do not block the UI
           const directResult = await promiseWithTimeout(
             fetchGameFromEventLink(team, currentGameData),
-            4500
+            4500,
           );
           if (directResult) {
             const results = Array.isArray(directResult)
@@ -1712,7 +1716,7 @@ const FavoritesScreen = ({ navigation }) => {
       // Wait for all to finish, then compute final unique set and replace state with final sorted list
       const settled = await Promise.allSettled(gamesPromises);
       const gamesArrays = settled.map((s) =>
-        s.status === "fulfilled" ? s.value : null
+        s.status === "fulfilled" ? s.value : null,
       );
       // Flatten the arrays since each team can return multiple games
       const allGames = gamesArrays.filter((a) => a).flat();
@@ -1738,7 +1742,7 @@ const FavoritesScreen = ({ navigation }) => {
               (g.sport === "F1" ||
                 g.actualLeagueCode === "f1" ||
                 g.sport === "f1") &&
-              `${g.id}_${g.constructorName || "unknown"}` === uniqueKey
+              `${g.id}_${g.constructorName || "unknown"}` === uniqueKey,
           );
           if (!existingF1Game) {
             acc.push(game);
@@ -1777,14 +1781,14 @@ const FavoritesScreen = ({ navigation }) => {
             (t) =>
               t.displayName === game.favoriteTeam ||
               t.teamName === game.favoriteTeam ||
-              String(t.teamId) === String(game.favoriteTeamId)
+              String(t.teamId) === String(game.favoriteTeamId),
           );
 
           if (favoriteTeam && favoriteTeam.teamId) {
             storagePromises.push(
               updateTeamCurrentGame(favoriteTeam.teamId, currentGameData).catch(
-                (error) => {}
-              )
+                (error) => {},
+              ),
             );
           } else {
           }
@@ -1810,7 +1814,7 @@ const FavoritesScreen = ({ navigation }) => {
               unionMap.set(String(g.id), {
                 ...(g || {}),
                 ...computeMatchFlags(g || {}),
-              })
+              }),
             );
             (prev || []).forEach((g) => {
               if (g && g.id && !unionMap.has(String(g.id)))
@@ -1833,7 +1837,7 @@ const FavoritesScreen = ({ navigation }) => {
           uniqueGames.map((g) => ({
             ...(g || {}),
             ...computeMatchFlags(g || {}),
-          }))
+          })),
         );
         setFavoriteGames(finalGames);
       }
@@ -1855,71 +1859,71 @@ const FavoritesScreen = ({ navigation }) => {
   // Accept a snapshot of currentGames and a prefiltered liveSnapshot to avoid stale closures
   const updateLiveGamesPlays = async (
     currentGamesSnapshot = null,
-    liveSnapshot = null
+    liveSnapshot = null,
   ) => {
     try {
       // Get games that should receive updates based on their status and timing
       const gamesToUpdate = Array.isArray(liveSnapshot)
         ? liveSnapshot
         : Array.isArray(currentGamesSnapshot)
-        ? currentGamesSnapshot.filter((g) => {
-            if (!g) return false;
+          ? currentGamesSnapshot.filter((g) => {
+              if (!g) return false;
 
-            let statusInfo;
-            if (
-              g.isLive === undefined &&
-              g.isScheduled === undefined &&
-              g.isFinished === undefined
-            ) {
-              const flags = computeMatchFlags(g);
-              statusInfo = {
-                isLive: flags.isLive,
-                isPre: flags.isScheduled && !flags.isLive,
-                isPost: flags.isFinished,
-              };
-            } else {
-              statusInfo = {
-                isLive: g.isLive,
-                isPre: g.isScheduled && !g.isLive,
-                isPost: g.isFinished,
-              };
-            }
+              let statusInfo;
+              if (
+                g.isLive === undefined &&
+                g.isScheduled === undefined &&
+                g.isFinished === undefined
+              ) {
+                const flags = computeMatchFlags(g);
+                statusInfo = {
+                  isLive: flags.isLive,
+                  isPre: flags.isScheduled && !flags.isLive,
+                  isPost: flags.isFinished,
+                };
+              } else {
+                statusInfo = {
+                  isLive: g.isLive,
+                  isPre: g.isScheduled && !g.isLive,
+                  isPost: g.isFinished,
+                };
+              }
 
-            return shouldGameReceiveUpdates(
-              g,
-              statusInfo,
-              g.sport || "Unknown"
-            );
-          })
-        : favoriteGames.filter((game) => {
-            if (!game) return false;
+              return shouldGameReceiveUpdates(
+                g,
+                statusInfo,
+                g.sport || "Unknown",
+              );
+            })
+          : favoriteGames.filter((game) => {
+              if (!game) return false;
 
-            let statusInfo;
-            if (
-              game.isLive === undefined &&
-              game.isScheduled === undefined &&
-              game.isFinished === undefined
-            ) {
-              const flags = computeMatchFlags(game);
-              statusInfo = {
-                isLive: flags.isLive,
-                isPre: flags.isScheduled && !flags.isLive,
-                isPost: flags.isFinished,
-              };
-            } else {
-              statusInfo = {
-                isLive: game.isLive,
-                isPre: game.isScheduled && !game.isLive,
-                isPost: game.isFinished,
-              };
-            }
+              let statusInfo;
+              if (
+                game.isLive === undefined &&
+                game.isScheduled === undefined &&
+                game.isFinished === undefined
+              ) {
+                const flags = computeMatchFlags(game);
+                statusInfo = {
+                  isLive: flags.isLive,
+                  isPre: flags.isScheduled && !flags.isLive,
+                  isPost: flags.isFinished,
+                };
+              } else {
+                statusInfo = {
+                  isLive: game.isLive,
+                  isPre: game.isScheduled && !game.isLive,
+                  isPost: game.isFinished,
+                };
+              }
 
-            return shouldGameReceiveUpdates(
-              game,
-              statusInfo,
-              game.sport || "Unknown"
-            );
-          });
+              return shouldGameReceiveUpdates(
+                game,
+                statusInfo,
+                game.sport || "Unknown",
+              );
+            });
 
       if (gamesToUpdate.length === 0) {
         return;
@@ -1947,7 +1951,7 @@ const FavoritesScreen = ({ navigation }) => {
               game.actualLeagueCode === "uefa.champions"
             ) {
               const playsResponseData = await fetchJsonWithCache(
-                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`,
               );
               if (
                 playsResponseData.items &&
@@ -1980,17 +1984,17 @@ const FavoritesScreen = ({ navigation }) => {
                         const scoreData = await getEventData(
                           competitor.score.$ref,
                           true,
-                          { ...game, respectLiveStatus: true }
+                          { ...game, respectLiveStatus: true },
                         ).catch(() => null);
                         return { index, scoreData };
                       }
                       return { index, scoreData: null };
-                    }
+                    },
                   );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(
-                    (r) => r.scoreData !== null
+                    (r) => r.scoreData !== null,
                   );
                 } catch (scoreErr) {}
               }
@@ -1999,7 +2003,7 @@ const FavoritesScreen = ({ navigation }) => {
               game.actualLeagueCode === "uefa.europa"
             ) {
               const playsResponseData = await fetchJsonWithCache(
-                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`,
               );
               if (
                 playsResponseData.items &&
@@ -2032,17 +2036,17 @@ const FavoritesScreen = ({ navigation }) => {
                         const scoreData = await getEventData(
                           competitor.score.$ref,
                           true,
-                          { ...game, respectLiveStatus: true }
+                          { ...game, respectLiveStatus: true },
                         ).catch(() => null);
                         return { index, scoreData };
                       }
                       return { index, scoreData: null };
-                    }
+                    },
                   );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(
-                    (r) => r.scoreData !== null
+                    (r) => r.scoreData !== null,
                   );
                 } catch (scoreErr) {}
               }
@@ -2051,7 +2055,7 @@ const FavoritesScreen = ({ navigation }) => {
               game.actualLeagueCode === "uefa.europa.conf"
             ) {
               const playsResponseData = await fetchJsonWithCache(
-                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`,
               );
               if (
                 playsResponseData.items &&
@@ -2084,17 +2088,17 @@ const FavoritesScreen = ({ navigation }) => {
                         const scoreData = await getEventData(
                           competitor.score.$ref,
                           true,
-                          { ...game, respectLiveStatus: true }
+                          { ...game, respectLiveStatus: true },
                         ).catch(() => null);
                         return { index, scoreData };
                       }
                       return { index, scoreData: null };
-                    }
+                    },
                   );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(
-                    (r) => r.scoreData !== null
+                    (r) => r.scoreData !== null,
                   );
                 } catch (scoreErr) {}
               }
@@ -2174,7 +2178,7 @@ const FavoritesScreen = ({ navigation }) => {
                       latest.description ||
                       (Array.isArray(latest.playEvents) &&
                         latest.playEvents.some(
-                          (ev) => ev?.details?.description
+                          (ev) => ev?.details?.description,
                         )));
                   if (
                     !hasDescription &&
@@ -2183,7 +2187,7 @@ const FavoritesScreen = ({ navigation }) => {
                     game.playsData.length > 0
                   ) {
                     console.log(
-                      `Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`
+                      `Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`,
                     );
                     playsData = game.playsData; // preserve previous rich plays
                   }
@@ -2259,7 +2263,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (typeof newSituation !== "undefined") {
                   try {
                     const currentSituationJson = JSON.stringify(
-                      (game.liveData && game.liveData.situation) || null
+                      (game.liveData && game.liveData.situation) || null,
                     );
                     const newSituationJson = JSON.stringify(newSituation);
                     if (currentSituationJson !== newSituationJson) {
@@ -2308,7 +2312,7 @@ const FavoritesScreen = ({ navigation }) => {
                   // Also fetch drives (plays) so we can derive situation/play text reliably like GameDetails
                   try {
                     drivesData = await NFLService.getDrives(game.id).catch(
-                      () => null
+                      () => null,
                     );
                   } catch (dErr) {}
                 }
@@ -2329,10 +2333,10 @@ const FavoritesScreen = ({ navigation }) => {
 
                   // Update team scores and colors
                   const homeTeam = competition.competitors?.find(
-                    (c) => c.homeAway === "home"
+                    (c) => c.homeAway === "home",
                   );
                   const awayTeam = competition.competitors?.find(
-                    (c) => c.homeAway === "away"
+                    (c) => c.homeAway === "away",
                   );
 
                   if (homeTeam && updatedGame.homeTeam) {
@@ -2390,7 +2394,7 @@ const FavoritesScreen = ({ navigation }) => {
                       [...drivesData]
                         .reverse()
                         .find(
-                          (d) => Array.isArray(d.plays) && d.plays.length
+                          (d) => Array.isArray(d.plays) && d.plays.length,
                         ) || drivesData[drivesData.length - 1];
                     updatedGame.playsData =
                       driveWithPlays && Array.isArray(driveWithPlays.plays)
@@ -2399,7 +2403,7 @@ const FavoritesScreen = ({ navigation }) => {
                     // Always try to update situation with latest data from drives
                     const currentDrive = drivesData.find(
                       (drive) =>
-                        !drive.end?.text && drive.result !== "End of Game"
+                        !drive.end?.text && drive.result !== "End of Game",
                     );
                     if (
                       currentDrive &&
@@ -2468,9 +2472,8 @@ const FavoritesScreen = ({ navigation }) => {
                     if (isLive) {
                       try {
                         const playsUrl = `${nhlSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(
-                          playsUrl
-                        );
+                        const playsResponse =
+                          await fetchJsonWithCache(playsUrl);
                         if (
                           playsResponse?.plays &&
                           playsResponse.plays.length > 0
@@ -2515,9 +2518,8 @@ const FavoritesScreen = ({ navigation }) => {
                     if (isLive) {
                       try {
                         const playsUrl = `${nbaSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(
-                          playsUrl
-                        );
+                        const playsResponse =
+                          await fetchJsonWithCache(playsUrl);
                         if (
                           playsResponse?.plays &&
                           playsResponse.plays.length > 0
@@ -2562,9 +2564,8 @@ const FavoritesScreen = ({ navigation }) => {
                     if (isLive) {
                       try {
                         const playsUrl = `${wnbaSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(
-                          playsUrl
-                        );
+                        const playsResponse =
+                          await fetchJsonWithCache(playsUrl);
                         if (
                           playsResponse?.plays &&
                           playsResponse.plays.length > 0
@@ -2590,7 +2591,7 @@ const FavoritesScreen = ({ navigation }) => {
             ) {
               // Handle domestic leagues using the actualLeagueCode (skip NFL, NHL, NBA, WNBA, F1 as they're not soccer)
               const playsResponseData = await fetchJsonWithCache(
-                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`,
               );
               if (
                 playsResponseData?.items &&
@@ -2626,17 +2627,17 @@ const FavoritesScreen = ({ navigation }) => {
                         const scoreData = await getEventData(
                           competitor.score.$ref,
                           true,
-                          { ...game, respectLiveStatus: true }
+                          { ...game, respectLiveStatus: true },
                         ).catch(() => null);
                         return { index, scoreData };
                       }
                       return { index, scoreData: null };
-                    }
+                    },
                   );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(
-                    (r) => r.scoreData !== null
+                    (r) => r.scoreData !== null,
                   );
                 } catch (scoreErr) {}
               }
@@ -2747,7 +2748,7 @@ const FavoritesScreen = ({ navigation }) => {
           } catch (error) {
             return game;
           }
-        })
+        }),
       );
 
       // Only update state if there were actual changes
@@ -2779,19 +2780,19 @@ const FavoritesScreen = ({ navigation }) => {
         if (currentSituationNFL !== newSituationNFL) return true;
 
         const currentSituationMLB = JSON.stringify(
-          prev?.liveData?.situation || null
+          prev?.liveData?.situation || null,
         );
         const newSituationMLB = JSON.stringify(
-          game?.liveData?.situation || null
+          game?.liveData?.situation || null,
         );
         if (currentSituationMLB !== newSituationMLB) return true;
 
         // Compare competition scores/status
         const prevCompSnap = JSON.stringify(
-          extractCompetitionsScoreSnapshot(prev)
+          extractCompetitionsScoreSnapshot(prev),
         );
         const newCompSnap = JSON.stringify(
-          extractCompetitionsScoreSnapshot(game)
+          extractCompetitionsScoreSnapshot(game),
         );
         if (prevCompSnap !== newCompSnap) return true;
 
@@ -2809,7 +2810,7 @@ const FavoritesScreen = ({ navigation }) => {
   const getEventData = async (
     url,
     bypassGating = false,
-    gameContext = null
+    gameContext = null,
   ) => {
     if (!url) {
       return null;
@@ -2818,8 +2819,12 @@ const FavoritesScreen = ({ navigation }) => {
     try {
       if (typeof url === "string") {
         if (url.startsWith("/api/v1.1/game/")) {
-          // MLB statsapi URL
-          url = `https://statsapi.mlb.com${url}`;
+          const match = url.match(/\/game\/(\d+)\/feed/);
+
+          if (match) {
+            const gameId = match[1];
+            url = `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${gameId}`;
+          }
         } else if (url.startsWith("/nhl/game/")) {
           // NHL game URL - extract event ID and build proper ESPN API URL
           const eventIdMatch = url.match(/\/nhl\/game\/(\d+)/);
@@ -2932,11 +2937,11 @@ const FavoritesScreen = ({ navigation }) => {
       ) {
         // Allow F1 races from up to 3 days ago to be shown (covers weekend race results)
         extendedTodayStart = new Date(
-          todayStart.getTime() - 3 * 24 * 60 * 60 * 1000
+          todayStart.getTime() - 3 * 24 * 60 * 60 * 1000,
         );
         // Also extend forward for upcoming races within next 3 days
         extendedTodayEnd = new Date(
-          todayEnd.getTime() + 3 * 24 * 60 * 60 * 1000
+          todayEnd.getTime() + 3 * 24 * 60 * 60 * 1000,
         );
       }
 
@@ -2946,14 +2951,14 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Handle MLB games differently - prefer the proper MLB API format (case-insensitive)
       if (teamSport === "mlb" && currentGameData.eventId) {
-        const mlbUrl = `https://statsapi.mlb.com/api/v1.1/game/${currentGameData.eventId}/feed/live`;
+        const mlbUrl = `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${currentGameData.eventId}`;
         const eventData = await fetchJsonWithCache(mlbUrl);
 
         if (!eventData) {
           return null;
         }
 
-        const mlbData = eventData;
+        const mlbData = eventData.data;
 
         // Convert MLB data to the expected format for the favorites screen
         // Resolve the eventLink to a full statsapi URL if it's a relative path
@@ -2963,7 +2968,12 @@ const FavoritesScreen = ({ navigation }) => {
             typeof resolvedMlbEventLink === "string" &&
             resolvedMlbEventLink.startsWith("/api/v1.1/game/")
           ) {
-            resolvedMlbEventLink = `https://statsapi.mlb.com${resolvedMlbEventLink}`;
+            const match = resolvedMlbEventLink.match(/\/game\/(\d+)\/feed/);
+
+            if (match) {
+              const gameId = match[1];
+              resolvedMlbEventLink = `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${gameId}`;
+            }
           }
         } catch (e) {
           // ignore
@@ -3088,10 +3098,10 @@ const FavoritesScreen = ({ navigation }) => {
 
           // Build the game object manually from the summary API structure
           const homeTeam = competition.competitors?.find(
-            (c) => c.homeAway === "home"
+            (c) => c.homeAway === "home",
           );
           const awayTeam = competition.competitors?.find(
-            (c) => c.homeAway === "away"
+            (c) => c.homeAway === "away",
           );
 
           if (!homeTeam || !awayTeam) {
@@ -3139,7 +3149,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (drives && drives.length) {
                   // Find the current drive in progress, otherwise fall back to the last drive
                   let currentDrive = drives.find(
-                    (d) => !d.end?.text && d.result !== "End of Game"
+                    (d) => !d.end?.text && d.result !== "End of Game",
                   );
                   if (!currentDrive)
                     currentDrive = drives[drives.length - 1] || drives[0];
@@ -3825,7 +3835,7 @@ const FavoritesScreen = ({ navigation }) => {
           if (competition.status?.$ref) {
             try {
               const normalizedCompetitionStatusRef = normalizeUrl(
-                competition.status.$ref
+                competition.status.$ref,
               );
               const statusResp = await fetch(normalizedCompetitionStatusRef, {
                 timeout: 10000,
@@ -3909,7 +3919,7 @@ const FavoritesScreen = ({ navigation }) => {
                   liveStats: driver.liveStats || null,
                 };
               }
-            })
+            }),
           );
 
           // Compute status flags based on statusObject (resolved from $ref)
@@ -4015,10 +4025,15 @@ const FavoritesScreen = ({ navigation }) => {
       let resolvedEventLink = currentGameData.eventLink;
       try {
         if (
-          typeof resolvedEventLink === "string" &&
-          resolvedEventLink.startsWith("/api/v1.1/game/")
+          typeof resolvedMlbEventLink === "string" &&
+          resolvedMlbEventLink.startsWith("/api/v1.1/game/")
         ) {
-          resolvedEventLink = `https://statsapi.mlb.com${resolvedEventLink}`;
+          const match = resolvedMlbEventLink.match(/\/game\/(\d+)\/feed/);
+
+          if (match) {
+            const gameId = match[1];
+            resolvedMlbEventLink = `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${gameId}`;
+          }
         }
       } catch (e) {
         // ignore
@@ -4057,12 +4072,11 @@ const FavoritesScreen = ({ navigation }) => {
             } catch (e) {
               return competitor;
             }
-          }
+          },
         );
 
-        eventData.competitions[0].competitors = await Promise.all(
-          competitorPromises
-        );
+        eventData.competitions[0].competitors =
+          await Promise.all(competitorPromises);
       }
 
       // Resolve a stable event id to avoid using undefined in downstream requests
@@ -4120,13 +4134,13 @@ const FavoritesScreen = ({ navigation }) => {
             ...soccerCompetitions.filter(
               (comp) =>
                 comp !== currentGameData.competition &&
-                comp !== inferredLeagueCode
-            )
+                comp !== inferredLeagueCode,
+            ),
           );
 
           // Remove duplicates and null/undefined values
           const uniqueCompetitions = [...new Set(competitionsToTry)].filter(
-            Boolean
+            Boolean,
           );
           // If we don't have a usable event id, skip attempting status fetches to avoid event=undefined
           if (!eventIdFallback) {
@@ -4135,7 +4149,7 @@ const FavoritesScreen = ({ navigation }) => {
               try {
                 // Use the central cached fetch helper so we respect poll gating and caching.
                 const statusJson = await fetchJsonWithCache(
-                  `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventIdFallback}`
+                  `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventIdFallback}`,
                 );
                 if (statusJson) {
                   gameDataWithStatus = statusJson;
@@ -4170,11 +4184,11 @@ const FavoritesScreen = ({ navigation }) => {
                 ? currentGameData.competition
                 : inferredLeagueCode
               : inferredLeagueCode && inferredLeagueCode.includes(".")
-              ? inferredLeagueCode
-              : soccerFallback;
+                ? inferredLeagueCode
+                : soccerFallback;
 
           const playsResponse = await fetch(
-            `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competitionForPlays}/events/${eventIdFallback}/competitions/${eventIdFallback}/plays?lang=en&region=us&limit=1000`
+            `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competitionForPlays}/events/${eventIdFallback}/competitions/${eventIdFallback}/plays?lang=en&region=us&limit=1000`,
           );
           if (playsResponse.ok) {
             const playsResponseData = await playsResponse.json();
@@ -4238,12 +4252,12 @@ const FavoritesScreen = ({ navigation }) => {
                     const [teamData, scoreData] = await Promise.all([
                       competitor.team?.$ref
                         ? fetchTeamMetadataWithCache(
-                            competitor.team.$ref
+                            competitor.team.$ref,
                           ).catch(() => null)
                         : null,
                       competitor.score?.$ref
                         ? fetchJsonWithCache(competitor.score.$ref).catch(
-                            () => null
+                            () => null,
                           )
                         : null,
                     ]);
@@ -4252,12 +4266,11 @@ const FavoritesScreen = ({ navigation }) => {
                       team: teamData || competitor.team,
                       score: scoreData || competitor.score,
                     };
-                  }
+                  },
                 );
 
-              eventData.competitions[0].competitors = await Promise.all(
-                competitorPromises
-              );
+              eventData.competitions[0].competitors =
+                await Promise.all(competitorPromises);
             }
 
             // Get full game data with status from Site API (like Game Details screen)
@@ -4270,7 +4283,7 @@ const FavoritesScreen = ({ navigation }) => {
               for (const competition of competitionOrder) {
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4288,7 +4301,7 @@ const FavoritesScreen = ({ navigation }) => {
             if (isLive) {
               try {
                 const playsJson = await fetchJsonWithCache(
-                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                 );
                 if (playsJson?.items && playsJson.items.length > 0) {
                   // Sort plays in reverse chronological order (most recent first) like Game Details
@@ -4344,12 +4357,12 @@ const FavoritesScreen = ({ navigation }) => {
                     const [teamData, scoreData] = await Promise.all([
                       competitor.team?.$ref
                         ? fetchTeamMetadataWithCache(
-                            competitor.team.$ref
+                            competitor.team.$ref,
                           ).catch(() => null)
                         : null,
                       competitor.score?.$ref
                         ? fetchJsonWithCache(competitor.score.$ref).catch(
-                            () => null
+                            () => null,
                           )
                         : null,
                     ]);
@@ -4358,12 +4371,11 @@ const FavoritesScreen = ({ navigation }) => {
                       team: teamData || competitor.team,
                       score: scoreData || competitor.score,
                     };
-                  }
+                  },
                 );
 
-              eventData.competitions[0].competitors = await Promise.all(
-                competitorPromises
-              );
+              eventData.competitions[0].competitors =
+                await Promise.all(competitorPromises);
             }
 
             // Get full game data with status from Site API (like Game Details screen)
@@ -4373,7 +4385,7 @@ const FavoritesScreen = ({ navigation }) => {
               for (const competition of competitionOrder) {
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4391,7 +4403,7 @@ const FavoritesScreen = ({ navigation }) => {
             if (isLive) {
               try {
                 const playsJson = await fetchJsonWithCache(
-                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                 );
                 if (playsJson?.items && playsJson.items.length > 0) {
                   // Sort plays in reverse chronological order (most recent first) like Game Details
@@ -4446,12 +4458,12 @@ const FavoritesScreen = ({ navigation }) => {
                     const [teamData, scoreData] = await Promise.all([
                       competitor.team?.$ref
                         ? fetchTeamMetadataWithCache(
-                            competitor.team.$ref
+                            competitor.team.$ref,
                           ).catch(() => null)
                         : null,
                       competitor.score?.$ref
                         ? fetchJsonWithCache(competitor.score.$ref).catch(
-                            () => null
+                            () => null,
                           )
                         : null,
                     ]);
@@ -4460,12 +4472,11 @@ const FavoritesScreen = ({ navigation }) => {
                       team: teamData || competitor.team,
                       score: scoreData || competitor.score,
                     };
-                  }
+                  },
                 );
 
-              eventData.competitions[0].competitors = await Promise.all(
-                competitorPromises
-              );
+              eventData.competitions[0].competitors =
+                await Promise.all(competitorPromises);
             }
 
             // Get full game data with status from Site API (like Game Details screen)
@@ -4478,7 +4489,7 @@ const FavoritesScreen = ({ navigation }) => {
               for (const competition of competitionOrder) {
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4496,7 +4507,7 @@ const FavoritesScreen = ({ navigation }) => {
             if (isLive) {
               try {
                 const playsResponse = await fetch(
-                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                 );
                 if (playsResponse.ok) {
                   const playsResponseData = await playsResponse.json();
@@ -4565,12 +4576,12 @@ const FavoritesScreen = ({ navigation }) => {
                         const [teamData, scoreData] = await Promise.all([
                           competitor.team?.$ref
                             ? fetchTeamMetadataWithCache(
-                                competitor.team.$ref
+                                competitor.team.$ref,
                               ).catch(() => null)
                             : null,
                           competitor.score?.$ref
                             ? fetchJsonWithCache(competitor.score.$ref).catch(
-                                () => null
+                                () => null,
                               )
                             : null,
                         ]);
@@ -4579,19 +4590,18 @@ const FavoritesScreen = ({ navigation }) => {
                           team: teamData || competitor.team,
                           score: scoreData || competitor.score,
                         };
-                      }
+                      },
                     );
 
-                  eventData.competitions[0].competitors = await Promise.all(
-                    competitorPromises
-                  );
+                  eventData.competitions[0].competitors =
+                    await Promise.all(competitorPromises);
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4606,7 +4616,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (isLive) {
                   try {
                     const playsJson = await fetchJsonWithCache(
-                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                     );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
@@ -4672,12 +4682,12 @@ const FavoritesScreen = ({ navigation }) => {
                         const [teamData, scoreData] = await Promise.all([
                           competitor.team?.$ref
                             ? fetchTeamMetadataWithCache(
-                                competitor.team.$ref
+                                competitor.team.$ref,
                               ).catch(() => null)
                             : null,
                           competitor.score?.$ref
                             ? fetchJsonWithCache(competitor.score.$ref).catch(
-                                () => null
+                                () => null,
                               )
                             : null,
                         ]);
@@ -4686,19 +4696,18 @@ const FavoritesScreen = ({ navigation }) => {
                           team: teamData || competitor.team,
                           score: scoreData || competitor.score,
                         };
-                      }
+                      },
                     );
 
-                  eventData.competitions[0].competitors = await Promise.all(
-                    competitorPromises
-                  );
+                  eventData.competitions[0].competitors =
+                    await Promise.all(competitorPromises);
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4713,7 +4722,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (isLive) {
                   try {
                     const playsJson = await fetchJsonWithCache(
-                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                     );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
@@ -4779,12 +4788,12 @@ const FavoritesScreen = ({ navigation }) => {
                         const [teamData, scoreData] = await Promise.all([
                           competitor.team?.$ref
                             ? fetchTeamMetadataWithCache(
-                                competitor.team.$ref
+                                competitor.team.$ref,
                               ).catch(() => null)
                             : null,
                           competitor.score?.$ref
                             ? fetchJsonWithCache(competitor.score.$ref).catch(
-                                () => null
+                                () => null,
                               )
                             : null,
                         ]);
@@ -4793,19 +4802,18 @@ const FavoritesScreen = ({ navigation }) => {
                           team: teamData || competitor.team,
                           score: scoreData || competitor.score,
                         };
-                      }
+                      },
                     );
 
-                  eventData.competitions[0].competitors = await Promise.all(
-                    competitorPromises
-                  );
+                  eventData.competitions[0].competitors =
+                    await Promise.all(competitorPromises);
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
                   const statusJson = await fetchJsonWithCache(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`,
                   );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
@@ -4820,7 +4828,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (isLive) {
                   try {
                     const playsJson = await fetchJsonWithCache(
-                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                     );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
@@ -4884,12 +4892,12 @@ const FavoritesScreen = ({ navigation }) => {
                         const [teamData, scoreData] = await Promise.all([
                           competitor.team?.$ref
                             ? fetchTeamMetadataWithCache(
-                                competitor.team.$ref
+                                competitor.team.$ref,
                               ).catch(() => null)
                             : null,
                           competitor.score?.$ref
                             ? fetchJsonWithCache(competitor.score.$ref).catch(
-                                () => null
+                                () => null,
                               )
                             : null,
                         ]);
@@ -4898,19 +4906,18 @@ const FavoritesScreen = ({ navigation }) => {
                           team: teamData || competitor.team,
                           score: scoreData || competitor.score,
                         };
-                      }
+                      },
                     );
 
-                  eventData.competitions[0].competitors = await Promise.all(
-                    competitorPromises
-                  );
+                  eventData.competitions[0].competitors =
+                    await Promise.all(competitorPromises);
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
                   const statusResponse = await fetch(
-                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`,
                   );
                   if (statusResponse.ok) {
                     gameDataWithStatus = await statusResponse.json();
@@ -4926,7 +4933,7 @@ const FavoritesScreen = ({ navigation }) => {
                 if (isLive) {
                   try {
                     const playsResponse = await fetch(
-                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`,
                     );
                     if (playsResponse.ok) {
                       const playsResponseData = await playsResponse.json();
@@ -4996,12 +5003,12 @@ const FavoritesScreen = ({ navigation }) => {
                         const [teamData, scoreData] = await Promise.all([
                           competitor.team?.$ref
                             ? fetchTeamMetadataWithCache(
-                                competitor.team.$ref
+                                competitor.team.$ref,
                               ).catch(() => null)
                             : null,
                           competitor.score?.$ref
                             ? fetchJsonWithCache(competitor.score.$ref).catch(
-                                () => null
+                                () => null,
                               )
                             : null,
                         ]);
@@ -5010,12 +5017,11 @@ const FavoritesScreen = ({ navigation }) => {
                           team: teamData || competitor.team,
                           score: scoreData || competitor.score,
                         };
-                      }
+                      },
                     );
 
-                  eventData.competitions[0].competitors = await Promise.all(
-                    competitorPromises
-                  );
+                  eventData.competitions[0].competitors =
+                    await Promise.all(competitorPromises);
                 }
 
                 // Fetch Site API status for proper live game display
@@ -5073,9 +5079,9 @@ const FavoritesScreen = ({ navigation }) => {
       const { todayStart, todayEnd } = getTodayDateRange();
 
       // Use the same date format as team page - YYYY-MM-DD for today
-      // Use EST hours to match the getTodayDateRange function
+      // Use hours to match the getTodayDateRange function
       const today = new Date();
-      const estOffset = -4 * 60; // EST is UTC-4 during daylight time
+      const estOffset = -4 * 60; // is UTC-4 during daylight time
       const todayEST = new Date(today.getTime() + estOffset * 60 * 1000);
       const currentHourEST = todayEST.getUTCHours();
 
@@ -5115,7 +5121,7 @@ const FavoritesScreen = ({ navigation }) => {
           favoriteTeam: team,
           sport: "MLB",
           actualLeagueCode: "mlb",
-          eventLink: `https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`,
+          eventLink: `https://sportsheart-baseball.up.railway.app/wbc/gameFeed/${game.gamePk}`,
           liveData,
           mlbGameData: game, // Use the MLB API game data directly
         };
@@ -5204,7 +5210,7 @@ const FavoritesScreen = ({ navigation }) => {
       // App stack registers a generic 'GameDetails' route that multiplexes by sport.
       // Navigate there and pass sport param so the correct detail screen is used.
       navigation.navigate("GameDetails", {
-        gameId: game.id,
+        gamePk: game.id,
         sport: "mlb",
       });
     } else if (
@@ -5518,7 +5524,7 @@ const FavoritesScreen = ({ navigation }) => {
           ) {
             playText = String(
               nonEmpty(currentPlayObj.about?.playText) ||
-                nonEmpty(currentPlayObj.about?.description)
+                nonEmpty(currentPlayObj.about?.description),
             ).trim();
           }
           // 3b. lastPlay play text (about.playText or about.description)
@@ -5528,7 +5534,7 @@ const FavoritesScreen = ({ navigation }) => {
           ) {
             playText = String(
               nonEmpty(last.about?.playText) ||
-                nonEmpty(last.about?.description)
+                nonEmpty(last.about?.description),
             ).trim();
           }
           // 4. Try to extract from playEvents with built logic
@@ -5540,7 +5546,7 @@ const FavoritesScreen = ({ navigation }) => {
               .filter((ev) => ev && ev.details)
               .filter((ev) => {
                 const evType = String(
-                  ev.details.eventType || ev.type || ""
+                  ev.details.eventType || ev.type || "",
                 ).toLowerCase();
                 return !(
                   evType.includes("game_advisory") ||
@@ -5630,10 +5636,10 @@ const FavoritesScreen = ({ navigation }) => {
           (inferredTeamId
             ? { id: inferredTeamId }
             : matchupBatHome
-            ? { id: matchupBatHome }
-            : matchupBatAway
-            ? { id: matchupBatAway }
-            : null);
+              ? { id: matchupBatHome }
+              : matchupBatAway
+                ? { id: matchupBatAway }
+                : null);
 
         return {
           text: playText || "",
@@ -5697,7 +5703,7 @@ const FavoritesScreen = ({ navigation }) => {
             ) {
               mlbText = String(
                 nonEmpty(currentPlayObj.about?.playText) ||
-                  nonEmpty(currentPlayObj.about?.description)
+                  nonEmpty(currentPlayObj.about?.description),
               ).trim();
             }
             // 3b. playToAnalyze play text (about.playText or about.description)
@@ -5707,7 +5713,7 @@ const FavoritesScreen = ({ navigation }) => {
             ) {
               mlbText = String(
                 nonEmpty(playToAnalyze.about?.playText) ||
-                  nonEmpty(playToAnalyze.about?.description)
+                  nonEmpty(playToAnalyze.about?.description),
               ).trim();
             }
             // 4. Try to extract from playEvents with built logic
@@ -5719,7 +5725,7 @@ const FavoritesScreen = ({ navigation }) => {
                 .filter((ev) => ev && ev.details)
                 .filter((ev) => {
                   const evType = String(
-                    ev.details.eventType || ev.type || ""
+                    ev.details.eventType || ev.type || "",
                   ).toLowerCase();
                   return !(
                     evType.includes("game_advisory") ||
@@ -5767,7 +5773,7 @@ const FavoritesScreen = ({ navigation }) => {
                 "";
               if (mlbText)
                 console.log(
-                  `MLB play text (playsData) from final fallback: ${mlbText}`
+                  `MLB play text (playsData) from final fallback: ${mlbText}`,
                 );
             }
           } catch (e) {
@@ -5830,8 +5836,8 @@ const FavoritesScreen = ({ navigation }) => {
               (matchupBatHome
                 ? { id: matchupBatHome }
                 : matchupBatAway
-                ? { id: matchupBatAway }
-                : null),
+                  ? { id: matchupBatAway }
+                  : null),
             inferredIsHome: inferredIsHome2,
             inferredTeamId: inferredTeamId2,
             halfInning:
@@ -5960,10 +5966,10 @@ const FavoritesScreen = ({ navigation }) => {
       competition?.type?.abbreviation === "FP1"
         ? "1"
         : competition?.type?.abbreviation === "FP2"
-        ? "2"
-        : competition?.type?.abbreviation === "FP3"
-        ? "3"
-        : "";
+          ? "2"
+          : competition?.type?.abbreviation === "FP3"
+            ? "3"
+            : "";
 
     let competitionStatus = "Scheduled";
     if (isLive) competitionStatus = "In Progress";
@@ -6413,10 +6419,10 @@ const FavoritesScreen = ({ navigation }) => {
 
     const competition = game.competitions[0];
     const awayTeam = competition.competitors.find(
-      (team) => team.homeAway === "away"
+      (team) => team.homeAway === "away",
     );
     const homeTeam = competition.competitors.find(
-      (team) => team.homeAway === "home"
+      (team) => team.homeAway === "home",
     );
 
     if (!awayTeam || !homeTeam) return null;
@@ -6692,7 +6698,7 @@ const FavoritesScreen = ({ navigation }) => {
       };
 
       const playTeamId = extractTeamIdFromPlay(
-        currentPlay.raw || currentPlay.team || currentPlay
+        currentPlay.raw || currentPlay.team || currentPlay,
       );
       const homeId =
         homeTeam?.team?.id ||
@@ -6702,8 +6708,8 @@ const FavoritesScreen = ({ navigation }) => {
       const isHomeTeamPlay = playTeamId
         ? String(playTeamId) === String(homeId)
         : typeof currentPlay.inferredIsHome === "boolean"
-        ? currentPlay.inferredIsHome
-        : null;
+          ? currentPlay.inferredIsHome
+          : null;
 
       // Resolve colors using MLBService when possible, fallback to team object color fields
       let awayColor =
@@ -6845,8 +6851,8 @@ const FavoritesScreen = ({ navigation }) => {
                             ? awayIsWinner
                               ? colors.primary
                               : awayIsLoser
-                              ? "#999"
-                              : theme.text
+                                ? "#999"
+                                : theme.text
                             : theme.text,
                         },
                       ]}
@@ -6865,8 +6871,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: awayIsLoser
                     ? "#999"
                     : isFavorite(getMLBTeamId(awayTeam), "mlb")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -6913,6 +6919,15 @@ const FavoritesScreen = ({ navigation }) => {
                         backgroundColor: liveData.situation.bases?.second
                           ? colors.primary
                           : "transparent",
+                        ...(liveData.situation.bases?.second
+                          ? {
+                              shadowColor: colors.primary,
+                              shadowOffset: { width: 0, height: 0 },
+                              shadowOpacity: 0.8,
+                              shadowRadius: 3,
+                              borderColor: colors.primaryDark,
+                            }
+                          : {}),
                       },
                     ]}
                   />
@@ -6924,6 +6939,15 @@ const FavoritesScreen = ({ navigation }) => {
                           backgroundColor: liveData.situation.bases?.third
                             ? colors.primary
                             : "transparent",
+                          ...(liveData.situation.bases?.third
+                            ? {
+                                shadowColor: colors.primary,
+                                shadowOffset: { width: 0, height: 0 },
+                                shadowOpacity: 0.8,
+                                shadowRadius: 3,
+                                borderColor: colors.primaryDark,
+                              }
+                            : {}),
                         },
                       ]}
                     />
@@ -6934,6 +6958,15 @@ const FavoritesScreen = ({ navigation }) => {
                           backgroundColor: liveData.situation.bases?.first
                             ? colors.primary
                             : "transparent",
+                          ...(liveData.situation.bases?.first
+                            ? {
+                                shadowColor: colors.primary,
+                                shadowOffset: { width: 0, height: 0 },
+                                shadowOpacity: 0.8,
+                                shadowRadius: 3,
+                                borderColor: colors.primaryDark,
+                              }
+                            : {}),
                         },
                       ]}
                     />
@@ -6979,7 +7012,7 @@ const FavoritesScreen = ({ navigation }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {gameStatus.time} EST
+                    {gameStatus.time}
                   </Text>
                 )}
               </>
@@ -7001,8 +7034,8 @@ const FavoritesScreen = ({ navigation }) => {
                             ? homeIsWinner
                               ? colors.primary
                               : homeIsLoser
-                              ? "#999"
-                              : theme.text
+                                ? "#999"
+                                : theme.text
                             : theme.text,
                         },
                       ]}
@@ -7032,8 +7065,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: homeIsLoser
                     ? "#999"
                     : isFavorite(getMLBTeamId(homeTeam), "mlb")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -7054,10 +7087,10 @@ const FavoritesScreen = ({ navigation }) => {
                 String(currentPlay.raw.result.description).trim()
                   ? currentPlay.raw.result.description
                   : playText && String(playText).trim()
-                  ? playText
-                  : currentPlay?.raw?.about?.playText ||
-                    currentPlay?.shortText ||
-                    null;
+                    ? playText
+                    : currentPlay?.raw?.about?.playText ||
+                      currentPlay?.shortText ||
+                      null;
               if (candidate) {
                 return (
                   <Text
@@ -7227,7 +7260,7 @@ const FavoritesScreen = ({ navigation }) => {
           const { homeColor, awayColor } = getSmartTeamColors(
             homeTeam,
             awayTeam,
-            colors
+            colors,
           );
 
           // For NBA: Only show border on the side corresponding to the team that made the play
@@ -7370,8 +7403,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? awayIsWinner
                             ? colors.primary
                             : awayIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -7389,8 +7422,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getNBATeamId(awayTeam), "nba")
                     ? colors.primary
                     : awayIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -7442,7 +7475,7 @@ const FavoritesScreen = ({ navigation }) => {
                   allowFontScaling={false}
                   style={[styles.gameDateTime, { color: theme.textSecondary }]}
                 >
-                  {formatGameTime(gameDate)} EST
+                  {formatGameTime(gameDate)}
                 </Text>
               </View>
             )}
@@ -7461,8 +7494,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? homeIsWinner
                             ? colors.primary
                             : homeIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -7491,8 +7524,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getNBATeamId(homeTeam), "nba")
                     ? colors.primary
                     : homeIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -7638,7 +7671,7 @@ const FavoritesScreen = ({ navigation }) => {
           const { homeColor, awayColor } = getSmartTeamColors(
             homeTeam,
             awayTeam,
-            colors
+            colors,
           );
 
           // For WNBA: Only show border on the side corresponding to the team that made the play
@@ -7781,8 +7814,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? awayIsWinner
                             ? colors.primary
                             : awayIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -7800,8 +7833,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getWNBATeamId(awayTeam), "wnba")
                     ? colors.primary
                     : awayIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -7853,7 +7886,7 @@ const FavoritesScreen = ({ navigation }) => {
                   allowFontScaling={false}
                   style={[styles.gameDateTime, { color: theme.textSecondary }]}
                 >
-                  {formatGameTime(gameDate)} EST
+                  {formatGameTime(gameDate)}
                 </Text>
               </View>
             )}
@@ -7872,8 +7905,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? homeIsWinner
                             ? colors.primary
                             : homeIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -7902,8 +7935,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getWNBATeamId(homeTeam), "wnba")
                     ? colors.primary
                     : homeIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -8057,17 +8090,17 @@ const FavoritesScreen = ({ navigation }) => {
             const competition = game.competitions?.[0];
             if (competition?.competitors) {
               const homeCompetitor = competition.competitors.find(
-                (c) => c.homeAway === "home"
+                (c) => c.homeAway === "home",
               );
               const awayCompetitor = competition.competitors.find(
-                (c) => c.homeAway === "away"
+                (c) => c.homeAway === "away",
               );
 
               // Use smart colors to handle similar team colors
               if (homeCompetitor?.team && awayCompetitor?.team) {
                 const smartColors = getSmartTeamColors(
                   awayCompetitor.team,
-                  homeCompetitor.team
+                  homeCompetitor.team,
                 );
                 homeColor = smartColors.homeColor;
                 awayColor = smartColors.awayColor;
@@ -8243,8 +8276,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? awayIsWinner
                             ? colors.primary
                             : awayIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -8262,8 +8295,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getNHLTeamId(awayTeam), "nhl")
                     ? colors.primary
                     : awayIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -8333,8 +8366,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? homeIsWinner
                             ? colors.primary
                             : homeIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -8361,8 +8394,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(getNHLTeamId(homeTeam), "nhl")
                     ? colors.primary
                     : homeIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -8511,7 +8544,7 @@ const FavoritesScreen = ({ navigation }) => {
           const mostRecentDriveWithPlays = [...game.drives]
             .reverse()
             .find(
-              (d) => d.plays && Array.isArray(d.plays) && d.plays.length > 0
+              (d) => d.plays && Array.isArray(d.plays) && d.plays.length > 0,
             );
 
           if (
@@ -8577,7 +8610,7 @@ const FavoritesScreen = ({ navigation }) => {
           // Fallback: Find the current drive (no end text and not ended) if the above didn't work
           if (!possessionTeam) {
             const currentDrive = game.drives.find(
-              (drive) => !drive.end?.text && drive.result !== "End of Game"
+              (drive) => !drive.end?.text && drive.result !== "End of Game",
             );
             if (currentDrive && currentDrive.team && currentDrive.team.id) {
               const driveTeamId = String(currentDrive.team.id);
@@ -8855,7 +8888,7 @@ const FavoritesScreen = ({ navigation }) => {
       // Drives (preferred): look for current drive team id
       if (game.drives && Array.isArray(game.drives)) {
         const currentDrive = game.drives.find(
-          (drive) => !drive.end?.text && drive.result !== "End of Game"
+          (drive) => !drive.end?.text && drive.result !== "End of Game",
         );
         if (currentDrive && currentDrive.team && currentDrive.team.id) {
           const driveTeamId = String(currentDrive.team.id);
@@ -8903,13 +8936,13 @@ const FavoritesScreen = ({ navigation }) => {
           homeTeam?.team ||
           homeTeam ||
           game.competitions?.[0]?.competitors?.find(
-            (c) => c.homeAway === "home"
+            (c) => c.homeAway === "home",
           )?.team;
         const awayTeamData =
           awayTeam?.team ||
           awayTeam ||
           game.competitions?.[0]?.competitors?.find(
-            (c) => c.homeAway === "away"
+            (c) => c.homeAway === "away",
           )?.team;
 
         // Use smart colors to handle similar team colors
@@ -8923,13 +8956,13 @@ const FavoritesScreen = ({ navigation }) => {
             homeTeam?.team?.color ||
             homeTeam?.color ||
             game.competitions?.[0]?.competitors?.find(
-              (c) => c.homeAway === "home"
+              (c) => c.homeAway === "home",
             )?.team?.color;
           const awayColorValue =
             awayTeam?.team?.color ||
             awayTeam?.color ||
             game.competitions?.[0]?.competitors?.find(
-              (c) => c.homeAway === "away"
+              (c) => c.homeAway === "away",
             )?.team?.color;
 
           if (homeColorValue) {
@@ -9049,8 +9082,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? awayIsWinner
                             ? colors.primary
                             : awayIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -9068,8 +9101,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(awayTeam.id, "nfl")
                     ? colors.primary
                     : awayIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -9119,10 +9152,10 @@ const FavoritesScreen = ({ navigation }) => {
                     {matchStatus.time && matchStatus.detail
                       ? `${matchStatus.time} - ${matchStatus.detail}`
                       : matchStatus.time
-                      ? matchStatus.time
-                      : matchStatus.detail
-                      ? matchStatus.detail
-                      : "Live"}
+                        ? matchStatus.time
+                        : matchStatus.detail
+                          ? matchStatus.detail
+                          : "Live"}
                   </Text>
                 )}
 
@@ -9163,7 +9196,7 @@ const FavoritesScreen = ({ navigation }) => {
                   allowFontScaling={false}
                   style={[styles.gameDateTime, { color: theme.textSecondary }]}
                 >
-                  {formatGameTime(gameDate)} EST
+                  {formatGameTime(gameDate)}
                 </Text>
               </View>
             )}
@@ -9183,8 +9216,8 @@ const FavoritesScreen = ({ navigation }) => {
                           ? homeIsWinner
                             ? colors.primary
                             : homeIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
@@ -9213,8 +9246,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: isFavorite(homeTeam.id, "nfl")
                     ? colors.primary
                     : homeIsLoser
-                    ? "#999"
-                    : theme.text,
+                      ? "#999"
+                      : theme.text,
                 },
               ]}
             >
@@ -9376,7 +9409,7 @@ const FavoritesScreen = ({ navigation }) => {
           try {
             teamColor =
               ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-                awayTeam?.team || awayTeam
+                awayTeam?.team || awayTeam,
               );
           } catch (error) {
             // Silent fallback
@@ -9397,7 +9430,7 @@ const FavoritesScreen = ({ navigation }) => {
           try {
             teamColor =
               ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-                homeTeam?.team || homeTeam
+                homeTeam?.team || homeTeam,
               );
           } catch (error) {
             // Silent fallback
@@ -9431,18 +9464,18 @@ const FavoritesScreen = ({ navigation }) => {
                 ? homeTeam?.team?.name
                 : awayTeam?.team?.name
               : extracted.inferredTeamId
-              ? extracted.inferredIsHome
-                ? homeTeam?.team?.name
-                : awayTeam?.team?.name
-              : null)) ||
+                ? extracted.inferredIsHome
+                  ? homeTeam?.team?.name
+                  : awayTeam?.team?.name
+                : null)) ||
           null;
         const resolvedColor =
           extracted &&
           (extracted.team?.id
             ? MLBService.getTeamColor(resolvedTeamName)
             : extracted.inferredTeamId
-            ? MLBService.getTeamColor(resolvedTeamName)
-            : null);
+              ? MLBService.getTeamColor(resolvedTeamName)
+              : null);
       } catch (e) {
         // ignore logging errors
       }
@@ -9722,7 +9755,7 @@ const FavoritesScreen = ({ navigation }) => {
       const shouldUpdate = shouldGameReceiveUpdates(
         game,
         statusInfo,
-        game.sport || "Unknown"
+        game.sport || "Unknown",
       );
       if (shouldUpdate) {
         gamesToUpdate.add(game.id);
@@ -9869,10 +9902,10 @@ const FavoritesScreen = ({ navigation }) => {
       if (!currentPlay) return defaultBorderStyles;
 
       const homeTeam = game.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "home"
+        (c) => c.homeAway === "home",
       );
       const awayTeam = game.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "away"
+        (c) => c.homeAway === "away",
       );
       const teamColor = getPlayTeamColor(currentPlay, homeTeam, awayTeam);
       const playTeamId = extractTeamId(currentPlay.team);
@@ -9959,14 +9992,14 @@ const FavoritesScreen = ({ navigation }) => {
             "FavoritesScreen render - actualLeagueCode:",
             game.actualLeagueCode,
             "competition:",
-            competition
+            competition,
           )}
           {console.log(
             "FavoritesScreen render - resolvedCompetitionName:",
             getCompetitionName(game.actualLeagueCode) ||
               competition?.name ||
               competition?.league?.name ||
-              game.sport
+              game.sport,
           )}
           <Text
             allowFontScaling={false}
@@ -10002,8 +10035,8 @@ const FavoritesScreen = ({ navigation }) => {
                             matchStatus.isPost && homeIsWinner
                               ? colors.primary
                               : homeIsLoser
-                              ? "#999"
-                              : theme.text,
+                                ? "#999"
+                                : theme.text,
                         },
                       ]}
                     >
@@ -10032,8 +10065,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: homeIsLoser
                     ? "#999"
                     : isFavorite(homeTeam.team?.id, sportName)
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -10095,7 +10128,7 @@ const FavoritesScreen = ({ navigation }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {matchStatus.time} EST
+                    {matchStatus.time}
                   </Text>
                 )}
               </>
@@ -10128,8 +10161,8 @@ const FavoritesScreen = ({ navigation }) => {
                             matchStatus.isPost && awayIsWinner
                               ? colors.primary
                               : awayIsLoser
-                              ? "#999"
-                              : theme.text,
+                                ? "#999"
+                                : theme.text,
                         },
                       ]}
                     >
@@ -10153,8 +10186,8 @@ const FavoritesScreen = ({ navigation }) => {
                   color: awayIsLoser
                     ? "#999"
                     : isFavorite(awayTeam.team?.id, sportName)
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -10549,7 +10582,10 @@ const FavoritesScreen = ({ navigation }) => {
           </Text>
           <Text
             allowFontScaling={false}
-            style={[styles.subtitle, { color: theme.textTertiary, fontSize: 12 }]}
+            style={[
+              styles.subtitle,
+              { color: theme.textTertiary, fontSize: 12 },
+            ]}
           >
             MLB, NHL are currently being updated to support the favorite featur
           </Text>
@@ -10878,11 +10914,11 @@ const styles = StyleSheet.create({
   miniBasesRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    width: 20,
+    width: 30,
   },
   miniBase: {
-    width: 6,
-    height: 6,
+    width: 8,
+    height: 8,
     borderWidth: 1,
     borderColor: "#666",
     transform: [{ rotate: "45deg" }],

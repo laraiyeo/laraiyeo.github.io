@@ -224,129 +224,224 @@
       </div>
     </main>
 
-    <script src="/assets/analytics.js"></script>
-    <script>
-      // Helper: send GA event if gtag exists
-      function sendGAEvent(action, label) {
-        try {
-          if (window.gtag) {
-            gtag("event", action, {
-              event_category: "engagement",
-              event_label: label,
-            });
-          } else {
-          }
-        } catch (e) {
-          console.warn("GA error", e);
-        }
+<script src="/assets/analytics.js"></script>
+<script>
+  const INVITE_ENDPOINT =
+    "https://sportsheart-main.up.railway.app/api/invite";
+
+  const GROUP_URL =
+    "https://groups.google.com/g/sportsheart-testers";
+
+  const PLAY_URL =
+    "https://play.google.com/store/apps/details?id=com.sportsheart.app";
+
+  function sendGAEvent(action, label) {
+    try {
+      if (window.gtag) {
+        gtag("event", action, {
+          event_category: "engagement",
+          event_label: label,
+        });
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  // Apple button
+  document.getElementById("appleBtn").addEventListener("click", function (e) {
+    e.preventDefault();
+
+    sendGAEvent("apple_click", "apple_button");
+
+    window.open(
+      "https://apps.apple.com/app/sportsheart/id6754208862",
+      "_blank"
+    );
+  });
+
+  // Google button
+  const googleBtn = document.getElementById("googleBtn");
+  const googleForm = document.getElementById("googleForm");
+
+  googleBtn.addEventListener("click", function () {
+    sendGAEvent("google_click", "google_button");
+
+    googleForm.style.display = "block";
+
+    document.getElementById("inviteEmail").focus();
+  });
+
+  async function handleInviteSubmit(e) {
+    e.preventDefault();
+
+    const email = document.getElementById("inviteEmail").value.trim().toLowerCase();
+
+    const message = document.getElementById("inviteMessage");
+
+    if (!email) return false;
+
+    sendGAEvent("invite_submit", "google_invite");
+
+    message.innerHTML = "Checking...";
+
+    try {
+
+      // Get current invite list
+      const listResponse = await fetch(INVITE_ENDPOINT);
+
+      if (!listResponse.ok) {
+        throw new Error("Unable to retrieve invite list.");
       }
 
-      // Apple button behavior
-      document
-        .getElementById("appleBtn")
-        .addEventListener("click", function (e) {
-          e.preventDefault();
-          sendGAEvent("apple_click", "apple_button");
-          // Replace with your real App Store URL
-          var appStoreUrl =
-            "https://apps.apple.com/app/sportsheart/id6754208862";
-          // open in a new tab/window after tracking
-          window.open(appStoreUrl, "_blank");
-        });
+      const inviteList = await listResponse.json();
 
-      // Google Play button shows invite form
-      var googleBtn = document.getElementById("googleBtn");
-      var googleForm = document.getElementById("googleForm");
-      googleBtn.addEventListener("click", function () {
-        sendGAEvent("google_click", "google_button");
-        googleForm.style.display = "block";
-        document.getElementById("inviteEmail").focus();
-      });
+      // Already exists?
+      if (inviteList[email]) {
 
-      // Invite form submission: try POST to /invite (if you add a backend), save to localStorage as fallback
-      async function handleInviteSubmit(e) {
-        e.preventDefault();
-        var email = document.getElementById("inviteEmail").value.trim();
-        if (!email) return false;
+        message.innerHTML = `
+          <div style="margin-top:10px;padding:12px;border-radius:8px;background:#fff8e5;border:1px solid #ffd86a;">
+            <strong>You're already on the tester list!</strong>
 
-        sendGAEvent("invite_submit", "google_invite");
+            <br><br>
 
-        // try to POST to invite endpoint; prefer fetch(JSON) so Content-Type is correct.
-        var inviteEndpoint =
-          "https://sportsheart-main.up.railway.app/api/invite";
-        var inviteSent = false;
-        try {
-          // Attempt fetch first so the request uses application/json and is visible in DevTools
-          var resp = await fetch(inviteEndpoint, {
-            method: "POST",
-            mode: "cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email, ts: Date.now() }),
-          });
-          if (resp && resp.ok) {
-            inviteSent = true;
-            document.getElementById("inviteMessage").textContent =
-              "Thanks — request sent.";
-          } else {
-            // Non-2xx response: fall back to sendBeacon below
-            console.warn("Invite fetch returned non-ok", resp && resp.status);
-          }
-        } catch (fetchErr) {
-          console.warn("Invite fetch failed (possibly blocked):", fetchErr);
-        }
+            Please make sure you've:
 
-        if (!inviteSent) {
-          try {
-            if (navigator.sendBeacon) {
-              // sendBeacon uses text/plain by default; use a Blob to set application/json
-              var payload = JSON.stringify({ email: email, ts: Date.now() });
-              var blob = new Blob([payload], { type: "application/json" });
-              var beaconOk = navigator.sendBeacon(inviteEndpoint, blob);
-              if (beaconOk) {
-                inviteSent = true;
-                document.getElementById("inviteMessage").textContent =
-                  "Thanks — request queued.";
-              }
-            }
-          } catch (beaconErr) {
-            console.warn("sendBeacon failed", beaconErr);
-          }
-        }
+            <ol>
+              <li>
+                Joined the
+                <a href="${GROUP_URL}" target="_blank">
+                  SportsHeart Testers Google Group
+                </a>
+              </li>
 
-        if (!inviteSent) {
-          document.getElementById("inviteMessage").textContent =
-            "Request could not be sent (blocked). Saved locally.";
-        }
+              <li>
+                Installed the app using the testing link below.
+              </li>
+            </ol>
 
-        // store locally so you can download later from this browser
-        try {
-          var invites = JSON.parse(localStorage.getItem("app_invites") || "[]");
-          invites.push({ email: email, ts: new Date().toISOString() });
-          localStorage.setItem("app_invites", JSON.stringify(invites));
-        } catch (err) {
-          console.warn(err);
-        }
+            <a
+              class="store-btn"
+              style="display:inline-flex;margin-top:10px;"
+              href="${PLAY_URL}"
+              target="_blank"
+            >
+              Open Google Play Testing
+            </a>
 
-        document.getElementById("inviteMessage").textContent =
-          "Thanks — request saved. You will be contacted if accepted.";
-        document.getElementById("inviteEmail").value = "";
+            <br><br>
+
+            If Google Play still says you don't have access,
+            wait a few minutes after joining the group and try again.
+          </div>
+        `;
+
         return false;
       }
 
-      // Track users who close the tab or navigate away
-      var closedTracked = false;
-      function trackClose() {
-        if (closedTracked) return;
-        closedTracked = true;
-        sendGAEvent("close_tab", "user_left");
+      // Save email
+      const saveResponse = await fetch(INVITE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          ts: Date.now(),
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error("Unable to save invite.");
       }
 
-      document.addEventListener("visibilitychange", function () {
-        if (document.hidden) trackClose();
-      });
-      window.addEventListener("beforeunload", function () {
-        trackClose();
-      });
-    </script>
+      message.innerHTML = `
+        <div style="margin-top:10px;padding:12px;border-radius:8px;background:#ecfdf3;border:1px solid #34d399;">
+
+          <strong>✅ You're on the tester list!</strong>
+
+          <br><br>
+
+          <b>Step 1</b>
+
+          <br>
+
+          Join the Google Group:
+
+          <br><br>
+
+          <a
+            class="store-btn"
+            style="display:inline-flex;"
+            href="${GROUP_URL}"
+            target="_blank"
+          >
+            Join SportsHeart Testers
+          </a>
+
+          <br><br>
+
+          <b>Step 2</b>
+
+          <br>
+
+          Install the app:
+
+          <br><br>
+
+          <a
+            class="store-btn"
+            style="display:inline-flex;"
+            href="${PLAY_URL}"
+            target="_blank"
+          >
+            Open Google Play Testing
+          </a>
+
+          <br><br>
+
+          If Google Play says you don't have access yet,
+          wait a few minutes after joining the Google Group and try again.
+        </div>
+      `;
+
+      document.getElementById("inviteEmail").value = "";
+
+    } catch (err) {
+
+      console.error(err);
+
+      message.innerHTML = `
+        <div style="color:red;">
+          Unable to contact the server right now.
+          Please try again in a few moments.
+        </div>
+      `;
+    }
+
+    return false;
+  }
+
+  // Track closing page
+  let closedTracked = false;
+
+  function trackClose() {
+    if (closedTracked) return;
+
+    closedTracked = true;
+
+    sendGAEvent("close_tab", "user_left");
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      trackClose();
+    }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    trackClose();
+  });
+</script>
   </body>
 </html>

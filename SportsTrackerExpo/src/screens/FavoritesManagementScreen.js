@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useFavorites } from "../context/FavoritesContext";
 import { useTheme } from "../context/ThemeContext";
+import { getAPITeamId } from "../utils/TeamIdMapping";
 
 const FavoritesManagementScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
@@ -263,6 +264,19 @@ const FavoritesManagementScreen = ({ navigation }) => {
             teamId = stripped;
           }
 
+          if (sport === "mlb") {
+            const apiTeamId = getAPITeamId(teamId, "mlb") || teamId;
+            if (apiTeamId && apiTeamId !== teamId) {
+              console.log(
+                "Converted MLB favorite teamId for navigation:",
+                apiTeamId,
+                "from",
+                teamId,
+              );
+            }
+            teamId = apiTeamId;
+          }
+
           console.log("Navigating to TeamPage with:", { teamId, sport });
           navigation.navigate("TeamPage", { teamId, sport });
         }
@@ -320,7 +334,7 @@ const FavoritesManagementScreen = ({ navigation }) => {
               style={[styles.teamSport, { color: theme.textSecondary }]}
             >
               {rawSport.toUpperCase()}{" "}
-              {item.abbreviation ? `- ${item.abbreviation}` : ""}
+              {item.abbreviation ? `- ${item.abbreviation.toUpperCase()}` : ""}
             </Text>
           </View>
         </View>

@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchAllFavoriteTeamCurrentGames } from '../utils/TeamPageUtils';
-import { normalizeTeamIdForStorage, migrateFavoritesToESPNIds, stripSportSuffix, addSportSuffix } from '../utils/TeamIdMapping';
+import { normalizeTeamIdForStorage, migrateFavoritesToESPNIds, stripSportSuffix, addSportSuffix, getAPITeamId } from '../utils/TeamIdMapping';
 import YearFallbackUtils from '../utils/YearFallbackUtils';
+import sportsFavs from '../services/sports-favs';
+import { MLBService } from '../services/MLBService';
 
 const FavoritesContext = createContext();
 
@@ -19,18 +21,96 @@ export const FavoritesProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [autoPopulating, setAutoPopulating] = useState(false);
 
+  const buildMlbFavorite = (teamId, existingFavorite = null) => {
+    const mlbTeamId = String(teamId || '').trim();
+    const normalizedId = normalizeTeamIdForStorage(mlbTeamId, 'mlb');
+    const teamName =
+      existingFavorite?.teamName ||
+      existingFavorite?.displayName ||
+      MLBService.getTeamNameById(mlbTeamId) ||
+      `MLB Team ${mlbTeamId}`;
+
+    return {
+      ...(existingFavorite || {}),
+      teamId: normalizedId,
+      id: normalizedId,
+      sport: 'mlb',
+      teamName,
+      displayName: existingFavorite?.displayName || teamName,
+      abbreviation:
+        existingFavorite?.abbreviation || MLBService.getTeamAbbrById(mlbTeamId) || '',
+    };
+  };
+
+  const mergeMlbFavorites = async (baseFavorites) => {
+    try {
+      const localFavorites = Array.isArray(baseFavorites) ? baseFavorites : [];
+      const serverTeamIds = await sportsFavs.listFavoriteTeams();
+      const normalizedServerIds = new Set(
+        (serverTeamIds || [])
+          .map((teamId) => normalizeTeamIdForStorage(teamId, 'mlb'))
+          .filter(Boolean),
+      );
+
+      const merged = [];
+      const seenIds = new Set();
+
+      for (const favorite of localFavorites) {
+        const favoriteId = String(favorite?.teamId || '');
+        const favoriteSport = String(favorite?.sport || stripSportSuffix(favoriteId).sport || '').toLowerCase();
+
+        if (favoriteSport === 'mlb') {
+          if (!normalizedServerIds.has(favoriteId)) {
+            continue;
+          }
+          merged.push(buildMlbFavorite(getAPITeamId(favoriteId, 'mlb') || favoriteId, favorite));
+          seenIds.add(favoriteId);
+          continue;
+        }
+
+        if (!seenIds.has(favoriteId)) {
+          merged.push(favorite);
+          seenIds.add(favoriteId);
+        }
+      }
+
+      for (const teamId of serverTeamIds || []) {
+        const normalizedId = normalizeTeamIdForStorage(teamId, 'mlb');
+        if (!normalizedId || seenIds.has(normalizedId)) {
+          continue;
+        }
+        merged.push(buildMlbFavorite(teamId));
+        seenIds.add(normalizedId);
+      }
+
+      return merged;
+    } catch (e) {
+      console.warn('FavoritesContext: failed to merge MLB favorites', e?.message || e);
+      return Array.isArray(baseFavorites) ? baseFavorites : [];
+    }
+  };
+
   // Load favorites from AsyncStorage on app start
   useEffect(() => {
     loadFavorites();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = sportsFavs.subscribeToFavoriteChanges?.(() => {
+      loadFavorites();
+    });
+
+    return () => unsubscribe?.();
+  }, []);
+
   const loadFavorites = async () => {
+    let normalized = [];
     try {
       const storedFavorites = await AsyncStorage.getItem('favorites');
       if (storedFavorites) {
         // Normalize loaded favorites to ensure teamId is always a string and keep currentGame shape
         const parsed = JSON.parse(storedFavorites);
-        let normalized = parsed.map(fav => {
+        normalized = parsed.map(fav => {
           try {
             // Support legacy shapes where the id was stored as `id` instead of `teamId`.
             const rawId = fav?.teamId ?? fav?.id ?? (fav?.team && (fav.team.teamId ?? fav.team.id));
@@ -52,23 +132,27 @@ export const FavoritesProvider = ({ children }) => {
           console.log('FavoritesContext: After migration:', migrated.filter(f => f.sport === 'mlb').map(f => `${f.teamName} (${f.teamId})`));
           normalized = migrated;
         }
-        
-        // Persist normalization back to storage so future loads are consistent
-        await AsyncStorage.setItem('favorites', JSON.stringify(normalized));
-        console.log('FavoritesContext: normalized and loaded favorites', normalized.map(f => `${f.teamId} (${f.sport})`));
-        setFavorites(normalized);
-        
-        // AUTOMATICALLY POPULATE MISSING CURRENT GAMES ON APP LOAD
-        // Use the global team page utility functions
-        populateMissingCurrentGames(normalized).catch(err => 
-          console.error('FavoritesContext: Auto-population failed:', err)
-        );
       }
+
+      normalized = await mergeMlbFavorites(normalized);
+
+      // Persist normalization back to storage so future loads are consistent
+      await AsyncStorage.setItem('favorites', JSON.stringify(normalized));
+      console.log('FavoritesContext: normalized and loaded favorites', normalized.map(f => `${f.teamId} (${f.sport})`));
+      setFavorites(normalized);
+
+      // AUTOMATICALLY POPULATE MISSING CURRENT GAMES ON APP LOAD
+      // Use the global team page utility functions
+      populateMissingCurrentGames(normalized).catch(err => 
+        console.error('FavoritesContext: Auto-population failed:', err)
+      );
     } catch (error) {
       console.error('Error loading favorites:', error);
     } finally {
       setLoading(false);
     }
+
+    return normalized;
   };
 
   // AUTOMATIC CURRENT GAME POPULATION ON APP LOAD
@@ -154,6 +238,19 @@ export const FavoritesProvider = ({ children }) => {
     const id = resolveStoredId(teamId) || null;
     if (!id) {
       console.log('FavoritesContext: removeFavorite called with empty id, skipping');
+      return favorites;
+    }
+
+    const currentFavorite = favorites.find(fav => String(fav.teamId) === id);
+    const currentSport = String(currentFavorite?.sport || stripSportSuffix(id).sport || '').toLowerCase();
+
+    if (currentSport === 'mlb') {
+      try {
+        await sportsFavs.removeFavoriteTeam(getAPITeamId(id, 'mlb') || id);
+        return await loadFavorites();
+      } catch (e) {
+        console.warn('FavoritesContext: MLB remove via sports-favs failed', e?.message || e);
+      }
       return favorites;
     }
     
@@ -421,6 +518,7 @@ export const FavoritesProvider = ({ children }) => {
 
   const clearAllFavorites = async () => {
     try {
+      await sportsFavs.clearFavoriteTeams();
       setFavorites([]);
       await AsyncStorage.removeItem('favorites');
     } catch (error) {

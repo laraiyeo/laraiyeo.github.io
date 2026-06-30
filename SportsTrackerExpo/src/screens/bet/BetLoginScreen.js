@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   SafeAreaView,
   View,
@@ -13,6 +13,7 @@ import {
   Keyboard,
   InteractionManager,
   Modal,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -65,7 +66,7 @@ const PHONE_CACHE_MAP = {};
 const BetLoginScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const { fetchScoreboard, fetchRosters, isLoading } = useBetData();
-  const { setIsPro } = useBetSlip();
+  const { isPro, setIsPro } = useBetSlip();
   const { dismissLoginForSession, disableLogin } = useOnboarding();
   const onboardingMode = !!route?.params?.onboarding;
   const returnTo = route?.params?.returnTo || "BetMain";
@@ -75,6 +76,36 @@ const BetLoginScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [showPhoneForm, setShowPhoneForm] = useState(false);
   const [phone, setPhone] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const headerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      setIsFocused(true);
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setIsFocused(false);
+      Animated.timing(headerAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [headerAnim]);
+
+  const headerOpacity = headerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
 
   const CRED_KEY = "bet_credentials_v1";
   const PHONE_CACHE_KEY = "bet_phone_cache_v1";
@@ -192,7 +223,7 @@ const BetLoginScreen = ({ navigation, route }) => {
     };
 
     if (onboardingMode) {
-      if (!seen) {
+      if (!seen && !isPro) {
         try {
           console.log("BetLogin: setting @show_pro_splash_next flag");
           await AsyncStorage.setItem("@show_pro_splash_next", "1");
@@ -212,7 +243,7 @@ const BetLoginScreen = ({ navigation, route }) => {
       return;
     }
 
-    if (!seen) {
+    if (!seen && !isPro) {
       showProSplash();
       return;
     }
@@ -615,10 +646,19 @@ const BetLoginScreen = ({ navigation, route }) => {
 
             if (!profileRow) {
               Alert.alert(
-                "Login Failed",
-                "Invalid username or password. Please try again.",
-              );
-              setLoading(false);
+              "Account Not Found",
+              'No account exists for "' +
+                username +
+                '". Would you like to create a new account?',
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Create Account",
+                  onPress: () => setShowPhoneForm(true),
+                },
+              ],
+            );
+            setLoading(false);
               return;
             }
 
@@ -954,8 +994,8 @@ const BetLoginScreen = ({ navigation, route }) => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.content}
       >
         {!onboardingMode && (
@@ -997,17 +1037,28 @@ const BetLoginScreen = ({ navigation, route }) => {
           </View>
         )}
         <View style={styles.bodyContent}>
-          {/* Logo/Icon */}
+          {/* Logo/Icon + Title + Subtitle - fade out on keyboard show */}
           <View
-            style={[styles.logoContainer, { backgroundColor: colors.primary }]}
+            style={{
+              alignItems: "center",
+            }}
           >
-            <Ionicons name="cash" size={48} color="white" />
-          </View>
+            <View
+              style={[
+                styles.logoContainer,
+                { backgroundColor: colors.primary },
+              ]}
+            >
+              <Ionicons name="cash" size={48} color="white" />
+            </View>
 
-          <Text style={[styles.title, { color: theme.text }]}>{titleText}</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            {subtitleText}
-          </Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              {titleText}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              {subtitleText}
+            </Text>
+          </View>
 
           {/* Form */}
           <View style={styles.form}>
@@ -1148,9 +1199,9 @@ const BetLoginScreen = ({ navigation, route }) => {
             <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
               New users will be prompted to create an account
             </Text>
-          </View>
+          </View> {/* end form */}
         </View>
-      </View>
+      </KeyboardAvoidingView>
       {/* daily reward modal moved to BetHomeScreen */}
     </SafeAreaView>
   );

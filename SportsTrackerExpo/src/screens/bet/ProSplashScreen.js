@@ -232,7 +232,7 @@ const ProSplashScreen = ({ navigation }) => {
       color: "#FF5722",
     },
     {
-      title: "Game Time Live Activity",
+      title: "Game Time Live Activity (Coming Soon)",
       desc: "Never miss a moment with live activities.",
       icon: "notifications",
       color: "#FFC107",
@@ -276,7 +276,7 @@ const ProSplashScreen = ({ navigation }) => {
             SportsHeart Pro
           </Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Thanks for logging in! Here is what Pro includes:
+            Thanks for using SportsHeart! Here is what Pro includes:
           </Text>
         </View>
 

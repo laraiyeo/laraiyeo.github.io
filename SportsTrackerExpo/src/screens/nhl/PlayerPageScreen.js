@@ -97,8 +97,8 @@ const getPercentileTierColor = (percentile, teamColor) => {
   const base = String(teamColor || "#2563EB");
   if (!Number.isFinite(p)) {
     return {
-      fill: blendHexWithWhite(base, 0.72),
-      text: getTextOnColor(blendHexWithWhite(base, 0.72)),
+      fill: blendHexWithWhite(base, 0.62),
+      text: getTextOnColor(blendHexWithWhite(base, 0.62)),
       tier: "low",
       label: "1st-50th",
     };
@@ -112,7 +112,7 @@ const getPercentileTierColor = (percentile, teamColor) => {
     };
   }
   if (p >= 51) {
-    const fill = blendHexWithWhite(base, 0.42);
+    const fill = blendHexWithWhite(base, 0.32);
     return {
       fill,
       text: getTextOnColor(fill),
@@ -120,7 +120,7 @@ const getPercentileTierColor = (percentile, teamColor) => {
       label: "51st-80th",
     };
   }
-  const fill = blendHexWithWhite(base, 0.72);
+  const fill = blendHexWithWhite(base, 0.62);
   return {
     fill,
     text: getTextOnColor(fill),

@@ -1,0 +1,817 @@
+2026-05-30T23:34:24.682836559Z [inf]  Starting Container
+2026-05-30T23:34:25.593732701Z [err]  ⚠️  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217
+2026-05-30T23:34:25.593739954Z [inf]  [baseball live-activity] server-start { port: '8080' }
+2026-05-30T23:34:25.593745852Z [inf]  [baseball live-activity] loop-start { pollMs: 5000 }
+2026-05-30T23:34:25.593752551Z [inf]  [baseball live-activity] startup-db-subscribers { count: 1 }
+2026-05-30T23:34:29.890689563Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:34.883407430Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:39.958750888Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:44.878247922Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:49.885505032Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:54.878976928Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:34:59.880302617Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:04.962833140Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:09.886674175Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:13.819204574Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c8e69c', attempt: 1 }
+2026-05-30T23:35:13.819263393Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406f9e8e', attempt: 1 }
+2026-05-30T23:35:13.819280262Z [inf]  [baseball live-activity] apns-response { deviceToken: '406f9e8e', status: 200 }
+2026-05-30T23:35:13.819290167Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403d6b40', attempt: 1 }
+2026-05-30T23:35:13.819302982Z [inf]  [baseball live-activity] apns-response { deviceToken: '403d6b40', status: 200 }
+2026-05-30T23:35:13.819312392Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40686675', attempt: 1 }
+2026-05-30T23:35:13.819326134Z [inf]  [baseball live-activity] apns-response { deviceToken: '40686675', status: 200 }
+2026-05-30T23:35:13.819332916Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4094ffd1', attempt: 1 }
+2026-05-30T23:35:13.819343548Z [inf]  [baseball live-activity] apns-response { deviceToken: '4094ffd1', status: 200 }
+2026-05-30T23:35:13.826046360Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c8e69c', status: 200 }
+2026-05-30T23:35:13.828209925Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c3b93f', attempt: 1 }
+2026-05-30T23:35:13.862496750Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c3b93f', status: 200 }
+2026-05-30T23:35:13.865297440Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401613cb', attempt: 1 }
+2026-05-30T23:35:13.900790818Z [inf]  [baseball live-activity] apns-response { deviceToken: '401613cb', status: 200 }
+2026-05-30T23:35:13.910046066Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40144cde', attempt: 1 }
+2026-05-30T23:35:13.940016436Z [inf]  [baseball live-activity] apns-response { deviceToken: '40144cde', status: 200 }
+2026-05-30T23:35:13.943718910Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403cb61b', attempt: 1 }
+2026-05-30T23:35:13.980011285Z [inf]  [baseball live-activity] apns-response { deviceToken: '403cb61b', status: 200 }
+2026-05-30T23:35:13.980015841Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40eb4a1a', attempt: 1 }
+2026-05-30T23:35:14.013391739Z [inf]  [baseball live-activity] apns-response { deviceToken: '40eb4a1a', status: 200 }
+2026-05-30T23:35:14.015660002Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407368e1', attempt: 1 }
+2026-05-30T23:35:14.052305609Z [inf]  [baseball live-activity] apns-response { deviceToken: '407368e1', status: 200 }
+2026-05-30T23:35:14.052314906Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f375a3', attempt: 1 }
+2026-05-30T23:35:14.090526562Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f375a3', status: 200 }
+2026-05-30T23:35:14.090533095Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40d98b74', attempt: 1 }
+2026-05-30T23:35:14.124009794Z [inf]  [baseball live-activity] apns-response { deviceToken: '40d98b74', status: 200 }
+2026-05-30T23:35:14.133040958Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40bf8b85', attempt: 1 }
+2026-05-30T23:35:14.162333022Z [inf]  [baseball live-activity] apns-response { deviceToken: '40bf8b85', status: 200 }
+2026-05-30T23:35:14.162342506Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409e7594', attempt: 1 }
+2026-05-30T23:35:14.873178500Z [inf]  [baseball live-activity] apns-response { deviceToken: '409e7594', status: 200 }
+2026-05-30T23:35:14.873184881Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4027d13e', attempt: 1 }
+2026-05-30T23:35:14.873192203Z [inf]  [baseball live-activity] apns-response { deviceToken: '4027d13e', status: 200 }
+2026-05-30T23:35:14.873198953Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400f5021', attempt: 1 }
+2026-05-30T23:35:14.873205273Z [inf]  [baseball live-activity] apns-response { deviceToken: '400f5021', status: 200 }
+2026-05-30T23:35:14.873212410Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4014862f', attempt: 1 }
+2026-05-30T23:35:14.873219537Z [inf]  [baseball live-activity] apns-response { deviceToken: '4014862f', status: 200 }
+2026-05-30T23:35:14.873226060Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40bb810c', attempt: 1 }
+2026-05-30T23:35:14.873239153Z [inf]  [baseball live-activity] apns-response { deviceToken: '40bb810c', status: 200 }
+2026-05-30T23:35:14.873247122Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ee6397', attempt: 1 }
+2026-05-30T23:35:14.873254066Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ee6397', status: 200 }
+2026-05-30T23:35:14.873262859Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40d49f4b', attempt: 1 }
+2026-05-30T23:35:14.873269869Z [inf]  [baseball live-activity] apns-response { deviceToken: '40d49f4b', status: 200 }
+2026-05-30T23:35:14.873277942Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f82c87', attempt: 1 }
+2026-05-30T23:35:14.873284716Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f82c87', status: 200 }
+2026-05-30T23:35:14.873292695Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407fd287', attempt: 1 }
+2026-05-30T23:35:14.873299969Z [inf]  [baseball live-activity] apns-response { deviceToken: '407fd287', status: 200 }
+2026-05-30T23:35:14.874147601Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fd2c4b', attempt: 1 }
+2026-05-30T23:35:14.874160674Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fd2c4b', status: 200 }
+2026-05-30T23:35:14.874167608Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ad4679', attempt: 1 }
+2026-05-30T23:35:14.874174620Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ad4679', status: 200 }
+2026-05-30T23:35:14.874180257Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409d643e', attempt: 1 }
+2026-05-30T23:35:14.874201957Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40973977', attempt: 1 }
+2026-05-30T23:35:14.874203118Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4002adf5', attempt: 1 }
+2026-05-30T23:35:14.874213827Z [inf]  [baseball live-activity] apns-response { deviceToken: '40973977', status: 200 }
+2026-05-30T23:35:14.874215352Z [inf]  [baseball live-activity] apns-response { deviceToken: '4002adf5', status: 200 }
+2026-05-30T23:35:14.874225264Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4089fe28', attempt: 1 }
+2026-05-30T23:35:14.874228226Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c7ea96', attempt: 1 }
+2026-05-30T23:35:14.874234702Z [inf]  [baseball live-activity] apns-response { deviceToken: '4089fe28', status: 200 }
+2026-05-30T23:35:14.874239008Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c7ea96', status: 200 }
+2026-05-30T23:35:14.874246375Z [inf]  [baseball live-activity] apns-connect { deviceToken: '404d2175', attempt: 1 }
+2026-05-30T23:35:14.874250220Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4039fb50', attempt: 1 }
+2026-05-30T23:35:14.874254905Z [inf]  [baseball live-activity] apns-response { deviceToken: '404d2175', status: 200 }
+2026-05-30T23:35:14.874260275Z [inf]  [baseball live-activity] apns-response { deviceToken: '4039fb50', status: 200 }
+2026-05-30T23:35:14.876879451Z [inf]  [baseball live-activity] apns-response { deviceToken: '409d643e', status: 200 }
+2026-05-30T23:35:14.876888768Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40397f23', attempt: 1 }
+2026-05-30T23:35:14.876901332Z [inf]  [baseball live-activity] apns-response { deviceToken: '40397f23', status: 200 }
+2026-05-30T23:35:14.876906695Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4071038e', attempt: 1 }
+2026-05-30T23:35:14.887438857Z [inf]  [baseball live-activity] apns-response { deviceToken: '4071038e', status: 200 }
+2026-05-30T23:35:14.887448258Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400b91b1', attempt: 1 }
+2026-05-30T23:35:14.928447628Z [inf]  [baseball live-activity] apns-response { deviceToken: '400b91b1', status: 200 }
+2026-05-30T23:35:14.928455671Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ce5466', attempt: 1 }
+2026-05-30T23:35:14.928461957Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:14.954891892Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ce5466', status: 200 }
+2026-05-30T23:35:14.954898359Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c2fca0', attempt: 1 }
+2026-05-30T23:35:15.004073585Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c2fca0', status: 200 }
+2026-05-30T23:35:15.004080088Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ccbd87', attempt: 1 }
+2026-05-30T23:35:15.019739530Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ccbd87', status: 200 }
+2026-05-30T23:35:15.029918399Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4034399d', attempt: 1 }
+2026-05-30T23:35:15.056036712Z [inf]  [baseball live-activity] apns-response { deviceToken: '4034399d', status: 200 }
+2026-05-30T23:35:15.057000742Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4068d3f1', attempt: 1 }
+2026-05-30T23:35:15.096797235Z [inf]  [baseball live-activity] apns-response { deviceToken: '4068d3f1', status: 200 }
+2026-05-30T23:35:15.096802035Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40df3bff', attempt: 1 }
+2026-05-30T23:35:15.125217663Z [inf]  [baseball live-activity] apns-response { deviceToken: '40df3bff', status: 200 }
+2026-05-30T23:35:15.132796702Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406e15ee', attempt: 1 }
+2026-05-30T23:35:15.178444738Z [inf]  [baseball live-activity] apns-response { deviceToken: '406e15ee', status: 200 }
+2026-05-30T23:35:15.178448595Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c98945', attempt: 1 }
+2026-05-30T23:35:15.763189992Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c98945', status: 200 }
+2026-05-30T23:35:15.763197087Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400b165a', attempt: 1 }
+2026-05-30T23:35:15.763203554Z [inf]  [baseball live-activity] apns-response { deviceToken: '400b165a', status: 200 }
+2026-05-30T23:35:15.763209631Z [inf]  [baseball live-activity] apns-connect { deviceToken: '402c807d', attempt: 1 }
+2026-05-30T23:35:15.763215578Z [inf]  [baseball live-activity] apns-response { deviceToken: '402c807d', status: 200 }
+2026-05-30T23:35:15.763221912Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403966d8', attempt: 1 }
+2026-05-30T23:35:15.763227909Z [inf]  [baseball live-activity] apns-response { deviceToken: '403966d8', status: 200 }
+2026-05-30T23:35:15.763233259Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c9f8f8', attempt: 1 }
+2026-05-30T23:35:15.763239972Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c9f8f8', status: 200 }
+2026-05-30T23:35:15.763246124Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406ca735', attempt: 1 }
+2026-05-30T23:35:15.763253611Z [inf]  [baseball live-activity] apns-response { deviceToken: '406ca735', status: 200 }
+2026-05-30T23:35:15.763259706Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fa38f5', attempt: 1 }
+2026-05-30T23:35:15.763264867Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fa38f5', status: 200 }
+2026-05-30T23:35:15.763270462Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4061ddfb', attempt: 1 }
+2026-05-30T23:35:15.763275983Z [inf]  [baseball live-activity] apns-response { deviceToken: '4061ddfb', status: 200 }
+2026-05-30T23:35:15.763288275Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cc6f8c', attempt: 1 }
+2026-05-30T23:35:15.763302765Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cc6f8c', status: 200 }
+2026-05-30T23:35:15.764107083Z [inf]  [baseball live-activity] apns-connect { deviceToken: '405ea16e', attempt: 1 }
+2026-05-30T23:35:15.764109151Z [inf]  [baseball live-activity] apns-response { deviceToken: '404e0291', status: 200 }
+2026-05-30T23:35:15.764123845Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f2ae54', attempt: 1 }
+2026-05-30T23:35:15.764127798Z [inf]  [baseball live-activity] apns-response { deviceToken: '405ea16e', status: 200 }
+2026-05-30T23:35:15.764139277Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40468f70', attempt: 1 }
+2026-05-30T23:35:15.764139992Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f2ae54', status: 200 }
+2026-05-30T23:35:15.764147672Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a0a391', status: 200 }
+2026-05-30T23:35:15.764152885Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a0a391', attempt: 1 }
+2026-05-30T23:35:15.764157298Z [inf]  [baseball live-activity] apns-response { deviceToken: '40468f70', status: 200 }
+2026-05-30T23:35:15.764160017Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4071c426', attempt: 1 }
+2026-05-30T23:35:15.764168276Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407eb63a', attempt: 1 }
+2026-05-30T23:35:15.764176115Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e611dc', attempt: 1 }
+2026-05-30T23:35:15.764180895Z [inf]  [baseball live-activity] apns-response { deviceToken: '407eb63a', status: 200 }
+2026-05-30T23:35:15.764190097Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e611dc', status: 200 }
+2026-05-30T23:35:15.764192578Z [inf]  [baseball live-activity] apns-connect { deviceToken: '404e0291', attempt: 1 }
+2026-05-30T23:35:15.764199109Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40dd5926', attempt: 1 }
+2026-05-30T23:35:15.764205179Z [inf]  [baseball live-activity] apns-response { deviceToken: '40dd5926', status: 200 }
+2026-05-30T23:35:15.799583744Z [inf]  [baseball live-activity] apns-response { deviceToken: '4071c426', status: 200 }
+2026-05-30T23:35:15.799591708Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b2683', attempt: 1 }
+2026-05-30T23:35:15.836143604Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b2683', status: 200 }
+2026-05-30T23:35:15.836152409Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a3c714', attempt: 1 }
+2026-05-30T23:35:15.869844943Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a3c714', status: 200 }
+2026-05-30T23:35:15.873277392Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cecc35', attempt: 1 }
+2026-05-30T23:35:15.921022051Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cecc35', status: 200 }
+2026-05-30T23:35:15.921026197Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e07444', attempt: 1 }
+2026-05-30T23:35:15.943939635Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e07444', status: 200 }
+2026-05-30T23:35:15.946194040Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ddd209', attempt: 1 }
+2026-05-30T23:35:15.978947322Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ddd209', status: 200 }
+2026-05-30T23:35:15.981234841Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40b4451d', attempt: 1 }
+2026-05-30T23:35:16.013575581Z [inf]  [baseball live-activity] apns-response { deviceToken: '40b4451d', status: 200 }
+2026-05-30T23:35:16.020996354Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40deea15', attempt: 1 }
+2026-05-30T23:35:16.050656321Z [inf]  [baseball live-activity] apns-response { deviceToken: '40deea15', status: 200 }
+2026-05-30T23:35:16.050662153Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40368101', attempt: 1 }
+2026-05-30T23:35:16.084175365Z [inf]  [baseball live-activity] apns-response { deviceToken: '40368101', status: 200 }
+2026-05-30T23:35:16.086007738Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a58f61', attempt: 1 }
+2026-05-30T23:35:16.132919814Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a58f61', status: 200 }
+2026-05-30T23:35:16.132926523Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a915d7', attempt: 1 }
+2026-05-30T23:35:16.154578448Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a915d7', status: 200 }
+2026-05-30T23:35:16.156850265Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fcfc0a', attempt: 1 }
+2026-05-30T23:35:16.710737758Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fcfc0a', status: 200 }
+2026-05-30T23:35:16.710746848Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40049a78', attempt: 1 }
+2026-05-30T23:35:16.710756099Z [inf]  [baseball live-activity] apns-response { deviceToken: '40049a78', status: 200 }
+2026-05-30T23:35:16.710761932Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f5f13d', attempt: 1 }
+2026-05-30T23:35:16.710766655Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f5f13d', status: 200 }
+2026-05-30T23:35:16.710771415Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4047a31e', attempt: 1 }
+2026-05-30T23:35:16.710776068Z [inf]  [baseball live-activity] apns-response { deviceToken: '4047a31e', status: 200 }
+2026-05-30T23:35:16.710780479Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4082ca1f', attempt: 1 }
+2026-05-30T23:35:16.710784915Z [inf]  [baseball live-activity] apns-response { deviceToken: '4082ca1f', status: 200 }
+2026-05-30T23:35:16.710789856Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e5dca8', attempt: 1 }
+2026-05-30T23:35:16.710794661Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e5dca8', status: 200 }
+2026-05-30T23:35:16.710800033Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4044d12c', attempt: 1 }
+2026-05-30T23:35:16.710805543Z [inf]  [baseball live-activity] apns-response { deviceToken: '4044d12c', status: 200 }
+2026-05-30T23:35:16.710810330Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cc87d1', attempt: 1 }
+2026-05-30T23:35:16.710814919Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cc87d1', status: 200 }
+2026-05-30T23:35:16.710819659Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4024389e', attempt: 1 }
+2026-05-30T23:35:16.710824417Z [inf]  [baseball live-activity] apns-response { deviceToken: '4024389e', status: 200 }
+2026-05-30T23:35:16.711345896Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409e90b8', attempt: 1 }
+2026-05-30T23:35:16.711354085Z [inf]  [baseball live-activity] apns-response { deviceToken: '409e90b8', status: 200 }
+2026-05-30T23:35:16.711361456Z [inf]  [baseball live-activity] apns-connect { deviceToken: '402f9d5a', attempt: 1 }
+2026-05-30T23:35:16.711367893Z [inf]  [baseball live-activity] apns-response { deviceToken: '402f9d5a', status: 200 }
+2026-05-30T23:35:16.711374602Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403e4100', attempt: 1 }
+2026-05-30T23:35:16.711380838Z [inf]  [baseball live-activity] apns-response { deviceToken: '403e4100', status: 200 }
+2026-05-30T23:35:16.711387444Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401a1404', attempt: 1 }
+2026-05-30T23:35:16.711393653Z [inf]  [baseball live-activity] apns-response { deviceToken: '401a1404', status: 200 }
+2026-05-30T23:35:16.711400431Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a3cd32', attempt: 1 }
+2026-05-30T23:35:16.711408052Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a3cd32', status: 200 }
+2026-05-30T23:35:16.711413125Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40b34727', attempt: 1 }
+2026-05-30T23:35:16.711417896Z [inf]  [baseball live-activity] apns-response { deviceToken: '40b34727', status: 200 }
+2026-05-30T23:35:16.711422664Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e68273', attempt: 1 }
+2026-05-30T23:35:16.711428375Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e68273', status: 200 }
+2026-05-30T23:35:16.711433387Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4068a1e0', attempt: 1 }
+2026-05-30T23:35:16.745043969Z [inf]  [baseball live-activity] apns-response { deviceToken: '4068a1e0', status: 200 }
+2026-05-30T23:35:16.745049878Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4000bf78', attempt: 1 }
+2026-05-30T23:35:16.779161286Z [inf]  [baseball live-activity] apns-response { deviceToken: '4000bf78', status: 200 }
+2026-05-30T23:35:16.779180316Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4019a096', attempt: 1 }
+2026-05-30T23:35:16.811760875Z [inf]  [baseball live-activity] apns-response { deviceToken: '4019a096', status: 200 }
+2026-05-30T23:35:16.813864341Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401fe401', attempt: 1 }
+2026-05-30T23:35:16.854772705Z [inf]  [baseball live-activity] apns-response { deviceToken: '401fe401', status: 200 }
+2026-05-30T23:35:16.854780215Z [inf]  [baseball live-activity] start-sent {
+2026-05-30T23:35:16.854785732Z [inf]    fixtureId: '823054',
+2026-05-30T23:35:16.854792189Z [inf]    bundleId: 'com.sportsheart.app',
+2026-05-30T23:35:16.854799840Z [inf]    tokenCount: 90,
+2026-05-30T23:35:16.854805211Z [inf]    forwarded: 90
+2026-05-30T23:35:16.854811473Z [inf]  }
+2026-05-30T23:35:19.922117337Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:24.968769889Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:30.005973268Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:34.947065067Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 0 }
+2026-05-30T23:35:35.876479364Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406f9e8e', attempt: 1 }
+2026-05-30T23:35:35.896566360Z [inf]  [baseball live-activity] apns-response { deviceToken: '406f9e8e', status: 200 }
+2026-05-30T23:35:35.903772202Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403d6b40', attempt: 1 }
+2026-05-30T23:35:35.934549766Z [inf]  [baseball live-activity] apns-response { deviceToken: '403d6b40', status: 200 }
+2026-05-30T23:35:35.934559246Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c8e69c', attempt: 1 }
+2026-05-30T23:35:35.970442162Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c8e69c', status: 200 }
+2026-05-30T23:35:35.970447821Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c3b93f', attempt: 1 }
+2026-05-30T23:35:36.005012481Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c3b93f', status: 200 }
+2026-05-30T23:35:36.007334420Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403cb61b', attempt: 1 }
+2026-05-30T23:35:36.043933121Z [inf]  [baseball live-activity] apns-response { deviceToken: '403cb61b', status: 200 }
+2026-05-30T23:35:36.043945223Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4034399d', attempt: 1 }
+2026-05-30T23:35:36.076181093Z [inf]  [baseball live-activity] apns-response { deviceToken: '4034399d', status: 200 }
+2026-05-30T23:35:36.083900081Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40144cde', attempt: 1 }
+2026-05-30T23:35:36.114603878Z [inf]  [baseball live-activity] apns-response { deviceToken: '40144cde', status: 200 }
+2026-05-30T23:35:36.114610659Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40eb4a1a', attempt: 1 }
+2026-05-30T23:35:36.147998271Z [inf]  [baseball live-activity] apns-response { deviceToken: '40eb4a1a', status: 200 }
+2026-05-30T23:35:36.150049404Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407368e1', attempt: 1 }
+2026-05-30T23:35:36.186024839Z [inf]  [baseball live-activity] apns-response { deviceToken: '407368e1', status: 200 }
+2026-05-30T23:35:36.186040217Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f375a3', attempt: 1 }
+2026-05-30T23:35:36.215485845Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f375a3', status: 200 }
+2026-05-30T23:35:36.217457598Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40397f23', attempt: 1 }
+2026-05-30T23:35:36.884778066Z [inf]  [baseball live-activity] apns-response { deviceToken: '40397f23', status: 200 }
+2026-05-30T23:35:36.884783833Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ce5466', attempt: 1 }
+2026-05-30T23:35:36.884790279Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ce5466', status: 200 }
+2026-05-30T23:35:36.884796160Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401613cb', attempt: 1 }
+2026-05-30T23:35:36.884802788Z [inf]  [baseball live-activity] apns-response { deviceToken: '401613cb', status: 200 }
+2026-05-30T23:35:36.884812982Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40bf8b85', attempt: 1 }
+2026-05-30T23:35:36.884820013Z [inf]  [baseball live-activity] apns-response { deviceToken: '40bf8b85', status: 200 }
+2026-05-30T23:35:36.884826718Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4024389e', attempt: 1 }
+2026-05-30T23:35:36.884832320Z [inf]  [baseball live-activity] apns-response { deviceToken: '4024389e', status: 200 }
+2026-05-30T23:35:36.884838803Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409e7594', attempt: 1 }
+2026-05-30T23:35:36.884844709Z [inf]  [baseball live-activity] apns-response { deviceToken: '409e7594', status: 200 }
+2026-05-30T23:35:36.884850726Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4027d13e', attempt: 1 }
+2026-05-30T23:35:36.884857498Z [inf]  [baseball live-activity] apns-response { deviceToken: '4027d13e', status: 200 }
+2026-05-30T23:35:36.884864616Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ddd209', attempt: 1 }
+2026-05-30T23:35:36.884870438Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ddd209', status: 200 }
+2026-05-30T23:35:36.884876549Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40973977', attempt: 1 }
+2026-05-30T23:35:36.884882280Z [inf]  [baseball live-activity] apns-response { deviceToken: '40973977', status: 200 }
+2026-05-30T23:35:36.885371438Z [inf]  [baseball live-activity] apns-response { deviceToken: '4014862f', status: 200 }
+2026-05-30T23:35:36.885384275Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ee6397', attempt: 1 }
+2026-05-30T23:35:36.885391824Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ee6397', status: 200 }
+2026-05-30T23:35:36.885398777Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f82c87', attempt: 1 }
+2026-05-30T23:35:36.885406144Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f82c87', status: 200 }
+2026-05-30T23:35:36.885421424Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407fd287', attempt: 1 }
+2026-05-30T23:35:36.885445852Z [inf]  [baseball live-activity] apns-response { deviceToken: '407fd287', status: 200 }
+2026-05-30T23:35:36.885453650Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4039fb50', attempt: 1 }
+2026-05-30T23:35:36.885480211Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ccbd87', attempt: 1 }
+2026-05-30T23:35:36.885485004Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ccbd87', status: 200 }
+2026-05-30T23:35:36.885490538Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c7ea96', attempt: 1 }
+2026-05-30T23:35:36.885495979Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c7ea96', status: 200 }
+2026-05-30T23:35:36.885503121Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400f5021', attempt: 1 }
+2026-05-30T23:35:36.885508676Z [inf]  [baseball live-activity] apns-response { deviceToken: '400f5021', status: 200 }
+2026-05-30T23:35:36.885514015Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e07444', attempt: 1 }
+2026-05-30T23:35:36.885519334Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e07444', status: 200 }
+2026-05-30T23:35:36.885525777Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4014862f', attempt: 1 }
+2026-05-30T23:35:36.886346697Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4002adf5', attempt: 1 }
+2026-05-30T23:35:36.886406087Z [inf]  [baseball live-activity] apns-response { deviceToken: '4039fb50', status: 200 }
+2026-05-30T23:35:36.889923915Z [inf]  [baseball live-activity] apns-response { deviceToken: '4002adf5', status: 200 }
+2026-05-30T23:35:36.892477281Z [inf]  [baseball live-activity] apns-connect { deviceToken: '404d2175', attempt: 1 }
+2026-05-30T23:35:36.922553925Z [inf]  [baseball live-activity] apns-response { deviceToken: '404d2175', status: 200 }
+2026-05-30T23:35:36.925410228Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fd2c4b', attempt: 1 }
+2026-05-30T23:35:36.967309656Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fd2c4b', status: 200 }
+2026-05-30T23:35:36.967317435Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409d643e', attempt: 1 }
+2026-05-30T23:35:36.990888363Z [inf]  [baseball live-activity] apns-response { deviceToken: '409d643e', status: 200 }
+2026-05-30T23:35:36.992362282Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4071038e', attempt: 1 }
+2026-05-30T23:35:37.027112453Z [inf]  [baseball live-activity] apns-response { deviceToken: '4071038e', status: 200 }
+2026-05-30T23:35:37.029411030Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400b91b1', attempt: 1 }
+2026-05-30T23:35:37.070137072Z [inf]  [baseball live-activity] apns-response { deviceToken: '400b91b1', status: 200 }
+2026-05-30T23:35:37.070173347Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c2fca0', attempt: 1 }
+2026-05-30T23:35:37.100242782Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c2fca0', status: 200 }
+2026-05-30T23:35:37.107423438Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4068d3f1', attempt: 1 }
+2026-05-30T23:35:37.138700208Z [inf]  [baseball live-activity] apns-response { deviceToken: '4068d3f1', status: 200 }
+2026-05-30T23:35:37.138704796Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40df3bff', attempt: 1 }
+2026-05-30T23:35:37.177490815Z [inf]  [baseball live-activity] apns-response { deviceToken: '40df3bff', status: 200 }
+2026-05-30T23:35:37.177504280Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406e15ee', attempt: 1 }
+2026-05-30T23:35:37.224452844Z [inf]  [baseball live-activity] apns-response { deviceToken: '406e15ee', status: 200 }
+2026-05-30T23:35:37.224457208Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c98945', attempt: 1 }
+2026-05-30T23:35:37.243166496Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c98945', status: 200 }
+2026-05-30T23:35:37.243173437Z [inf]  [baseball live-activity] apns-connect { deviceToken: '402c807d', attempt: 1 }
+2026-05-30T23:35:37.809251352Z [inf]  [baseball live-activity] apns-response { deviceToken: '402c807d', status: 200 }
+2026-05-30T23:35:37.809257297Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403966d8', attempt: 1 }
+2026-05-30T23:35:37.809263877Z [inf]  [baseball live-activity] apns-response { deviceToken: '403966d8', status: 200 }
+2026-05-30T23:35:37.809270016Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40c9f8f8', attempt: 1 }
+2026-05-30T23:35:37.809275286Z [inf]  [baseball live-activity] apns-response { deviceToken: '40c9f8f8', status: 200 }
+2026-05-30T23:35:37.809280079Z [inf]  [baseball live-activity] apns-connect { deviceToken: '406ca735', attempt: 1 }
+2026-05-30T23:35:37.809284673Z [inf]  [baseball live-activity] apns-response { deviceToken: '406ca735', status: 200 }
+2026-05-30T23:35:37.809289729Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4061ddfb', attempt: 1 }
+2026-05-30T23:35:37.809293867Z [inf]  [baseball live-activity] apns-response { deviceToken: '4061ddfb', status: 200 }
+2026-05-30T23:35:37.809300126Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cc6f8c', attempt: 1 }
+2026-05-30T23:35:37.809306128Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cc6f8c', status: 200 }
+2026-05-30T23:35:37.809310470Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e611dc', attempt: 1 }
+2026-05-30T23:35:37.809315391Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e611dc', status: 200 }
+2026-05-30T23:35:37.809319565Z [inf]  [baseball live-activity] apns-connect { deviceToken: '405ea16e', attempt: 1 }
+2026-05-30T23:35:37.809323885Z [inf]  [baseball live-activity] apns-response { deviceToken: '405ea16e', status: 200 }
+2026-05-30T23:35:37.809327995Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40468f70', attempt: 1 }
+2026-05-30T23:35:37.809332518Z [inf]  [baseball live-activity] apns-response { deviceToken: '40468f70', status: 200 }
+2026-05-30T23:35:37.810870547Z [inf]  [baseball live-activity] apns-connect { deviceToken: '407eb63a', attempt: 1 }
+2026-05-30T23:35:37.810876498Z [inf]  [baseball live-activity] apns-response { deviceToken: '407eb63a', status: 200 }
+2026-05-30T23:35:37.810882933Z [inf]  [baseball live-activity] apns-connect { deviceToken: '404e0291', attempt: 1 }
+2026-05-30T23:35:37.810889910Z [inf]  [baseball live-activity] apns-response { deviceToken: '404e0291', status: 200 }
+2026-05-30T23:35:37.811452008Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f2ae54', attempt: 1 }
+2026-05-30T23:35:37.811467959Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40b4451d', attempt: 1 }
+2026-05-30T23:35:37.811470094Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f2ae54', status: 200 }
+2026-05-30T23:35:37.811483583Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b2683', attempt: 1 }
+2026-05-30T23:35:37.811484975Z [inf]  [baseball live-activity] apns-response { deviceToken: '40b4451d', status: 200 }
+2026-05-30T23:35:37.811486858Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40368101', attempt: 1 }
+2026-05-30T23:35:37.811494845Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b2683', status: 200 }
+2026-05-30T23:35:37.811499462Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40deea15', attempt: 1 }
+2026-05-30T23:35:37.811508905Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cecc35', attempt: 1 }
+2026-05-30T23:35:37.811514139Z [inf]  [baseball live-activity] apns-response { deviceToken: '40deea15', status: 200 }
+2026-05-30T23:35:37.811520269Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cecc35', status: 200 }
+2026-05-30T23:35:37.841374334Z [inf]  [baseball live-activity] apns-response { deviceToken: '40368101', status: 200 }
+2026-05-30T23:35:37.841379489Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4094ffd1', attempt: 1 }
+2026-05-30T23:35:37.874726502Z [inf]  [baseball live-activity] apns-response { deviceToken: '4094ffd1', status: 200 }
+2026-05-30T23:35:37.874732890Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a3c714', attempt: 1 }
+2026-05-30T23:35:37.907530445Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a3c714', status: 200 }
+2026-05-30T23:35:37.909421375Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40686675', attempt: 1 }
+2026-05-30T23:35:37.944038611Z [inf]  [baseball live-activity] apns-response { deviceToken: '40686675', status: 200 }
+2026-05-30T23:35:37.945866841Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a915d7', attempt: 1 }
+2026-05-30T23:35:37.977824720Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a915d7', status: 200 }
+2026-05-30T23:35:37.981989459Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40049a78', attempt: 1 }
+2026-05-30T23:35:38.017440035Z [inf]  [baseball live-activity] apns-response { deviceToken: '40049a78', status: 200 }
+2026-05-30T23:35:38.019904640Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401fe401', attempt: 1 }
+2026-05-30T23:35:38.054514609Z [inf]  [baseball live-activity] apns-response { deviceToken: '401fe401', status: 200 }
+2026-05-30T23:35:38.054525365Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40f5f13d', attempt: 1 }
+2026-05-30T23:35:38.083739551Z [inf]  [baseball live-activity] apns-response { deviceToken: '40f5f13d', status: 200 }
+2026-05-30T23:35:38.085431473Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4082ca1f', attempt: 1 }
+2026-05-30T23:35:38.119274689Z [inf]  [baseball live-activity] apns-response { deviceToken: '4082ca1f', status: 200 }
+2026-05-30T23:35:38.121149624Z [inf]  [baseball live-activity] apns-connect { deviceToken: '409e90b8', attempt: 1 }
+2026-05-30T23:35:38.158300752Z [inf]  [baseball live-activity] apns-response { deviceToken: '409e90b8', status: 200 }
+2026-05-30T23:35:38.159860688Z [inf]  [baseball live-activity] apns-connect { deviceToken: '402f9d5a', attempt: 1 }
+2026-05-30T23:35:38.193209640Z [inf]  [baseball live-activity] apns-response { deviceToken: '402f9d5a', status: 200 }
+2026-05-30T23:35:38.195462190Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a3cd32', attempt: 1 }
+2026-05-30T23:35:38.231930759Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a3cd32', status: 200 }
+2026-05-30T23:35:38.234749247Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40b34727', attempt: 1 }
+2026-05-30T23:35:38.799824757Z [inf]  [baseball live-activity] apns-response { deviceToken: '40b34727', status: 200 }
+2026-05-30T23:35:38.799830617Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e68273', attempt: 1 }
+2026-05-30T23:35:38.799835714Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e68273', status: 200 }
+2026-05-30T23:35:38.799846609Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fcfc0a', attempt: 1 }
+2026-05-30T23:35:38.799855944Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fcfc0a', status: 200 }
+2026-05-30T23:35:38.799863552Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4071c426', attempt: 1 }
+2026-05-30T23:35:38.799873864Z [inf]  [baseball live-activity] apns-response { deviceToken: '400b165a', status: 200 }
+2026-05-30T23:35:38.799880666Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a58f61', attempt: 1 }
+2026-05-30T23:35:38.799888109Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4000bf78', attempt: 1 }
+2026-05-30T23:35:38.799899909Z [inf]  [baseball live-activity] apns-response { deviceToken: '4000bf78', status: 200 }
+2026-05-30T23:35:38.799901807Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a58f61', status: 200 }
+2026-05-30T23:35:38.799907823Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40d49f4b', attempt: 1 }
+2026-05-30T23:35:38.799916013Z [inf]  [baseball live-activity] apns-response { deviceToken: '40d49f4b', status: 200 }
+2026-05-30T23:35:38.799924119Z [inf]  [baseball live-activity] apns-connect { deviceToken: '400b165a', attempt: 1 }
+2026-05-30T23:35:38.799996183Z [inf]  [baseball live-activity] apns-response { deviceToken: '4071c426', status: 200 }
+2026-05-30T23:35:38.800007812Z [inf]  [baseball live-activity] apns-connect { deviceToken: '401a1404', attempt: 1 }
+2026-05-30T23:35:38.800014612Z [inf]  [baseball live-activity] apns-response { deviceToken: '401a1404', status: 200 }
+2026-05-30T23:35:38.801378633Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4044d12c', attempt: 1 }
+2026-05-30T23:35:38.801387599Z [inf]  [baseball live-activity] apns-response { deviceToken: '4044d12c', status: 200 }
+2026-05-30T23:35:38.801395045Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4019a096', attempt: 1 }
+2026-05-30T23:35:38.801402534Z [inf]  [baseball live-activity] apns-response { deviceToken: '4019a096', status: 200 }
+2026-05-30T23:35:38.801443612Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4047a31e', attempt: 1 }
+2026-05-30T23:35:38.801450774Z [inf]  [baseball live-activity] apns-response { deviceToken: '4047a31e', status: 200 }
+2026-05-30T23:35:38.801456797Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40cc87d1', attempt: 1 }
+2026-05-30T23:35:38.801467890Z [inf]  [baseball live-activity] apns-response { deviceToken: '40cc87d1', status: 200 }
+2026-05-30T23:35:38.801475495Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40e5dca8', attempt: 1 }
+2026-05-30T23:35:38.801481867Z [inf]  [baseball live-activity] apns-response { deviceToken: '40e5dca8', status: 200 }
+2026-05-30T23:35:38.801491257Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40dd5926', attempt: 1 }
+2026-05-30T23:35:38.801497568Z [inf]  [baseball live-activity] apns-response { deviceToken: '40dd5926', status: 200 }
+2026-05-30T23:35:38.801504562Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40bb810c', attempt: 1 }
+2026-05-30T23:35:38.815983826Z [inf]  [baseball live-activity] apns-response { deviceToken: '40bb810c', status: 200 }
+2026-05-30T23:35:38.815990026Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40fa38f5', attempt: 1 }
+2026-05-30T23:35:38.849410761Z [inf]  [baseball live-activity] apns-response { deviceToken: '40fa38f5', status: 200 }
+2026-05-30T23:35:38.849417689Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4089fe28', attempt: 1 }
+2026-05-30T23:35:38.892366878Z [inf]  [baseball live-activity] apns-response { deviceToken: '4089fe28', status: 200 }
+2026-05-30T23:35:38.892371693Z [inf]  [baseball live-activity] apns-connect { deviceToken: '4068a1e0', attempt: 1 }
+2026-05-30T23:35:38.916201559Z [inf]  [baseball live-activity] apns-response { deviceToken: '4068a1e0', status: 200 }
+2026-05-30T23:35:38.917834399Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40a0a391', attempt: 1 }
+2026-05-30T23:35:38.962044755Z [inf]  [baseball live-activity] apns-response { deviceToken: '40a0a391', status: 200 }
+2026-05-30T23:35:38.962051749Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40ad4679', attempt: 1 }
+2026-05-30T23:35:38.987111831Z [inf]  [baseball live-activity] apns-response { deviceToken: '40ad4679', status: 200 }
+2026-05-30T23:35:38.994991080Z [inf]  [baseball live-activity] apns-connect { deviceToken: '403e4100', attempt: 1 }
+2026-05-30T23:35:39.026570095Z [inf]  [baseball live-activity] apns-response { deviceToken: '403e4100', status: 200 }
+2026-05-30T23:35:39.026577556Z [inf]  [baseball live-activity] apns-connect { deviceToken: '40d98b74', attempt: 1 }
+2026-05-30T23:35:39.059789291Z [inf]  [baseball live-activity] apns-response { deviceToken: '40d98b74', status: 200 }
+2026-05-30T23:35:39.059799566Z [inf]  [baseball live-activity] start-sent {
+2026-05-30T23:35:39.059806912Z [inf]    fixtureId: '824513',
+2026-05-30T23:35:39.059813583Z [inf]    bundleId: 'com.sportsheart.app',
+2026-05-30T23:35:39.059820173Z [inf]    tokenCount: 90,
+2026-05-30T23:35:39.059826413Z [inf]    forwarded: 90
+2026-05-30T23:35:39.059832733Z [inf]  }
+2026-05-30T23:35:39.233015001Z [inf]  }
+2026-05-30T23:35:39.233026669Z [inf]  [baseball live-activity] register-token-done { key: '824513', tokenCount: 1 }
+2026-05-30T23:35:39.233123502Z [inf]  [baseball live-activity] register-token-start {
+2026-05-30T23:35:39.233129868Z [inf]    gamePk: null,
+2026-05-30T23:35:39.233136079Z [inf]    fixtureId: '824513',
+2026-05-30T23:35:39.233142591Z [inf]    key: '824513',
+2026-05-30T23:35:39.233149040Z [inf]    token: '408b40ff…(160)'
+2026-05-30T23:35:39.919163252Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:35:39.919170484Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:35:39.919175463Z [inf]    gamePk: '824513',
+2026-05-30T23:35:39.919181025Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:35:39.919205958Z [inf]  }
+2026-05-30T23:35:39.972652014Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:40.006635699Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:40.006643538Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:40.006648658Z [inf]    gamePk: '824513',
+2026-05-30T23:35:40.006654865Z [inf]    tokenCount: 1,
+2026-05-30T23:35:40.006660427Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:35:40.006665761Z [inf]    forwarded: 1
+2026-05-30T23:35:40.006671091Z [inf]  }
+2026-05-30T23:35:40.006676018Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:35:40.020144699Z [inf]    gamePk: '824513',
+2026-05-30T23:35:40.020155867Z [inf]    tokens: 1,
+2026-05-30T23:35:40.020162173Z [inf]    shouldSend: true,
+2026-05-30T23:35:40.020168000Z [inf]    status: 'I',
+2026-05-30T23:35:40.020173336Z [inf]    inning: 2,
+2026-05-30T23:35:40.020179838Z [inf]    inningState: 'Top',
+2026-05-30T23:35:40.020185929Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:35:40.020186469Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:35:40.020191652Z [inf]    gamePk: '824513',
+2026-05-30T23:35:40.020192931Z [inf]  }
+2026-05-30T23:35:40.020197361Z [inf]    found: true,
+2026-05-30T23:35:40.020202657Z [inf]    hasLinescore: true,
+2026-05-30T23:35:40.020207650Z [inf]    currentInning: 2,
+2026-05-30T23:35:40.020214015Z [inf]    inningState: 'Top'
+2026-05-30T23:35:40.020218312Z [inf]  }
+2026-05-30T23:35:40.020222782Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:35:40.022886816Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:40.055549005Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:40.055558470Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:40.055565021Z [inf]    gamePk: '824513',
+2026-05-30T23:35:40.055571063Z [inf]    tokenCount: 1,
+2026-05-30T23:35:40.055577165Z [inf]    signature: 'I|In Progress|2|2nd|top|0|1|1|1|0|1|0|1|Jorge Mateo|Brady Singer',
+2026-05-30T23:35:40.055582829Z [inf]    forwarded: 1
+2026-05-30T23:35:40.055588357Z [inf]  }
+2026-05-30T23:35:44.941246034Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:35:44.941256174Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:35:44.941262038Z [inf]    gamePk: '824513',
+2026-05-30T23:35:44.941267333Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:35:44.941272532Z [inf]  }
+2026-05-30T23:35:44.967676814Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:45.016833097Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:45.016840682Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:45.016845901Z [inf]    gamePk: '824513',
+2026-05-30T23:35:45.016850473Z [inf]    tokenCount: 1,
+2026-05-30T23:35:45.016854663Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:35:45.016858995Z [inf]    forwarded: 1
+2026-05-30T23:35:45.016862814Z [inf]  }
+2026-05-30T23:35:45.016866707Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:35:45.016870722Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:35:45.016875007Z [inf]    gamePk: '824513',
+2026-05-30T23:35:45.016879080Z [inf]    found: true,
+2026-05-30T23:35:45.016883437Z [inf]    hasLinescore: true,
+2026-05-30T23:35:45.016888628Z [inf]    currentInning: 2,
+2026-05-30T23:35:45.016893407Z [inf]    inningState: 'Top'
+2026-05-30T23:35:45.016897975Z [inf]  }
+2026-05-30T23:35:45.016902898Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:35:45.016906745Z [inf]    gamePk: '824513',
+2026-05-30T23:35:45.016910630Z [inf]    tokens: 1,
+2026-05-30T23:35:45.016914432Z [inf]    shouldSend: true,
+2026-05-30T23:35:45.016918514Z [inf]    status: 'I',
+2026-05-30T23:35:45.016923551Z [inf]    inning: 2,
+2026-05-30T23:35:45.016927748Z [inf]    inningState: 'Top',
+2026-05-30T23:35:45.016932014Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:35:45.016936261Z [inf]  }
+2026-05-30T23:35:45.016940207Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:45.057520159Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:45.057528059Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:45.057540781Z [inf]    gamePk: '824513',
+2026-05-30T23:35:45.057552876Z [inf]    tokenCount: 1,
+2026-05-30T23:35:45.057558643Z [inf]    signature: 'I|In Progress|2|2nd|top|0|1|1|1|0|1|0|1|Jorge Mateo|Brady Singer',
+2026-05-30T23:35:45.057565427Z [inf]    forwarded: 1
+2026-05-30T23:35:45.057570962Z [inf]  }
+2026-05-30T23:35:49.929041415Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:35:49.929068298Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:35:49.929095112Z [inf]    gamePk: '824513',
+2026-05-30T23:35:49.929104429Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:35:49.929113411Z [inf]  }
+2026-05-30T23:35:49.971101059Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:50.000019188Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:50.000029257Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:50.000035117Z [inf]    gamePk: '824513',
+2026-05-30T23:35:50.000040225Z [inf]    tokenCount: 1,
+2026-05-30T23:35:50.000045419Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:35:50.000051048Z [inf]    forwarded: 1
+2026-05-30T23:35:50.000056115Z [inf]  }
+2026-05-30T23:35:50.000061303Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:35:50.017462537Z [inf]    gamePk: '824513',
+2026-05-30T23:35:50.017466159Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:35:50.017475202Z [inf]    tokens: 1,
+2026-05-30T23:35:50.017477516Z [inf]    gamePk: '824513',
+2026-05-30T23:35:50.017482697Z [inf]    shouldSend: true,
+2026-05-30T23:35:50.017485136Z [inf]    found: true,
+2026-05-30T23:35:50.017488546Z [inf]    status: 'I',
+2026-05-30T23:35:50.017493828Z [inf]    hasLinescore: true,
+2026-05-30T23:35:50.017493880Z [inf]    inning: 2,
+2026-05-30T23:35:50.017499144Z [inf]    inningState: 'Top',
+2026-05-30T23:35:50.017503164Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:35:50.017507611Z [inf]  }
+2026-05-30T23:35:50.017510383Z [inf]    currentInning: 2,
+2026-05-30T23:35:50.017516784Z [inf]    inningState: 'Top'
+2026-05-30T23:35:50.017522694Z [inf]  }
+2026-05-30T23:35:50.017530169Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:35:50.026196106Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:50.053741098Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:50.053745315Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:50.053749237Z [inf]    gamePk: '824513',
+2026-05-30T23:35:50.053754220Z [inf]    tokenCount: 1,
+2026-05-30T23:35:50.053759039Z [inf]    signature: 'I|In Progress|2|2nd|top|0|1|1|1|0|1|0|1|Jorge Mateo|Brady Singer',
+2026-05-30T23:35:50.053762745Z [inf]    forwarded: 1
+2026-05-30T23:35:50.053766521Z [inf]  }
+2026-05-30T23:35:55.016611790Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:35:55.016635733Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:35:55.016640654Z [inf]    gamePk: '824513',
+2026-05-30T23:35:55.016646181Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:35:55.016650928Z [inf]  }
+2026-05-30T23:35:55.088908613Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:35:55.088918902Z [inf]    gamePk: '824513',
+2026-05-30T23:35:55.088926219Z [inf]    found: true,
+2026-05-30T23:35:55.088932899Z [inf]    hasLinescore: true,
+2026-05-30T23:35:55.088939837Z [inf]    currentInning: 2,
+2026-05-30T23:35:55.088946756Z [inf]    inningState: 'Top'
+2026-05-30T23:35:55.088952794Z [inf]  }
+2026-05-30T23:35:55.088958743Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:35:55.088967921Z [inf]    gamePk: '824513',
+2026-05-30T23:35:55.088974346Z [inf]    tokens: 1,
+2026-05-30T23:35:55.088980885Z [inf]    shouldSend: false,
+2026-05-30T23:35:55.088987791Z [inf]    status: 'I',
+2026-05-30T23:35:55.088994762Z [inf]    inning: 2,
+2026-05-30T23:35:55.089001774Z [inf]    inningState: 'Top',
+2026-05-30T23:35:55.089008444Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:35:55.089015440Z [inf]  }
+2026-05-30T23:35:56.095161043Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:35:56.095180407Z [inf]    forwarded: 1
+2026-05-30T23:35:56.095190588Z [inf]  }
+2026-05-30T23:35:56.095199102Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:35:56.095219715Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:35:56.095233572Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:35:56.095244529Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:35:56.095255100Z [inf]    gamePk: '824513',
+2026-05-30T23:35:56.095263669Z [inf]    tokenCount: 1,
+2026-05-30T23:36:00.018472983Z [inf]  }
+2026-05-30T23:36:00.018720121Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:00.018726918Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:00.018732991Z [inf]    gamePk: '824513',
+2026-05-30T23:36:00.018739131Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:00.022930952Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:00.022937619Z [inf]    gamePk: '824513',
+2026-05-30T23:36:00.022947650Z [inf]    found: true,
+2026-05-30T23:36:00.022953849Z [inf]    hasLinescore: true,
+2026-05-30T23:36:00.022960851Z [inf]    currentInning: 2,
+2026-05-30T23:36:00.022966997Z [inf]    inningState: 'Top'
+2026-05-30T23:36:00.022973638Z [inf]  }
+2026-05-30T23:36:00.022979951Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:00.022986057Z [inf]    gamePk: '824513',
+2026-05-30T23:36:00.022996693Z [inf]    tokens: 1,
+2026-05-30T23:36:00.023003093Z [inf]    shouldSend: true,
+2026-05-30T23:36:00.023009259Z [inf]    status: 'I',
+2026-05-30T23:36:00.023031746Z [inf]    inning: 2,
+2026-05-30T23:36:00.023039330Z [inf]    inningState: 'Top',
+2026-05-30T23:36:00.023044494Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:00.023049206Z [inf]  }
+2026-05-30T23:36:00.028434188Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:00.056397360Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:00.056414473Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:00.056422838Z [inf]    gamePk: '824513',
+2026-05-30T23:36:00.056430821Z [inf]    tokenCount: 1,
+2026-05-30T23:36:00.056438183Z [inf]    signature: 'I|In Progress|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:00.056445931Z [inf]    forwarded: 1
+2026-05-30T23:36:00.056454989Z [inf]  }
+2026-05-30T23:36:05.015338268Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:05.015351262Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:05.015358697Z [inf]    gamePk: '824513',
+2026-05-30T23:36:05.015364615Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:05.015370722Z [inf]  }
+2026-05-30T23:36:05.015376354Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:05.015381221Z [inf]    gamePk: '824513',
+2026-05-30T23:36:05.015386350Z [inf]    found: true,
+2026-05-30T23:36:05.015391324Z [inf]    hasLinescore: true,
+2026-05-30T23:36:05.015396359Z [inf]    currentInning: 2,
+2026-05-30T23:36:05.015400992Z [inf]    inningState: 'Top'
+2026-05-30T23:36:05.015405841Z [inf]  }
+2026-05-30T23:36:05.015415041Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:05.015419830Z [inf]    gamePk: '824513',
+2026-05-30T23:36:05.015424891Z [inf]    tokens: 1,
+2026-05-30T23:36:05.015429699Z [inf]    shouldSend: false,
+2026-05-30T23:36:05.015434393Z [inf]    status: 'I',
+2026-05-30T23:36:05.015439868Z [inf]    inning: 2,
+2026-05-30T23:36:05.015444519Z [inf]    inningState: 'Top',
+2026-05-30T23:36:05.015448667Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:05.015453214Z [inf]  }
+2026-05-30T23:36:05.015459847Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:05.037285034Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:05.037294658Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:05.037302696Z [inf]    gamePk: '824513',
+2026-05-30T23:36:05.037308272Z [inf]    tokenCount: 1,
+2026-05-30T23:36:05.037314373Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:05.037325584Z [inf]    forwarded: 1
+2026-05-30T23:36:05.037332101Z [inf]  }
+2026-05-30T23:36:05.037337156Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:36:09.948533488Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:09.948538051Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:09.948542466Z [inf]    gamePk: '824513',
+2026-05-30T23:36:09.948546569Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:09.948552079Z [inf]  }
+2026-05-30T23:36:09.950445798Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:09.950453530Z [inf]    gamePk: '824513',
+2026-05-30T23:36:09.950461999Z [inf]    found: true,
+2026-05-30T23:36:09.950466206Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:09.950473420Z [inf]  }
+2026-05-30T23:36:09.950480822Z [inf]    hasLinescore: true,
+2026-05-30T23:36:09.950487249Z [inf]    currentInning: 2,
+2026-05-30T23:36:09.950506742Z [inf]    inningState: 'Top'
+2026-05-30T23:36:09.950512620Z [inf]  }
+2026-05-30T23:36:09.950519418Z [inf]    tokens: 1,
+2026-05-30T23:36:09.950519891Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:09.950526711Z [inf]    gamePk: '824513',
+2026-05-30T23:36:09.950528113Z [inf]    shouldSend: true,
+2026-05-30T23:36:09.950534665Z [inf]    status: 'M',
+2026-05-30T23:36:09.950540340Z [inf]    inning: 2,
+2026-05-30T23:36:09.950546362Z [inf]    inningState: 'Top',
+2026-05-30T23:36:09.952226445Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:10.099139057Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:10.099150253Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:10.099157008Z [inf]    gamePk: '824513',
+2026-05-30T23:36:10.099164560Z [inf]    tokenCount: 1,
+2026-05-30T23:36:10.099171023Z [inf]    signature: 'M|Manager challenge: Tag play|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:10.099177587Z [inf]    forwarded: 1
+2026-05-30T23:36:10.099189946Z [inf]  }
+2026-05-30T23:36:15.172655668Z [inf]    forwarded: 1
+2026-05-30T23:36:15.172662418Z [inf]  }
+2026-05-30T23:36:15.172673466Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:36:15.172685132Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:15.172691012Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:15.172693417Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:15.172698560Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:15.172701400Z [inf]    gamePk: '824513',
+2026-05-30T23:36:15.172705927Z [inf]    gamePk: '824513',
+2026-05-30T23:36:15.172709482Z [inf]    tokenCount: 1,
+2026-05-30T23:36:15.172712374Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:15.172717684Z [inf]  }
+2026-05-30T23:36:15.172718334Z [inf]    signature: 'M|Manager challenge: Tag play|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:15.172722931Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:15.172726631Z [inf]    forwarded: 1
+2026-05-30T23:36:15.172728306Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:15.172733620Z [inf]    gamePk: '824513',
+2026-05-30T23:36:15.172735627Z [inf]  }
+2026-05-30T23:36:15.172738877Z [inf]    found: true,
+2026-05-30T23:36:15.172742846Z [inf]    hasLinescore: true,
+2026-05-30T23:36:15.172746884Z [inf]    currentInning: 2,
+2026-05-30T23:36:15.172750613Z [inf]    inningState: 'Top'
+2026-05-30T23:36:15.172755338Z [inf]  }
+2026-05-30T23:36:15.172760622Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:15.172764546Z [inf]    gamePk: '824513',
+2026-05-30T23:36:15.172768769Z [inf]    tokens: 1,
+2026-05-30T23:36:15.172772527Z [inf]    shouldSend: true,
+2026-05-30T23:36:15.172776635Z [inf]    status: 'M',
+2026-05-30T23:36:15.172780626Z [inf]    inning: 2,
+2026-05-30T23:36:15.172784501Z [inf]    inningState: 'Top',
+2026-05-30T23:36:15.172788133Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:15.172791775Z [inf]  }
+2026-05-30T23:36:15.172796539Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:15.172800320Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:15.172835196Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:15.172841878Z [inf]    gamePk: '824513',
+2026-05-30T23:36:15.172853342Z [inf]    tokenCount: 1,
+2026-05-30T23:36:15.172859090Z [inf]    signature: 'I|In Progress||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:20.043307351Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:20.043312830Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:20.043318613Z [inf]    gamePk: '824513',
+2026-05-30T23:36:20.043324429Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:20.043330330Z [inf]  }
+2026-05-30T23:36:20.098369454Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:20.098374702Z [inf]    gamePk: '824513',
+2026-05-30T23:36:20.098380669Z [inf]    found: true,
+2026-05-30T23:36:20.098386529Z [inf]    hasLinescore: true,
+2026-05-30T23:36:20.098392045Z [inf]    currentInning: 2,
+2026-05-30T23:36:20.098397243Z [inf]    inningState: 'Top'
+2026-05-30T23:36:20.098402576Z [inf]  }
+2026-05-30T23:36:20.098407869Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:20.098413031Z [inf]    gamePk: '824513',
+2026-05-30T23:36:20.098418646Z [inf]    tokens: 1,
+2026-05-30T23:36:20.098423979Z [inf]    shouldSend: false,
+2026-05-30T23:36:20.098429655Z [inf]    status: 'M',
+2026-05-30T23:36:20.098434909Z [inf]    inning: 2,
+2026-05-30T23:36:20.098440181Z [inf]    inningState: 'Top',
+2026-05-30T23:36:20.098445896Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:20.098451588Z [inf]  }
+2026-05-30T23:36:20.140549622Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:20.272165281Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:20.272172870Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:20.272177622Z [inf]    gamePk: '824513',
+2026-05-30T23:36:20.272182505Z [inf]    tokenCount: 1,
+2026-05-30T23:36:20.272187419Z [inf]    signature: 'M|Manager challenge||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:20.272192487Z [inf]    forwarded: 1
+2026-05-30T23:36:20.272197845Z [inf]  }
+2026-05-30T23:36:20.272202048Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:36:25.215712875Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:25.215725831Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:25.215733739Z [inf]    gamePk: '824513',
+2026-05-30T23:36:25.215741197Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:25.215748226Z [inf]  }
+2026-05-30T23:36:25.215757162Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:25.215765313Z [inf]    gamePk: '824513',
+2026-05-30T23:36:25.215771666Z [inf]    found: true,
+2026-05-30T23:36:25.215779794Z [inf]    hasLinescore: true,
+2026-05-30T23:36:25.216163250Z [inf]    currentInning: 2,
+2026-05-30T23:36:25.216178436Z [inf]    inningState: 'Top'
+2026-05-30T23:36:25.216185838Z [inf]  }
+2026-05-30T23:36:25.216192214Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:25.216199467Z [inf]    gamePk: '824513',
+2026-05-30T23:36:25.216207700Z [inf]    tokens: 1,
+2026-05-30T23:36:25.216213905Z [inf]    shouldSend: true,
+2026-05-30T23:36:25.216222268Z [inf]    status: 'M',
+2026-05-30T23:36:25.216230447Z [inf]    inning: 2,
+2026-05-30T23:36:25.216238482Z [inf]    inningState: 'Top',
+2026-05-30T23:36:25.216246027Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:25.216252553Z [inf]  }
+2026-05-30T23:36:25.216259649Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:25.216266675Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:25.216273620Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:25.216281100Z [inf]    gamePk: '824513',
+2026-05-30T23:36:25.216287439Z [inf]    tokenCount: 1,
+2026-05-30T23:36:25.216293460Z [inf]    signature: 'M|Manager challenge: Tag play|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:25.216300188Z [inf]    forwarded: 1
+2026-05-30T23:36:25.217492651Z [inf]  }
+2026-05-30T23:36:30.439135117Z [inf]    hasLinescore: true,
+2026-05-30T23:36:30.439145649Z [inf]    currentInning: 2,
+2026-05-30T23:36:30.439148413Z [inf]    gamePk: '824513',
+2026-05-30T23:36:30.439155727Z [inf]    inningState: 'Top'
+2026-05-30T23:36:30.439161567Z [inf]    tokenCount: 1,
+2026-05-30T23:36:30.439167016Z [inf]  }
+2026-05-30T23:36:30.439175315Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:30.439183462Z [inf]    gamePk: '824513',
+2026-05-30T23:36:30.439191547Z [inf]    tokens: 1,
+2026-05-30T23:36:30.439198611Z [inf]    shouldSend: false,
+2026-05-30T23:36:30.439206763Z [inf]    status: 'M',
+2026-05-30T23:36:30.439215865Z [inf]    inning: 2,
+2026-05-30T23:36:30.439223038Z [inf]    inningState: 'Top',
+2026-05-30T23:36:30.439233214Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:30.439240993Z [inf]  }
+2026-05-30T23:36:30.439248662Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:30.439255566Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:30.439262057Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:30.439362016Z [inf]    signature: 'M|Manager challenge||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:30.439374077Z [inf]    forwarded: 1
+2026-05-30T23:36:30.439469066Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:30.439475923Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:30.439484011Z [inf]    gamePk: '824513',
+2026-05-30T23:36:30.439491414Z [inf]    url: 'https://statsapi.mlb.com/api/v1.1/game/824513/feed/live'
+2026-05-30T23:36:30.439499165Z [inf]  }
+2026-05-30T23:36:30.439506558Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:30.439513575Z [inf]    gamePk: '824513',
+2026-05-30T23:36:30.439520537Z [inf]    found: true,
+2026-05-30T23:36:30.442319755Z [inf]  }
+2026-05-30T23:36:30.442330121Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:36:34.916976516Z [inf]  [baseball live-activity] tick { dateStr: '2026-05-30', games: 15, trackedGames: 1 }
+2026-05-30T23:36:34.916982488Z [inf]  [baseball live-activity] fetch-start {
+2026-05-30T23:36:34.917001542Z [inf]  }
+2026-05-30T23:36:34.951709084Z [inf]    inningState: 'Top',
+2026-05-30T23:36:34.951718748Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:34.951724507Z [inf]  }
+2026-05-30T23:36:34.951727106Z [inf]    found: true,
+2026-05-30T23:36:34.951732651Z [inf]    hasLinescore: true,
+2026-05-30T23:36:34.951736790Z [inf]    currentInning: 2,
+2026-05-30T23:36:34.951741608Z [inf]    inningState: 'Top'
+2026-05-30T23:36:34.951747147Z [inf]  }
+2026-05-30T23:36:34.951751322Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:34.951755515Z [inf]    gamePk: '824513',
+2026-05-30T23:36:34.951759657Z [inf]    tokens: 1,
+2026-05-30T23:36:34.951767413Z [inf]    status: 'M',
+2026-05-30T23:36:35.086737952Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:35.086750665Z [inf]    gamePk: '824513',
+2026-05-30T23:36:35.086756292Z [inf]    tokenCount: 1,
+2026-05-30T23:36:35.086795871Z [inf]    signature: 'M|Manager challenge: Tag play|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:35.086800828Z [inf]    forwarded: 1
+2026-05-30T23:36:35.086805801Z [inf]  }
+2026-05-30T23:36:40.075788447Z [inf]    gamePk: '824513',
+2026-05-30T23:36:40.075797804Z [inf]  }
+2026-05-30T23:36:40.075802826Z [inf]  [baseball live-activity] fetch-done {
+2026-05-30T23:36:40.075807230Z [inf]    gamePk: '824513',
+2026-05-30T23:36:40.075812794Z [inf]    found: true,
+2026-05-30T23:36:40.075833076Z [inf]    inningState: 'Top'
+2026-05-30T23:36:40.075847858Z [inf]    gamePk: '824513',
+2026-05-30T23:36:40.075853437Z [inf]    tokens: 1,
+2026-05-30T23:36:40.075858721Z [inf]    shouldSend: false,
+2026-05-30T23:36:40.075863437Z [inf]    status: 'M',
+2026-05-30T23:36:40.075867402Z [inf]    inning: 2,
+2026-05-30T23:36:40.075871360Z [inf]    inningState: 'Top',
+2026-05-30T23:36:40.075875205Z [inf]    scores: { away: 1, home: 0 }
+2026-05-30T23:36:40.075879099Z [inf]  }
+2026-05-30T23:36:40.083785403Z [inf]  [sports-favs] mlb live-activity update gamePk=824513 tokenCount=1 date=2026-05-30
+2026-05-30T23:36:40.083878369Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:40.083882546Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:40.083891323Z [inf]    tokenCount: 1,
+2026-05-30T23:36:40.083895777Z [inf]    signature: 'M|Manager challenge||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:40.083900640Z [inf]    forwarded: 1
+2026-05-30T23:36:40.083905316Z [inf]  }
+2026-05-30T23:36:45.097820708Z [inf]    inning: 2,
+2026-05-30T23:36:45.097827708Z [inf]    inningState: 'Top',
+2026-05-30T23:36:45.097855739Z [inf]  [baseball live-activity] apns-connect { deviceToken: '408b40ff', attempt: 1 }
+2026-05-30T23:36:45.097906091Z [inf]    gamePk: '824513',
+2026-05-30T23:36:45.097911319Z [inf]    found: true,
+2026-05-30T23:36:45.097917260Z [inf]    hasLinescore: true,
+2026-05-30T23:36:45.097923302Z [inf]    currentInning: 2,
+2026-05-30T23:36:45.097942962Z [inf]  [baseball live-activity] game-check {
+2026-05-30T23:36:45.097948625Z [inf]    gamePk: '824513',
+2026-05-30T23:36:45.189955981Z [inf]  [baseball live-activity] apns-response { deviceToken: '408b40ff', status: 200 }
+2026-05-30T23:36:45.189965060Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:45.189987243Z [inf]    gamePk: '824513',
+2026-05-30T23:36:45.190001440Z [inf]    signature: 'M|Manager challenge: Tag play|2|2nd|top|0|1|2|1|0|0|1|0|Jorge Mateo|Brady Singer',
+2026-05-30T23:36:45.207062562Z [inf]  }
+2026-05-30T23:36:45.207104333Z [inf]  [baseball live-activity] update-sent {
+2026-05-30T23:36:45.207123725Z [inf]    tokenCount: 1,
+2026-05-30T23:36:45.207131914Z [inf]    signature: 'M|Manager challenge||||0|0|0|1|0|0|0|0||',
+2026-05-30T23:36:45.207139705Z [inf]    forwarded: 1

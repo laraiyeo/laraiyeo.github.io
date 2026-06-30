@@ -34,7 +34,7 @@ const { width } = Dimensions.get("window");
 
 const DATE_API_BASE =
   "https://sportsheart-motorsports.up.railway.app/racing/date";
-const DATE_CACHE_KEY = "racing_date_list:v2";
+const DATE_CACHE_KEY = "racing_date_list:v1";
 const DATE_CACHE_TTL = 4 * 60 * 60 * 1000; // 3 hours
 
 const DATE_ITEM_W = 90;

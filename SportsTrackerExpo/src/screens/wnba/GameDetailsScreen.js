@@ -26,10 +26,12 @@ import Svg, {
   Defs,
   LinearGradient,
   Stop,
+  Rect,
   Path,
   G,
 } from "react-native-svg";
 import { WebView } from "react-native-webview";
+import ViewShot from "react-native-view-shot";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { useNavigation } from "@react-navigation/native";
@@ -43,6 +45,197 @@ import * as MediaLibrary from "expo-media-library";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import LiveTrackerEmbed from "../../components/LiveTrackerEmbed";
 import LiveTrackerService from "../../services/liveTrackerService";
+
+const { width } = Dimensions.get("window");
+
+// Add this HeaderGradient component near the top of the file, after the imports
+const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
+  <View style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
+    <Svg
+      width={width}
+      height={height}
+      style={{
+        transform: [{ translateX: -1 }, { translateY: -1 }],
+      }}
+      pointerEvents="none"
+    >
+      <Defs>
+        <LinearGradient id="wnbaHeaderGrad" x1="00%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={awayColor} stopOpacity="0.3" />
+          <Stop
+            offset="40%"
+            stopColor={theme.surfaceSecondary}
+            stopOpacity="0"
+          />
+          <Stop
+            offset="60%"
+            stopColor={theme.surfaceSecondary}
+            stopOpacity="0"
+          />
+          <Stop offset="100%" stopColor={homeColor} stopOpacity="0.3" />
+        </LinearGradient>
+      </Defs>
+      <Rect width={width} height={height} fill="url(#wnbaHeaderGrad)" />
+    </Svg>
+  </View>
+);
+
+// Update the SimpleTeamDisplay component to include timeouts/bonus
+const SimpleTeamDisplay = ({
+  team,
+  logo,
+  score,
+  side,
+  isPre,
+  isFinished,
+  isWinner,
+  isLoser,
+  record,
+  theme,
+  teamColor,
+  onPress,
+  possession,
+  timeoutsRemaining, // Add this prop
+  bonusState, // Add this prop
+  colors, // Add this prop
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.65}
+    style={styles.simpleTeamContainer}
+  >
+    <View style={styles.simpleTeamTopRow}>
+      {side === "away" && (
+        <Image
+          source={{ uri: logo }}
+          style={[
+            styles.simpleTeamLogo,
+            { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
+          ]}
+          contentFit="contain"
+        />
+      )}
+      {!isPre && (
+        <Text
+          style={[
+            styles.simpleTeamScore,
+            {
+              color: isWinner
+                ? theme.text
+                : isLoser
+                  ? theme.textSecondary
+                  : theme.text,
+            },
+            side === "away" ? styles.scoreRight : styles.scoreLeft,
+          ]}
+        >
+          {score}
+        </Text>
+      )}
+      {side === "home" && (
+        <Image
+          source={{ uri: logo }}
+          style={[
+            styles.simpleTeamLogo,
+            { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
+          ]}
+          contentFit="contain"
+        />
+      )}
+    </View>
+    <View style={styles.simpleTeamInfo}>
+      {possession && side === "home" ? (
+        <Ionicons
+          name="basketball"
+          size={12}
+          color={theme.textSecondary}
+          style={{ marginTop: -14 }}
+        />
+      ) : null}
+      <Text
+        style={[
+          styles.simpleTeamName,
+          {
+            color: theme.text,
+            opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+          },
+        ]}
+        numberOfLines={2}
+      >
+        {team?.displayName || team?.name || ""}
+      </Text>
+      {possession && side === "away" ? (
+        <Ionicons
+          name="basketball"
+          size={12}
+          color={theme.textSecondary}
+          style={{ marginTop: -14 }}
+        />
+      ) : null}
+    </View>
+
+    {record ? (
+      <Text
+        style={[
+          styles.simpleTeamRecord,
+          {
+            color: theme.textSecondary,
+            opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+          },
+        ]}
+      >
+        {record.displayValue || ""}
+      </Text>
+    ) : null}
+
+    {/* Add timeouts and bonus indicators here */}
+    {!isFinished &&
+      !isPre &&
+      (timeoutsRemaining > 0 ||
+        (bonusState && bonusState.toUpperCase() !== "NONE")) && (
+        <View style={{ alignItems: "center", marginTop: -16 }}>
+          {/* Timeouts indicators */}
+          {timeoutsRemaining > 0 && (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "center",
+              }}
+            >
+              {Array.from({ length: timeoutsRemaining }).map((_, i) => (
+                <View
+                  key={`to-${side}-${i}`}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    marginHorizontal: 1.5,
+                    backgroundColor: teamColor || colors.primary,
+                    borderWidth: 1,
+                    borderColor: teamColor || colors.primary,
+                  }}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Bonus indicator */}
+          {bonusState && bonusState.toUpperCase() !== "NONE" && (
+            <Text
+              style={{
+                color: theme.error,
+                marginTop: 2,
+                fontSize: 11,
+                fontWeight: "800",
+              }}
+            >
+              BONUS
+            </Text>
+          )}
+        </View>
+      )}
+  </TouchableOpacity>
+);
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -315,6 +508,22 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState(null);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  // Calculate sticky thresholds based on header height
+  const stickyThreshold = headerHeight > 0 ? headerHeight - 30 : 150;
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 54],
+    extrapolate: "clamp",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -1323,6 +1532,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const clock = status?.clock || status?.displayClock || "0:00";
     const period = status?.period || 1;
     const clockFormat = clock === "0.0" ? "End" : clock;
+    const description = status?.type?.description || "";
 
     if (state === "pre") {
       // Game not started - show date and time
@@ -1335,7 +1545,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       const isToday = date.toDateString() === today.toDateString();
 
       return {
-        text: timeText,
+        text: description || timeText,
         detail: isToday
           ? "Today"
           : date.toLocaleDateString([], { month: "short", day: "numeric" }),
@@ -3731,131 +3941,13 @@ const WNBAGameDetailsScreen = ({ route }) => {
     );
   };
 
-  // Sticky header component (exactly like NFL)
-  const renderStickyHeader = () => {
-    return (
-      <Animated.View
-        style={[
-          styles.stickyHeader,
-          {
-            opacity: stickyHeaderOpacity,
-            transform: [
-              {
-                translateY: stickyHeaderOpacity.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-20, 0],
-                }),
-              },
-            ],
-          },
-          {
-            backgroundColor: theme.surfaceSecondary || theme.surface,
-            borderBottomColor: theme.border,
-          },
-        ]}
-        pointerEvents={showStickyHeader ? "auto" : "none"}
-      >
-        {/* Away Team */}
-        <View style={styles.stickyTeamAway}>
-          <Image
-            source={{
-              uri:
-                away?.team?.logo ||
-                away?.logo ||
-                getTeamLogoUrl("wnba", away?.team?.abbreviation),
-            }}
-            style={[styles.stickyTeamLogo, { opacity: awayIsLoser ? 0.5 : 1 }]}
-          />
-          {statusDesc !== "Scheduled" ? (
-            <Text
-              style={[
-                styles.stickyTeamScore,
-                { color: awayIsLoser ? theme.textSecondary : theme.text },
-              ]}
-            >
-              {awayScoreNum || "0"}
-            </Text>
-          ) : null}
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            {isFavorite(awayTeamId, "wnba") && (
-              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
-            )}
-            <Text
-              style={[
-                styles.stickyTeamName,
-                {
-                  color: awayIsLoser
-                    ? theme.textSecondary
-                    : isFavorite(awayTeamId, "wnba")
-                      ? colors.primary
-                      : theme.text,
-                },
-              ]}
-            >
-              {away?.team?.abbreviation || "AWAY"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Status and Time */}
-        <View style={styles.stickyStatus}>
-          <Text style={[styles.stickyStatusText, { color: colors.secondary }]}>
-            {getGameStatus().text}
-          </Text>
-          <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
-            {getGameStatus().detail}
-          </Text>
-        </View>
-
-        {/* Home Team */}
-        <View style={styles.stickyTeamHome}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              style={[
-                styles.stickyTeamName,
-                {
-                  color: homeIsLoser
-                    ? theme.textSecondary
-                    : isFavorite(homeTeamId, "wnba")
-                      ? colors.primary
-                      : theme.text,
-                },
-              ]}
-            >
-              {home?.team?.abbreviation || "HOME"}
-            </Text>
-            {isFavorite(homeTeamId, "wnba") && (
-              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
-            )}
-          </View>
-          {statusDesc !== "Scheduled" ? (
-            <Text
-              style={[
-                styles.stickyTeamScore,
-                { color: homeIsLoser ? theme.textSecondary : theme.text },
-              ]}
-            >
-              {homeScoreNum || "0"}
-            </Text>
-          ) : null}
-          <Image
-            source={{
-              uri:
-                home?.team?.logo ||
-                home?.logo ||
-                getTeamLogoUrl("wnba", home?.team?.abbreviation),
-            }}
-            style={[styles.stickyTeamLogo, { opacity: homeIsLoser ? 0.5 : 1 }]}
-          />
-        </View>
-      </Animated.View>
-    );
-  };
-
   // Team navigation function with proper ID handling
   const navigateToTeam = (team) => {
     if (!team || (!team.id && !team.team?.id)) {
-      console.warn("WNBA GameDetails navigateToTeam: Invalid team object", team);
+      console.warn(
+        "WNBA GameDetails navigateToTeam: Invalid team object",
+        team,
+      );
       return;
     }
 
@@ -3903,631 +3995,477 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Sticky Header - Always render but animated */}
-      {renderStickyHeader()}
 
       {/* Main Content */}
-      <ScrollView
-        style={[styles.scrollView, { backgroundColor: theme.background }]}
-        contentContainerStyle={
-          liveTrackerVisible ? { marginTop: -6 } : styles.scrollContent
-        }
-        onScroll={handleScroll}
+      <Animated.ScrollView
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[1]} // This makes the second child (sticky header) sticky
       >
-        {/* Top header card (matches soccer layout) or LiveTracker when visible */}
-        {liveTrackerVisible ? (
-          (() => {
-            const defaultWrapperBase =
-              "https://sportsheart.ca/widgets/livetracker.html";
-            const provided = route?.params?.liveTrackerWrapperUrl || null;
-            const wrapperUrlBase = provided
-              ? provided.includes("?")
-                ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
-                : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
-              : `${defaultWrapperBase}?id=${encodeURIComponent(
-                  liveTrackerUuid,
-                )}`;
+        {/* Main Header Section */}
+        <View
+          style={[
+            styles.simpleHeaderCard,
+            {
+              backgroundColor: theme.surface,
+              borderColor: "rgba(0,0,0,0.08)",
+            },
+          ]}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <HeaderGradient
+            awayColor={getSmartTeamColors(home, away, colors).awayColor}
+            homeColor={getSmartTeamColors(home, away, colors).homeColor}
+            theme={theme}
+            height={headerHeight}
+          />
 
-            const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
-            const deviceWidth = Math.round(width || 800);
-            // Determine team logo URLs to pass to the wrapper (prefer theme-specific logo index)
-            const homeLogo =
-              home?.team?.logos?.[1]?.href ||
-              home?.team?.logo ||
-              home?.logo ||
-              ""
-                ? encodeURIComponent(
-                    home?.team?.logos?.[1]?.href ||
-                      home?.team?.logo ||
-                      home?.logo ||
-                      "",
-                  )
-                : "";
-            const awayLogo =
-              away?.team?.logos?.[1]?.href ||
-              away?.team?.logo ||
-              away?.logo ||
-              ""
-                ? encodeURIComponent(
-                    away?.team?.logos?.[1]?.href ||
-                      away?.team?.logo ||
-                      away?.logo ||
-                      "",
-                  )
-                : "";
+          {/* League and venue info */}
+          <View style={styles.simpleLeagueRow}>
+            <Text
+              style={[styles.simpleLeagueText, { color: theme.textTertiary }]}
+              numberOfLines={1}
+            >
+              {[
+                details?.gameInfo?.venue?.fullName,
+                details?.header?.season?.type === 1 ? "WNBA" : null,
+                details?.header?.gameNote ||
+                  (details?.header?.season?.type === 1 ? "Preseason" : "WNBA"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </Text>
+          </View>
 
-            const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
-              deviceWidth,
-            )}&o=${encodeURIComponent(formulaO)}&sport=basketball${
-              homeLogo ? `&home_logo=${awayLogo}` : ""
-            }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
-            const ratio = 0.505;
-            const initialEmbedHeight =
-              Math.round(deviceWidth * ratio) + formulaO;
+          {/* Main teams and score row */}
+          <View style={styles.simpleMainRow}>
+            {/* Away Team */}
+            <SimpleTeamDisplay
+              team={away?.team}
+              logo={
+                away?.team?.logo ||
+                away?.logo ||
+                getTeamLogoUrl("wnba", away?.team?.abbreviation)
+              }
+              score={awayScoreNum}
+              side="away"
+              isPre={getGameStatus().isPre}
+              isFinished={isGameFinal}
+              isWinner={awayIsWinner}
+              isLoser={awayIsLoser}
+              record={
+                (details?.header?.season?.type === 2 ||
+                  details?.header?.season?.type === 1) &&
+                (getGameStatus().isPre || getGameStatus().isPost)
+                  ? away?.record?.[0]
+                  : null
+              }
+              possesion={away?.possession}
+              theme={theme}
+              teamColor={getSmartTeamColors(home, away, colors).awayColor}
+              onPress={() => navigateToTeam(away)}
+              timeoutsRemaining={(() => {
+                try {
+                  const teamObj = away || {};
+                  return Math.max(
+                    0,
+                    Number(
+                      teamObj.timeoutsRemaining ??
+                        teamObj?.team?.timeoutsRemaining ??
+                        teamObj?.statistics?.find((s) =>
+                          /timeoutsRemaining/i.test(s?.name || s?.label || ""),
+                        )?.value ??
+                        0,
+                    ) || 0,
+                  );
+                } catch (e) {
+                  return 0;
+                }
+              })()}
+              bonusState={(() => {
+                try {
+                  const teamObj = away || {};
+                  const foulsRaw =
+                    teamObj.fouls ??
+                    teamObj?.team?.fouls ??
+                    teamObj?.statistics?.find((s) =>
+                      /foul/i.test(s?.name || s?.label || ""),
+                    )?.value ??
+                    null;
+                  return (
+                    (foulsRaw && foulsRaw.bonusState) ||
+                    (foulsRaw && foulsRaw.bonus) ||
+                    null
+                  );
+                } catch (e) {
+                  return null;
+                }
+              })()}
+              colors={colors}
+            />
 
-            return (
-              <LiveTrackerEmbed
-                uuid={liveTrackerUuid}
-                visible={true}
-                inline={true}
-                wrapperUrl={wrapperUrl}
-                initialHeight={initialEmbedHeight}
-                formulaO={formulaO}
-                showHeader={false}
-                onClose={() => setLiveTrackerVisible(false)}
-              />
-            );
-          })()
-        ) : (
-          <View
+            {/* Center Status */}
+            <View style={styles.simpleStatusCenter}>
+              <View style={styles.simpleStatusBadge}>
+                <Text
+                  style={[
+                    styles.simpleStatusMain,
+                    {
+                      color: isGameFinal
+                        ? theme.textSecondary
+                        : getGameStatus().isLive
+                          ? theme.error || colors.primary
+                          : getGameStatus().isPre
+                            ? theme.text
+                            : theme.text,
+                    },
+                  ]}
+                >
+                  {getGameStatus().text}
+                </Text>
+                <Text
+                  style={[
+                    styles.simpleStatusSub,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  {getGameStatus().isLive
+                    ? getGameStatus().detail
+                    : `${new Date(gameDate)
+                      .toLocaleDateString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).split(", ")[1]} • ${new Date(gameDate)
+                      .toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}`}
+                </Text>
+              </View>
+
+              {/* Stream button - only for live games when unlocked */}
+              {(() => {
+                const statusType =
+                  competition?.status?.type ||
+                  details?.game?.status?.type ||
+                  {};
+                const isLive = statusType?.state === "in";
+
+                return isLive && isStreamingUnlocked ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.simpleStreamBtn,
+                      { borderColor: colors.primary },
+                    ]}
+                    onPress={openStreamModal}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.simpleStreamBtnInner}>
+                      <View
+                        style={[
+                          styles.simpleStreamBtnDot,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.simpleStreamBtnText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        Stream
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null;
+              })()}
+            </View>
+
+            {/* Home Team */}
+            <SimpleTeamDisplay
+              team={home?.team}
+              logo={
+                home?.team?.logo ||
+                home?.logo ||
+                getTeamLogoUrl("wnba", home?.team?.abbreviation)
+              }
+              score={homeScoreNum}
+              side="home"
+              isPre={getGameStatus().isPre}
+              isFinished={isGameFinal}
+              isWinner={homeIsWinner}
+              isLoser={homeIsLoser}
+              record={
+                (details?.header?.season?.type === 2 ||
+                  details?.header?.season?.type === 1) &&
+                (getGameStatus().isPre || getGameStatus().isPost)
+                  ? home?.record?.[0]
+                  : null
+              }
+              possesion={home?.possession}
+              theme={theme}
+              teamColor={getSmartTeamColors(home, away, colors).homeColor}
+              onPress={() => navigateToTeam(home)}
+              timeoutsRemaining={(() => {
+                try {
+                  const teamObj = home || {};
+                  return Math.max(
+                    0,
+                    Number(
+                      teamObj.timeoutsRemaining ??
+                        teamObj?.team?.timeoutsRemaining ??
+                        teamObj?.statistics?.find((s) =>
+                          /timeoutsRemaining/i.test(s?.name || s?.label || ""),
+                        )?.value ??
+                        0,
+                    ) || 0,
+                  );
+                } catch (e) {
+                  return 0;
+                }
+              })()}
+              bonusState={(() => {
+                try {
+                  const teamObj = home || {};
+                  const foulsRaw =
+                    teamObj.fouls ??
+                    teamObj?.team?.fouls ??
+                    teamObj?.statistics?.find((s) =>
+                      /foul/i.test(s?.name || s?.label || ""),
+                    )?.value ??
+                    null;
+                  return (
+                    (foulsRaw && foulsRaw.bonusState) ||
+                    (foulsRaw && foulsRaw.bonus) ||
+                    null
+                  );
+                } catch (e) {
+                  return null;
+                }
+              })()}
+              colors={colors}
+            />
+          </View>
+        </View>
+
+        {/* Sticky Header Section containing Mini Header and Tab Bar */}
+        <View
+          style={[
+            styles.stickyUnit,
+            {
+              backgroundColor: theme.surface,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {/* Animated Mini Header */}
+          <Animated.View
             style={[
-              styles.headerCard,
+              styles.stickyMini,
               {
+                height: stickyMiniHeight,
+                opacity: stickyOpacity,
                 backgroundColor: theme.surface,
-                borderColor: "rgba(0,0,0,0.08)",
+                borderBottomColor: theme.border,
               },
             ]}
           >
-            <Text
-              style={[styles.competitionText, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {details?.header?.gameNote || "WNBA"}
-              {details?.gameInfo?.venue?.fullName
-                ? ` - ${details.gameInfo.venue.fullName}`
-                : ""}
-            </Text>
-
-            <View style={styles.soccerMainRow}>
-              {/* Away team section (left) */}
-              <View style={styles.soccerTeamSection}>
-                <TouchableOpacity
-                  onPress={() => navigateToTeam(away)}
-                  activeOpacity={0.7}
-                >
-                  <TeamLogoWithTheme
-                    colors={colors}
-                    getTeamLogoUrl={getTeamLogoUrl}
-                    teamAbbreviation={
-                      away?.team?.abbreviation || away?.abbreviation
-                    }
-                    logoUri={away?.team?.logo || away?.logo}
-                    size={56}
-                    style={[
-                      styles.soccerTeamLogo,
-                      awayIsLoser && styles.losingTeamLogo,
-                    ]}
-                  />
-                </TouchableOpacity>
-                <View style={styles.teamNameWithFavorite}>
-                  <View style={styles.teamNameRow}>
-                    {isFavorite(awayTeamId, "wnba") && (
-                      <Ionicons
-                        name="star"
-                        size={14}
-                        color={colors.primary}
-                        style={styles.favoriteIconHeader}
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.soccerTeamName,
-                        {
-                          color: awayIsLoser
-                            ? "#999"
-                            : isFavorite(awayTeamId, "wnba")
-                              ? colors.primary
-                              : theme.text,
-                        },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {away?.team?.abbreviation ||
-                        away?.team?.name ||
-                        away?.team?.displayName ||
-                        ""}
-                    </Text>
-                  </View>
-                  {/* Timeouts / Bonus indicators */}
-                  {!isGameFinal &&
-                    !getGameStatus().isPre &&
-                    (() => {
-                      try {
-                        const teamObj = away || {};
-                        // Prefer explicit timeoutsRemaining fields but fall back to common locations
-                        const timeoutsRemaining = Math.max(
-                          0,
-                          Number(
-                            teamObj.timeoutsRemaining ??
-                              teamObj?.team?.timeoutsRemaining ??
-                              teamObj?.statistics?.find((s) =>
-                                /timeoutsRemaining/i.test(
-                                  s?.name || s?.label || "",
-                                ),
-                              )?.value ??
-                              0,
-                          ) || 0,
-                        );
-
-                        const foulsRaw =
-                          teamObj.fouls ??
-                          teamObj?.team?.fouls ??
-                          teamObj?.statistics?.find((s) =>
-                            /foul/i.test(s?.name || s?.label || ""),
-                          )?.value ??
-                          null;
-                        const bonusState =
-                          (foulsRaw && foulsRaw.bonusState) ||
-                          (foulsRaw && foulsRaw.bonus) ||
-                          null;
-
-                        const count = Math.min(5, timeoutsRemaining);
-                        const { homeColor, awayColor } = getSmartTeamColors(
-                          home,
-                          away,
-                          colors,
-                        );
-                        const teamColor = awayColor || colors.primary;
-
-                        if (count <= 0) return null;
-
-                        return (
-                          <View style={{ alignItems: "center", marginTop: 6 }}>
-                            <View
-                              style={{
-                                flexDirection: "row",
-                                justifyContent: "center",
-                              }}
-                            >
-                              {Array.from({ length: count }).map((_, i) => (
-                                <View
-                                  key={`away-to-${i}`}
-                                  style={{
-                                    width: 7,
-                                    height: 7,
-                                    borderRadius: 4,
-                                    marginHorizontal: 1.5,
-                                    backgroundColor: teamColor,
-                                    borderWidth: 1,
-                                    borderColor: teamColor,
-                                  }}
-                                />
-                              ))}
-                            </View>
-                            {bonusState &&
-                            String(bonusState).toUpperCase() !== "NONE" ? (
-                              <Text
-                                style={{
-                                  color: theme.error,
-                                  marginTop: 4,
-                                  fontSize: 11,
-                                  fontWeight: "700",
-                                }}
-                              >
-                                BONUS
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      } catch (e) {
-                        return null;
-                      }
-                    })()}
-                </View>
-              </View>
-
-              {/* Score section (center) */}
-              <View style={styles.soccerScoreSection}>
-                <View style={styles.soccerScoreRow}>
-                  <Text
-                    style={[
-                      styles.soccerScore,
-                      {
-                        color: isGameFinal
-                          ? awayIsWinner
-                            ? colors.primary
-                            : awayIsLoser
-                              ? "#999"
-                              : theme.text
-                          : theme.text,
-                      },
-                    ]}
-                  >
-                    {getGameStatus().isPre
-                      ? ""
-                      : (away?.score ?? away?.team?.score ?? "0")}
-                  </Text>
-                  <Text
-                    style={[styles.scoreDash, { color: theme.textSecondary }]}
-                  >
-                    -
-                  </Text>
-                  <Text
-                    style={[
-                      styles.soccerScore,
-                      {
-                        color: isGameFinal
-                          ? homeIsWinner
-                            ? colors.primary
-                            : homeIsLoser
-                              ? "#999"
-                              : theme.text
-                          : theme.text,
-                      },
-                    ]}
-                  >
-                    {getGameStatus().isPre
-                      ? ""
-                      : (home?.score ?? home?.team?.score ?? "0")}
-                  </Text>
-                </View>
-                <View
+            <View style={styles.miniSide}>
+              <Image
+                source={{
+                  uri:
+                    away?.team?.logo ||
+                    away?.logo ||
+                    getTeamLogoUrl("wnba", away?.team?.abbreviation),
+                }}
+                style={[
+                  styles.miniLogo,
+                  { opacity: isGameFinal ? (awayIsWinner ? 1 : 0.55) : 1 },
+                ]}
+                contentFit="contain"
+              />
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color: theme.text,
+                    opacity: isGameFinal ? (awayIsWinner ? 1 : 0.55) : 1,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {away?.team?.abbreviation || "AWY"}
+              </Text>
+              {!getGameStatus().isPre && (
+                <Text
                   style={[
-                    styles.soccerStatusBadge,
-                    (() => {
-                      const gameStatus = getGameStatus();
-                      if (gameStatus.isLive)
-                        return { backgroundColor: theme.success };
-                      if (gameStatus.isPre)
-                        return { backgroundColor: theme.info };
-                      return { backgroundColor: "#9E9E9E" };
-                    })(),
+                    styles.miniScore,
+                    {
+                      color: awayIsWinner ? theme.text : theme.textSecondary,
+                      fontWeight: isGameFinal && awayIsWinner ? "700" : "400",
+                    },
                   ]}
                 >
-                  <View style={styles.statusRow}>
-                    <Text style={[styles.statusText, { color: "#FFFFFF" }]}>
-                      {getGameStatus().text}
-                    </Text>
-                    <Text style={[styles.statusDash, { color: "#FFFFFF" }]}>
-                      -
-                    </Text>
-                    <Text style={[styles.statusDetail, { color: "#FFFFFF" }]}>
-                      {getGameStatus().detail}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Home team section (right) */}
-              <View style={styles.soccerTeamSection}>
-                <TouchableOpacity
-                  onPress={() => navigateToTeam(home)}
-                  activeOpacity={0.7}
-                >
-                  <TeamLogoWithTheme
-                    colors={colors}
-                    getTeamLogoUrl={getTeamLogoUrl}
-                    teamAbbreviation={
-                      home?.team?.abbreviation || home?.abbreviation
-                    }
-                    logoUri={home?.team?.logo || home?.logo}
-                    size={56}
-                    style={[
-                      styles.soccerTeamLogo,
-                      homeIsLoser && styles.losingTeamLogo,
-                    ]}
-                  />
-                </TouchableOpacity>
-                <View style={styles.teamNameWithFavorite}>
-                  <View style={styles.teamNameRow}>
-                    {isFavorite(homeTeamId, "wnba") && (
-                      <Ionicons
-                        name="star"
-                        size={14}
-                        color={colors.primary}
-                        style={styles.favoriteIconHeader}
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.soccerTeamName,
-                        {
-                          color: homeIsLoser
-                            ? "#999"
-                            : isFavorite(homeTeamId, "wnba")
-                              ? colors.primary
-                              : theme.text,
-                        },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {home?.team?.abbreviation ||
-                        home?.team?.name ||
-                        home?.team?.displayName ||
-                        ""}
-                    </Text>
-                  </View>
-                  {/* Timeouts / Bonus indicators */}
-                  {!isGameFinal &&
-                    !getGameStatus().isPre &&
-                    (() => {
-                      try {
-                        const teamObj = home || {};
-                        const timeoutsRemaining = Math.max(
-                          0,
-                          Number(
-                            teamObj.timeoutsRemaining ??
-                              teamObj?.team?.timeoutsRemaining ??
-                              teamObj?.statistics?.find((s) =>
-                                /timeoutsRemaining/i.test(
-                                  s?.name || s?.label || "",
-                                ),
-                              )?.value ??
-                              0,
-                          ) || 0,
-                        );
-
-                        const foulsRaw =
-                          teamObj.fouls ??
-                          teamObj?.team?.fouls ??
-                          teamObj?.statistics?.find((s) =>
-                            /foul/i.test(s?.name || s?.label || ""),
-                          )?.value ??
-                          null;
-                        const bonusState =
-                          (foulsRaw && foulsRaw.bonusState) ||
-                          (foulsRaw && foulsRaw.bonus) ||
-                          null;
-
-                        const count = Math.min(5, timeoutsRemaining);
-                        const { homeColor, awayColor } = getSmartTeamColors(
-                          home,
-                          away,
-                          colors,
-                        );
-                        const teamColor = homeColor || colors.primary;
-
-                        if (count <= 0) return null;
-
-                        return (
-                          <View style={{ alignItems: "center", marginTop: 6 }}>
-                            <View
-                              style={{
-                                flexDirection: "row-reverse",
-                                justifyContent: "center",
-                              }}
-                            >
-                              {Array.from({ length: count }).map((_, i) => (
-                                <View
-                                  key={`home-to-${i}`}
-                                  style={{
-                                    width: 7,
-                                    height: 7,
-                                    borderRadius: 4,
-                                    marginHorizontal: 1.5,
-                                    backgroundColor: teamColor,
-                                    borderWidth: 1,
-                                    borderColor: teamColor,
-                                  }}
-                                />
-                              ))}
-                            </View>
-                            {bonusState &&
-                            String(bonusState).toUpperCase() !== "NONE" ? (
-                              <Text
-                                style={{
-                                  color: theme.error,
-                                  marginTop: 4,
-                                  fontSize: 11,
-                                  fontWeight: "700",
-                                }}
-                              >
-                                BONUS
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      } catch (e) {
-                        return null;
-                      }
-                    })()}
-                </View>
-              </View>
+                  {awayScoreNum}
+                </Text>
+              )}
             </View>
 
-            <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-              {new Date(gameDate).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-          </View>
-        )}
+            <View style={styles.miniStatusBlock}>
+              <Text
+                style={[styles.miniStatusLine, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {getGameStatus().text}
+              </Text>
+              <Text
+                style={[styles.miniStatusSub, { color: theme.textTertiary }]}
+                numberOfLines={1}
+              >
+                {getGameStatus().isLive
+                    ? getGameStatus().detail
+                    : `${new Date(gameDate)
+                      .toLocaleDateString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).split(", ")[1]} • ${new Date(gameDate)
+                      .toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}`}
+              </Text>
+            </View>
 
-        {/* Stream Button - only show for live games and when streaming is unlocked */}
-        {(() => {
-          const competition =
-            details?.header?.competitions?.[0] ||
-            details?.boxscore?.game ||
-            details?.game ||
-            null;
-          const statusType =
-            competition?.status?.type || details?.game?.status?.type || {};
-          const state = statusType?.state;
-          const isLive = state === "in";
-
-          return isLive && isStreamingUnlocked ? (
-            <TouchableOpacity
-              style={[
-                styles.streamButton,
-                { backgroundColor: colors.secondary },
-              ]}
-              onPress={openStreamModal}
-            >
-              <FontAwesome6
-                name="play"
-                size={16}
-                color="white"
-                style={{ marginRight: 8 }}
+            <View style={[styles.miniSide, { justifyContent: "flex-end" }]}>
+              {!getGameStatus().isPre && (
+                <Text
+                  style={[
+                    styles.miniScore,
+                    {
+                      color: homeIsWinner ? theme.text : theme.textSecondary,
+                      fontWeight: isGameFinal && homeIsWinner ? "700" : "400",
+                    },
+                  ]}
+                >
+                  {homeScoreNum}
+                </Text>
+              )}
+              <Text
+                style={[
+                  styles.miniAbbr,
+                  {
+                    color: theme.text,
+                    opacity: isGameFinal ? (homeIsWinner ? 1 : 0.55) : 1,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {home?.team?.abbreviation || "HME"}
+              </Text>
+              <Image
+                source={{
+                  uri:
+                    home?.team?.logo ||
+                    home?.logo ||
+                    getTeamLogoUrl("wnba", home?.team?.abbreviation),
+                }}
+                style={[
+                  styles.miniLogo,
+                  { opacity: isGameFinal ? (homeIsWinner ? 1 : 0.55) : 1 },
+                ]}
+                contentFit="contain"
               />
-              <Text style={styles.streamButtonText}>Watch Live Stream</Text>
-            </TouchableOpacity>
-          ) : null;
-        })()}
+            </View>
+          </Animated.View>
 
-        {/* Tracker Button - show if we resolved a liveTracker UUID */}
-        {liveTrackerUuid && !liveTrackerVisible && (
-          <TouchableOpacity
-            style={[styles.streamButton, { backgroundColor: colors.secondary }]}
-            onPress={() => {
-              setLiveTrackerVisible(true);
-            }}
-          >
-            <Text allowFontScaling={false} style={styles.streamButtonText}>
-              Tracker
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Tab Container */}
-        <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
-          <View style={styles.tabRow}>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                {
-                  backgroundColor:
-                    activeTab === "stats" ? colors.secondary : "transparent",
-                },
-              ]}
-              onPress={() => setActiveTab("stats")}
+          {/* Tab Bar */}
+          <View style={styles.tabBarWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabBarContent}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === "stats" ? "#fff" : theme.text },
-                ]}
-              >
-                Stats
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                {
-                  backgroundColor:
-                    activeTab === "away" ? colors.secondary : "transparent",
-                },
-              ]}
-              onPress={() => setActiveTab("away")}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === "away" ? "#fff" : theme.text },
-                ]}
-              >
-                Away
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                {
-                  backgroundColor:
-                    activeTab === "home" ? colors.secondary : "transparent",
-                },
-              ]}
-              onPress={() => setActiveTab("home")}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === "home" ? "#fff" : theme.text },
-                ]}
-              >
-                Home
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                {
-                  backgroundColor:
-                    activeTab === "plays" ? colors.secondary : "transparent",
-                },
-              ]}
-              onPress={() => {
-                setActiveTab("plays");
-                resetPlaysCount();
-              }}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: activeTab === "plays" ? "#fff" : theme.text },
-                ]}
-              >
-                Plays
-              </Text>
-            </TouchableOpacity>
+              {["stats", "away", "home", "plays"].map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  style={[
+                    styles.tabBarButton,
+                    activeTab === tab && { borderBottomColor: colors.primary },
+                  ]}
+                  onPress={() => {
+                    if (tab === "plays") {
+                      resetPlaysCount();
+                    }
+                    setActiveTab(tab);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.tabBarLabel,
+                      {
+                        color:
+                          activeTab === tab
+                            ? colors.primary
+                            : theme.textSecondary,
+                        fontWeight: activeTab === tab ? "700" : "500",
+                      },
+                    ]}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
 
         {/* Tab Content */}
-        <View style={styles.tabContent}>
-          {activeTab === "stats" && (
-            <View>
-              {/* Single card container for all match stats to match soccer layout */}
-              <View
-                style={[
-                  styles.matchStatsCard,
-                  { backgroundColor: theme.surface },
-                ]}
-              >
-                <Text style={[styles.matchStatsTitle, { color: theme.text }]}>
-                  Match Stats
-                </Text>
+        <View style={styles.contentArea}>
+          <View style={styles.tabContent}>
+            {activeTab === "stats" && (
+              <View>
+                {/* Single card container for all match stats to match soccer layout */}
+                <View
+                  style={[
+                    styles.matchStatsCard,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={[styles.matchStatsTitle, { color: theme.text }]}>
+                    Match Stats
+                  </Text>
 
-                {/* Linescore table */}
-                {renderLinescore()}
+                  {/* Linescore table */}
+                  {renderLinescore()}
 
-                <View style={styles.statsSectionInner}>
-                  {renderTeamStats()}
+                  <View style={styles.statsSectionInner}>
+                    {renderTeamStats()}
+                  </View>
                 </View>
+
+                {/* Win Probability Graph section as separate card */}
+                {renderWinProbabilityGraph()}
+
+                {/* Leaders section as separate card */}
+                {renderLeaders()}
+
+                {/* Season Series section as separate card */}
+                {renderSeasonSeries()}
               </View>
+            )}
 
-              {/* Win Probability Graph section as separate card */}
-              {renderWinProbabilityGraph()}
+            {activeTab === "home" && <View>{renderRosterSection("home")}</View>}
 
-              {/* Leaders section as separate card */}
-              {renderLeaders()}
+            {activeTab === "away" && <View>{renderRosterSection("away")}</View>}
 
-              {/* Season Series section as separate card */}
-              {renderSeasonSeries()}
-            </View>
-          )}
-
-          {activeTab === "home" && <View>{renderRosterSection("home")}</View>}
-
-          {activeTab === "away" && <View>{renderRosterSection("away")}</View>}
-
-          {activeTab === "plays" && <View>{renderPlays()}</View>}
+            {activeTab === "plays" && <View>{renderPlays()}</View>}
+          </View>
         </View>
 
         {/* Player Details Modal */}
@@ -4755,7 +4693,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                               <Text
                                 style={[
                                   styles.modalPlayerMeta,
-                                  { color: theme.textSecondary, marginLeft: 8 },
+                                  {
+                                    color: theme.textSecondary,
+                                    marginLeft: 8,
+                                  },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -4904,7 +4845,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 collapsable={false}
                 style={[
                   styles.shareCard,
-                  { backgroundColor: theme.surface, width: "90%", padding: 12 },
+                  {
+                    backgroundColor: theme.surface,
+                    width: "90%",
+                    padding: 12,
+                  },
                 ]}
               >
                 {sharePlayCard &&
@@ -5021,7 +4966,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       teamLogo =
                         foundPlayer.team.logo ||
                         (foundPlayer.team.abbreviation
-                          ? getTeamLogoUrl("wnba", foundPlayer.team.abbreviation)
+                          ? getTeamLogoUrl(
+                              "wnba",
+                              foundPlayer.team.abbreviation,
+                            )
                           : null);
                       teamColor = foundPlayer.team.color || null;
                     } else if (p.playTeamId) {
@@ -5135,7 +5083,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
                             <View style={{ alignItems: "flex-end" }}>
                               <Text
-                                style={{ color: theme.text, fontWeight: "700" }}
+                                style={{
+                                  color: theme.text,
+                                  fontWeight: "700",
+                                }}
                               >
                                 {p.clock || ""}
                               </Text>
@@ -5279,7 +5230,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
                             <View style={{ flex: 1 }}>
                               <Text
-                                style={{ color: theme.text, fontWeight: "700" }}
+                                style={{
+                                  color: theme.text,
+                                  fontWeight: "700",
+                                }}
                                 numberOfLines={1}
                               >
                                 {displayName}
@@ -5392,7 +5346,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           format: "png",
                           quality: 2,
                         });
-                        if (Platform.OS === "ios") {
+                        if (Platform.OS === "ios" || Platform.OS === "android") {
                           await Sharing.shareAsync(uri, {
                             mimeType: "image/png",
                             UTI: "public.png",
@@ -5530,8 +5484,6 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     const homeLogo =
                       homeCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]
                         ?.href || homeCompetitor?.team?.logo;
-
-                    console.log(homeLogo, awayLogo);
 
                     // Text color on team color background
                     const hexToLum = (hex) => {
@@ -5979,7 +5931,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           quality: 2,
                         });
 
-                        if (Platform.OS === "ios") {
+                        if (Platform.OS === "ios" || Platform.OS === "android") {
                           await Sharing.shareAsync(uri, {
                             mimeType: "image/png",
                             UTI: "public.png",
@@ -6295,7 +6247,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             </View>
           </Modal>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {isLoggedIn && (
         <>
@@ -6390,7 +6342,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 12,
   },
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
@@ -8586,6 +8537,233 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+  simpleHeaderCard: {
+    padding: 20,
+    overflow: "hidden",
+    position: "relative",
+    borderBottomWidth: 0,
+    marginBottom: 0,
+    borderWidth: 1,
+  },
+  simpleLeagueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  simpleLeagueText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  simpleMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 0,
+  },
+  simpleTeamContainer: {
+    flex: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  simpleTeamLogo: {
+    width: 65,
+    height: 65,
+  },
+  simpleTeamInfo: {
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: 120,
+    flexDirection: "row",
+    gap: 6,
+  },
+  simpleTeamName: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  simpleTeamScore: {
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: "800",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  simpleTeamRecord: {
+    marginTop: -18,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  simpleStatusCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  simpleStatusBadge: {
+    paddingHorizontal: 8,
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  simpleStatusMain: {
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  simpleStatusSub: {
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  simpleStreamBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  simpleStreamBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  simpleStreamBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  simpleStreamBtnText: {
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  simpleScorersSection: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 12,
+    minHeight: 24,
+  },
+  simpleScorersSide: {
+    flex: 1,
+    alignItems: "flex-start",
+    gap: 2,
+  },
+  simpleScorersCenter: {
+    width: 28,
+    alignItems: "center",
+    paddingTop: 2,
+  },
+  simpleScorerText: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  simpleDateText: {
+    marginTop: 12,
+    textAlign: "center",
+    fontSize: 11,
+  },
+  simpleTeamTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: -5,
+    gap: 8,
+  },
+  scoreRight: {
+    marginRight: 8,
+  },
+  scoreLeft: {
+    marginLeft: 8,
+  },
+  stickyUnit: {
+    borderBottomWidth: 1,
+  },
+
+  // Animated mini header
+  stickyMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    overflow: "hidden",
+    borderBottomWidth: 1,
+  },
+
+  miniSide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  miniAbbr: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+
+  miniLogo: {
+    width: 35,
+    height: 35,
+  },
+
+  miniScore: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
+
+  miniStatusBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+    paddingHorizontal: 4,
+  },
+
+  miniStatusLine: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  miniStatusSub: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 1,
+  },
+
+  // Tab bar styles
+  tabBarWrapper: {
+    height: 48,
+    justifyContent: "center",
+    borderBottomWidth: 0,
+  },
+
+  tabBarContent: {
+    flexDirection: "row",
+  },
+
+  tabBarButton: {
+    width: Dimensions.get("window").width / 4,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+
+  tabBarLabel: {
+    fontSize: 13,
+  },
+
+  // Content area
+  contentArea: {
+    flex: 1,
+    padding: 12,
+    marginTop: -12,
   },
 });
 

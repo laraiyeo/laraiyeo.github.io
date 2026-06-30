@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -217,6 +217,38 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
   const [selectedDateFilter, setSelectedDateFilter] = useState("today");
   const [selectedCompetition, setSelectedCompetition] = useState("fifa.world");
   const [isScreenFocused, setIsScreenFocused] = useState(true);
+  const [updateInterval, setUpdateInterval] = useState(null);
+  const [lastUpdateHash, setLastUpdateHash] = useState("");
+
+  // Cache for each date filter per competition
+  const [gameCache, setGameCache] = useState({});
+
+  // Cache timestamps to know when to refresh
+  const [cacheTimestamps, setCacheTimestamps] = useState({});
+
+  // Track if preloading has been done to prevent multiple calls
+  const hasPreloadedRef = useRef(false);
+
+  // Cache key helper combining competition + filter
+  const getCacheKey = (comp, filter) => `${comp}:${filter}`;
+
+  // Cache duration: 5 seconds for today/tomorrow (live/upcoming), 50 seconds for others
+  const getCacheDuration = (filter) => {
+    return filter === "today" || filter === "tomorrow" ? 5000 : 50000;
+  };
+
+  const getNoGamesMessage = (dateFilter) => {
+    switch (dateFilter) {
+      case "yesterday":
+        return "No matches played yesterday";
+      case "today":
+        return "No matches scheduled today";
+      case "tomorrow":
+        return "No matches scheduled tomorrow";
+      default:
+        return "No matches scheduled";
+    }
+  };
 
   // Initialize with current shared state on mount
   useEffect(() => {
@@ -248,51 +280,132 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       setIsScreenFocused(true);
 
       return () => {
-        console.log("FIFAWorldScoreboardScreen: Screen unfocused");
+        console.log("FIFAWorldScoreboardScreen: Screen unfocused, clearing intervals");
         setIsScreenFocused(false);
+        // Clear any existing interval when screen loses focus
+        setUpdateInterval((prevInterval) => {
+          if (prevInterval) clearInterval(prevInterval);
+          return null;
+        });
       };
     }, []),
   );
 
   useEffect(() => {
     console.log(
-      "FIFAWorldScoreboardScreen: Loading scoreboard for competition:",
+      "FIFAWorldScoreboardScreen: Main useEffect triggered for competition:",
       selectedCompetition,
       "filter:",
       selectedDateFilter,
+      "focused:",
+      isScreenFocused,
     );
-    // Only load if screen is focused to avoid unnecessary loads during navigation
-    if (isScreenFocused) {
-      loadScoreboard();
-    }
-  }, [selectedDateFilter, selectedCompetition]); // Removed isScreenFocused from dependencies
+    // Load the current filter first
+    loadScoreboard();
 
-  const loadScoreboard = async (silentUpdate = false) => {
+    // Set up continuous fetching for 'today' and 'tomorrow' - only if screen is focused
+    if (
+      (selectedDateFilter === "today" || selectedDateFilter === "tomorrow") &&
+      isScreenFocused
+    ) {
+      const interval = setInterval(() => {
+        loadScoreboard(true, selectedDateFilter, selectedCompetition);
+      }, 5000);
+
+      setUpdateInterval(interval);
+
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      // Clear interval for non-live filters or when screen is not focused
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        setUpdateInterval(null);
+      }
+    }
+  }, [selectedDateFilter, selectedCompetition, isScreenFocused]);
+
+  // Separate effect for initial preloading - only runs once on mount
+  useEffect(() => {
+    console.log(
+      "FIFAWorldScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
+      hasPreloadedRef.current,
+    );
+    if (hasPreloadedRef.current) {
+      console.log("FIFAWorldScoreboardScreen: Skipping preload, already done");
+      return;
+    }
+
+    hasPreloadedRef.current = true;
+    console.log("FIFAWorldScoreboardScreen: Starting preload for other filters");
+
+    // Preload the other filters in the background after initial load
+    const preloadTimer = setTimeout(() => {
+      if (selectedDateFilter !== "yesterday") {
+        console.log("FIFAWorldScoreboardScreen: Preloading yesterday data");
+        loadScoreboard(true, "yesterday", selectedCompetition);
+      }
+      if (selectedDateFilter !== "tomorrow") {
+        console.log("FIFAWorldScoreboardScreen: Preloading tomorrow data");
+        loadScoreboard(true, "tomorrow", selectedCompetition);
+      }
+    }, 1000);
+
+    return () => clearTimeout(preloadTimer);
+  }, []);
+
+  const loadScoreboard = async (
+    silentUpdate = false,
+    dateFilter = selectedDateFilter,
+    competition = selectedCompetition,
+  ) => {
+    console.log(
+      "FIFAWorldScoreboardScreen: loadScoreboard called - silentUpdate:",
+      silentUpdate,
+      "dateFilter:",
+      dateFilter,
+      "competition:",
+      competition,
+    );
+    const now = Date.now();
+    const cacheKey = getCacheKey(competition, dateFilter);
+    const cachedData = gameCache[cacheKey];
+    const cacheTime = cacheTimestamps[cacheKey] || 0;
+    const cacheDuration = getCacheDuration(dateFilter);
+    const isCacheValid = cachedData && now - cacheTime < cacheDuration;
+
+    // If we have valid cached data, show it immediately
+    if (isCacheValid && !silentUpdate) {
+      console.log("FIFAWorldScoreboardScreen: Using cached data for", cacheKey);
+      setGames(cachedData);
+      setLoading(false);
+      return;
+    }
+
     try {
       if (!silentUpdate) {
         setLoading(true);
       }
 
       console.log(
-        "FIFAWorldScoreboardScreen: Fetching data for",
-        selectedCompetition,
-        selectedDateFilter,
+        "FIFAWorldScoreboardScreen: Fetching fresh data for",
+        competition,
+        dateFilter,
       );
 
       // Use the FIFA World Cup service
       const data = await FIFAWorldServiceEnhanced.getScoreboard(
-        selectedDateFilter,
-        selectedCompetition,
+        dateFilter,
+        competition,
       );
 
       // Process games with enhanced data
       const processedGames = await Promise.all(
         (data.events || []).map(async (game) => {
-          // Add any additional processing here if needed
           return {
             ...game,
-            // Ensure competition info is set
-            competitionCode: game.competitionCode || selectedCompetition,
+            competitionCode: game.competitionCode || competition,
             competitionName: game.competitionName || "FIFA Competition",
           };
         }),
@@ -330,7 +443,44 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
         })
         .map((x) => x.g);
 
-      setGames(sortedGames);
+      // Create hash for change detection
+      const currentHash = JSON.stringify(
+        sortedGames.map((g) => ({
+          id: g.id,
+          status: g.status?.type?.state,
+          awayScore: g.competitions[0]?.competitors[1]?.score,
+          homeScore: g.competitions[0]?.competitors[0]?.score,
+          clock: g.status?.displayClock,
+        }))
+      );
+
+      // Update cache
+      setGameCache((prev) => ({
+        ...prev,
+        [cacheKey]: sortedGames,
+      }));
+      setCacheTimestamps((prev) => ({
+        ...prev,
+        [cacheKey]: now,
+      }));
+
+      // Only update state if this is the currently selected filter + competition
+      if (
+        dateFilter === selectedDateFilter &&
+        competition === selectedCompetition
+      ) {
+        setGames(sortedGames);
+
+        // Check if there were actual changes
+        if (currentHash !== lastUpdateHash) {
+          setLastUpdateHash(currentHash);
+          console.log(
+            "FIFAWorldScoreboardScreen: Data updated for",
+            cacheKey,
+          );
+        }
+      }
+
       setLoading(false);
     } catch (error) {
       console.error(
@@ -345,7 +495,13 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadScoreboard(false);
+    // Clear cache for current filter to force fresh data
+    const cacheKey = getCacheKey(selectedCompetition, selectedDateFilter);
+    setCacheTimestamps((prev) => ({
+      ...prev,
+      [cacheKey]: 0,
+    }));
+    await loadScoreboard(false, selectedDateFilter, selectedCompetition);
     setRefreshing(false);
   };
 
@@ -357,8 +513,31 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
         filter,
       );
       setSelectedDateFilter(filter);
+
+      // Check if we have cached data for this filter + competition
+      const now = Date.now();
+      const cacheKey = getCacheKey(selectedCompetition, filter);
+      const cachedData = gameCache[cacheKey];
+      const cacheTime = cacheTimestamps[cacheKey] || 0;
+      const cacheDuration = getCacheDuration(filter);
+      const isCacheValid = cachedData && now - cacheTime < cacheDuration;
+
+      if (isCacheValid) {
+        console.log(
+          "FIFAWorldScoreboardScreen: Using cached data for filter change to:",
+          filter,
+        );
+        setGames(cachedData);
+        setLoading(false);
+      } else {
+        console.log(
+          "FIFAWorldScoreboardScreen: No valid cache for filter:",
+          filter,
+          "- will fetch fresh data",
+        );
+      }
     },
-    [selectedDateFilter],
+    [selectedDateFilter, selectedCompetition, gameCache, cacheTimestamps],
   );
 
   const handleCompetitionChange = React.useCallback(
@@ -376,24 +555,9 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     [selectedCompetition],
   );
 
-  const getNoGamesMessage = (dateFilter) => {
-    switch (dateFilter) {
-      case "yesterday":
-        return "No matches played yesterday";
-      case "today":
-        return "No matches scheduled today";
-      case "tomorrow":
-        return "No matches scheduled tomorrow";
-      default:
-        return "No matches scheduled";
-    }
-  };
-
   const getMatchStatus = (game) => {
     const status = game.status;
     const state = status?.type?.state;
-
-    if (state === "pre") {
       const date = new Date(game.date);
       const today = new Date();
       const isToday = date.toDateString() === today.toDateString();
@@ -403,6 +567,12 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
       const isTomorrow = date.toDateString() === tomorrow.toDateString();
+      const timeText = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+    if (state === "pre") {
 
       let dateText = "";
       if (isToday) {
@@ -415,11 +585,6 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
         dateText = date.toLocaleDateString();
       }
 
-      const timeText = date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
       return {
         text: "Scheduled",
         time: timeText,
@@ -430,16 +595,19 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       };
     } else if (state === "in") {
       const period = status?.period;
-      const clock = status?.displayClock;
-      let statusText = "Live";
-      let timeText = "";
-
-      if (period) {
-        if (period <= 2) {
-          statusText = period === 1 ? "1st Half" : "2nd Half";
-        } else {
-          statusText = "Extra Time";
-        }
+      const description = status?.type?.description;
+      const clock = status?.type?.shortDetail || status?.displayClock || "";
+      
+      let timeText = "";     
+      let halfText = "";
+      if (period === 1) {
+        halfText = "1st Half";
+      } else if (period === 2) {
+        halfText = "2nd Half";
+      } else if (period > 2) {
+        halfText = "Extra Time";
+      } else {
+        halfText = "Live";
       }
 
       if (clock) {
@@ -447,7 +615,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       }
 
       return {
-        text: statusText,
+        text: halfText,
         time: timeText,
         detail: "",
         isLive: true,
@@ -457,7 +625,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     } else {
       return {
         text: "Final",
-        time: "",
+        time: timeText || "",
         detail: "",
         isLive: false,
         isPre: false,
@@ -554,6 +722,9 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
+    const awayWin = matchStatus.isPost && (awayTeam?.shootoutScore > homeTeam?.shootoutScore || awayTeam?.score > homeTeam?.score);
+    const homeWin = matchStatus.isPost && (homeTeam?.shootoutScore > awayTeam?.shootoutScore || homeTeam?.score > awayTeam?.score);
+
     return (
       <TouchableOpacity
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
@@ -581,9 +752,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
                 teamId={homeTeam?.team?.id}
                 style={[
                   styles.teamLogo,
-                  matchStatus.isPost &&
-                    homeTeam?.score < awayTeam?.score &&
-                    styles.losingTeamLogo,
+                  awayWin && styles.losingTeamLogo,
                 ]}
               />
               {(matchStatus.isLive || matchStatus.isPost) && (
@@ -592,12 +761,22 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
                   style={[
                     styles.teamScore,
                     { color: theme.text },
-                    matchStatus.isPost &&
-                      homeTeam?.score < awayTeam?.score &&
-                      styles.losingScore,
+                    awayWin && styles.losingScore,
                   ]}
                 >
                   {homeTeam?.score || "0"}
+                </Text>
+              )}
+              {(matchStatus.isLive || matchStatus.isPost) && homeTeam?.shootoutScore && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamShootoutScore,
+                    { color: theme.text },
+                    awayWin && styles.losingScore,
+                  ]}
+                >
+                  ({homeTeam?.shootoutScore || "0"})
                 </Text>
               )}
             </View>
@@ -610,9 +789,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
                     ? colors.primary
                     : theme.text,
                 },
-                matchStatus.isPost &&
-                  homeTeam?.score < awayTeam?.score &&
-                  styles.losingTeamName,
+                awayWin && styles.losingTeamName,
               ]}
             >
               {isFavorite(homeTeam?.team?.id, "fifa world cup") ? "★ " : ""}
@@ -656,15 +833,25 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
           {/* Away Team Section */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
+              {(matchStatus.isLive || matchStatus.isPost) && awayTeam?.shootoutScore && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamShootoutScore,
+                    { color: theme.text },
+                    homeWin && styles.losingScore,
+                  ]}
+                >
+                  ({awayTeam?.shootoutScore || "0"})
+                </Text>
+              )}
               {(matchStatus.isLive || matchStatus.isPost) && (
                 <Text
                   allowFontScaling={false}
                   style={[
                     styles.teamScore,
                     { color: theme.text },
-                    matchStatus.isPost &&
-                      awayTeam?.score < homeTeam?.score &&
-                      styles.losingScore,
+                    homeWin && styles.losingScore,
                   ]}
                 >
                   {awayTeam?.score || "0"}
@@ -674,9 +861,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
                 teamId={awayTeam?.team?.id}
                 style={[
                   styles.teamLogo,
-                  matchStatus.isPost &&
-                    awayTeam?.score < homeTeam?.score &&
-                    styles.losingTeamLogo,
+                  homeWin && styles.losingTeamLogo,
                 ]}
               />
             </View>
@@ -689,9 +874,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
                     ? colors.primary
                     : theme.text,
                 },
-                matchStatus.isPost &&
-                  awayTeam?.score < homeTeam?.score &&
-                  styles.losingTeamName,
+                homeWin && styles.losingTeamName,
               ]}
             >
               {isFavorite(awayTeam?.team?.id, "fifa world cup") ? "★ " : ""}
@@ -789,7 +972,7 @@ const styles = StyleSheet.create({
   },
   competitionContainer: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.1)",
   },
@@ -920,6 +1103,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginHorizontal: 8,
+  },
+  teamShootoutScore: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginHorizontal: -2,
   },
   losingScore: {
     color: "#999",

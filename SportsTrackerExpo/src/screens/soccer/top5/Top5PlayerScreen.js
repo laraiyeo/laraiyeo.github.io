@@ -1579,14 +1579,76 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
 
   const grouped = useMemo(() => {
     const teamTypeById = new Map();
+    const countryTeamNames = new Set();
+    
     for (const stint of teams ?? []) {
       const teamId = stint?.team?.id;
-      if (teamId == null) continue;
-      teamTypeById.set(teamId, stint.team?.type ?? null);
+      const teamType = stint?.team?.type ?? null;
+      const teamName = stint?.team?.name ?? "";
+      
+      if (teamId != null) {
+        teamTypeById.set(teamId, teamType);
+      }
+      
+      // Track country team names for name-based matching
+      if (teamType === "national") {
+        countryTeamNames.add(teamName.toLowerCase().trim());
+      }
     }
 
-    const resolveGroupType = (teamId) =>
-      teamTypeById.get(teamId) === "national" ? "country" : "club";
+    // Helper to check if a team name is a variant of a country team
+    const isCountryTeamVariant = (teamName) => {
+      if (!teamName) return false;
+      
+      const normalizedName = teamName.toLowerCase().trim();
+      
+      // Direct match
+      if (countryTeamNames.has(normalizedName)) return true;
+      
+      // Check for common national team variants
+      for (const countryName of countryTeamNames) {
+        // Check if this is a variant like "U23", "U21", etc.
+        if (
+          normalizedName.includes(countryName) ||
+          countryName.includes(normalizedName) ||
+          normalizedName.startsWith(countryName) ||
+          normalizedName.endsWith(countryName)
+        ) {
+          // Additional check to avoid false positives
+          const isLikelyVariant = 
+            normalizedName.includes('u23') ||
+            normalizedName.includes('u21') ||
+            normalizedName.includes('u19') ||
+            normalizedName.includes('u17') ||
+            normalizedName.includes('olympic') ||
+            normalizedName.includes('women') ||
+            normalizedName.includes('women\'s') ||
+            normalizedName.includes('feminino') ||
+            normalizedName.includes('femina') ||
+            normalizedName.endsWith('u23') ||
+            normalizedName.endsWith('u21') ||
+            normalizedName.endsWith('u19') ||
+            normalizedName.endsWith('u17');
+            
+          if (isLikelyVariant || normalizedName.length > countryName.length) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    };
+
+    const resolveGroupType = (teamId, teamName) => {
+      // First check by ID (existing logic)
+      const typeById = teamTypeById.get(teamId);
+      if (typeById === "national") return "country";
+      
+      // Then check by name for variants
+      if (isCountryTeamVariant(teamName)) return "country";
+      
+      return "club";
+    };
 
     const map = {};
     for (const s of statistics) {
@@ -1594,7 +1656,7 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
       if (!hasMeaningfulDetails(s.details ?? [])) continue;
       const team = s.team ?? {};
       const seasonName = s.season?.name ?? "";
-      const groupType = resolveGroupType(team.id);
+      const groupType = resolveGroupType(team.id, team.name);
       const key = `${groupType}::${team.id ?? "-"}::${seasonName}`;
 
       // helpers to pull numeric stats
@@ -1668,6 +1730,7 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
     };
   }, [statistics, teams]);
 
+  // Rest of the component remains the same...
   const [expanded, setExpanded] = useState({});
   const toggle = (k) => setExpanded((prev) => ({ ...prev, [k]: !prev[k] }));
 
@@ -2016,11 +2079,11 @@ function MatchCard({
         format: (v) => v.toFixed(1),
         color: rating != null ? getRatingColor(rating) : null,
       });
+    if (topLabel !== "MIN") primaries.push({ label: "MIN", value: minValue });
     if (topLabel !== goalLabel)
       primaries.push({ label: goalLabel, value: goalValue });
     if (topLabel !== assistLabel)
       primaries.push({ label: assistLabel, value: assistValue });
-    if (topLabel !== "MIN") primaries.push({ label: "MIN", value: minValue });
 
     // Push primaries that exist in the fixture
     for (const p of primaries) {

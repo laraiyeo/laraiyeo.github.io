@@ -120,6 +120,7 @@ const LIVE_SHORT_NAMES = new Set([
   "INPLAY_PEN",
   "ET",
   "PEN",
+  "INT",
 ]);
 
 // Force ordering for leagues on scoreboard (those keys appear first, in this order)
@@ -194,6 +195,22 @@ const getScoreboardPolicy = (groups) => {
       );
     });
 
+    // Check if any scheduled matches have crossed their start time
+    const hasStartedMatches = allMatches.some((m) => {
+      if (shortNameOf(m) !== "NS") return false;
+      const startMs = startMsOf(m);
+      return Number.isFinite(startMs) && startMs <= now;
+    });
+
+    if (hasStartedMatches) {
+      // Force immediate refresh if matches have started
+      return {
+        mode: "transition",
+        intervalMs: INTERVAL_FAST,
+        cacheMs: 0,
+      };
+    }
+
     if (hasWithinHourStart) {
       return {
         mode: "scheduled_soon",
@@ -258,10 +275,8 @@ const getTickingClock = (match, nowMs, snapshotTsMs) => {
 const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
   const code = (match?.state?.state || "").toUpperCase();
   const long = match?.state?.name || "";
-  const short =
-    getTickingClock(match, nowMs, snapshotTsMs) ||
-    match?.state?.short_name ||
-    code;
+  const short = match?.state?.short_name || code;
+
   const isFinished = [
     "FT",
     "AET",
@@ -277,28 +292,45 @@ const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "POSTPONED",
     "CANCELLED",
   ].includes(code);
+
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;
 
+  // Only show ticking clock for live games, not finished or scheduled games
+  let displayShort = short;
+  if (isLive) {
+    const tickingClock = getTickingClock(match, nowMs, snapshotTsMs);
+    if (tickingClock) {
+      displayShort = tickingClock;
+    }
+  }
+
   if (isLive) {
     return {
-      line1: short || "LIVE",
+      line1: displayShort || "LIVE",
       line2: long || "",
       isLive: true,
       isFinished: false,
     };
   }
+
   if (isFinished) {
     const { time, ampm } = formatMatchTime(match);
     return {
-      line1: short || "FT",
+      line1: short || "FT", // Always show the actual status for finished games
       line2: `${time} ${ampm}`,
       isLive: false,
       isFinished: true,
     };
   }
+
   const { time, ampm } = formatMatchTime(match);
-  return { line1: time, line2: ampm, isLive: false, isFinished: false };
+  return {
+    line1: time,
+    line2: ampm,
+    isLive: false,
+    isFinished: false,
+  };
 };
 
 const parseHexColor = (hex) => {
@@ -509,6 +541,14 @@ const getDateLabel = (date) => {
   if (diff === -1) return "Yesterday";
   if (diff === 1) return "Tomorrow";
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+};
+
+const DEBUG_LOGGING = true;
+
+const logDebug = (...args) => {
+  if (DEBUG_LOGGING) {
+    console.log("[Top5Scoreboard]", ...args);
+  }
 };
 
 // ─── Date picker bar ─────────────────────────────────────────────────────────
@@ -988,7 +1028,12 @@ const Top5GridCard = React.memo(
                     {
                       color: homeWins ? colors.primary : theme.text,
                       fontWeight: homeWins ? "700" : "400",
-                      opacity: si.isFinished && !homeWins ? 0.55 : 1,
+                      opacity:
+                        si.isFinished && !homeWins && !awayWins
+                          ? 1
+                          : si.isFinished && !homeWins
+                            ? 0.55
+                            : 1,
                     },
                   ]}
                 >
@@ -997,7 +1042,19 @@ const Top5GridCard = React.memo(
                 {home?.image_path && (
                   <Image
                     source={{ uri: home.image_path }}
-                    style={soccerGridStyles.scoreLogoOverlay}
+                    style={[
+                      soccerGridStyles.scoreLogoOverlay,
+                      {
+                        opacity:
+                          si.isFinished && !homeWins && !awayWins
+                            ? 1
+                            : si.isFinished
+                              ? homeWins
+                                ? 1
+                                : 0.55
+                              : 1,
+                      },
+                    ]}
                     contentFit="contain"
                     cachePolicy="memory-disk"
                   />
@@ -1022,14 +1079,38 @@ const Top5GridCard = React.memo(
                 </Text>
               </View>
             )}
-            <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
+            <Text
+              style={[
+                soccerGridStyles.teamAbbr,
+                {
+                  color:
+                    si.isFinished && !homeWins && !awayWins
+                      ? theme.text
+                      : si.isFinished
+                        ? homeWins
+                          ? theme.text
+                          : theme.textTertiary
+                        : theme.text,
+                },
+              ]}
+            >
               {homeAbbr}
             </Text>
             {homePos != "nullth" && (
               <Text
                 style={[
                   soccerGridStyles.teamPosition,
-                  { color: theme.textSecondary, fontSize: 10 },
+                  {
+                    color:
+                      si.isFinished && !homeWins && !awayWins
+                        ? theme.textSecondary
+                        : si.isFinished
+                          ? homeWins
+                            ? theme.textSecondary
+                            : theme.textTertiary
+                          : theme.textSecondary,
+                    fontSize: 10,
+                  },
                 ]}
               >
                 {homePos} Place
@@ -1054,7 +1135,12 @@ const Top5GridCard = React.memo(
                     {
                       color: awayWins ? colors.primary : theme.text,
                       fontWeight: awayWins ? "700" : "400",
-                      opacity: si.isFinished && !awayWins ? 0.55 : 1,
+                      opacity:
+                        si.isFinished && !homeWins && !awayWins
+                          ? 1
+                          : si.isFinished && !awayWins
+                            ? 0.55
+                            : 1,
                     },
                   ]}
                 >
@@ -1063,7 +1149,19 @@ const Top5GridCard = React.memo(
                 {away?.image_path && (
                   <Image
                     source={{ uri: away.image_path }}
-                    style={soccerGridStyles.scoreLogoOverlay}
+                    style={[
+                      soccerGridStyles.scoreLogoOverlay,
+                      {
+                        opacity:
+                          si.isFinished && !homeWins && !awayWins
+                            ? 1
+                            : si.isFinished
+                              ? awayWins
+                                ? 1
+                                : 0.55
+                              : 1,
+                      },
+                    ]}
                     contentFit="contain"
                     cachePolicy="memory-disk"
                   />
@@ -1088,14 +1186,38 @@ const Top5GridCard = React.memo(
                 </Text>
               </View>
             )}
-            <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
+            <Text
+              style={[
+                soccerGridStyles.teamAbbr,
+                {
+                  color:
+                    si.isFinished && !homeWins && !awayWins
+                      ? theme.text
+                      : si.isFinished
+                        ? awayWins
+                          ? theme.text
+                          : theme.textTertiary
+                        : theme.text,
+                },
+              ]}
+            >
               {awayAbbr}
             </Text>
             {awayPos != "nullth" && (
               <Text
                 style={[
                   soccerGridStyles.teamPosition,
-                  { color: theme.textSecondary, fontSize: 10 },
+                  {
+                    color:
+                      si.isFinished && !homeWins && !awayWins
+                        ? theme.textSecondary
+                        : si.isFinished
+                          ? awayWins
+                            ? theme.textSecondary
+                            : theme.textTertiary
+                          : theme.textSecondary,
+                    fontSize: 10,
+                  },
                 ]}
               >
                 {awayPos} Place
@@ -1111,6 +1233,14 @@ const Top5GridCard = React.memo(
             { borderTopColor: theme.border },
           ]}
         >
+          {match.group?.name ? (
+            <Text
+              style={[soccerGridStyles.groupText, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {match.group.name}
+            </Text>
+          ) : null}
           <Text
             style={[soccerGridStyles.venueText, { color: theme.textSecondary }]}
             numberOfLines={1}
@@ -1150,6 +1280,7 @@ const Top5ListRow = ({
     homeFallback: null,
     awayFallback: null,
   });
+  const group = match.group?.name || "";
 
   return (
     <TouchableOpacity
@@ -1237,9 +1368,11 @@ const Top5ListRow = ({
                   source={{ uri: home.image_path }}
                   style={[
                     styles.teamLogoSmallImg,
-                    !home.meta.winner && si.isFinished
-                      ? { opacity: 0.55 }
-                      : null,
+                    si.isFinished && !home.meta.winner && !away.meta.winner
+                      ? { opacity: 1 }
+                      : !home.meta.winner && si.isFinished
+                        ? { opacity: 0.55 }
+                        : null,
                   ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
@@ -1266,7 +1399,14 @@ const Top5ListRow = ({
                 style={[
                   styles.teamName,
                   {
-                    color: theme.text,
+                    color:
+                      si.isFinished && !home.meta.winner && !away.meta.winner
+                        ? theme.text
+                        : si.isFinished
+                          ? home.meta.winner
+                            ? theme.text
+                            : theme.textTertiary
+                          : theme.text,
                     fontWeight: home.meta.winner ? "700" : "400",
                     marginTop: home.meta.position ? 0 : 9,
                   },
@@ -1279,7 +1419,17 @@ const Top5ListRow = ({
                 <Text
                   style={[
                     styles.teamName,
-                    { color: theme.textSecondary, fontSize: 11 },
+                    {
+                      color:
+                        si.isFinished && !home.meta.winner && !away.meta.winner
+                          ? theme.textSecondary
+                          : si.isFinished
+                            ? home.meta.winner
+                              ? theme.textSecondary
+                              : theme.textTertiary
+                            : theme.textSecondary,
+                      fontSize: 11,
+                    },
                   ]}
                   numberOfLines={1}
                 >
@@ -1295,7 +1445,12 @@ const Top5ListRow = ({
                     {
                       color: home.meta.winner ? colors.primary : theme.text,
                       fontWeight: home.meta.winner ? "700" : "400",
-                      opacity: !home.meta.winner && si.isFinished ? 0.55 : 1,
+                      opacity:
+                        si.isFinished && !home.meta.winner && !away.meta.winner
+                          ? 1
+                          : !home.meta.winner && si.isFinished
+                            ? 0.55
+                            : 1,
                     },
                   ]}
                 >
@@ -1311,9 +1466,11 @@ const Top5ListRow = ({
                   source={{ uri: away.image_path }}
                   style={[
                     styles.teamLogoSmallImg,
-                    !away.meta.winner && si.isFinished
-                      ? { opacity: 0.55 }
-                      : null,
+                    si.isFinished && !home.meta.winner && !away.meta.winner
+                      ? { opacity: 1 }
+                      : !away.meta.winner && si.isFinished
+                        ? { opacity: 0.55 }
+                        : null,
                   ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
@@ -1340,7 +1497,14 @@ const Top5ListRow = ({
                 style={[
                   styles.teamName,
                   {
-                    color: theme.text,
+                    color:
+                      si.isFinished && !home.meta.winner && !away.meta.winner
+                        ? theme.text
+                        : si.isFinished
+                          ? away.meta.winner
+                            ? theme.text
+                            : theme.textTertiary
+                          : theme.text,
                     fontWeight: away.meta.winner ? "700" : "400",
                     marginTop: away.meta.position ? 0 : 9,
                   },
@@ -1353,7 +1517,17 @@ const Top5ListRow = ({
                 <Text
                   style={[
                     styles.teamName,
-                    { color: theme.textSecondary, fontSize: 11 },
+                    {
+                      color:
+                        si.isFinished && !home.meta.winner && !away.meta.winner
+                          ? theme.textSecondary
+                          : si.isFinished
+                            ? away.meta.winner
+                              ? theme.textSecondary
+                              : theme.textTertiary
+                            : theme.textSecondary,
+                      fontSize: 11,
+                    },
                   ]}
                   numberOfLines={1}
                 >
@@ -1369,7 +1543,12 @@ const Top5ListRow = ({
                     {
                       color: away.meta.winner ? colors.primary : theme.text,
                       fontWeight: away.meta.winner ? "700" : "400",
-                      opacity: !away.meta.winner && si.isFinished ? 0.55 : 1,
+                      opacity:
+                        si.isFinished && !home.meta.winner && !away.meta.winner
+                          ? 1
+                          : !away.meta.winner && si.isFinished
+                            ? 0.55
+                            : 1,
                     },
                   ]}
                 >
@@ -1387,6 +1566,14 @@ const Top5ListRow = ({
             <Text
               style={[styles.venue, { color: theme.textSecondary }]}
             >{`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}</Text>
+          ) : null}
+          {group ? (
+            <Text
+              style={[
+                styles.venue,
+                { color: theme.text, fontWeight: "500", fontStyle: "italic" },
+              ]}
+            >{`${group}`}</Text>
           ) : null}
           {match.venue?.name ? (
             <FavoriteVenue match={match} theme={theme} colors={colors} />
@@ -1460,7 +1647,10 @@ const Top5GridSection = ({
             style={[soccerGridStyles.groupBubbleName, { color: theme.text }]}
             numberOfLines={1}
           >
-            {group.countryName || ""} {group.label}
+            {group.label.includes(group.countryName)
+              ? "FIFA"
+              : group.countryName || ""}{" "}
+            {group.label}
           </Text>
           <Text
             style={[
@@ -1589,7 +1779,9 @@ const Top5ScoreboardSection = ({
                 <Text
                   style={[styles.eventSubLabel, { color: theme.textTertiary }]}
                 >
-                  {group.countryName}
+                  {group.label.includes(group.countryName)
+                    ? "FIFA"
+                    : group.countryName || ""}
                 </Text>
               ) : null}
             </View>
@@ -1752,36 +1944,87 @@ const Top5ScoreboardScreen = ({ navigation }) => {
     }));
   }, []);
 
+  // Update the loadData function to properly handle force refresh
   const loadData = useCallback(
     async (filter, silent = false, background = false, force = false) => {
       const now = Date.now();
-      const cached = fetchCacheRef.current[filter];
-      if (!force && cached) {
-        const policy = getScoreboardPolicy(cached.groups ?? []);
-        const cacheMs = policy.cacheMs ?? 0;
-        const canUseCache =
-          cacheMs > 0 &&
-          now - cached.ts < cacheMs &&
-          !(background && policy.mode === "live");
+      logDebug("loadData called", { filter, silent, background, force, now });
 
-        if (canUseCache) {
-          setGroups(cached.groups);
-          setSnapshotTsMs(cached.ts);
-          lastLoadedFilterRef.current = filter;
-          return cached.groups;
+      // ONLY check cache if NOT forcing refresh
+      if (!force) {
+        const cached = fetchCacheRef.current[filter];
+        if (cached) {
+          const policy = getScoreboardPolicy(cached.groups ?? []);
+          const cacheMs = policy.cacheMs ?? 0;
+          const cacheAge = now - cached.ts;
+          const canUseCache =
+            cacheMs > 0 &&
+            cacheAge < cacheMs &&
+            !(background && policy.mode === "live");
+
+          logDebug("Cache check", {
+            filter,
+            hasCache: !!cached,
+            cacheAge,
+            cacheMs,
+            policyMode: policy.mode,
+            canUseCache,
+            background,
+            force,
+          });
+
+          if (canUseCache) {
+            logDebug("Using cached data for filter:", filter);
+            setGroups(cached.groups);
+            setSnapshotTsMs(cached.ts);
+            lastLoadedFilterRef.current = filter;
+            return cached.groups;
+          } else {
+            logDebug("Cache expired or invalid for filter:", filter, {
+              cacheAge,
+              cacheMs,
+              policyMode: policy.mode,
+              background,
+            });
+          }
         }
+      } else if (force) {
+        logDebug(
+          "Force refresh requested, bypassing cache for filter:",
+          filter,
+        );
+      } else {
+        logDebug("No cached data available for filter:", filter);
       }
 
-      if (inFlightRef.current[filter]) return inFlightRef.current[filter];
+      // ONLY check in-flight if NOT forcing refresh
+      if (!force && inFlightRef.current[filter]) {
+        logDebug("Request already in flight for filter:", filter);
+        return inFlightRef.current[filter];
+      }
 
       const promise = (async () => {
+        logDebug("Starting data fetch for filter:", filter);
         if (!silent) setLoading(true);
         else if (!background) setFetching(true);
+
         try {
+          logDebug(
+            "Calling Top5ServiceEnhanced.getScoreboard with filter:",
+            filter,
+          );
           const raw = await Top5ServiceEnhanced.getScoreboard(filter);
+          logDebug("Raw data received from service for filter:", filter, {
+            groupsCount: raw?.data?.groups?.length || 0,
+          });
+
           const rawGroups = Top5ServiceEnhanced.toGroups(raw);
+          logDebug("Processed groups count:", rawGroups.length);
+
           const nextGroups = applyTickingSnapshot(rawGroups);
-          // Apply forced league ordering: put leagues in FORCE_LEAGUE_ORDER first (in that order)
+          logDebug("Applied ticking snapshot, groups:", nextGroups.length);
+
+          // Apply forced league ordering
           if (Array.isArray(nextGroups) && nextGroups.length > 0) {
             const orderMap = new Map(
               FORCE_LEAGUE_ORDER.map((k, i) => [String(k), i]),
@@ -1801,24 +2044,15 @@ const Top5ScoreboardScreen = ({ navigation }) => {
                 return ai - bi;
               })
               .map((x) => x.g);
-            // replace nextGroups with ordered list
-            // preserve reference type expected elsewhere
-            // eslint-disable-next-line no-unused-expressions
-            (function replace() {
-              // use ordered array
-              return ordered;
-            })();
-            // assign nextGroups variable to ordered for downstream usage
-            // (we cannot reassign const, so use a new variable)
-            var orderedGroups = ordered; // eslint-disable-line no-var
 
-            // use orderedGroups from here on
-            // setGroups will be called with orderedGroups below
+            const ts = Date.now();
+            const orderedGroups = ordered;
+            logDebug("Applied league ordering, groups:", orderedGroups.length);
           }
+
           const ts = Date.now();
 
-          // Ensure matches within each group are ordered by status: Live -> Scheduled -> Finished
-          // then by starting time to keep scheduled items in chronological order.
+          // Sort matches within groups
           const sortMatchesWithinGroup = (groupsArr) => {
             const statusWeight = (m) => {
               const code = String(m?.state?.state || "").toUpperCase();
@@ -1845,14 +2079,21 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           const baseGroups =
             typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups;
           const sortedGroups = sortMatchesWithinGroup(baseGroups);
+          logDebug(
+            "Sorted groups by match status, groups:",
+            sortedGroups.length,
+          );
 
           setGroups(sortedGroups);
           setSnapshotTsMs(ts);
           lastLoadedFilterRef.current = filter;
+
+          // Cache the data
           fetchCacheRef.current[filter] = {
             groups: sortedGroups,
             ts,
           };
+          logDebug("Data cached for filter:", filter);
 
           if (filter > getTodayDateStr()) {
             setCollapsedGroups((prev) => {
@@ -1866,6 +2107,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
 
           return nextGroups;
         } catch (err) {
+          logDebug("Data fetch error for filter:", filter, err);
           console.error("Top5 scoreboard fetch error:", err);
           setGroups([]);
           setSnapshotTsMs(Date.now());
@@ -1873,13 +2115,13 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         } finally {
           setLoading(false);
           if (!background) setFetching(false);
+          logDebug("loadData completed for filter:", filter);
         }
       })();
 
       inFlightRef.current[filter] = promise;
       try {
-        const res = await promise;
-        return res;
+        return await promise;
       } finally {
         delete inFlightRef.current[filter];
       }
@@ -1892,9 +2134,18 @@ const Top5ScoreboardScreen = ({ navigation }) => {
 
   const schedulePolling = useCallback(
     (filter, latestGroups) => {
-      if (!isFocusedRef.current) return;
+      logDebug("schedulePolling called", {
+        filter,
+        groupsCount: latestGroups?.length,
+      });
+
+      if (!isFocusedRef.current) {
+        logDebug("Not focused, skipping polling setup");
+        return;
+      }
 
       if (filter !== getTodayDateStr()) {
+        logDebug("Non-today filter, clearing interval");
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -1904,7 +2155,12 @@ const Top5ScoreboardScreen = ({ navigation }) => {
       }
 
       const desired = getPollingInterval(latestGroups);
+      logDebug("Calculated polling interval:", desired, {
+        groupsCount: latestGroups?.length,
+      });
+
       if (!desired) {
+        logDebug("No polling interval, clearing existing");
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -1913,11 +2169,21 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         return;
       }
 
-      if (currentIntervalMs.current === desired && intervalRef.current) return;
+      if (currentIntervalMs.current === desired && intervalRef.current) {
+        logDebug("Polling interval unchanged, keeping existing:", desired);
+        return;
+      }
 
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        logDebug("Clearing existing interval");
+        clearInterval(intervalRef.current);
+      }
+
       currentIntervalMs.current = desired;
+      logDebug("Setting new polling interval:", desired);
+
       intervalRef.current = setInterval(async () => {
+        logDebug("Polling interval triggered");
         const fresh = await loadData(filter, true, true);
         schedulePolling(filter, fresh);
       }, desired);
@@ -1927,15 +2193,20 @@ const Top5ScoreboardScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
+      logDebug("Screen focused, activeFilter:", activeFilter);
       isFocusedRef.current = true;
-      // Always refresh when this screen regains focus so game detail -> back
-      // reflects current scores without manual pull-to-refresh.
+
+      // Always refresh when this screen regains focus
+      logDebug("Forcing refresh on focus");
       loadData(activeFilter, true, true, true).then((fresh) =>
         schedulePolling(activeFilter, fresh),
       );
+
       return () => {
+        logDebug("Screen losing focus");
         isFocusedRef.current = false;
         if (intervalRef.current) {
+          logDebug("Clearing polling interval on unfocus");
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           currentIntervalMs.current = null;
@@ -1960,16 +2231,38 @@ const Top5ScoreboardScreen = ({ navigation }) => {
     }
   }, [nowMs, activeFilter, loadData, schedulePolling]);
 
+  // Update the onRefresh function (around line 1500) to properly clear cache
   const onRefresh = async () => {
+    logDebug("onRefresh triggered for active filter:", activeFilter);
     setRefreshing(true);
-    // Explicit user refresh should bypass any short-term cache so the
-    // latest data is fetched. Remove cached entry for this filter.
+
+    // Log current cache state before clearing
+    logDebug("Current cache state before refresh:", {
+      hasCacheForFilter: !!fetchCacheRef.current[activeFilter],
+      cacheKeys: Object.keys(fetchCacheRef.current),
+    });
+
+    // Explicit user refresh should bypass any short-term cache
     if (fetchCacheRef.current && fetchCacheRef.current[activeFilter]) {
+      logDebug("Deleting cache for filter:", activeFilter);
       delete fetchCacheRef.current[activeFilter];
     }
-    const fresh = await loadData(activeFilter, true);
+
+    // Also clear AsyncStorage cache for this filter
+    try {
+      const cacheKey = `@top5_scoreboard_${activeFilter}`;
+      logDebug("Clearing AsyncStorage cache with key:", cacheKey);
+      await AsyncStorage.removeItem(cacheKey);
+    } catch (e) {
+      logDebug("Failed to clear AsyncStorage cache:", e);
+      console.warn("Failed to clear AsyncStorage cache:", e);
+    }
+
+    logDebug("Calling loadData with force refresh for filter:", activeFilter);
+    const fresh = await loadData(activeFilter, true, false, true);
     schedulePolling(activeFilter, fresh);
     setRefreshing(false);
+    logDebug("Refresh completed for filter:", activeFilter);
   };
 
   const handleDateSelect = (dateStr) => {
@@ -2476,6 +2769,13 @@ const soccerGridStyles = StyleSheet.create({
   venueText: {
     fontSize: 9,
     textAlign: "center",
+  },
+  groupText: {
+    fontSize: 10,
+    textAlign: "center",
+    fontWeight: "500",
+    marginBottom: 3,
+    marginTop: -2,
   },
   cardBadge: {
     position: "absolute",

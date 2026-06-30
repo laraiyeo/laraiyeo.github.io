@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export class MLBService {
   static BASE_URL = "https://statsapi.mlb.com";
+  static BASE_BACKEND = "https://sportsheart-baseball.up.railway.app";
   static SCHEDULE_URL = `${this.BASE_URL}/api/v1/schedule/games/?sportId=1`;
 
   // Cache for API responses (fallback in-memory cache)
@@ -106,30 +107,10 @@ export class MLBService {
         const isFresh = now - timestamp < cacheDuration;
 
         if (isFresh) {
-          console.log(
-            `%c[MLBService Cache HIT] %c${key} %c(${age.toFixed(1)}s old)${isLiveData ? " [LIVE]" : ""}`,
-            "color: limegreen; font-weight: bold;",
-            "color: white;",
-            "color: gray;",
-          );
           return data;
         } else {
-          console.log(
-            `%c[MLBService Cache STALE] %c${key} %c(${age.toFixed(1)}s old — refreshing...)${isLiveData ? " [LIVE]" : ""}`,
-            "color: orange; font-weight: bold;",
-            "color: white;",
-            "color: gray;",
-          );
         }
       }
-
-      // 2️⃣ Fetch from network if not cached or stale
-      console.log(
-        `%c[MLBService Fetch] %c${key} %c(network request)${isLiveData ? " [LIVE]" : ""}`,
-        "color: cyan; font-weight: bold;",
-        "color: white;",
-        "color: gray;",
-      );
 
       const data = await fetchFunction();
       await AsyncStorage.setItem(
@@ -143,20 +124,8 @@ export class MLBService {
 
       // fallback: in-memory cache
       if (this.cache.has(key)) {
-        console.log(
-          `%c[MLBService Fallback Memory Cache] %c${key}`,
-          "color: yellow; font-weight: bold;",
-          "color: white;",
-        );
         return this.cache.get(key);
       }
-
-      // last resort: fetch from network
-      console.log(
-        `%c[MLBService Network Fallback] %c${key}`,
-        "color: red; font-weight: bold;",
-        "color: white;",
-      );
 
       const data = await fetchFunction();
       this.cache.set(key, data);
@@ -234,32 +203,21 @@ export class MLBService {
       cacheKey,
       async () => {
         let url = this.SCHEDULE_URL;
-        console.log("MLBService.getScoreboard called with:", {
-          startDate,
-          endDate,
-        });
 
         if (startDate) {
           if (endDate && endDate !== startDate) {
             // Date range format
             url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
-            console.log(
-              "MLBService: Using date range format:",
-              `${startDate} to ${endDate}`,
-            );
           } else {
             // Single date format
             url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
-            console.log("MLBService: Using single date format:", startDate);
           }
         } else {
           // Use adjusted date for "today"
           const today = this.getAdjustedDateForMLB();
           url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
-          console.log("MLBService: Using adjusted today date:", today);
         }
 
-        console.log("MLBService: Final API URL:", url);
         // Bypass native HTTP cache so auto-poll always gets fresh data
         const response = await fetch(url, {
           headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
@@ -305,22 +263,6 @@ export class MLBService {
       third: false,
     };
 
-    // Debug: confirm base occupancy survives processing into scoreboard payload.
-    try {
-      console.log("[MLBService Bases Processed]", {
-        gamePk: game?.gamePk,
-        statusCode: game?.status?.statusCode,
-        codedGameState: game?.status?.codedGameState,
-        offenseKeys: Object.keys(game?.linescore?.offense || {}),
-        firstRaw: game?.linescore?.offense?.first || null,
-        secondRaw: game?.linescore?.offense?.second || null,
-        thirdRaw: game?.linescore?.offense?.third || null,
-        bases,
-      });
-    } catch (e) {
-      // no-op: debug logging should never break processing
-    }
-
     return {
       id: game.gamePk?.toString(),
       date: game.gameDate,
@@ -336,6 +278,7 @@ export class MLBService {
       isCompleted: game.status?.statusCode === "F",
       isLive:
         game.status?.statusCode === "I" ||
+        game.status?.statusCode === "II" ||
         game.status?.detailedState === "In Progress" ||
         game.status?.detailedState === "Manager challenge" ||
         game.status?.codedGameState === "M",
@@ -494,19 +437,6 @@ export class MLBService {
       third: !!offense.third,
     };
 
-    // Debug: verify what came from linescore.offense and resulting booleans.
-    try {
-      console.log("[MLBService Base Occupancy Parse]", {
-        offenseKeys: Object.keys(offense),
-        firstRaw: offense.first || null,
-        secondRaw: offense.second || null,
-        thirdRaw: offense.third || null,
-        occupancy,
-      });
-    } catch (e) {
-      // no-op: debug logging should never break parsing
-    }
-
     return occupancy;
   }
 
@@ -527,9 +457,7 @@ export class MLBService {
     const cacheKey = `gameDetails_${gameId}`;
 
     return this.getCachedData(cacheKey, async () => {
-      const url = `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`;
-      console.log("MLBService.getGameDetails called with gameId:", gameId);
-      console.log("MLBService.getGameDetails: Using feed endpoint:", url);
+      const url = `${this.BASE_BACKEND}/wbc/gameFeed/${gameId}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -546,8 +474,6 @@ export class MLBService {
       cacheKey,
       async () => {
         const url = `${this.BASE_URL}/api/v1/standings/byDivision?leagueId=103,104&fields=records,teamRecords,team,id,name,streak,streakCode,clinchIndicator,divisionRank,leagueRank,sportRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored`;
-        console.log("MLBService.getStandings called");
-        console.log("MLBService.getStandings: Using standings endpoint:", url);
 
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -566,7 +492,7 @@ export class MLBService {
 
     return this.getCachedData(cacheKey, async () => {
       const response = await fetch(
-        `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+        `${this.BASE_BACKEND}/wbc/gameFeed/${gameId}`,
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -582,7 +508,7 @@ export class MLBService {
 
     return this.getCachedData(cacheKey, async () => {
       const response = await fetch(
-        `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+        `${this.BASE_BACKEND}/wbc/gameFeed/${gameId}`,
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -689,7 +615,7 @@ export class MLBService {
     return this.getCachedData(cacheKey, async () => {
       try {
         const response = await fetch(
-          `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+          `${this.BASE_BACKEND}/wbc/gameFeed/${gameId}`,
         );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

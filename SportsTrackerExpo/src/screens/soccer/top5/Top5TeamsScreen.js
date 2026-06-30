@@ -42,7 +42,7 @@ async function fetchRankings() {
   return json.data ?? [];
 }
 
-// Returns the best UEFA ranking entry, or rankings[0] as fallback, or null.
+// Returns the UEFA ranking entry, or null if the team has no UEFA ranking.
 function getUefaRanking(team) {
   if (!Array.isArray(team.rankings) || team.rankings.length === 0) return null;
   const uefa = team.rankings.find((r) =>
@@ -50,7 +50,18 @@ function getUefaRanking(team) {
       .toLowerCase()
       .includes("uefa"),
   );
-  return uefa ?? team.rankings[0] ?? null;
+  return uefa ?? null;
+}
+
+// Returns the best FIFA ranking entry, or null.
+function getFifaRanking(team) {
+  if (!Array.isArray(team.rankings) || team.rankings.length === 0) return null;
+  const fifa = team.rankings.find((r) =>
+    String(r.type?.name ?? r.type ?? "")
+      .toLowerCase()
+      .includes("fifa"),
+  );
+  return fifa ?? null;
 }
 
 // Return the primary league for a team: prefer a league with sub_type 'domestic',
@@ -106,6 +117,16 @@ export default function Top5TeamsScreen({ navigation }) {
     [teams],
   );
 
+  const hasFifaRankings = useMemo(
+    () =>
+      teams.some((t) =>
+        Array.isArray(t?.rankings) && t.rankings.some((r) =>
+          String(r.type?.name ?? r.type ?? "").toLowerCase().includes("fifa"),
+        ),
+      ),
+    [teams],
+  );
+
   const hasRankData = useMemo(
     () => Array.isArray(ranks) && ranks.length > 0,
     [ranks],
@@ -115,11 +136,12 @@ export default function Top5TeamsScreen({ navigation }) {
     const modes = [];
     if (hasRankData) modes.push("RANK");
     if (hasTeamRankings) modes.push("UEFA");
+    if (hasFifaRankings) modes.push("FIFA");
     modes.push("NAME", "LEAGUE");
     return modes;
-  }, [hasRankData, hasTeamRankings]);
+  }, [hasRankData, hasTeamRankings, hasFifaRankings]);
 
-  // Ensure current sortMode stays valid; prefer RANK -> UEFA -> NAME
+  // Ensure current sortMode stays valid; prefer RANK -> FIFA -> UEFA -> NAME.
   // Only auto-select when the user hasn't chosen a tab (sortMode === null)
   // and when data has loaded (teams or ranks present).
   useEffect(() => {
@@ -129,6 +151,10 @@ export default function Top5TeamsScreen({ navigation }) {
 
     if (sortModes.includes("RANK")) {
       setSortMode("RANK");
+      return;
+    }
+    if (sortModes.includes("FIFA")) {
+      setSortMode("FIFA");
       return;
     }
     if (sortModes.includes("UEFA")) {
@@ -221,21 +247,20 @@ export default function Top5TeamsScreen({ navigation }) {
     });
   }, []);
 
-  // Flat sorted team array for UEFA / NAME modes (includes _rank for UEFA).
+  // Flat sorted team array for UEFA / FIFA / NAME modes (includes _rank).
   const sortedTeams = useMemo(() => {
-    if (sortMode === "UEFA") {
+    if (sortMode === "UEFA" || sortMode === "FIFA") {
+      const rankFn = sortMode === "FIFA" ? getFifaRanking : getUefaRanking;
       const ranked = [];
-      const unranked = [];
       for (const t of teams) {
-        const r = getUefaRanking(t);
+        const r = rankFn(t);
         if (r?.position != null)
           ranked.push({ ...t, _rank: r, _rankPos: r.position });
-        else unranked.push({ ...t, _rank: null, _rankPos: null });
       }
+      // Only show teams that have the matching ranking type
       // Lower position number = better rank; sort ascending
       ranked.sort((a, b) => a._rankPos - b._rankPos);
-      unranked.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
-      return [...ranked, ...unranked];
+      return ranked;
     }
     return [...teams].sort((a, b) =>
       (a.name ?? "").localeCompare(b.name ?? ""),
@@ -411,7 +436,7 @@ export default function Top5TeamsScreen({ navigation }) {
         return (
           <View style={styles.gridRow}>
             {item.teams.map((t) => {
-              const rank = sortMode === "UEFA" ? (t._rank ?? null) : null;
+              const rank = (sortMode === "UEFA" || sortMode === "FIFA") ? (t._rank ?? null) : null;
               const borderColor = t.colorPrimary ?? theme.border;
               const isRankMode = sortMode === "RANK";
               const rankPos = t._rankPos;
@@ -579,7 +604,7 @@ export default function Top5TeamsScreen({ navigation }) {
       }
 
       // ── List bubble ───────────────────────────────────────────────────────
-      const rank = sortMode === "UEFA" ? (item._rank ?? null) : null;
+      const rank = (sortMode === "UEFA" || sortMode === "FIFA") ? (item._rank ?? null) : null;
       const activeLeague = getPrimaryLeague(item);
       const isRankMode = sortMode === "RANK";
       const borderColor = item.colorPrimary ?? theme.border;

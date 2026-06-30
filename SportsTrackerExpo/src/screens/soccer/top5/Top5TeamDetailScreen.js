@@ -1584,9 +1584,10 @@ const sdStyles = StyleSheet.create({
 // ─── UEFA Ranking ─────────────────────────────────────────────────────────────
 
 const UEFA_LOGO = require("../../../../assets/UEFA_1.png");
+const FIFA_LOGO = require("../../../../assets/FIFA_1.png");
 
 function UEFARanking({ teamInfo, theme, colors }) {
-  const uefaRanking = teamInfo?.rankings?.find((r) => r.type === "UEFA");
+  const uefaRanking = teamInfo?.rankings?.find((r) => r.type === "UEFA" || r.type === "FIFA");
   if (!uefaRanking) return null;
 
   return (
@@ -1597,9 +1598,9 @@ function UEFARanking({ teamInfo, theme, colors }) {
       ]}
     >
       <View style={urStyles.row}>
-        <Image source={UEFA_LOGO} style={urStyles.logo} resizeMode="contain" />
+        <Image source={uefaRanking.type === "UEFA" ? UEFA_LOGO : FIFA_LOGO} style={urStyles.logo} resizeMode="contain" />
         <View style={urStyles.labelBlock}>
-          <Text style={[urStyles.labelLine, { color: theme.text }]}>UEFA</Text>
+          <Text style={[urStyles.labelLine, { color: theme.text }]}>{uefaRanking.type === "UEFA" ? "UEFA" : "FIFA"}</Text>
           <Text style={[urStyles.labelLine, { color: theme.text }]}>
             Ranking
           </Text>
@@ -4034,7 +4035,7 @@ function TeamStatsSection({ teamInfo, squad, theme, teamColor }) {
             {mostScoredHalf?.most_scored_half && (
               <StatRow
                 label="Best Scoring Half"
-                value={mostScoredHalf.most_scored_half}
+                value={mostScoredHalf.most_scored_half.split("-").join(" ")}
                 sub={
                   mostScoredHalf.most_scored_half_goals != null
                     ? `${mostScoredHalf.most_scored_half_goals} goals`
@@ -4805,16 +4806,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
   }, [teamData]);
 
   // Team color from first match participant matching teamId
-  const teamColor = useMemo(() => {
-    for (const match of allMatches) {
-      for (const p of match.participants ?? []) {
-        if (p.id === teamId && p.colorPrimary) {
-          return p.colorPrimary;
-        }
-      }
-    }
-    return null;
-  }, [allMatches, teamId]);
+  const teamColor = teamInfo?.colorPrimary || teamInfo?.colorSecondary || colors.primary;
 
   const resolvedColor = teamColor ?? colors.primary;
 

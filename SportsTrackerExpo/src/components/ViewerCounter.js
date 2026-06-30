@@ -13,10 +13,9 @@ const ViewerCounter = ({
   style,
   showIcon = true,
   compact = false,
-  preferPeak = false,
 }) => {
   const { theme, colors } = useTheme();
-  const { viewerCount, isJoined, peak } = useGamePresence(gameId);
+  const { viewerCount } = useGamePresence(gameId);
 
   if (!gameId) return null;
 
@@ -32,14 +31,6 @@ const ViewerCounter = ({
   };
 
   if (compact) {
-    const displayCount =
-      preferPeak &&
-      (viewerCount === 0 || viewerCount == null) &&
-      peak &&
-      peak.count
-        ? peak.count
-        : viewerCount;
-
     return (
       <View style={[styles.compactContainer, style]}>
         {showIcon && (
@@ -50,7 +41,7 @@ const ViewerCounter = ({
           </View>
         )}
         <Text style={[styles.compactText, { color: theme.text }]}>
-          {formatViewerCount(displayCount)}
+          {formatViewerCount(viewerCount)}
         </Text>
       </View>
     );
@@ -71,24 +62,10 @@ const ViewerCounter = ({
       )}
       <Ionicons name="eye-outline" size={16} color={theme.textSecondary} />
       <Text style={[styles.viewerText, { color: theme.text }]}>
-        {formatViewerCount(
-          preferPeak &&
-            (viewerCount === 0 || viewerCount == null) &&
-            peak &&
-            peak.count
-            ? peak.count
-            : viewerCount,
-        )}
+        {formatViewerCount(viewerCount)}
       </Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>
-        {preferPeak &&
-        (viewerCount === 0 || viewerCount == null) &&
-        peak &&
-        peak.count
-          ? "peak"
-          : viewerCount === 1
-            ? "viewer"
-            : "viewers"}
+        {viewerCount === 1 ? "view" : "views"}
       </Text>
     </View>
   );
@@ -97,7 +74,7 @@ const ViewerCounter = ({
 const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
   const { theme, colors } = useTheme();
   // Use a read-only subscription that doesn't join the game
-  const { viewerCount, peak } = useGamePresenceReadOnly(gameId);
+  const { viewerCount } = useGamePresenceReadOnly(gameId);
 
   if (!gameId) return null;
 
@@ -112,17 +89,11 @@ const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
     !!(status && status.isCompleted) ||
     /final|post|completed|over|off|finished/i.test(statusStr);
 
-  // If game is completed/finished, prefer showing peak (if present)
-  const hasPeak = peak && peak.count;
-  const shouldShowPeak = isCompletedFlag && hasPeak;
+  const isScheduledFlag =
+    !!(status && status.isScheduled) ||
+    /scheduled|pre|upcoming|not started/i.test(statusStr);
 
-  // Prefer peak for completed games even if there are live viewers.
-  const effectiveCount = shouldShowPeak
-    ? peak.count
-    : viewerCount > 0
-      ? viewerCount
-      : 0;
-  if (effectiveCount === 0) return null;
+  if (viewerCount === 0) return null;
 
   const formatViewerCount = (count) => {
     if (count >= 1000000) {
@@ -136,13 +107,14 @@ const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
   };
 
   return (
+    !isScheduledFlag ? (
     <View
       style={[
         styles.badge,
         style,
         {
           backgroundColor: theme.surface,
-          borderColor: shouldShowPeak ? theme.textSecondary : colors.primary,
+          borderColor: isCompletedFlag ? theme.textSecondary : colors.primary,
           minWidth: 40 * scale,
           minHeight: 20 * scale,
           paddingHorizontal: 8 * scale,
@@ -154,21 +126,22 @@ const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
       <Ionicons
         name="eye"
         size={18 * scale}
-        color={shouldShowPeak ? theme.textSecondary : colors.primary}
+        color={isCompletedFlag ? theme.textSecondary : colors.primary}
       />
       <Text
         style={[
           styles.badgeText,
           {
-            color: shouldShowPeak ? theme.textSecondary : colors.primary,
+            color: isCompletedFlag ? theme.textSecondary : colors.primary,
             fontSize: 14 * scale,
             marginLeft: 4 * scale,
           },
         ]}
       >
-        {formatViewerCount(effectiveCount)}
+        {formatViewerCount(viewerCount)}
       </Text>
     </View>
+      ) : null
   );
 };
 

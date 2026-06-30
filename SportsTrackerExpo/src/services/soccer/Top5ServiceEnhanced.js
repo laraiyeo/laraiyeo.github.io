@@ -50,12 +50,20 @@ function getTargetDate(filter) {
 }
 
 const Top5ServiceEnhanced = {
-  async getScoreboard(dateStr) {
-    const res = await fetch(`${FOOTBALL_BASE}/football/fixture/${dateStr}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    return json.data || {};
-  },
+// Update the getScoreboard method
+async getScoreboard(dateStr) {
+  const res = await fetch(`${FOOTBALL_BASE}/football/fixture/${dateStr}`, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0"
+    }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return json.data || {};
+},
 
   // Convert raw league-keyed response into sorted display groups.
   toGroups(leagueData) {

@@ -4,14 +4,40 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "../config/supabase";
+import { MLBService } from "./MLBService";
+import {
+  getAPITeamId,
+  normalizeTeamIdForStorage,
+} from "../utils/TeamIdMapping";
 
 const SPORTS_FAVS_SUBSCRIBER_KEY = "@sports_favs_subscriber_id_v1";
 const SPORTS_FAVS_PUSH_TOKEN_KEY = "@sports_favs_push_token_v1";
 const FAVORITES_TABLE = "mlb_fav";
+const LOCAL_FAVORITES_KEY = "favorites";
 const favoriteTeamIdsCache = new Map();
+const favoriteChangeListeners = new Set();
 let pushTokenCache = null;
 let hasRegisteredDeviceThisSession = false;
 let registrationPromise = null;
+
+function notifyFavoriteChange(payload) {
+  for (const listener of favoriteChangeListeners) {
+    try {
+      listener?.(payload);
+    } catch (e) {
+      console.warn("sports-favs: listener failed", e?.message || e);
+    }
+  }
+}
+
+function subscribeToFavoriteChanges(listener) {
+  if (typeof listener !== "function") {
+    return () => {};
+  }
+
+  favoriteChangeListeners.add(listener);
+  return () => favoriteChangeListeners.delete(listener);
+}
 
 function normalizeTeamId(teamId) {
   if (teamId == null) return "";
@@ -24,6 +50,103 @@ function normalizeFavoriteTeamIds(teamIds) {
       (teamIds || []).map((id) => normalizeTeamId(id)).filter(Boolean),
     ),
   ];
+}
+
+function resolveMlbApiTeamId(teamId) {
+  const apiTeamId = getAPITeamId(teamId, "mlb");
+  return String(apiTeamId || teamId || "").trim();
+}
+
+function buildLocalMlbFavorite(teamId, existingFavorite = null) {
+  const apiTeamId = resolveMlbApiTeamId(teamId);
+  const normalizedTeamId = normalizeTeamIdForStorage(apiTeamId, "mlb");
+  const teamName =
+    existingFavorite?.teamName ||
+    existingFavorite?.displayName ||
+    MLBService.getTeamNameById(apiTeamId) ||
+    `MLB Team ${apiTeamId}`;
+  const abbreviation =
+    existingFavorite?.abbreviation || MLBService.getTeamAbbrById(apiTeamId) || "";
+
+  return {
+    ...(existingFavorite || {}),
+    teamId: normalizedTeamId,
+    id: normalizedTeamId,
+    sport: "mlb",
+    teamName,
+    displayName: existingFavorite?.displayName || teamName,
+    abbreviation,
+  };
+}
+
+async function loadLocalFavorites() {
+  try {
+    const stored = await AsyncStorage.getItem(LOCAL_FAVORITES_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveLocalFavorites(favorites) {
+  try {
+    await AsyncStorage.setItem(LOCAL_FAVORITES_KEY, JSON.stringify(favorites));
+  } catch (e) {
+    console.warn(
+      "sports-favs: failed to persist local favorites",
+      e?.message || e,
+    );
+  }
+}
+
+async function upsertLocalMlbFavorite(teamId, existingFavorite = null) {
+  const normalized = buildLocalMlbFavorite(teamId, existingFavorite);
+  const localFavorites = await loadLocalFavorites();
+  const nextFavorites = localFavorites.filter(
+    (fav) => String(fav?.teamId || "") !== String(normalized.teamId || ""),
+  );
+  nextFavorites.push(normalized);
+  await saveLocalFavorites(nextFavorites);
+  return nextFavorites;
+}
+
+async function removeLocalMlbFavorite(teamId) {
+  const normalizedTeamId = normalizeTeamIdForStorage(
+    resolveMlbApiTeamId(teamId),
+    "mlb",
+  );
+  const localFavorites = await loadLocalFavorites();
+  const nextFavorites = localFavorites.filter(
+    (fav) => String(fav?.teamId || "") !== String(normalizedTeamId || ""),
+  );
+  await saveLocalFavorites(nextFavorites);
+  return nextFavorites;
+}
+
+async function clearLocalFavorites() {
+  await saveLocalFavorites([]);
+}
+
+async function syncLocalMlbFavorite(teamId, existingFavorite = null) {
+  const nextFavorites = await upsertLocalMlbFavorite(teamId, existingFavorite);
+  notifyFavoriteChange({
+    type: "upsert",
+    teamId: String(teamId || ""),
+    favorites: nextFavorites,
+  });
+  return nextFavorites;
+}
+
+async function syncLocalMlbRemoval(teamId) {
+  const nextFavorites = await removeLocalMlbFavorite(teamId);
+  notifyFavoriteChange({
+    type: "remove",
+    teamId: String(teamId || ""),
+    favorites: nextFavorites,
+  });
+  return nextFavorites;
 }
 
 async function getCurrentSupabaseUserId() {
@@ -368,6 +491,65 @@ async function syncFavoriteToSupabase(
   }
 }
 
+async function removeFavoriteTeam(teamId) {
+  try {
+    const userId = await getCurrentSupabaseUserId();
+    if (!userId) {
+      await syncLocalMlbRemoval(teamId);
+      console.log("sports-favs: no Supabase user available, cleared local MLB favorite only");
+      return true;
+    }
+
+    const row = await getFavoriteRow(userId);
+    const apiTeamId = resolveMlbApiTeamId(teamId);
+    const nextIds = normalizeFavoriteTeamIds(row?.favorite_team_ids || []).filter(
+      (value) => String(value) !== String(apiTeamId),
+    );
+
+    await persistFavoriteRow({
+      userId,
+      subscriberId: row?.subscriber_id,
+      pushToken: row?.push_token,
+      platform: row?.platform,
+      favoriteTeamIds: nextIds,
+    });
+    await syncLocalMlbRemoval(teamId);
+
+    console.log("sports-favs: favorite removed", {
+      userId,
+      teamId: apiTeamId,
+      remainingCount: nextIds.length,
+    });
+    return true;
+  } catch (e) {
+    console.warn("sports-favs remove favorite failed:", e?.message || e);
+    return false;
+  }
+}
+
+async function clearFavoriteTeams() {
+  try {
+    const userId = await getCurrentSupabaseUserId();
+    if (!userId) {
+      await clearLocalFavorites();
+      notifyFavoriteChange({ type: "clear", favorites: [] });
+      return true;
+    }
+
+    await persistFavoriteRow({
+      userId,
+      favoriteTeamIds: [],
+    });
+    await clearLocalFavorites();
+    notifyFavoriteChange({ type: "clear", favorites: [] });
+    console.log("sports-favs: cleared all MLB favorites", { userId });
+    return true;
+  } catch (e) {
+    console.warn("sports-favs clear favorites failed:", e?.message || e);
+    return false;
+  }
+}
+
 export const sportsFavs = {
   async listFavoriteTeams() {
     return loadFavoriteTeamIds();
@@ -435,7 +617,26 @@ export const sportsFavs = {
       favoriteCount: next.length,
     });
 
+    if (synced) {
+      if (isFavorite) {
+        await syncLocalMlbFavorite(id, {
+          teamName,
+          displayName: teamName,
+        });
+      } else {
+        await syncLocalMlbRemoval(id);
+      }
+    }
+
     return { isFavorite, favoriteTeamIds: next, synced: true };
+  },
+
+  async removeFavoriteTeam(teamId) {
+    return removeFavoriteTeam(teamId);
+  },
+
+  async clearFavoriteTeams() {
+    return clearFavoriteTeams();
   },
 
   async ensureRegistration() {
@@ -448,6 +649,8 @@ export const sportsFavs = {
     });
     return token;
   },
+
+  subscribeToFavoriteChanges,
 };
 
 export default sportsFavs;

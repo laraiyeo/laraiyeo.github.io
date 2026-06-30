@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,13 @@ import {
   ActivityIndicator,
   ScrollView,
   Modal,
+  Dimensions,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { NBAService } from "../../services/NBAService";
+import * as Sharing from "expo-sharing";
+import ViewShot from "react-native-view-shot";
+import { Ionicons } from "@expo/vector-icons";
 
 // NBA-specific year logic: September-December uses next year, otherwise current year
 const getNBAYear = () => {
@@ -33,6 +37,65 @@ const convertToHttps = (url) => {
     return url.replace("http://", "https://");
   }
   return url;
+};
+
+const { width } = Dimensions.get("window");
+
+const getTextOnColor = (hex) => {
+  if (!hex) return "#FFFFFF";
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.5 ? "#000000" : "#FFFFFF";
+};
+
+const toOrdinal = (n) => {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num <= 0) return "--";
+  const mod100 = num % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+  const mod10 = num % 10;
+  if (mod10 === 1) return `${num}st`;
+  if (mod10 === 2) return `${num}nd`;
+  if (mod10 === 3) return `${num}rd`;
+  return `${num}th`;
+};
+
+const NBA_SHARE_STAT_DEFS = [
+  { key: "gamesPlayed", label: "GP" },
+  { key: "avgPoints", label: "PPG" },
+  { key: "avgRebounds", label: "RPG" },
+  { key: "avgAssists", label: "APG" },
+  { key: "avgSteals", label: "SPG" },
+  { key: "avgBlocks", label: "BPG" },
+  { key: "avgTurnovers", label: "TOPG" },
+  { key: "avgMinutes", label: "MPG" },
+  { key: "fieldGoalPct", label: "FG%" },
+  { key: "threePointFieldGoalPct", label: "3P%" },
+  { key: "freeThrowPct", label: "FT%" },
+  { key: "NBARating", label: "Rating" },
+];
+
+const flattenCareerStats = (raw) => {
+  if (!raw?.splits?.categories) return {};
+  const flat = {};
+  for (const cat of raw.splits.categories) {
+    if (!cat?.stats) continue;
+    for (const s of cat.stats) {
+      if (!s?.name) continue;
+      flat[s.name] =
+        s.displayValue != null
+          ? s.displayValue
+          : s.value != null
+          ? s.value
+          : "0";
+      flat[`${s.name}_rank`] = s.rank || null;
+      flat[`${s.name}_rankDisplayValue`] = s.rankDisplayValue || null;
+    }
+  }
+  return flat;
 };
 
 const NBAPlayerPageScreen = ({ route, navigation }) => {
@@ -65,6 +128,10 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
   const [failedLogos, setFailedLogos] = useState(new Set());
   const [leagueNames, setLeagueNames] = useState(new Map());
   const [headshotFailed, setHeadshotFailed] = useState(false);
+  const [careerShareVisible, setCareerShareVisible] = useState(false);
+  const [careerSharing, setCareerSharing] = useState(false);
+  const [careerShareItem, setCareerShareItem] = useState(null);
+  const careerShareRef = useRef(null);
 
   const getHeadshotSource = (p) => {
     try {
@@ -106,7 +173,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       if (id)
         return {
           uri: convertToHttps(
-            `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/${id}.png&w=88&h=88`
+            `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/${id}.png&w=120&h=120`
           ),
         };
     } catch (e) {
@@ -881,11 +948,6 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
           raw: statsResp,
         };
       });
-
-      console.log(
-        `Career data simplified: showing seasons 2020-${currentYear}`,
-        simpleCareerItems
-      );
       setCareerData(simpleCareerItems);
     } catch (e) {
       console.warn("Error loading career data:", e?.message || e);
@@ -913,7 +975,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
         position: { displayName: "Player" },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: "" },
         headshot: {
-          href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png&w=100`,
+          href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png&w=200`,
         },
       };
 
@@ -990,6 +1052,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       }
 
       // Build player data preferring site API athlete info, then core API, then fallback
+      let playerObj = null;
       if (siteData && siteData.athlete) {
         const athlete = siteData.athlete;
         const position = athlete.position ||
@@ -1016,7 +1079,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
           team,
           jersey: athlete.jersey || athlete.uniformNumber || "",
         };
-        setPlayerData(enhanced);
+        playerObj = enhanced;
       } else if (coreData) {
         // coreData may contain minimal athlete info and teams refs
         const teamFromCore = coreData.team || null;
@@ -1064,10 +1127,35 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
           team: teamObj,
           jersey: coreData.jersey || basicPlayerData.jersey,
         };
-        setPlayerData(corePlayer);
+        playerObj = corePlayer;
       } else {
-        setPlayerData(basicPlayerData);
+        playerObj = basicPlayerData;
       }
+
+      // Fetch team color from team endpoint if not already available
+      if (playerObj.team?.id && !playerObj.team?.color) {
+        try {
+          const teamDetailUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/teams/${playerObj.team.id}?lang=en&region=us`;
+          const teamDetailRes = await fetch(convertToHttps(teamDetailUrl));
+          if (teamDetailRes.ok) {
+            const teamDetailData = await teamDetailRes.json();
+            if (teamDetailData.color) {
+              playerObj = {
+                ...playerObj,
+                team: {
+                  ...playerObj.team,
+                  color: teamDetailData.color,
+                  alternateColor: teamDetailData.alternateColor || undefined,
+                },
+              };
+            }
+          }
+        } catch (e) {
+          // ignore team fetch errors
+        }
+      }
+
+      setPlayerData(playerObj);
 
       // Save splits data for "Splits" tab
       if (splitsData) {
@@ -1243,7 +1331,9 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
 
   const renderPlayerHeader = () => {
     if (!playerData) return null;
-    const teamColor = colors.primary;
+    const teamColor = playerData?.team?.color
+      ? `#${playerData.team.color}`
+      : colors.primary;
     // derive a friendly team label with sensible fallbacks when displayName is missing
     const teamObj = playerData.team || {};
     const teamLabel =
@@ -1260,7 +1350,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       <View style={[styles.playerHeader, { backgroundColor: theme.surface }]}>
         <Image
           source={getHeadshotSource(playerData)}
-          style={[styles.headshotLarge, { backgroundColor: `#${playerData.team ? playerData.team.color : colors.primary}` }]}
+          style={[styles.headshotLarge, { backgroundColor: teamColor }]}
           onError={() => setHeadshotFailed(true)}
           resizeMode="cover"
         />
@@ -2425,6 +2515,20 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
     );
   };
 
+  const handleCareerShare = async () => {
+    if (!careerShareRef.current || careerSharing) return;
+    try {
+      setCareerSharing(true);
+      await new Promise((res) => setTimeout(res, 280));
+      const uri = await careerShareRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("NBA career share failed", e);
+    } finally {
+      setCareerSharing(false);
+    }
+  };
+
   const renderCareerContent = () => {
     if (loadingCareer)
       return (
@@ -2535,6 +2639,11 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                   setSelectedSeasonStats(item);
                   setShowSeasonModal(true);
                 }}
+                onLongPress={() => {
+                  setCareerShareItem(item);
+                  setCareerShareVisible(true);
+                }}
+                delayLongPress={250}
               >
                 <View style={styles.careerTileHeader}>
                   <View style={styles.careerLogosRow}>
@@ -2878,6 +2987,337 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
     );
   };
 
+  const renderCareerShareModal = () => {
+    if (!careerShareItem) return null;
+
+    const item = careerShareItem;
+    const season = item.season;
+    const flatStat = flattenCareerStats(item?.raw);
+    const shareStats = NBA_SHARE_STAT_DEFS
+      .filter((d) => flatStat[d.key] != null)
+      .slice(0, 12)
+      .map((d) => ({
+        label: d.label,
+        value: String(flatStat[d.key]),
+        rank: flatStat[`${d.key}_rank`],
+        rankDisplayValue: flatStat[`${d.key}_rankDisplayValue`],
+      }));
+    const topStats = shareStats.slice(0, 3);
+
+    const evTeams = eventlogTeamsBySeason?.[season];
+    let teams = [];
+    if (Array.isArray(evTeams) && evTeams.length > 0) {
+      teams = evTeams.map((t) => ({
+        id: t.id,
+        abbreviation: t.abbreviation || convertTeamIdToAbbr(t.id),
+        displayName: t.displayName || t.name,
+      }));
+    } else if (Array.isArray(item.teams) && item.teams.length > 0) {
+      teams = item.teams;
+    }
+
+    const teamObj = teams[0] || {};
+    const teamAbbr =
+      teamObj.abbreviation || convertTeamIdToAbbr(teamObj.id) || "";
+    const teamDisplayName =
+      teamObj.displayName ||
+      convertTeamIdToFullName(teamObj.id) ||
+      teamAbbr ||
+      "NBA";
+    const teamLogoUrl = teamAbbr
+      ? getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode)
+      : null;
+    const shareTeamColor = playerData?.team?.color
+      ? `#${playerData.team.color}`
+      : colors.primary;
+    const headshotSource = getHeadshotSource(playerData);
+    const nowDate = new Date();
+    const shareMonthDay = nowDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const shareYear = nowDate.toLocaleDateString("en-US", {
+      year: "numeric",
+    });
+
+    const formatVal = (v) => {
+      if (v == null || v === "") return "-";
+      return String(v);
+    };
+
+    const lastRowStart =
+      Math.floor((shareStats.length - 1) / 3) * 3;
+
+    return (
+      <Modal
+        visible={careerShareVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCareerShareVisible(false)}
+      >
+        <View style={careerShareStyles.overlay}>
+          <ViewShot
+            ref={careerShareRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
+          >
+            <View
+              style={[
+                careerShareStyles.card,
+                {
+                  width: Math.min(width - 48, 540),
+                  backgroundColor: theme.surface,
+                },
+              ]}
+            >
+              {/* Header */}
+              <View
+                style={[
+                  careerShareStyles.header,
+                  {
+                    backgroundColor: `${shareTeamColor}22`,
+                    borderBottomColor: shareTeamColor,
+                  },
+                ]}
+              >
+                <View style={careerShareStyles.headerTopRow}>
+                  <View
+                    style={[
+                      careerShareStyles.badge,
+                      { backgroundColor: shareTeamColor },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        careerShareStyles.badgeText,
+                        { color: getTextOnColor(shareTeamColor) },
+                      ]}
+                    >
+                      {playerData?.position?.abbreviation || "NBA"} · {playerData?.position?.displayName || "NBA"} · {season}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontWeight: "800",
+                      color: theme.text,
+                      fontSize: 10,
+                    }}
+                  >
+                    SEASON SNAPSHOT
+                  </Text>
+                </View>
+
+                <View style={careerShareStyles.headshotRow}>
+                  <Image
+                    source={headshotSource}
+                    style={[
+                      careerShareStyles.headshot,
+                      { borderColor: shareTeamColor },
+                    ]}
+                    resizeMode="cover"
+                  />
+                  <View style={{ flex: 1 }}>
+                    <View style={careerShareStyles.topStatsRow}>
+                      {topStats.map((s) => (
+                        <View
+                          key={`career-share-top-${s.label}`}
+                          style={careerShareStyles.topStatCell}
+                        >
+                          <Text
+                            style={[
+                              careerShareStyles.topStatValue,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {formatVal(s.value)}
+                          </Text>
+                          <Text
+                            style={[
+                              careerShareStyles.topStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {s.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <View style={careerShareStyles.nameDateRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={[
+                            careerShareStyles.playerNameText,
+                            { color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {playerData?.displayName || playerName}
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 2,
+                            marginTop: 2,
+                          }}
+                        >
+                          {teamLogoUrl ? (
+                            <Image
+                              source={{ uri: teamLogoUrl }}
+                              style={careerShareStyles.teamBadgeImg}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                          <Text
+                            style={[
+                              careerShareStyles.teamLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {teamDisplayName}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={careerShareStyles.dateWrap}>
+                        <Text
+                          style={[
+                            careerShareStyles.dateLine,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {shareMonthDay}
+                        </Text>
+                        <Text
+                          style={[
+                            careerShareStyles.dateLine,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {shareYear}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Stats Grid */}
+              <View style={careerShareStyles.grid}>
+                {shareStats.map((s, i) => (
+                  <View
+                    key={`career-share-stat-${s.label}-${i}`}
+                    style={[
+                      careerShareStyles.statCell,
+                      { borderColor: theme.border },
+                      i % 3 !== 2 && {
+                        borderRightWidth: StyleSheet.hairlineWidth,
+                      },
+                      i < lastRowStart && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                      },
+                    ]}
+                  >
+                    {s.rank ? (
+                      <Text
+                        style={[
+                          careerShareStyles.statRank,
+                          {
+                            color:
+                              Number(s.rank) <= 5
+                                ? theme.success
+                                : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {s.rankDisplayValue || toOrdinal(s.rank)}
+                      </Text>
+                    ) : null}
+                    <Text
+                      style={[
+                        careerShareStyles.statValue,
+                        { color: theme.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatVal(s.value)}
+                    </Text>
+                    <Text
+                      style={[
+                        careerShareStyles.statLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {s.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Footer */}
+              <View
+                style={[
+                  careerShareStyles.footer,
+                  { borderTopColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    careerShareStyles.footerText,
+                    { color: theme.text },
+                  ]}
+                >
+                  {"SportsHeart "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+
+          <View style={careerShareStyles.actions}>
+            <TouchableOpacity
+              onPress={handleCareerShare}
+              disabled={careerSharing}
+              style={[
+                careerShareStyles.actionBtn,
+                { backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+              ]}
+            >
+              <Ionicons
+                name="share-outline"
+                size={18}
+                color={theme.text}
+              />
+              <Text style={careerShareStyles.actionBtnText}>
+                {careerSharing ? "Sharing..." : "Share"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setCareerShareVisible(false)}
+              style={[
+                careerShareStyles.actionBtn,
+                { backgroundColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[
+                  careerShareStyles.actionBtnText,
+                  { color: theme.text },
+                ]}
+              >
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (loading)
     return (
       <View
@@ -2912,6 +3352,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       </ScrollView>
       {renderGameStatsModal()}
       {renderSeasonModal()}
+      {renderCareerShareModal()}
     </View>
   );
 };
@@ -3300,6 +3741,161 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
+  },
+});
+
+const careerShareStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 18,
+    padding: 20,
+  },
+  card: {
+    overflow: "hidden",
+  },
+  header: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  badge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  topStatsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 4,
+  },
+  topStatCell: {
+    alignItems: "center",
+  },
+  topStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  topStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  nameDateRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  playerNameText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamBadgeImg: {
+    width: 16,
+    height: 16,
+    marginLeft: -4,
+  },
+  teamLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  dateWrap: {
+    alignItems: "flex-end",
+    marginLeft: 6,
+    flexShrink: 0,
+  },
+  dateLine: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "right",
+    lineHeight: 12,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  statRank: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  footerText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  actionBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
 

@@ -211,12 +211,12 @@ const OnboardingScreen = () => {
                       },
                     ]}
                     onPress={() =>
-                      openPreview(require("../../../assets/IMG_5569.png"))
+                      openPreview(require("../../../assets/IMG_5571.png"))
                     }
                     activeOpacity={0.8}
                   >
                     <Image
-                      source={require("../../../assets/IMG_5569.png")}
+                      source={require("../../../assets/IMG_5571.png")}
                       style={styles.previewImage}
                       resizeMode="cover"
                     />

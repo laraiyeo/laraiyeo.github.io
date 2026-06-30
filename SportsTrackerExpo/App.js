@@ -100,6 +100,9 @@ import { useBetSlip } from "./src/context/BetSlipContext";
 import { supabase } from "./src/config/supabase";
 import { initAds } from "./src/services/ads";
 
+const FOOTBALL_BACKEND = "https://sportsheart-football.up.railway.app";
+const BASEBALL_BACKEND = "https://sportsheart-baseball.up.railway.app";
+
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
   const { colors } = useTheme();
@@ -147,6 +150,7 @@ import MLBStandingsScreen from "./src/screens/mlb/StandingsScreen";
 import MLBSearchScreen from "./src/screens/mlb/SearchScreen";
 import MLBCompareScreen from "./src/screens/mlb/CompareScreen";
 import MLBGameDetailsScreen from "./src/screens/mlb/GameDetailsScreen";
+import MLBLiveActivityController from "./components/MLBLiveActivityController";
 import MLBTeamPageScreen from "./src/screens/mlb/TeamPageScreen";
 import MLBPlayerPageScreen from "./src/screens/mlb/PlayerPageScreen";
 import MLBMoreScreen from "./src/screens/mlb/MoreScreen";
@@ -532,6 +536,8 @@ const HomeTabNavigator = () => {
   );
 };
 
+const USE_TOP5_FOR_SOCCER = false;
+
 // Sport Tab Navigator (for specific sport navigation - NFL, MLB, and F1)
 const SportTabNavigator = ({ route }) => {
   const { sport } = route.params;
@@ -638,13 +644,34 @@ const SportTabNavigator = ({ route }) => {
           ),
         };
       case "soccer":
-        return {
-          ScoreboardScreen: SoccerHomeScreen,
-          StandingsScreen: SoccerHomeScreen,
-          SearchScreen: SoccerHomeScreen,
-          CompareScreen: SoccerHomeScreen,
-          MoreScreen: SoccerMoreScreen,
-        };
+        // Use conditional logic based on USE_TOP5_FOR_SOCCER constant
+        if (USE_TOP5_FOR_SOCCER) {
+          return {
+            ScoreboardScreen: Top5ScoreboardScreen,
+            StandingsScreen: Top5LeaguesScreen,
+            SearchScreen: Top5SearchScreen,
+            CompareScreen: () => (
+              <View style={styles.placeholderContainer}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.placeholderText, { color: theme.text }]}
+                >
+                  Coming Soon
+                </Text>
+              </View>
+            ),
+            StatsScreen: Top5TeamsScreen,
+          };
+        } else {
+          // Original soccer logic
+          return {
+            ScoreboardScreen: SoccerHomeScreen,
+            StandingsScreen: SoccerHomeScreen,
+            SearchScreen: SoccerHomeScreen,
+            CompareScreen: SoccerHomeScreen,
+            MoreScreen: SoccerMoreScreen,
+          };
+        }
       default:
         // For other sports, return placeholder components (can be extended later)
         return {
@@ -704,12 +731,32 @@ const SportTabNavigator = ({ route }) => {
 
   const screens = getScreenComponents(sport);
 
+  // Check if we should use Top5 tab configuration
+  const useTop5Tabs = sport?.toLowerCase() === "soccer" && USE_TOP5_FOR_SOCCER;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          // Use Top5 tab icons when USE_TOP5_FOR_SOCCER is true for soccer
+          if (useTop5Tabs) {
+            const icons = {
+              Matches: "football-outline",
+              Leagues: "trophy",
+              Teams: "people",
+              Search: "search",
+            };
+            return (
+              <Ionicons
+                name={icons[route.name] ?? "ellipse-outline"}
+                size={size}
+                color={color}
+              />
+            );
+          }
 
+          // Original icon logic for other cases
+          let iconName;
           if (route.name === "Scores") {
             iconName = "stats-chart";
           } else if (route.name === "Standings") {
@@ -734,67 +781,100 @@ const SportTabNavigator = ({ route }) => {
         },
       })}
     >
-      <Tab.Screen
-        name="Scores"
-        component={screens.ScoreboardScreen}
-        initialParams={{ sport }}
-        options={{
-          title: "Scores",
-        }}
-      />
-      <Tab.Screen
-        name="Standings"
-        component={screens.StandingsScreen}
-        initialParams={{ sport }}
-        options={{
-          title: "Standings",
-        }}
-      />
-      <Tab.Screen
-        name="Search"
-        component={screens.SearchScreen}
-        initialParams={{ sport }}
-        options={{
-          title: "Search",
-        }}
-      />
-      <Tab.Screen
-        name="Compare"
-        component={screens.CompareScreen}
-        initialParams={{ sport }}
-        options={{
-          title: "Compare",
-        }}
-      />
-      <Tab.Screen
-        name="Stats"
-        component={screens.StatsScreen || screens.MoreScreen}
-        initialParams={{ sport }}
-        options={{
-          title:
-            sport?.toLowerCase() === "nba" ||
-            sport?.toLowerCase() === "nfl" ||
-            sport?.toLowerCase() === "wnba" ||
-            sport?.toLowerCase() === "nhl" ||
-            sport?.toLowerCase() === "mlb" ||
-            sport?.toLowerCase() === "soccer"
-              ? "More"
-              : "Stats",
-          tabBarIcon: ({ color, size }) => {
-            if (
-              sport?.toLowerCase() === "nba" ||
-              sport?.toLowerCase() === "nfl" ||
-              sport?.toLowerCase() === "wnba" ||
-              sport?.toLowerCase() === "nhl" ||
-              sport?.toLowerCase() === "mlb" ||
-              sport?.toLowerCase() === "soccer"
-            ) {
-              return <FontAwesome name="navicon" size={size} color={color} />;
-            }
-            return <Ionicons name="bar-chart" size={size} color={color} />;
-          },
-        }}
-      />
+      {useTop5Tabs ? (
+        // Use Top5 tab structure
+        <>
+          <Tab.Screen
+            name="Matches"
+            component={screens.ScoreboardScreen}
+            initialParams={{ sport }}
+            options={{ title: "Matches" }}
+          />
+          <Tab.Screen
+            name="Leagues"
+            component={screens.StandingsScreen}
+            initialParams={{ sport }}
+            options={{ title: "Leagues" }}
+          />
+          <Tab.Screen
+            name="Teams"
+            component={screens.StatsScreen}
+            initialParams={{ sport }}
+            options={{ title: "Teams" }}
+          />
+          <Tab.Screen
+            name="Search"
+            component={screens.SearchScreen}
+            initialParams={{ sport }}
+            options={{ title: "Search" }}
+          />
+        </>
+      ) : (
+        // Original tab structure
+        <>
+          <Tab.Screen
+            name="Scores"
+            component={screens.ScoreboardScreen}
+            initialParams={{ sport }}
+            options={{
+              title: "Scores",
+            }}
+          />
+          <Tab.Screen
+            name="Standings"
+            component={screens.StandingsScreen}
+            initialParams={{ sport }}
+            options={{
+              title: "Standings",
+            }}
+          />
+          <Tab.Screen
+            name="Search"
+            component={screens.SearchScreen}
+            initialParams={{ sport }}
+            options={{
+              title: "Search",
+            }}
+          />
+          <Tab.Screen
+            name="Compare"
+            component={screens.CompareScreen}
+            initialParams={{ sport }}
+            options={{
+              title: "Compare",
+            }}
+          />
+          <Tab.Screen
+            name="Stats"
+            component={screens.StatsScreen || screens.MoreScreen}
+            initialParams={{ sport }}
+            options={{
+              title:
+                sport?.toLowerCase() === "nba" ||
+                sport?.toLowerCase() === "nfl" ||
+                sport?.toLowerCase() === "wnba" ||
+                sport?.toLowerCase() === "nhl" ||
+                sport?.toLowerCase() === "mlb" ||
+                sport?.toLowerCase() === "soccer"
+                  ? "More"
+                  : "Stats",
+              tabBarIcon: ({ color, size }) => {
+                if (
+                  sport?.toLowerCase() === "nba" ||
+                  sport?.toLowerCase() === "nfl" ||
+                  sport?.toLowerCase() === "wnba" ||
+                  sport?.toLowerCase() === "nhl" ||
+                  sport?.toLowerCase() === "mlb" ||
+                  sport?.toLowerCase() === "soccer"
+                ) {
+                  return <FontAwesome name="navicon" size={size} color={color} />;
+                }
+                return <Ionicons name="bar-chart" size={size} color={color} />;
+              },
+            }}
+          />
+        </>
+      )}
     </Tab.Navigator>
   );
 };
@@ -1197,9 +1277,15 @@ const MainStackNavigator = ({ initialRouteName }) => {
         name="SportTabs"
         component={({ route, navigation }) => {
           const { sport } = route.params;
-          // For soccer, show the home screen directly without tabs
+          // For soccer, use conditional logic based on USE_TOP5_FOR_SOCCER
           if (sport?.toLowerCase() === "soccer") {
-            return <SoccerHomeScreen route={route} navigation={navigation} />;
+            if (USE_TOP5_FOR_SOCCER) {
+              // Use the standard sport tab navigator which routes to Top5
+              return <SportTabNavigator route={route} navigation={navigation} />;
+            } else {
+              // Original logic - show the home screen directly without tabs
+              return <SoccerHomeScreen route={route} navigation={navigation} />;
+            }
           }
           // For F1, use the custom F1 tab navigator
           if (sport?.toLowerCase() === "motorsports") {
@@ -2210,6 +2296,21 @@ const MainStackNavigator = ({ initialRouteName }) => {
         })}
       />
       <Stack.Screen
+        name="MLBLiveActivity"
+        component={MLBLiveActivityController}
+        options={({ route }) => ({
+          title: "Live Activity",
+          headerShown: false,
+          cardStyle: { backgroundColor: "transparent" },
+          cardOverlayEnabled: true,
+          detachPreviousScreen: false,
+          gestureEnabled: true,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
         name="FavoritesManagement"
         component={FavoritesManagementScreen}
         options={{
@@ -2375,6 +2476,7 @@ const AppContent = () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      globalThis.__sportsheartUserId = user?.id || null;
       if (!user?.id) return false;
 
       const { data: profile } = await supabase
@@ -2427,10 +2529,11 @@ const AppContent = () => {
             try {
               const token = event?.activityPushToStartToken;
               if (!token) return;
+              globalThis.__sportsheartPushToStartToken = token;
               console.log("Received push-to-start token:", token);
-              try {
+              const registerPushToStart = async (backendUrl, label) => {
                 const resp = await fetch(
-                  `https://sportsheart-football.up.railway.app/live-activity/register-push-to-start`,
+                  `${backendUrl}/live-activity/register-push-to-start`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -2442,12 +2545,25 @@ const AppContent = () => {
                 );
                 const txt = await resp.text().catch(() => "");
                 console.log(
-                  `[App] register-push-to-start response: ${resp.status}`,
+                  `[App] ${label} register-push-to-start response: ${resp.status}`,
                   txt,
                 );
+              };
+
+              try {
+                await registerPushToStart(FOOTBALL_BACKEND, "football");
               } catch (e) {
                 console.warn(
-                  "Failed to register push-to-start token",
+                  "Failed to register push-to-start token with football backend",
+                  e?.message || e,
+                );
+              }
+
+              try {
+                await registerPushToStart(BASEBALL_BACKEND, "baseball");
+              } catch (e) {
+                console.warn(
+                  "Failed to register push-to-start token with baseball backend",
                   e?.message || e,
                 );
               }
@@ -2482,8 +2598,10 @@ const AppContent = () => {
       try {
         const { data } = await supabase.auth.getSession();
         const session = data?.session || null;
+        globalThis.__sportsheartUserId = session?.user?.id || null;
         if (mounted) setHasSession(!!session?.user);
       } catch (e) {
+        globalThis.__sportsheartUserId = null;
         if (mounted) setHasSession(false);
       } finally {
         if (mounted) setAuthChecked(true);
@@ -2680,6 +2798,7 @@ const AppContent = () => {
     config: {
       screens: {
         Top5GameDetail: "football/fixture/:fixtureId",
+        GameDetails: "mlb/game/:gamePk",
       },
     },
   };
@@ -2688,6 +2807,13 @@ const AppContent = () => {
   useEffect(() => {
     let mounted = true;
 
+    const getDeepLinkPath = (url) => {
+      const parsed = Linking.parse(url || "");
+      const hostname = String(parsed?.hostname || "").trim();
+      const path = String(parsed?.path || "").replace(/^\/+/, "");
+      return hostname && path ? `${hostname}/${path}` : path || hostname || "";
+    };
+
     const handleInitialUrl = async () => {
       console.log("[DeepLink] handleInitialUrl start");
       try {
@@ -2695,7 +2821,7 @@ const AppContent = () => {
         console.log("[DeepLink] initial url:", url);
         if (!url) return;
 
-        const { path } = Linking.parse(url);
+        const path = getDeepLinkPath(url);
         console.log("[DeepLink] parsed path:", path);
         if (!path) return;
 
@@ -2705,6 +2831,15 @@ const AppContent = () => {
             if (fixtureId) {
               console.log("[DeepLink] will navigate to fixtureId:", fixtureId);
               navigationRef.navigate("Top5GameDetail", { fixtureId });
+            }
+          } else if (p.startsWith("mlb/game/")) {
+            const gamePk = p.split("/").pop();
+            if (gamePk) {
+              console.log("[DeepLink] will navigate to MLB gamePk:", gamePk);
+              navigationRef.navigate("GameDetails", {
+                gamePk,
+                sport: "mlb",
+              });
             }
           }
         };
@@ -2743,15 +2878,31 @@ const AppContent = () => {
 
   // Listen for incoming deep links while the app is running (resume / background)
   useEffect(() => {
+    const getDeepLinkPath = (url) => {
+      const parsed = Linking.parse(url || "");
+      const hostname = String(parsed?.hostname || "").trim();
+      const path = String(parsed?.path || "").replace(/^\/+/, "");
+      return hostname && path ? `${hostname}/${path}` : path || hostname || "";
+    };
+
     const handler = ({ url }) => {
       try {
         console.log("[DeepLink] Linking event url received:", url);
-        const { path } = Linking.parse(url || "");
+        const path = getDeepLinkPath(url);
         if (path && path.startsWith("football/fixture/")) {
           const fixtureId = path.split("/").pop();
           console.log("[DeepLink] event navigating to fixtureId:", fixtureId);
           if (navigationRef.isReady && navigationRef.isReady()) {
             navigationRef.navigate("Top5GameDetail", { fixtureId });
+          }
+        } else if (path && path.startsWith("mlb/game/")) {
+          const gamePk = path.split("/").pop();
+          console.log("[DeepLink] event navigating to MLB gamePk:", gamePk);
+          if (navigationRef.isReady && navigationRef.isReady()) {
+            navigationRef.navigate("GameDetails", {
+              gamePk,
+              sport: "mlb",
+            });
           }
         }
       } catch (e) {

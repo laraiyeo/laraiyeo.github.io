@@ -13,9 +13,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
@@ -34,10 +32,7 @@
       "package": "com.sportsheart.app",
       "versionCode": 16,
       "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "INTERNET",
-        "VIBRATE"
-      ],
+      "permissions": ["INTERNET", "VIBRATE"],
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
@@ -55,98 +50,62 @@
           "dark_blue": {
             "image": "./assets/dark/blue.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "dark_red": {
             "image": "./assets/dark/red.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "dark_green": {
             "image": "./assets/dark/green.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "dark_purple": {
             "image": "./assets/dark/purple.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "dark_gold": {
             "image": "./assets/dark/gold.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "dark_custom": {
             "image": "./assets/dark/custom.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_blue": {
             "image": "./assets/light/blue.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_red": {
             "image": "./assets/light/red.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_green": {
             "image": "./assets/light/green.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_purple": {
             "image": "./assets/light/purple.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_gold": {
             "image": "./assets/light/gold.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           },
           "light_custom": {
             "image": "./assets/light/custom.png",
             "prerendered": true,
-            "platforms": [
-              "ios",
-              "android"
-            ]
+            "platforms": ["ios", "android"]
           }
         }
       ],
@@ -174,16 +133,14 @@
         {
           "bundleIdentifier": "com.sportsheart.app.ExpoWidgetsTarget",
           "groupIdentifier": "group.com.sportsheart.app",
+          "frequentUpdates": true,
           "enablePushNotifications": true,
           "widgets": [
             {
               "name": "FootballLiveActivity",
               "displayName": "Football Live",
               "description": "Live football match activity",
-              "supportedFamilies": [
-                "accessoryRectangular",
-                "accessoryInline"
-              ]
+              "supportedFamilies": ["accessoryRectangular", "accessoryInline"]
             }
           ]
         }

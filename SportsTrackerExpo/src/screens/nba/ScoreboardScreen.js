@@ -885,7 +885,6 @@ const NBAScoreboardScreen = ({ navigation }) => {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      marginBottom: 2,
                     }}
                   >
                     <Ionicons

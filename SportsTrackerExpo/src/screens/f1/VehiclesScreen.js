@@ -582,10 +582,47 @@ const VehiclesScreen = () => {
       <View
         style={[
           styles.container,
-          styles.centered,
           { backgroundColor: theme.background },
         ]}
       >
+      <View style={styles.seriesContainer}>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "F1" && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => handleSeriesChange("F1")}
+        >
+          <Text
+            style={[
+              styles.seriesButtonText,
+              { color: selectedSeries === "F1" ? "#fff" : theme.textSecondary },
+            ]}
+          >
+            Formula 1
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.seriesButton,
+            selectedSeries === "NASCAR" && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => handleSeriesChange("NASCAR")}
+        >
+          <Text
+            style={[
+              styles.seriesButtonText,
+              {
+                color:
+                  selectedSeries === "NASCAR" ? "#fff" : theme.textSecondary,
+              },
+            ]}
+          >
+            NASCAR
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.centered, { flex: 1 }]}>
         <Text style={[styles.emptyText, { color: theme.text }]}>
           Standings not available
         </Text>
@@ -595,6 +632,7 @@ const VehiclesScreen = () => {
         >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+        </View>
       </View>
     );
   }

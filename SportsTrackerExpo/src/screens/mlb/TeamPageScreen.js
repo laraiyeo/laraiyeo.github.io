@@ -16,6 +16,7 @@ import {
   Dimensions,
   PanResponder,
   Alert,
+  ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
@@ -29,6 +30,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { MLBService } from "../../services/MLBService";
 import sportsFavs from "../../services/sports-favs";
 import { supabase } from "../../config/supabase";
+import { getAPITeamId } from "../../utils/TeamIdMapping";
 
 const { width } = Dimensions.get("window");
 // Roster stat chip sizing (account for margins/padding of bubble + dropdown)
@@ -184,6 +186,91 @@ const formatTopRankName = (player) => {
 const toFinite = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+};
+
+const blendHexWithWhite = (hex, ratio) => {
+  if (!hex || typeof hex !== "string" || !hex.startsWith("#")) return "#D9D9D9";
+  const clean = hex.replace("#", "").padEnd(6, "0");
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return "#D9D9D9";
+  const t = Math.max(0, Math.min(1, Number(ratio) || 0));
+  const nr = Math.round(r + (255 - r) * t);
+  const ng = Math.round(g + (255 - g) * t);
+  const nb = Math.round(b + (255 - b) * t);
+  return `#${[nr, ng, nb]
+    .map((n) => n.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase()}`;
+};
+
+const getPercentileTierColor = (percentile, teamColor) => {
+  const p = percentile;
+  const base = String(teamColor || "#2563EB");
+  if (!Number.isFinite(p)) {
+    return {
+      fill: blendHexWithWhite(base, 0.72),
+      text: getTextOnColor(blendHexWithWhite(base, 0.72)),
+      tier: "low",
+      label: "1st-50th",
+    };
+  }
+  if (p >= 81) {
+    return {
+      fill: base,
+      text: getTextOnColor(base),
+      tier: "high",
+      label: "81st-99th",
+    };
+  }
+  if (p >= 51) {
+    const fill = blendHexWithWhite(base, 0.32);
+    return {
+      fill,
+      text: getTextOnColor(fill),
+      tier: "mid",
+      label: "51st-80th",
+    };
+  }
+  const fill = blendHexWithWhite(base, 0.62);
+  return {
+    fill,
+    text: getTextOnColor(fill),
+    tier: "low",
+    label: "1st-50th",
+  };
+};
+
+// ─── Team stats helpers (bars like NHL PlayerPage advanced bars) ───────────
+const BAR_TRACK_HEIGHT = 124;
+
+const buildTeamStatRows = (statObj, lowerSet) => {
+  if (!statObj) return [];
+  return Object.entries(statObj)
+    .filter(([, info]) => info?.teamValue != null)
+    .map(([key, info]) => {
+      const n = parseFloat(info.teamValue);
+      const minVal = parseFloat(info.min);
+      const maxVal = parseFloat(info.max);
+      const isLower = lowerSet.has(key);
+      let pct = 0;
+      if (!isNaN(n) && !isNaN(minVal) && !isNaN(maxVal) && maxVal !== minVal) {
+        const norm = (n - minVal) / (maxVal - minVal);
+        pct = Math.max(0, Math.min(1, isLower ? 1 - norm : norm));
+      }
+      const pctText = `${MLBService.getOrdinalSuffix((pct * 100).toFixed(0))}`;
+      return {
+        key,
+        label: key,
+        teamValue: info.teamValue,
+        min: minVal,
+        max: maxVal,
+        pct,
+        pctText,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
 };
 
 const isPitcher = (player) =>
@@ -687,23 +774,6 @@ const TopFilters = ({
             Position
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            topStyles.filterMainBtn,
-            {
-              borderColor: teamColor,
-              backgroundColor: showGamesPanel
-                ? teamColor + "22"
-                : "transparent",
-            },
-          ]}
-          onPress={() => setShowGamesPanel((v) => !v)}
-        >
-          <Text style={[topStyles.filterMainBtnText, { color: theme.text }]}>
-            Min Games Played
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {showPositionPanel && (
@@ -1167,9 +1237,41 @@ const topStyles = StyleSheet.create({
 
 // ─── Team tab (standings + coaches) ────────────────────────────────────────────
 
+const HITTING_LOWER_IS_BETTER = new Set(["Strike Outs"]);
+const PITCHING_LOWER_IS_BETTER = new Set([
+  "Runs",
+  "Hits",
+  "Home Runs",
+  "Base On Balls",
+  "Avg",
+  "Obp",
+  "Slg",
+  "Ops",
+]);
+
+const formatStatLabel = (label) => {
+  if (!label) return "";
+  const t = String(label).trim();
+  return t.length === 3 ? t.toUpperCase() : t;
+};
+
+const pickStatYear = (group) => {
+  if (!group) return null;
+  if (group["2026"]) return group["2026"].stat ?? null;
+  if (group["2025"]) return group["2025"].stat ?? null;
+  const firstKey = Object.keys(group)[0];
+  return firstKey ? (group[firstKey].stat ?? null) : null;
+};
+
 const TeamTab = ({ teamData, teamId, teamColor, theme }) => {
   const standingsRecords = teamData?.standings?.records ?? [];
   const coaches = teamData?.coaches?.coaches ?? [];
+
+  // Team-level stats (hitting / pitching) -- each stat entry is expected to have { teamValue, min, max }
+  const hitStat = pickStatYear(teamData?.stats?.hitting);
+  const pitStat = pickStatYear(teamData?.stats?.pitching);
+  const hitRows = buildTeamStatRows(hitStat, HITTING_LOWER_IS_BETTER);
+  const pitRows = buildTeamStatRows(pitStat, PITCHING_LOWER_IS_BETTER);
 
   return (
     <View
@@ -1373,6 +1475,170 @@ const TeamTab = ({ teamData, teamId, teamColor, theme }) => {
           </View>
         );
       })}
+      {/* ── Team Stats: Hitting & Pitching bars ───────────────────────── */}
+      {(hitRows.length > 0 || pitRows.length > 0) && (
+        <View style={[ttStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text style={[ttStyles.sectionTitle, { color: teamColor }]}>
+            Team League Stats
+          </Text>
+
+          {hitRows.length > 0 && (
+            <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontWeight: "700",
+                  marginBottom: 8,
+                }}
+              >
+                Hitting
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 6 }}
+              >
+                {hitRows.map((r) => {
+                  const height = Math.round(
+                    Math.max(0, Math.min(1, r.pct)) * BAR_TRACK_HEIGHT,
+                  );
+                  const pctColor = getPercentileTierColor(
+                    Math.round(r.pct * 100),
+                    teamColor,
+                  );
+                  return (
+                    <View
+                      key={`hit-${r.key}`}
+                      style={[
+                        styles.advZoneBarCard,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: theme.border,
+                          marginRight: 8,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.advZoneBarLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {formatStatLabel(r.label)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.advZoneBarTrack,
+                          { backgroundColor: `${pctColor.fill}18` },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.advZoneBarFill,
+                            { height, backgroundColor: pctColor.fill },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.advZoneBarShots, { color: theme.text }]}
+                      >
+                        {String(r.teamValue)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.advZoneBarPct,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        PCTL: {String(r.pctText)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {pitRows.length > 0 && (
+            <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontWeight: "700",
+                  marginBottom: 8,
+                }}
+              >
+                Pitching
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 6 }}
+              >
+                {pitRows.map((r) => {
+                  const height = Math.round(
+                    Math.max(0, Math.min(1, r.pct)) * BAR_TRACK_HEIGHT,
+                  );
+                  const pctColor = getPercentileTierColor(
+                    Math.round(r.pct * 100),
+                    teamColor,
+                  );
+                  return (
+                    <View
+                      key={`pit-${r.key}`}
+                      style={[
+                        styles.advZoneBarCard,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: theme.border,
+                          marginRight: 8,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.advZoneBarLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {formatStatLabel(r.label)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.advZoneBarTrack,
+                          { backgroundColor: `${pctColor.fill}18` },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.advZoneBarFill,
+                            { height, backgroundColor: pctColor.fill },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.advZoneBarShots, { color: theme.text }]}
+                      >
+                        {String(r.teamValue)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.advZoneBarPct,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        PCTL: {String(r.pctText)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* ── Coaches ── */}
       {coaches.length > 0 && (
@@ -1908,7 +2174,8 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const resolvedId = teamId;
+  const resolvedId =
+    sport === "mlb" ? getAPITeamId(teamId, "mlb") || teamId : teamId;
   const teamColor = MLBService.getTeamColorById(resolvedId) || colors.primary;
   const teamLogo = MLBService.getTeamLogo(resolvedId, isDarkMode);
 
@@ -2255,15 +2522,19 @@ const TeamPageScreen = ({ route, navigation }) => {
                 },
               ]}
             >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.favoriteStarText,
-                  { color: isSportsFav ? teamColor : theme.textSecondary },
-                ]}
-              >
-                {isSportsFav ? "★" : "☆"}
-              </Text>
+              {sportsFavBusy ? (
+                <ActivityIndicator size="small" color={teamColor} />
+              ) : (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.favoriteStarText,
+                    { color: isSportsFav ? teamColor : theme.textSecondary },
+                  ]}
+                >
+                  {isSportsFav ? "★" : "☆"}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -2723,6 +2994,45 @@ const styles = StyleSheet.create({
   matchRecord: { fontSize: 11, marginRight: 2 },
   matchScoreText: { fontSize: 16, minWidth: 26, textAlign: "right" },
   matchChevron: { fontSize: 24, lineHeight: 28, paddingLeft: 4 },
+  advZoneBarCard: {
+    width: 102,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  advZoneBarLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    textAlign: "center",
+    minHeight: 28,
+  },
+  advZoneBarTrack: {
+    width: 36,
+    height: 124,
+    borderRadius: 8,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    marginTop: 6,
+  },
+  advZoneBarFill: {
+    width: "100%",
+    borderRadius: 8,
+  },
+  advZoneBarShots: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  advZoneBarPct: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });
 
 export default TeamPageScreen;
