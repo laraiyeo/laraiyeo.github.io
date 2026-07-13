@@ -5,12 +5,152 @@ import { BaseCacheService } from "./BaseCacheService";
 import { combinerUrl } from "../utils/imageUtils";
 
 export class NBAService extends BaseCacheService {
+  // League-aware URL templates — {{league}} is replaced at call time.
+  static SCOREBOARD_URL_TPL =
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/{{league}}/scoreboard";
+  static TEAMS_URL_TPL =
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/{{league}}/teams";
+  static STANDINGS_URL_TPL =
+    "https://site.web.api.espn.com/apis/v2/sports/basketball/{{league}}/standings";
+
+  // Keep old static URLs as aliases for backwards compatibility
   static SCOREBOARD_API_URL =
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
   static TEAMS_API_URL =
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
   static STANDINGS_API_URL =
     "https://cdn.espn.com/core/nba/standings?xhr=1";
+
+  // ---------- league helpers ----------
+
+  /**
+   * Determine the default league based on the current date.
+   * June 1 – August 1 (inclusive) → "nba-summer-league"
+   * Otherwise → "nba"
+   */
+  static getDefaultLeague() {
+    const now = new Date();
+    const month = now.getMonth(); // 0-indexed: 5 = June, 6 = July, 7 = August
+    const day = now.getDate();
+
+    // June (month 5) any day, or August 1 (month 7, day 1)
+    if (month === 5 || month === 6 || (month === 7 && day === 1)) {
+      return "nba-summer";
+    }
+    return "nba";
+  }
+
+  /** Replace {{league}} in a URL template. */
+  static _url(tpl, league = "nba") {
+    return tpl.replace("{{league}}", league);
+  }
+
+  /**
+   * Fetch JSON with automatic fallback from `league` → "nba".
+   * Returns { data, leagueUsed } so callers know which source succeeded.
+   */
+  static async fetchWithLeagueFallback(urlFn, league) {
+    league = league || this.getDefaultLeague();
+    // 1. Try the requested league
+    try {
+      const resp = await fetch(urlFn(league), {
+        headers: this.getBrowserHeaders(),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { data, leagueUsed: league };
+      }
+      // Non-OK → fall through to fallback (unless already nba)
+      if (league !== "nba") {
+        console.warn(
+          `[NBAService] ${league} request returned ${resp.status}, falling back to nba`
+        );
+      }
+    } catch (err) {
+      if (league !== "nba") {
+        console.warn(
+          `[NBAService] ${league} request failed, falling back to nba:`,
+          err.message
+        );
+      } else {
+        throw err; // nba itself failed — propagate
+      }
+    }
+
+    // 2. Fallback to "nba"
+    if (league !== "nba") {
+      const resp = await fetch(urlFn("nba"), {
+        headers: this.getBrowserHeaders(),
+      });
+      const data = await resp.json();
+      return { data, leagueUsed: "nba" };
+    }
+  }
+
+  /**
+   * Fetch with fallback AND usable-data guard.
+   * If the successful response has no events, retry with the alternate league.
+   */
+  static async fetchScoreboardWithFallback(urlFn, league) {
+    league = league || this.getDefaultLeague();
+    const { data, leagueUsed } = await this.fetchWithLeagueFallback(
+      urlFn,
+      league
+    );
+
+    // If we got usable events, great
+    if (data && Array.isArray(data.events) && data.events.length > 0) {
+      return { data, leagueUsed };
+    }
+
+    // No events — if we haven't tried the alternate yet, try it
+    const alternate = leagueUsed === "nba" ? league : "nba";
+    if (alternate !== leagueUsed) {
+      try {
+        const resp = await fetch(urlFn(alternate), {
+          headers: this.getBrowserHeaders(),
+        });
+        if (resp.ok) {
+          const altData = await resp.json();
+          if (
+            altData &&
+            Array.isArray(altData.events) &&
+            altData.events.length > 0
+          ) {
+            console.log(
+              `[NBAService] No ${leagueUsed} events found, using ${alternate} instead`
+            );
+            return { data: altData, leagueUsed: alternate };
+          }
+        }
+      } catch (_) {
+        // Swallow — return the original empty result
+      }
+    }
+
+    return { data, leagueUsed };
+  }
+
+  /**
+   * Deep-convert every `http://` URL string inside an object/array to `https://`.
+   * Avoids infinite recursion by capping depth.
+   */
+  static convertLeagueLogos(obj, depth = 0) {
+    if (depth > 8) return obj;
+    if (typeof obj === "string") return this.convertToHttps(obj);
+    if (Array.isArray(obj))
+      return obj.map((v) => this.convertLeagueLogos(v, depth + 1));
+    if (obj && typeof obj === "object") {
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = this.convertLeagueLogos(v, depth + 1);
+      }
+      return out;
+    }
+    return obj;
+  }
+
+  // ---------- live detection & data typing ----------
 
   // Override to detect NBA live games
   static hasLiveEvents(data) {
@@ -48,27 +188,31 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch scoreboard from ESPN with smart caching
-  static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `nba_scoreboard_${startDate || "today"}_${
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getScoreboard(
+    startDate = null,
+    endDate = null,
+    league = null
+  ) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_scoreboard_${startDate || "today"}_${
       endDate || startDate || "today"
     }`;
 
     return this.getCachedData(
       cacheKey,
       async () => {
-        let url = this.SCOREBOARD_API_URL;
-        if (startDate) {
-          if (endDate && endDate !== startDate) {
-            url += `?dates=${startDate}-${endDate}`;
-          } else {
-            url += `?dates=${startDate}`;
+        const { data } = await this.fetchScoreboardWithFallback((lg) => {
+          let url = this._url(this.SCOREBOARD_URL_TPL, lg);
+          if (startDate) {
+            if (endDate && endDate !== startDate) {
+              url += `?dates=${startDate}-${endDate}`;
+            } else {
+              url += `?dates=${startDate}`;
+            }
           }
-        }
-
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+          return url;
+        }, league);
         return data;
       },
       false,
@@ -77,16 +221,18 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch game details using ESPN summary
-  static async getGameDetails(gameId) {
-    const cacheKey = `nba_gameDetails_${gameId}`;
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getGameDetails(gameId, league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_gameDetails_${gameId}`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`;
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) =>
+            `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/summary?event=${gameId}`,
+          league
+        );
         return data;
       },
       false,
@@ -95,15 +241,17 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch standings
-  static async getStandings() {
-    const cacheKey = "nba_standings";
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getStandings(league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_standings`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const url =
-          "https://cdn.espn.com/core/nba/standings?xhr=1";
-        const response = await fetch(url);
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) => this._url(this.STANDINGS_URL_TPL, lg),
+          league
+        );
         return data;
       },
       false,
@@ -112,15 +260,17 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch teams
-  static async getTeams() {
-    const cacheKey = "nba_teams";
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getTeams(league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_teams`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const response = await fetch(this.TEAMS_API_URL, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) => this._url(this.TEAMS_URL_TPL, lg),
+          league
+        );
         return data;
       },
       false,
@@ -129,16 +279,18 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch team details
-  static async getTeamDetails(teamId) {
-    const cacheKey = `nba_teamDetails_${teamId}`;
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getTeamDetails(teamId, league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_teamDetails_${teamId}`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`;
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) =>
+            `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/teams/${teamId}`,
+          league
+        );
         return data;
       },
       false,
@@ -147,16 +299,18 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch team roster
-  static async getTeamRoster(teamId) {
-    const cacheKey = `nba_teamRoster_${teamId}`;
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getTeamRoster(teamId, league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_teamRoster_${teamId}`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`;
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) =>
+            `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/teams/${teamId}/roster`,
+          league
+        );
         return data;
       },
       false,
@@ -165,27 +319,23 @@ export class NBAService extends BaseCacheService {
   }
 
   // Fetch athlete details
-  static async getAthleteDetails(athleteId) {
-    const cacheKey = `nba_athleteDetails_${athleteId}`;
+  // @param {string} league - auto-detected by date, or pass explicitly
+  static async getAthleteDetails(athleteId, league = null) {
+    league = league || this.getDefaultLeague();
+    const cacheKey = `${league}_athleteDetails_${athleteId}`;
     return this.getCachedData(
       cacheKey,
       async () => {
-        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/athletes/${athleteId}`;
-        const response = await fetch(url, {
-          headers: this.getBrowserHeaders(),
-        });
-        const data = await response.json();
+        const { data } = await this.fetchWithLeagueFallback(
+          (lg) =>
+            `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/athletes/${athleteId}`,
+          league
+        );
         return data;
       },
       false,
       "static"
     );
-  }
-
-  // Convert ESPN/HTTP urls to HTTPS (for compatibility)
-  static convertToHttps(url) {
-    if (typeof url !== "string") return url;
-    return url.replace(/^http:\/\//i, "https://");
   }
 
   // Format ESPN game structure into mobile-friendly shape
@@ -259,6 +409,19 @@ export class NBAService extends BaseCacheService {
           }
         })(),
         notes: competition.notes?.[0]?.headline || "",
+        // Summer league identifier extracted from the Gamecast link (e.g. "nba-summer-utah", "nba-summer-california")
+        summerLeague: (() => {
+          try {
+            const gamecastLink = (game.links || []).find(
+              (l) => Array.isArray(l.rel) && l.rel.includes("event") && l.text === "Gamecast"
+            );
+            if (gamecastLink?.href) {
+              const match = gamecastLink.href.match(/\/league\/([^/]+)/);
+              if (match) return match[1];
+            }
+          } catch (_) {}
+          return null;
+        })(),
         season: game.season || {},
         gameStatus: game.status?.type?.state || "",
         neutral: competition.neutralSite || false,
@@ -276,31 +439,67 @@ export class NBAService extends BaseCacheService {
   }
 
   // Format team standings data
+  // Supports both the new ESPN v2 API (children[]) and legacy CDN format (content.standings.groups[])
   static formatStandingsForMobile(standingsData) {
     try {
-      const groups = standingsData?.content?.standings?.groups || [];
+      // New ESPN v2 API: groups are in top-level `children` array
+      // (NBA Summer League has multiple children like Las Vegas, Utah, California Classic)
+      // Each child may itself have nested `children` for sub-groups/divisions.
+      let groups = standingsData?.children || [];
+
+      // Legacy CDN API fallback: groups inside content.standings.groups
+      if (groups.length === 0) {
+        groups = standingsData?.content?.standings?.groups || [];
+      }
+
       const formatted = {};
 
       groups.forEach((group) => {
         const confName = group.name;
         formatted[confName] = {};
 
-        const entries = group.standings?.entries || [];
-        formatted[confName]["teams"] = entries.map((entry) => ({
-          team: {
-            id: entry.team?.id,
-            displayName: entry.team?.displayName || "",
-            abbreviation: entry.team?.abbreviation || "",
-            logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
-            color: entry.team?.color,
-            alternateColor: entry.team?.alternateColor,
-          },
-          stats:
-            entry.stats?.reduce((acc, stat) => {
-              acc[stat.name] = stat.displayValue;
-              return acc;
-            }, {}) || {},
-        }));
+        // Some groups (esp. NBA regular season) have nested children for divisions
+        if (group.children && group.children.length > 0) {
+          group.children.forEach((subGroup) => {
+            const divName = subGroup.name || "teams";
+            const entries = subGroup.standings?.entries || [];
+            formatted[confName][divName] = entries.map((entry) => ({
+              team: {
+                id: entry.team?.id,
+                displayName: entry.team?.displayName || "",
+                abbreviation: entry.team?.abbreviation || "",
+                logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
+                color: entry.team?.color,
+                alternateColor: entry.team?.alternateColor,
+              },
+              stats: Array.isArray(entry.stats)
+                ? entry.stats.reduce((acc, stat) => {
+                    acc[stat.name] = stat.displayValue;
+                    return acc;
+                  }, {})
+                : entry.stats || {},
+            }));
+          });
+        } else {
+          // Flat group — entries directly under group.standings
+          const entries = group.standings?.entries || [];
+          formatted[confName]["teams"] = entries.map((entry) => ({
+            team: {
+              id: entry.team?.id,
+              displayName: entry.team?.displayName || "",
+              abbreviation: entry.team?.abbreviation || "",
+              logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
+              color: entry.team?.color,
+              alternateColor: entry.team?.alternateColor,
+            },
+            stats: Array.isArray(entry.stats)
+              ? entry.stats.reduce((acc, stat) => {
+                  acc[stat.name] = stat.displayValue;
+                  return acc;
+                }, {})
+              : entry.stats || {},
+          }));
+        }
       });
 
       return formatted;

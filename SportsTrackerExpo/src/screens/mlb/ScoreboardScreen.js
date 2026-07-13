@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -8,6 +14,7 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
+  Animated,
 } from "react-native";
 import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
@@ -22,7 +29,293 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { width } = Dimensions.get("window");
+const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// ─── Home Run Derby Tile ──────────────────────────────────────────────────────
+
+const DERBY_TILE_HEIGHT = 220;
+
+const FloatingLogo = ({ uri, size, startX, startY, theme }) => {
+  const animX = useRef(new Animated.Value(startX)).current;
+  const animY = useRef(new Animated.Value(startY)).current;
+
+  useEffect(() => {
+    const drift = () => {
+      const dx = (Math.random() - 0.5) * 40;
+      const dy = (Math.random() - 0.5) * 30;
+      const dur = 2500 + Math.random() * 2000;
+      Animated.parallel([
+        Animated.timing(animX, {
+          toValue: startX + dx,
+          duration: dur,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animY, {
+          toValue: startY + dy,
+          duration: dur,
+          useNativeDriver: false,
+        }),
+      ]).start(() => drift());
+    };
+    drift();
+  }, []);
+
+  return (
+    <Animated.Image
+      source={{ uri }}
+      style={{
+        position: "absolute",
+        left: animX,
+        top: animY,
+        width: size,
+        height: size,
+        opacity: 0.35,
+        borderRadius: 0,
+      }}
+      resizeMode="contain"
+    />
+  );
+};
+
+const HomeRunDerbyTile = ({
+  eventData,
+  navigation,
+  theme,
+  colors,
+  isDarkMode,
+}) => {
+  const teamLogos = useMemo(() => {
+    const seen = new Set();
+    const logos = [];
+    (eventData?.teams || []).forEach((t) => {
+      if (t?.id && !seen.has(t.id)) {
+        seen.add(t.id);
+        const logo = WBCService.getTeamLogo(t.id, isDarkMode);
+        if (logo) logos.push(logo);
+      }
+    });
+    return logos;
+  }, [eventData?.teams, isDarkMode]);
+
+  const logoPositions = useMemo(
+    () =>
+      teamLogos.map((_, i) => ({
+        x: 20 + (i % 8) * 44 + (Math.random() - 0.5) * 15,
+        y: 20 + Math.floor(i / 8) * 48 + (Math.random() - 0.5) * 10,
+      })),
+    [teamLogos],
+  );
+
+  if (!eventData) return null;
+
+  const venueName = eventData?.venue?.name || "";
+  const eventDate = eventData?.eventDate || "";
+  const year = eventDate ? new Date(eventDate).getFullYear() : "";
+
+  // Localized start time from UTC eventDate
+  const startTime = eventDate
+    ? (() => {
+        try {
+          const d = new Date(eventDate);
+          const fmt = new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+          const parts = fmt.formatToParts(d);
+          const h = parts.find((p) => p.type === "hour")?.value || "";
+          const m = parts.find((p) => p.type === "minute")?.value || "00";
+          const ap = parts.find((p) => p.type === "dayPeriod")?.value || "";
+          return `${h}:${m} ${ap}`;
+        } catch {
+          return "";
+        }
+      })()
+    : "";
+
+  // Status from eventStatus object
+  const es = eventData?.eventStatus || {};
+  const statusCode = es?.statusCode || "";
+  const abstractState = es?.abstractGameState || "";
+  const detailed = es?.detailedState || "";
+  const isLive =
+    abstractState === "Live" ||
+    ["2", "3", "4", "5", "6", "7", "8", "9"].includes(statusCode);
+  const isFinal = abstractState === "Final" || statusCode === "F";
+  const isPreview = !isLive && !isFinal;
+  const statusColor = isLive ? "#22C55E" : isFinal ? "#94A3B8" : "#3B82F6";
+  const statusLabel = isLive
+    ? detailed || "LIVE"
+    : isFinal
+      ? "FINAL"
+      : detailed || "SCHEDULED";
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() =>
+        navigation.navigate("HomeRunDerby", {
+          eventId: "788030",
+        })
+      }
+      style={[
+        derbyStyles.tile,
+        { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+      ]}
+    >
+      {/* Floating team logos from schedule event */}
+      <View style={derbyStyles.floatingArea} pointerEvents="none">
+        {teamLogos.map((uri, i) => (
+          <FloatingLogo
+            key={i}
+            uri={uri}
+            size={36}
+            startX={logoPositions[i]?.x || 20}
+            startY={logoPositions[i]?.y || 55}
+            theme={theme}
+          />
+        ))}
+      </View>
+
+      {/* Gradient overlay */}
+      <Svg
+        style={StyleSheet.absoluteFill}
+        width="100%"
+        height={DERBY_TILE_HEIGHT}
+        pointerEvents="none"
+      >
+        <Defs>
+          <LinearGradient id="dTileGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.12" />
+            <Stop
+              offset="100%"
+              stopColor={theme.surfaceSecondary}
+              stopOpacity="0.95"
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#dTileGrad)" />
+      </Svg>
+
+      {/* Content */}
+      <View style={derbyStyles.tileContent}>
+        <Image
+          source={require("../../../assets/mlb.png")}
+          style={derbyStyles.tileLogo}
+          resizeMode="contain"
+        />
+        <Text style={[derbyStyles.tileTitle, { color: theme.text }]}>
+          Home Run Derby
+        </Text>
+        <Text
+          style={[derbyStyles.tileSubtitle, { color: theme.textSecondary }]}
+          numberOfLines={1}
+        >
+          {year}
+        </Text>
+        {!!venueName && (
+          <View style={derbyStyles.tileVenueRow}>
+            <Ionicons
+              name="location-outline"
+              size={12}
+              color={theme.textTertiary}
+            />
+            <Text
+              style={[derbyStyles.tileVenueText, { color: theme.textTertiary }]}
+              numberOfLines={1}
+            >
+              {venueName}
+            </Text>
+          </View>
+        )}
+        <View
+          style={[
+            derbyStyles.tileBadge,
+            { backgroundColor: statusColor + "22", borderColor: statusColor },
+          ]}
+        >
+          <View
+            style={[
+              derbyStyles.tileStatusDot,
+              { backgroundColor: statusColor },
+            ]}
+          />
+          <Text style={[derbyStyles.tileBadgeText, { color: statusColor }]}>
+            {statusLabel}
+          </Text>
+        </View>
+        <View
+          style={[
+            derbyStyles.tileBadge,
+            {
+              backgroundColor: colors.primary + "22",
+              borderColor: colors.primary,
+              marginTop: 6,
+            },
+          ]}
+        >
+          <Text style={[derbyStyles.tileBadgeText, { color: colors.primary }]}>
+            {startTime ? `${startTime} · ` : ""}VIEW BRACKET
+          </Text>
+          <Ionicons name="chevron-forward" size={12} color={colors.primary} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const derbyStyles = StyleSheet.create({
+  tile: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: DERBY_TILE_HEIGHT,
+    overflow: "hidden",
+    position: "relative",
+  },
+  floatingArea: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  tileContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    paddingVertical: 16,
+  },
+  tileLogo: { width: 44, height: 28, marginBottom: 8 },
+  tileTitle: { fontSize: 20, fontWeight: "900", marginBottom: 2 },
+  tileSubtitle: { fontSize: 14, fontWeight: "600", marginBottom: 4 },
+  tileVenueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 10,
+  },
+  tileVenueText: { fontSize: 11 },
+  tileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tileStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  tileBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+});
 
 // ─── Date utilities (shared with Top5) ───────────────────────────────────────
 const toDateStr = (date) => {
@@ -311,7 +604,12 @@ const getPollingInterval = (groups) => {
 
   for (const game of allGames) {
     // Live game → fast
-    if (game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR")
+    if (
+      game.isLive ||
+      game.statusType === "I" ||
+      game.statusType === "II" ||
+      game.statusType === "IR"
+    )
       return INTERVAL_FAST;
     // Scheduled and starts within 5 min → fast
     const isScheduled =
@@ -516,7 +814,10 @@ const getGroupPitcherDebugSummary = (group) => {
 
   group.games.forEach((game) => {
     const isLive =
-      game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR";
+      game.isLive ||
+      game.statusType === "I" ||
+      game.statusType === "II" ||
+      game.statusType === "IR";
     const isFinished =
       game.isCompleted ||
       ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
@@ -800,7 +1101,10 @@ const MLBGridCard = ({
 
   const { time, ampm } = formatLocalTime(game.date);
   const isLive =
-    game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR";
+    game.isLive ||
+    game.statusType === "I" ||
+    game.statusType === "II" ||
+    game.statusType === "IR";
   const isFinished =
     !isLive &&
     (game.isCompleted ||
@@ -932,9 +1236,7 @@ const MLBGridCard = ({
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: awayWins
-                        ? colors.primary
-                        : theme.text,
+                    color: awayWins ? colors.primary : theme.text,
                     fontWeight: awayWins ? "700" : "400",
                     opacity: isFinished && !awayWins ? 0.55 : 1,
                   },
@@ -1021,9 +1323,7 @@ const MLBGridCard = ({
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: homeWins
-                        ? colors.primary
-                        : theme.text,
+                    color: homeWins ? colors.primary : theme.text,
                     fontWeight: homeWins ? "700" : "400",
                     opacity: isFinished && !homeWins ? 0.55 : 1,
                   },
@@ -1891,6 +2191,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState(getAutoSelectedDateStr());
   const [isGridView, setIsGridView] = useState(false);
   const [showPitchersEnabled, setShowPitchersEnabled] = useState(false);
+  const [derbyEventData, setDerbyEventData] = useState(null);
+  const DERBY_DATE_STR = "20260713";
 
   // Persist grid/list preference
   useEffect(() => {
@@ -1934,6 +2236,34 @@ const MLBScoreboardScreen = ({ navigation }) => {
       return next;
     });
   };
+
+  // Fetch schedule events for the derby date when selected
+  useEffect(() => {
+    if (activeFilter !== DERBY_DATE_STR) {
+      setDerbyEventData(null);
+      return;
+    }
+    let mounted = true;
+    const fetchEvent = async () => {
+      try {
+        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-07-13&scheduleTypes=events&eventTypes=primary`;
+        const res = await fetch(url, {
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        });
+        const data = await res.json();
+        const event = data?.dates?.[0]?.events?.find((e) =>
+          /home run derby/i.test(e?.name || ""),
+        );
+        if (mounted) setDerbyEventData(event || null);
+      } catch {
+        if (mounted) setDerbyEventData(null);
+      }
+    };
+    fetchEvent();
+    return () => {
+      mounted = false;
+    };
+  }, [activeFilter]);
 
   const handleDateSelect = (dateStr) => {
     setActiveFilter(dateStr);
@@ -2113,7 +2443,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
       const allGames = latestGroups.flatMap((g) => g.games);
       const hasLiveGames = allGames.some(
         (game) =>
-          game.isLive || game.statusType === "I" || game.statusType === "II" || game.statusType === "IR",
+          game.isLive ||
+          game.statusType === "I" ||
+          game.statusType === "II" ||
+          game.statusType === "IR",
       );
 
       // Only skip polling if it's not today AND there are no live games
@@ -2222,6 +2555,17 @@ const MLBScoreboardScreen = ({ navigation }) => {
           colors={colors}
         />
 
+        {/* Home Run Derby tile — only show on derby date */}
+        {activeFilter === DERBY_DATE_STR && derbyEventData ? (
+          <HomeRunDerbyTile
+            eventData={derbyEventData}
+            navigation={navigation}
+            theme={theme}
+            colors={colors}
+            isDarkMode={isDarkMode}
+          />
+        ) : null}
+
         {/* Games or empty state */}
         <View style={{ opacity: fetching ? 0.45 : 1 }}>
           {groups.length > 0 ? (
@@ -2257,7 +2601,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
                 />
               </View>
             )
-          ) : (
+          ) : derbyEventData ? /* Derby event is present — skip 'No games found' */
+          null : (
             <View style={styles.emptyState}>
               <Text
                 style={[styles.emptyStateText, { color: theme.textSecondary }]}

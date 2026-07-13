@@ -65,6 +65,8 @@ const TEAM_LOGO_MAP = {
   140: { abbr: "tex", useMLB: true, color: "#003278" }, // Texas Rangers
   141: { abbr: "tor", useMLB: true, color: "#134A8E" }, // Toronto Blue Jays
   120: { abbr: "wsh", useMLB: true, color: "#AB0003" }, // Washington Nationals
+  159: { abbr: "al", useMLB: true, color: "#134A8E" }, // American League All-Stars
+  160: { abbr: "nl", useMLB: true, color: "#AB0003" }, // National League All-Stars
 };
 
 const COUNTRY_LOGO_URL = (abbr) =>

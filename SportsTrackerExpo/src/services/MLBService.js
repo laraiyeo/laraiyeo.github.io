@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export class MLBService {
   static BASE_URL = "https://statsapi.mlb.com";
   static BASE_BACKEND = "https://sportsheart-baseball.up.railway.app";
-  static SCHEDULE_URL = `${this.BASE_URL}/api/v1/schedule/games/?sportId=1`;
+  static SCHEDULE_URL = `${this.BASE_URL}/api/v1/schedule/games?sportId=1`;
 
   // Cache for API responses (fallback in-memory cache)
   static cache = new Map();
@@ -48,6 +48,8 @@ export class MLBService {
     "Texas Rangers": "tex",
     "Toronto Blue Jays": "tor",
     "Washington Nationals": "wsh",
+    "American League All-Stars": "al",
+    "National League All-Stars": "nl",
   };
 
   // Team colors mapping
@@ -82,6 +84,8 @@ export class MLBService {
     "Texas Rangers": "#003278",
     "Toronto Blue Jays": "#134A8E",
     "Washington Nationals": "#AB0003",
+    "American League All-Stars": "#134A8E",
+    "National League All-Stars": "#AB0003",
   };
 
   // Generic cache method with AsyncStorage persistence
@@ -109,6 +113,7 @@ export class MLBService {
         if (isFresh) {
           return data;
         } else {
+          await AsyncStorage.removeItem(cacheKey);
         }
       }
 
@@ -769,6 +774,62 @@ export class MLBService {
         return { hitting: {}, pitching: {} };
       }
     });
+  }
+
+  // ── Home Run Derby ────────────────────────────────────────────────────────
+
+  // Known derby event IDs by year (schedule events endpoint)
+  static DERBY_EVENT_IDS = {
+    2025: 788030,
+    2026: 838655,
+  };
+
+  /**
+   * Fetch the Home Run Derby event ID for a given year.
+   * Tries the known map first, then falls back to the schedule events API.
+   */
+  static async getDerbyEventId(year) {
+    if (this.DERBY_EVENT_IDS[year]) return this.DERBY_EVENT_IDS[year];
+    try {
+      const url = `${this.BASE_URL}/api/v1/schedule?sportId=1&date=${year}-07-15&scheduleTypes=events&hydrate=event(status)&eventTypes=primary`;
+      const res = await fetch(url, {
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      const data = await res.json();
+      const event = data?.dates?.[0]?.events?.find((e) =>
+        /home run derby/i.test(e?.name || ""),
+      );
+      if (event?.id) {
+        this.DERBY_EVENT_IDS[year] = event.id;
+        return event.id;
+      }
+    } catch (err) {
+      console.warn("getDerbyEventId fallback failed:", err);
+    }
+    return null;
+  }
+
+  /**
+   * Fetch full Home Run Derby data for a given year.
+   * Returns the raw API response (info, status, rounds, players).
+   */
+  static async getHomeRunDerby(year) {
+    const cacheKey = `homeRunDerby_${year}`;
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const eventId = await this.getDerbyEventId(year);
+        if (!eventId) return null;
+        const url = `${this.BASE_URL}/api/v1/homeRunDerby/${eventId}`;
+        const res = await fetch(url, {
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        });
+        if (!res.ok) return null;
+        return res.json();
+      },
+      false,
+      60 * 1000, // 1-minute cache
+    );
   }
 
   // Clear cache method

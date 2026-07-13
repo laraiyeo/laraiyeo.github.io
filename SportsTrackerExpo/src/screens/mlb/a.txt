@@ -1,0 +1,207 @@
+{
+  "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "totalItems": 1,
+  "totalEvents": 1,
+  "totalGames": 0,
+  "totalGamesInProgress": 0,
+  "dates": [
+    {
+      "date": "2026-07-13",
+      "totalItems": 1,
+      "totalEvents": 1,
+      "totalGames": 0,
+      "totalGamesInProgress": 0,
+      "games": [],
+      "events": [
+        {
+          "id": 838655,
+          "nonGameGuid": "5f8ef15d-2439-48e9-a22b-504f1c8a01b4",
+          "name": "2026 MLB All-Star Workout Day: Home Run Derby",
+          "eventType": {
+            "code": "A",
+            "name": "All-Star Weekend Event"
+          },
+          "eventDate": "2026-07-14T00:00:00Z",
+          "venue": {
+            "id": 2681,
+            "name": "Citizens Bank Park",
+            "link": "/api/v1/venues/2681"
+          },
+          "eventStatus": {
+            "abstractGameState": "Preview",
+            "codedGameState": "1",
+            "detailedState": "Scheduled",
+            "statusCode": "1",
+            "startTimeTBD": false
+          },
+          "isMultiDay": false,
+          "isPrimaryCalendar": true,
+          "eventNumber": 32,
+          "publicFacing": true,
+          "teams": [
+            {
+              "id": 108,
+              "name": "Los Angeles Angels",
+              "link": "/api/v1/teams/108"
+            },
+            {
+              "id": 109,
+              "name": "Arizona Diamondbacks",
+              "link": "/api/v1/teams/109"
+            },
+            {
+              "id": 110,
+              "name": "Baltimore Orioles",
+              "link": "/api/v1/teams/110"
+            },
+            {
+              "id": 111,
+              "name": "Boston Red Sox",
+              "link": "/api/v1/teams/111"
+            },
+            {
+              "id": 112,
+              "name": "Chicago Cubs",
+              "link": "/api/v1/teams/112"
+            },
+            {
+              "id": 113,
+              "name": "Cincinnati Reds",
+              "link": "/api/v1/teams/113"
+            },
+            {
+              "id": 114,
+              "name": "Cleveland Guardians",
+              "link": "/api/v1/teams/114"
+            },
+            {
+              "id": 115,
+              "name": "Colorado Rockies",
+              "link": "/api/v1/teams/115"
+            },
+            {
+              "id": 116,
+              "name": "Detroit Tigers",
+              "link": "/api/v1/teams/116"
+            },
+            {
+              "id": 117,
+              "name": "Houston Astros",
+              "link": "/api/v1/teams/117"
+            },
+            {
+              "id": 118,
+              "name": "Kansas City Royals",
+              "link": "/api/v1/teams/118"
+            },
+            {
+              "id": 119,
+              "name": "Los Angeles Dodgers",
+              "link": "/api/v1/teams/119"
+            },
+            {
+              "id": 120,
+              "name": "Washington Nationals",
+              "link": "/api/v1/teams/120"
+            },
+            {
+              "id": 121,
+              "name": "New York Mets",
+              "link": "/api/v1/teams/121"
+            },
+            {
+              "id": 133,
+              "name": "Athletics",
+              "link": "/api/v1/teams/133"
+            },
+            {
+              "id": 134,
+              "name": "Pittsburgh Pirates",
+              "link": "/api/v1/teams/134"
+            },
+            {
+              "id": 135,
+              "name": "San Diego Padres",
+              "link": "/api/v1/teams/135"
+            },
+            {
+              "id": 136,
+              "name": "Seattle Mariners",
+              "link": "/api/v1/teams/136"
+            },
+            {
+              "id": 137,
+              "name": "San Francisco Giants",
+              "link": "/api/v1/teams/137"
+            },
+            {
+              "id": 138,
+              "name": "St. Louis Cardinals",
+              "link": "/api/v1/teams/138"
+            },
+            {
+              "id": 139,
+              "name": "Tampa Bay Rays",
+              "link": "/api/v1/teams/139"
+            },
+            {
+              "id": 140,
+              "name": "Texas Rangers",
+              "link": "/api/v1/teams/140"
+            },
+            {
+              "id": 141,
+              "name": "Toronto Blue Jays",
+              "link": "/api/v1/teams/141"
+            },
+            {
+              "id": 142,
+              "name": "Minnesota Twins",
+              "link": "/api/v1/teams/142"
+            },
+            {
+              "id": 143,
+              "name": "Philadelphia Phillies",
+              "link": "/api/v1/teams/143"
+            },
+            {
+              "id": 144,
+              "name": "Atlanta Braves",
+              "link": "/api/v1/teams/144"
+            },
+            {
+              "id": 145,
+              "name": "Chicago White Sox",
+              "link": "/api/v1/teams/145"
+            },
+            {
+              "id": 146,
+              "name": "Miami Marlins",
+              "link": "/api/v1/teams/146"
+            },
+            {
+              "id": 147,
+              "name": "New York Yankees",
+              "link": "/api/v1/teams/147"
+            },
+            {
+              "id": 158,
+              "name": "Milwaukee Brewers",
+              "link": "/api/v1/teams/158"
+            },
+            {
+              "id": 159,
+              "name": "American League All-Stars",
+              "link": "/api/v1/teams/159"
+            },
+            {
+              "id": 160,
+              "name": "National League All-Stars",
+              "link": "/api/v1/teams/160"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

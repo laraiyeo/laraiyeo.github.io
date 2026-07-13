@@ -156,6 +156,7 @@ import MLBPlayerPageScreen from "./src/screens/mlb/PlayerPageScreen";
 import MLBMoreScreen from "./src/screens/mlb/MoreScreen";
 import MLBTransactionsScreen from "./src/screens/mlb/TransactionsScreen";
 import MLBDraftScreen from "./src/screens/mlb/DraftScreen";
+import MLBHomeRunDerbyScreen from "./src/screens/mlb/HomeRunDerbyScreen";
 
 // WBC specific screens (lightweight re-exports)
 import WBCScoreboardScreen from "./src/screens/wbc/ScoreboardScreen";
@@ -867,7 +868,9 @@ const SportTabNavigator = ({ route }) => {
                   sport?.toLowerCase() === "mlb" ||
                   sport?.toLowerCase() === "soccer"
                 ) {
-                  return <FontAwesome name="navicon" size={size} color={color} />;
+                  return (
+                    <FontAwesome name="navicon" size={size} color={color} />
+                  );
                 }
                 return <Ionicons name="bar-chart" size={size} color={color} />;
               },
@@ -1281,7 +1284,9 @@ const MainStackNavigator = ({ initialRouteName }) => {
           if (sport?.toLowerCase() === "soccer") {
             if (USE_TOP5_FOR_SOCCER) {
               // Use the standard sport tab navigator which routes to Top5
-              return <SportTabNavigator route={route} navigation={navigation} />;
+              return (
+                <SportTabNavigator route={route} navigation={navigation} />
+              );
             } else {
               // Original logic - show the home screen directly without tabs
               return <SoccerHomeScreen route={route} navigation={navigation} />;
@@ -1328,6 +1333,18 @@ const MainStackNavigator = ({ initialRouteName }) => {
             headerTintColor: "#fff",
             headerTitle: (props) => <HeaderTitle {...props} />,
           };
+        }}
+      />
+      <Stack.Screen
+        name="HomeRunDerby"
+        component={MLBHomeRunDerbyScreen}
+        options={{
+          title: "Home Run Derby",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen

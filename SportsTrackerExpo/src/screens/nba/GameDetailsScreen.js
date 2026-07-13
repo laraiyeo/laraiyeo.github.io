@@ -19,6 +19,8 @@ import {
   Share,
   Platform,
   Dimensions,
+  TouchableWithoutFeedback,
+  PanResponder,
 } from "react-native";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import Svg, {
@@ -493,13 +495,1745 @@ const BasketballCourt = React.memo(
   },
 );
 
+// Helper to compute player stat color (reuse pattern from NHL)
+const getNbaStatColor = (key, value, theme) => {
+  const keyNorm = (key || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  if (keyNorm === "plusminus") {
+    const n = parseFloat(String(value).replace(/[^0-9.\-]/g, ""));
+    if (isNaN(n) || n === 0) return theme.text;
+    return n < 0 ? theme.error : theme.success;
+  }
+  return theme.text;
+};
+
+const NBARosterPlayerCard = ({
+  player,
+  theme,
+  teamColor,
+  showStats = true,
+  showDecision = false,
+  onPress,
+  statKeys,
+  statLabels,
+  findPlayerStatsMeta,
+}) => {
+  const fullName =
+    player?.athlete?.displayName ||
+    player?.athlete?.fullName ||
+    "Unknown Player";
+  const initials =
+    fullName
+      .split(" ")
+      .filter(Boolean)
+      .map((p) => p.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join("") || "?";
+  const number = player?.athlete?.jersey ? `#${player.athlete.jersey}` : "";
+  const position =
+    player?.athlete?.position?.abbreviation ||
+    player?.athlete?.position?.name ||
+    "";
+  const meta = [number, position].filter(Boolean).join(" \u00B7 ");
+  const headshot =
+    player?.athlete?.headshot?.href ||
+    (player?.athlete?.id
+      ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.athlete.id}.png&w=300`
+      : null);
+  const [headshotError, setHeadshotError] = useState(false);
+  const effectiveHeadshot = headshotError ? null : headshot;
+
+  // Resolve stats
+  const metaObj = player?.meta || findPlayerStatsMeta?.(player) || {};
+  const labels = metaObj.labels || [];
+  const keys = metaObj.keys || [];
+  const stats = player?.stats || [];
+
+  // Build a lookup of normalized key-name -> index from the keys/names array.
+  // ESPN boxscore provides `names` (e.g. "rebounds","points") parallel to `labels` ("REB","PTS").
+  // findPlayerStatsMeta stores names-like data in `keys`. We match against these first.
+  const resolveIndex = (name) => {
+    const total = stats.length;
+    if (total === 0) return -1;
+    const norm = (s) =>
+      (s || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    const target = norm(name);
+    if (!target) return -1;
+
+    // 1) Exact match against keys (field names like "rebounds", "points", "plusMinus")
+    for (let i = 0; i < keys.length; i++)
+      if (norm(keys[i]) === target) return i;
+
+    // 2) Exact match against labels (display names like "REB", "PTS")
+    for (let i = 0; i < labels.length; i++)
+      if (norm(labels[i]) === target) return i;
+
+    // 3) Exact match against labels that are known abbreviations
+    const labelAbbrevMap = {
+      fieldgoalsmadefieldgoalsattempted: ["fg"],
+      fieldgoalpct: ["fgpct", "fg%"],
+      threepointfieldgoalsmadethreepointfieldgoalsattempted: ["3pt", "3ptfg"],
+      freethrowsmadefreethrowsattempted: ["ft"],
+      points: ["pts"],
+      rebounds: ["reb"],
+      assists: ["ast"],
+      steals: ["stl"],
+      blocks: ["blk"],
+      turnovers: ["to"],
+      plusminus: ["+/-", "plusminus"],
+      minutes: ["min"],
+    };
+    if (labelAbbrevMap[target]) {
+      for (const abbrev of labelAbbrevMap[target]) {
+        const abbrevNorm = norm(abbrev);
+        for (let i = 0; i < labels.length; i++)
+          if (norm(labels[i]) === abbrevNorm) return i;
+      }
+    }
+
+    // 4) Substring match against keys (exact key must CONTAIN the target or vice-versa)
+    for (let i = 0; i < keys.length; i++) {
+      const kNorm = norm(keys[i]);
+      if (kNorm === target || kNorm.includes(target) || target.includes(kNorm))
+        return i;
+    }
+
+    // 5) Final fallback: substring match against labels
+    for (let i = 0; i < labels.length; i++) {
+      const lNorm = norm(labels[i]);
+      if (lNorm.includes(target) || target.includes(lNorm)) return i;
+    }
+
+    return -1;
+  };
+
+  const statToString = (s) => {
+    if (s == null) return "\u2014";
+    if (typeof s === "number") return String(s);
+    if (typeof s === "string") return s;
+    if (typeof s === "object") return s.displayValue ?? s.value ?? "\u2014";
+    return String(s);
+  };
+
+  // Format a raw stat value for display, applying sport-specific formatting
+  const formatStatValue = (key, raw) => {
+    const s = statToString(raw);
+    if (s === "\u2014") return s;
+
+    // +/- : always show sign
+    const keyNorm = (key || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (keyNorm === "plusminus") {
+      const n = parseFloat(s.replace(/[^0-9.\-]/g, ""));
+      if (isNaN(n)) return s;
+      return n > 0 ? `+${n}` : String(n);
+    }
+
+    // FG% : format as percentage
+    if (keyNorm === "fieldgoalpct") {
+      const n = parseFloat(s);
+      if (!isNaN(n)) {
+        const pct = n <= 1 ? n * 100 : n;
+        return `${pct.toFixed(1)}%`;
+      }
+    }
+
+    return s;
+  };
+
+  const resolvedStats = (statKeys || []).map((key, i) => {
+    const idx = resolveIndex(key);
+    const raw = idx >= 0 && stats[idx] != null ? stats[idx] : null;
+    return {
+      key,
+      label: (statLabels || [])[i] || key,
+      value: formatStatValue(key, raw),
+      raw,
+    };
+  });
+
+  return (
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.82 : 1}
+      onPress={onPress}
+      disabled={!onPress}
+      style={[
+        nbaRosterStyles.playerCard,
+        { backgroundColor: theme.surface, borderColor: teamColor ?? theme.border },
+      ]}
+    >
+      <View style={nbaRosterStyles.playerTopRow}>
+        <View
+          style={[
+            nbaRosterStyles.playerHeadshotWrap,
+            {
+              backgroundColor: `${teamColor}66`,
+              borderColor: teamColor ?? theme.border,
+            },
+          ]}
+        >
+          {effectiveHeadshot ? (
+            <Image
+              source={{ uri: effectiveHeadshot }}
+              style={nbaRosterStyles.playerHeadshot}
+              contentFit="cover"
+              onError={() => setHeadshotError(true)}
+            />
+          ) : (
+            <View style={nbaRosterStyles.playerFallback}>
+              <Text
+                style={[
+                  nbaRosterStyles.playerFallbackText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={nbaRosterStyles.playerNameBlock}>
+          <View style={nbaRosterStyles.playerNameRow}>
+            <Text
+              style={[nbaRosterStyles.playerName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {fullName}
+            </Text>
+            {showDecision && player?.decision && (
+              <Text
+                style={[
+                  nbaRosterStyles.decisionLabel,
+                  {
+                    color:
+                      player.decision === "W"
+                        ? theme.success
+                        : player.decision === "L"
+                          ? theme.error
+                          : theme.textSecondary,
+                  },
+                ]}
+              >
+                {player.decision === "W" ? "WON" : player.decision === "L" ? "LOSS" : ""}
+              </Text>
+            )}
+          </View>
+          {!!meta && (
+            <Text
+              style={[nbaRosterStyles.playerMeta, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {meta}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {showStats && resolvedStats.length > 0 ? (
+        <View style={nbaRosterStyles.statsRow}>
+          {resolvedStats.map((item) => (
+            <View key={item.label} style={nbaRosterStyles.statCell}>
+              <Text
+                style={[
+                  nbaRosterStyles.statValue,
+                  { color: getNbaStatColor(item.key, item.value, theme) },
+                ]}
+                numberOfLines={1}
+              >
+                {item.value}
+              </Text>
+              <Text
+                style={[nbaRosterStyles.statLabel, { color: theme.textSecondary }]}
+              >
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+};
+
+// ─── NBA Player Detail Modal ───
+const NBA_STAT_KEYS = [
+  "fieldGoalsMade-fieldGoalsAttempted",
+  "fieldGoalPct",
+  "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+  "freeThrowsMade-freeThrowsAttempted",
+  "points",
+  "rebounds",
+  "assists",
+  "steals",
+  "blocks",
+  "turnovers",
+  "plusMinus",
+  "minutes",
+  "fouls",
+];
+const NBA_STAT_DISPLAY_LABELS = [
+  "FG",
+  "FG%",
+  "3PT",
+  "FT",
+  "PTS",
+  "REB",
+  "AST",
+  "STL",
+  "BLK",
+  "TO",
+  "+/-",
+  "MIN",
+  "FOULS",
+];
+
+const resolveNbaStatIndex = (key, labels, keys) => {
+  const norm = (s) => (s || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const target = norm(key);
+  // Exact match on keys first
+  for (let i = 0; i < (keys || []).length; i++)
+    if (norm(keys[i]) === target) return i;
+  // Exact match on labels
+  for (let i = 0; i < (labels || []).length; i++)
+    if (norm(labels[i]) === target) return i;
+  // Abbreviation map
+  const map = {
+    fieldgoalsmadefieldgoalsattempted: ["fg"],
+    fieldgoalpct: ["fgpct", "fg%"],
+    threepointfieldgoalsmadethreepointfieldgoalsattempted: ["3pt"],
+    freethrowsmadefreethrowsattempted: ["ft"],
+    points: ["pts"],
+    rebounds: ["reb"],
+    assists: ["ast"],
+    steals: ["stl"],
+    blocks: ["blk"],
+    turnovers: ["to"],
+    plusminus: ["+/-"],
+    minutes: ["min"],
+    fouls: ["fouls"],
+  };
+  if (map[target]) {
+    for (const abbrev of map[target]) {
+      const aNorm = norm(abbrev);
+      for (let i = 0; i < (labels || []).length; i++)
+        if (norm(labels[i]) === aNorm) return i;
+    }
+  }
+  // Substring on keys
+  for (let i = 0; i < (keys || []).length; i++) {
+    const kNorm = norm(keys[i]);
+    if (kNorm.includes(target) || target.includes(kNorm)) return i;
+  }
+  return -1;
+};
+
+const parseNbaStatNum = (key, value) => {
+  if (value == null || value === "") return null;
+  const keyNorm = (key || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const raw = String(value).trim();
+  // Handle slash stats like "5-12"
+  const slash = raw.match(/^(\d+)-(\d+)$/);
+  if (slash) {
+    const made = parseInt(slash[1], 10);
+    const att = parseInt(slash[2], 10);
+    if (keyNorm.includes("pct") || keyNorm.includes("pctg"))
+      return att > 0 ? (made / att) * 100 : 0;
+    return made;
+  }
+  // Handle percentage like ".450"
+  if (keyNorm.includes("pct") || keyNorm.includes("pctg")) {
+    const n = parseFloat(raw);
+    if (!isNaN(n)) return n <= 1 ? n * 100 : n;
+  }
+  const n = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+  return isNaN(n) ? null : n;
+};
+
+const formatNbaModalStat = (key, value) => {
+  if (value == null || value === "") return "\u2014";
+  if (typeof value === "number") return String(value);
+  const raw = String(value).trim();
+  const keyNorm = (key || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  if (keyNorm === "plusminus") {
+    const n = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    if (!isNaN(n) && n > 0) return `+${n}`;
+  }
+  if (keyNorm.includes("pct") || keyNorm.includes("pctg")) {
+    const n = parseFloat(raw);
+    if (!isNaN(n)) {
+      const pct = n <= 1 ? n * 100 : n;
+      return `${pct.toFixed(1)}%`;
+    }
+  }
+  return raw;
+};
+
+const NBAPlayerDetailModal = ({
+  visible,
+  onClose,
+  player,
+  allPlayers,
+  details,
+  theme,
+  colors,
+  isDarkMode,
+  getTeamLogoUrl,
+  navigation,
+  findPlayerStatsMeta,
+  onShare,
+}) => {
+  const panY = useRef(new Animated.Value(0)).current;
+  const [compareActive, setCompareActive] = useState(false);
+  const [compareChooserVisible, setCompareChooserVisible] = useState(false);
+  const [compareTargetId, setCompareTargetId] = useState(null);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) panY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 120) {
+          onClose();
+        } else {
+          Animated.spring(panY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    }),
+  ).current;
+
+  useEffect(() => {
+    if (!visible) {
+      panY.setValue(0);
+      setCompareActive(false);
+      setCompareTargetId(null);
+      setCompareChooserVisible(false);
+    }
+  }, [visible]);
+
+  if (!player) return null;
+
+  const athlete = player?.athlete;
+  const fullName =
+    athlete?.displayName || athlete?.fullName || "Unknown Player";
+  const jersey = athlete?.jersey;
+  const position =
+    athlete?.position?.abbreviation || athlete?.position?.name || "";
+  const headshot =
+    athlete?.headshot?.href ||
+    (athlete?.id
+      ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${athlete.id}.png&w=300`
+      : null);
+
+  // Find this player's team
+  const playersBox = details?.boxscore?.players || [];
+  let playerTeam = null;
+  for (const teamBox of playersBox) {
+    if (teamBox?.statistics) {
+      for (const group of teamBox.statistics) {
+        if (group?.athletes) {
+          const found = group.athletes.find(
+            (a) => String(a?.athlete?.id) === String(athlete?.id),
+          );
+          if (found) {
+            playerTeam = teamBox.team;
+            break;
+          }
+        }
+      }
+      if (playerTeam) break;
+    }
+  }
+  const teamColor = playerTeam?.color
+    ? playerTeam.color.startsWith("#")
+      ? playerTeam.color
+      : `#${playerTeam.color}`
+    : colors.primary;
+  const teamName = playerTeam?.displayName || playerTeam?.name || "";
+  const teamAbbrev = playerTeam?.abbreviation || "";
+  const teamLogo =
+    playerTeam?.logo ||
+    (teamAbbrev ? getTeamLogoUrl("nba", teamAbbrev) : null);
+
+  // Get stat metadata
+  const meta = player?.meta || findPlayerStatsMeta?.(player) || {};
+  const labels = meta.labels || [];
+  const keys = meta.keys || [];
+  const stats = player?.stats || [];
+
+  // Build stat rows for this player
+  const statRows = NBA_STAT_KEYS.map((key, i) => {
+    const idx = resolveNbaStatIndex(key, labels, keys);
+    const raw = idx >= 0 && stats[idx] != null ? stats[idx] : null;
+    const numeric = parseNbaStatNum(key, raw);
+    return {
+      key,
+      label: NBA_STAT_DISPLAY_LABELS[i] || key,
+      value: formatNbaModalStat(key, raw),
+      numeric,
+    };
+  });
+
+  // Compare target
+  const compareTarget =
+    compareTargetId != null
+      ? (allPlayers || []).find(
+          (p) => String(p?.athlete?.id) === String(compareTargetId),
+        ) || null
+      : null;
+
+  // Compare target stats
+  const compareStatRows = compareTarget
+    ? (() => {
+        const cMeta =
+          compareTarget?.meta ||
+          findPlayerStatsMeta?.(compareTarget) || {};
+        const cLabels = cMeta.labels || [];
+        const cKeys = cMeta.keys || [];
+        const cStats = compareTarget?.stats || [];
+        return NBA_STAT_KEYS.map((key, i) => {
+          const idx = resolveNbaStatIndex(key, cLabels, cKeys);
+          const raw = idx >= 0 && cStats[idx] != null ? cStats[idx] : null;
+          return {
+            key,
+            label: NBA_STAT_DISPLAY_LABELS[i] || key,
+            value: formatNbaModalStat(key, raw),
+            numeric: parseNbaStatNum(key, raw),
+          };
+        });
+      })()
+    : [];
+  const compareMap = new Map(compareStatRows.map((r) => [r.key, r]));
+
+  // Compute global max for bar scaling
+  const statRangeByKey = (() => {
+    const range = {};
+    NBA_STAT_KEYS.forEach((key) => {
+      let maxVal = 1;
+      const allEntries = allPlayers || [];
+      for (const p of allEntries) {
+        const pMeta = p?.meta || findPlayerStatsMeta?.(p) || {};
+        const pKeys = pMeta.keys || [];
+        const pLabels = pMeta.labels || [];
+        const pStats = p?.stats || [];
+        const idx = resolveNbaStatIndex(key, pLabels, pKeys);
+        const raw = idx >= 0 && pStats[idx] != null ? pStats[idx] : null;
+        const n = parseNbaStatNum(key, raw);
+        if (n != null && Math.abs(n) > maxVal) maxVal = Math.abs(n);
+      }
+      // Also check compare target
+      const cr = compareMap.get(key);
+      if (cr?.numeric != null && Math.abs(cr.numeric) > maxVal)
+        maxVal = Math.abs(cr.numeric);
+      range[key] = maxVal;
+    });
+    return range;
+  })();
+
+  const closeModal = () => {
+    Animated.timing(panY, {
+      toValue: 500,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => onClose());
+  };
+
+  const renderPairBar = (statKey, leftVal, rightVal, leftColor, rightColor) => {
+    const range = statRangeByKey[statKey] || 1;
+    const leftPct = Math.min(100, (Math.abs(leftVal || 0) / range) * 100);
+    const rightPct = Math.min(100, (Math.abs(rightVal || 0) / range) * 100);
+    return (
+      <View style={nbaModalStyles.statBarWrap}>
+        <View style={nbaModalStyles.statBarTrack}>
+          <View
+            style={[
+              nbaModalStyles.statBarFill,
+              {
+                width: `${leftPct}%`,
+                backgroundColor: leftColor,
+              },
+            ]}
+          />
+        </View>
+        <View style={nbaModalStyles.statBarTrack}>
+          <View
+            style={[
+              nbaModalStyles.statBarFill,
+              {
+                width: `${rightPct}%`,
+                backgroundColor: rightColor,
+              },
+            ]}
+          />
+        </View>
+      </View>
+    );
+  };
+
+  const compareCandidates = (allPlayers || [])
+    .filter((p) => String(p?.athlete?.id) !== String(athlete?.id))
+    .sort((a, b) =>
+      (
+        a?.athlete?.displayName ||
+        a?.athlete?.fullName ||
+        ""
+      ).localeCompare(
+        b?.athlete?.displayName || b?.athlete?.fullName || "",
+      ),
+    );
+
+  const playerInitials = fullName
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join("") || "?";
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={closeModal}
+      statusBarTranslucent
+    >
+      <TouchableWithoutFeedback onPress={closeModal}>
+        <View style={nbaModalStyles.backdrop} />
+      </TouchableWithoutFeedback>
+
+      <Animated.View
+        style={[
+          nbaModalStyles.sheet,
+          {
+            backgroundColor: theme.surface,
+            borderTopColor: theme.surface,
+            transform: [{ translateY: panY }],
+          },
+        ]}
+      >
+        {/* Drag strip with handle */}
+        <View
+          {...panResponder.panHandlers}
+          style={[
+            nbaModalStyles.dragStrip,
+            { borderBottomColor: !compareActive ? teamColor : theme.border },
+          ]}
+        >
+          <View style={nbaModalStyles.handleRow}>
+            <View style={{ width: 28, height: 28 }} />
+            <View
+              style={[
+                nbaModalStyles.handle,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {/* Compare button */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (compareActive) {
+                    setCompareActive(false);
+                    setCompareTargetId(null);
+                    setCompareChooserVisible(false);
+                  } else {
+                    setCompareActive(true);
+                  }
+                }}
+                style={[
+                  nbaModalStyles.iconBtn,
+                  {
+                    backgroundColor: compareActive
+                      ? `${colors.primary}33`
+                      : theme.surfaceSecondary,
+                  },
+                ]}
+              >
+                <Ionicons name="people" size={16} color={theme.text} />
+              </TouchableOpacity>
+              {/* Share button (only when not comparing) */}
+              {!compareActive && (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (onShare) onShare(player);
+                  }}
+                  style={[
+                    nbaModalStyles.iconBtn,
+                    { backgroundColor: `${teamColor}33` },
+                  ]}
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={16}
+                    color={teamColor}
+                  />
+                </TouchableOpacity>
+              )}
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={closeModal}
+                style={[
+                  nbaModalStyles.iconBtn,
+                  { backgroundColor: theme.error },
+                ]}
+              >
+                <Text
+                  style={[nbaModalStyles.iconBtnText, { color: theme.text }]}
+                >
+                  X
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {compareActive ? (
+            <View
+              style={{
+                flexDirection: "row",
+                width: "100%",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              {/* Left: current player */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setCompareTargetId(null);
+                  setCompareChooserVisible(false);
+                }}
+                style={{
+                  width: "48%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <View style={nbaModalStyles.headshotWrap}>
+                  <View style={{ position: "relative" }}>
+                    {headshot ? (
+                      <Image
+                        source={{ uri: headshot }}
+                        style={[
+                          nbaModalStyles.headshot,
+                          { borderColor: teamColor },
+                        ]}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          nbaModalStyles.headshot,
+                          {
+                            borderColor: teamColor,
+                            backgroundColor: `${teamColor}22`,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 20,
+                            fontWeight: "800",
+                            color: theme.text,
+                          }}
+                        >
+                          {playerInitials}
+                        </Text>
+                      </View>
+                    )}
+                    <View
+                      style={nbaModalStyles.headshotBadge}
+                      pointerEvents="none"
+                    >
+                      <Text style={nbaModalStyles.headshotBadgeText}>
+                        {position || "-"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text
+                  style={[nbaModalStyles.playerName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {fullName}
+                </Text>
+                <Text
+                  style={[
+                    nbaModalStyles.jerseyNum,
+                    { color: theme.textSecondary, marginBottom: -8 },
+                  ]}
+                >
+                  {[jersey ? `#${jersey}` : "", teamName]
+                    .filter(Boolean)
+                    .join(" \u2022 ")}
+                </Text>
+              </TouchableOpacity>
+
+              <View
+                style={{
+                  width: 1,
+                  height: 88,
+                  backgroundColor: theme.border,
+                  alignSelf: "center",
+                }}
+              />
+
+              {/* Right: compare target */}
+              <View
+                style={{
+                  width: "48%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {compareTarget ? (
+                  <View style={{ alignItems: "center" }}>
+                    <View style={{ position: "relative" }}>
+                      {(() => {
+                        const cAth = compareTarget?.athlete;
+                        const cHeadshot =
+                          cAth?.headshot?.href ||
+                          (cAth?.id
+                            ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${cAth.id}.png&w=300`
+                            : null);
+                        const cColor = (() => {
+                          let t = null;
+                          for (const tb of playersBox) {
+                            if (tb?.statistics) {
+                              for (const g of tb.statistics) {
+                                if (g?.athletes) {
+                                  const f = g.athletes.find(
+                                    (a) =>
+                                      String(a?.athlete?.id) ===
+                                      String(cAth?.id),
+                                  );
+                                  if (f) { t = tb.team; break; }
+                                }
+                              }
+                              if (t) break;
+                            }
+                          }
+                          return t?.color
+                            ? t.color.startsWith("#")
+                              ? t.color
+                              : `#${t.color}`
+                            : colors.secondary;
+                        })();
+                        return (
+                          <>
+                            {cHeadshot ? (
+                              <Image
+                                source={{ uri: cHeadshot }}
+                                style={[
+                                  nbaModalStyles.headshot,
+                                  { borderColor: cColor },
+                                ]}
+                                contentFit="cover"
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  nbaModalStyles.headshot,
+                                  {
+                                    borderColor: cColor,
+                                    backgroundColor: `${cColor}22`,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 20,
+                                    fontWeight: "800",
+                                    color: theme.text,
+                                  }}
+                                >
+                                  {(cAth?.displayName || "?")
+                                    .split(" ")
+                                    .map((n) => n.charAt(0))
+                                    .join("")
+                                    .toUpperCase()
+                                    .slice(0, 2)}
+                                </Text>
+                              </View>
+                            )}
+                            <View
+                              style={nbaModalStyles.headshotBadge}
+                              pointerEvents="none"
+                            >
+                              <Text style={nbaModalStyles.headshotBadgeText}>
+                                {cAth?.position?.abbreviation ||
+                                  cAth?.position?.name ||
+                                  "-"}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => setCompareTargetId(null)}
+                              style={[
+                                nbaModalStyles.compareChosenClose,
+                                { backgroundColor: theme.error },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: theme.text,
+                                  fontWeight: "800",
+                                }}
+                              >
+                                X
+                              </Text>
+                            </TouchableOpacity>
+                          </>
+                        );
+                      })()}
+                    </View>
+                    <Text
+                      style={[
+                        nbaModalStyles.playerName,
+                        { color: theme.text, marginTop: 10 },
+                      ]}
+                    >
+                      {compareTarget?.athlete?.displayName ||
+                        compareTarget?.athlete?.fullName ||
+                        "Unknown"}
+                    </Text>
+                    <Text
+                      style={[
+                        nbaModalStyles.jerseyNum,
+                        { color: theme.textSecondary, marginBottom: -8 },
+                      ]}
+                    >
+                      {[
+                        compareTarget?.athlete?.jersey
+                          ? `#${compareTarget.athlete.jersey}`
+                          : "",
+                        (() => {
+                          for (const tb of playersBox) {
+                            if (tb?.statistics) {
+                              for (const g of tb.statistics) {
+                                if (g?.athletes) {
+                                  const f = g.athletes.find(
+                                    (a) =>
+                                      String(a?.athlete?.id) ===
+                                      String(compareTarget?.athlete?.id),
+                                  );
+                                  if (f) return tb.team?.displayName || "";
+                                }
+                              }
+                            }
+                          }
+                          return "";
+                        })(),
+                      ]
+                        .filter(Boolean)
+                        .join(" \u2022 ")}
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setCompareChooserVisible(true)}
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      backgroundColor: theme.surfaceSecondary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 28, color: theme.text }}>+</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : (
+            /* ── Non-compare: clickable headshot + info ── */
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                if (athlete?.id && navigation) {
+                  navigation.navigate("PlayerPage", {
+                    playerId: athlete.id,
+                    sport: "nba",
+                  });
+                }
+              }}
+              style={{ alignItems: "center" }}
+            >
+              <View style={nbaModalStyles.headshotWrap}>
+                <View style={{ position: "relative" }}>
+                  {headshot ? (
+                    <Image
+                      source={{ uri: headshot }}
+                      style={[
+                        nbaModalStyles.headshot,
+                        { borderColor: teamColor },
+                      ]}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        nbaModalStyles.headshot,
+                        {
+                          borderColor: teamColor,
+                          backgroundColor: `${teamColor}22`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 20,
+                          fontWeight: "800",
+                          color: theme.text,
+                        }}
+                      >
+                        {playerInitials}
+                      </Text>
+                    </View>
+                  )}
+                  <View
+                    style={nbaModalStyles.headshotBadge}
+                    pointerEvents="none"
+                  >
+                    <Text style={nbaModalStyles.headshotBadgeText}>
+                      {position || "-"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Text
+                style={[nbaModalStyles.playerName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {fullName}
+              </Text>
+              <Text
+                style={[
+                  nbaModalStyles.jerseyNum,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {[jersey ? `#${jersey}` : "", teamName]
+                  .filter(Boolean)
+                  .join(" \u2022 ")}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── Body: stat rows or compare chooser ── */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={{
+            paddingHorizontal: compareChooserVisible ? 10 : 20,
+            paddingTop: compareChooserVisible ? 0 : 16,
+            paddingBottom: 48,
+          }}
+        >
+          {compareActive && !compareTarget ? (
+            compareChooserVisible ? (
+              <ScrollView
+                style={{ paddingVertical: 8 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {compareCandidates.map((p) => {
+                  const a = p?.athlete;
+                  const pH =
+                    a?.headshot?.href ||
+                    (a?.id
+                      ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${a.id}.png&w=300`
+                      : null);
+                  const pName =
+                    a?.displayName || a?.fullName || "Unknown";
+                  const pJersey = a?.jersey ? `#${a.jersey}` : "";
+                  const pPos =
+                    a?.position?.abbreviation ||
+                    a?.position?.name ||
+                    "";
+                  let pTeam = null;
+                  for (const tb of playersBox) {
+                    if (tb?.statistics) {
+                      for (const g of tb.statistics) {
+                        if (g?.athletes) {
+                          const f = g.athletes.find(
+                            (x) =>
+                              String(x?.athlete?.id) === String(a?.id),
+                          );
+                          if (f) { pTeam = tb.team; break; }
+                        }
+                      }
+                      if (pTeam) break;
+                    }
+                  }
+                  const pColor = pTeam?.color
+                    ? pTeam.color.startsWith("#")
+                      ? pTeam.color
+                      : `#${pTeam.color}`
+                    : theme.border;
+
+                  return (
+                    <TouchableOpacity
+                      key={`compare-${a?.id}`}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setCompareTargetId(String(a?.id));
+                        setCompareChooserVisible(false);
+                      }}
+                      style={[
+                        nbaModalStyles.compareRow,
+                        { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          nbaModalStyles.compareHeadshotWrap,
+                          { backgroundColor: `${pColor}66` },
+                        ]}
+                      >
+                        {pH ? (
+                          <Image
+                            source={{ uri: pH }}
+                            style={nbaModalStyles.compareHeadshotImage}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              fontWeight: "700",
+                              color: theme.textSecondary,
+                            }}
+                          >
+                            {pName
+                              .split(" ")
+                              .map((n) => n.charAt(0))
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={nbaModalStyles.compareInfo}>
+                        <Text
+                          style={[
+                            nbaModalStyles.compareName,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {pName}
+                        </Text>
+                        <Text
+                          style={[
+                            nbaModalStyles.compareSub,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {[pJersey, pPos, pTeam?.displayName || pTeam?.name]
+                            .filter(Boolean)
+                            .join(" \u2022 ")}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 20 }}>
+                  Click + to select a player
+                </Text>
+              </View>
+            )
+          ) : (
+            /* ── Stat rows ── */
+            statRows.map((row, idx) => {
+              const cr = compareActive ? compareMap.get(row.key) : null;
+              const isPM = row.key === "plusMinus";
+
+              return (
+                <View
+                  key={row.key}
+                  style={nbaModalStyles.statRow}
+                >
+                  <Text
+                    style={[
+                      nbaModalStyles.statRowValueLeft,
+                      {
+                        color: isPM
+                          ? getNbaStatColor(row.key, row.value, theme)
+                          : theme.text,
+                      },
+                    ]}
+                  >
+                    {row.value}
+                  </Text>
+
+                  {compareActive && cr ? (
+                    renderPairBar(
+                      row.key,
+                      row.numeric,
+                      cr.numeric,
+                      teamColor,
+                      (() => {
+                        let t = null;
+                        for (const tb of playersBox) {
+                          if (tb?.statistics) {
+                            for (const g of tb.statistics) {
+                              if (g?.athletes) {
+                                const f = g.athletes.find(
+                                  (x) =>
+                                    String(x?.athlete?.id) ===
+                                    String(compareTarget?.athlete?.id),
+                                );
+                                if (f) { t = tb.team; break; }
+                              }
+                            }
+                            if (t) break;
+                          }
+                        }
+                        return t?.color
+                          ? t.color.startsWith("#")
+                            ? t.color
+                            : `#${t.color}`
+                          : colors.secondary;
+                      })(),
+                    )
+                  ) : (
+                    <View style={nbaModalStyles.statBarWrap}>
+                      <View style={nbaModalStyles.statBarTrack}>
+                        <View
+                          style={[
+                            nbaModalStyles.statBarFill,
+                            {
+                              width: `${Math.min(100, ((row.numeric || 0) / (statRangeByKey[row.key] || 1)) * 100)}%`,
+                              backgroundColor: teamColor,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={nbaModalStyles.statRowRight}>
+                    <Text
+                      style={[
+                        nbaModalStyles.statRowLabelBelow,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {row.label}
+                    </Text>
+                    {compareActive && cr && (
+                      <Text
+                        style={[
+                          nbaModalStyles.statRowValueRight,
+                          {
+                            color: isPM
+                              ? getNbaStatColor(cr.key, cr.value, theme)
+                              : theme.text,
+                          },
+                        ]}
+                      >
+                        {cr.value}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </Animated.View>
+    </Modal>
+  );
+};
+
+const NBATeamRosterSection = ({
+  details,
+  theme,
+  teamSide,
+  teamColor,
+  colors,
+  getTeamLogoUrl,
+  isDarkMode,
+  navigation,
+  findPlayerStatsMeta,
+  onPlayerPress,
+}) => {
+  const [sectionKey, setSectionKey] = useState("starters");
+
+  const isGameFinished = useMemo(() => {
+    const comp =
+      details?.header?.competitions?.[0] ||
+      details?.boxscore?.game ||
+      details?.game ||
+      null;
+    const st = comp?.status?.type || details?.game?.status?.type || {};
+    return !!(
+      st?.state === "post" ||
+      (st?.description || "").toLowerCase().includes("final") ||
+      st?.completed
+    );
+  }, [details]);
+
+  const isGameLive = useMemo(() => {
+    const comp =
+      details?.header?.competitions?.[0] ||
+      details?.boxscore?.game ||
+      details?.game ||
+      null;
+    const st = comp?.status?.type || details?.game?.status?.type || {};
+    return st?.state === "in";
+  }, [details]);
+
+  const isGameScheduled = useMemo(() => {
+    const comp =
+      details?.header?.competitions?.[0] ||
+      details?.boxscore?.game ||
+      details?.game ||
+      null;
+    const st = comp?.status?.type || details?.game?.status?.type || {};
+    return st?.state === "pre";
+  }, [details]);
+
+  // Get team object
+  const team = useMemo(() => {
+    if (!details?.boxscore?.teams) return null;
+    const teams = details.boxscore.teams;
+    return teams.find((t) => t.homeAway === teamSide) || null;
+  }, [details, teamSide]);
+
+  // Collect all players
+  const allPlayers = useMemo(() => {
+    if (!team) return [];
+    const playersBox = details?.boxscore?.players || [];
+    const teamBox = playersBox.find(
+      (pb) =>
+        pb?.team?.id === team.team?.id ||
+        pb?.team?.abbreviation === team.team?.abbreviation
+    );
+    const teamPlayers = teamBox?.statistics || [];
+    const result = [];
+    teamPlayers.forEach((positionGroup) => {
+      if (positionGroup?.athletes) {
+        positionGroup.athletes.forEach((athlete) => {
+          result.push({
+            ...athlete,
+            position: positionGroup.name,
+            isOnCourt: athlete.active === true,
+          });
+        });
+      }
+    });
+    return result;
+  }, [details, team, teamSide]);
+
+  // Check if there is explicit onCourt data
+  const hasOnCourtData = useMemo(() => {
+    if (isGameFinished || isGameScheduled) return false;
+    const onCourt = details?.onCourt;
+    if (Array.isArray(onCourt) && onCourt.length > 0) {
+      const onCourtData = onCourt.find(
+        (ice) => String(ice.teamId) === String(team?.team?.id)
+      );
+      if (onCourtData?.entries?.length > 0) return true;
+    }
+    const hasActiveFlags = allPlayers.some((p) => p.active === true);
+    return hasActiveFlags;
+  }, [details, team, allPlayers, isGameFinished, isGameScheduled]);
+
+  // Scheduled game data
+  const injuries = useMemo(() => {
+    if (!isGameScheduled || !team) return [];
+    const teamInjuries = (details?.injuries || []).find(
+      (inj) =>
+        String(inj?.team?.id) === String(team.team?.id) ||
+        inj?.team?.abbreviation === team.team?.abbreviation
+    );
+    return teamInjuries?.injuries || [];
+  }, [details, isGameScheduled, team, teamSide]);
+
+  const lastFiveGames = useMemo(() => {
+    if (!isGameScheduled || !team) return [];
+    const teamLastFive = (details?.lastFiveGames || []).find(
+      (l5) =>
+        String(l5?.team?.id) === String(team.team?.id) ||
+        l5?.team?.abbreviation === team.team?.abbreviation
+    );
+    return teamLastFive?.events || [];
+  }, [details, isGameScheduled, team, teamSide]);
+
+  // Build sections
+  const sections = useMemo(() => {
+    const result = [];
+
+    if (isGameScheduled) {
+      const starters = allPlayers.filter((p) => p.starter === true);
+      const bench = allPlayers.filter((p) => p.starter !== true);
+      if (starters.length > 0) result.push({ key: "starters", label: "Starters", players: starters });
+      if (bench.length > 0) result.push({ key: "bench", label: "Bench", players: bench });
+      if (injuries.length > 0) result.push({ key: "injured", label: "Injured", players: injuries, isInjured: true });
+      return result;
+    }
+
+    if (isGameFinished) {
+      const starters = allPlayers.filter((p) => p.starter === true);
+      const bench = allPlayers.filter((p) => p.starter !== true);
+      if (starters.length > 0) result.push({ key: "starters", label: "Starters", players: starters });
+      if (bench.length > 0) result.push({ key: "bench", label: "Bench", players: bench });
+      return result;
+    }
+
+    // Live game
+    if (hasOnCourtData) {
+      const onCourt = allPlayers.filter((p) => p.isOnCourt);
+      const bench = allPlayers.filter((p) => !p.isOnCourt);
+      if (onCourt.length > 0) result.push({ key: "oncourt", label: "On Court", players: onCourt });
+      if (bench.length > 0) result.push({ key: "bench", label: "Bench", players: bench });
+      return result;
+    }
+
+    // Live but no onCourt data: fallback to starters/bench
+    const starters = allPlayers.filter((p) => p.starter === true);
+    const bench = allPlayers.filter((p) => p.starter !== true);
+    if (starters.length > 0) result.push({ key: "starters", label: "Starters", players: starters });
+    if (bench.length > 0) result.push({ key: "bench", label: "Bench", players: bench });
+    return result;
+  }, [allPlayers, hasOnCourtData, isGameFinished, isGameScheduled, injuries]);
+
+  // Active section
+  useEffect(() => {
+    if (!sections.some((s) => s.key === sectionKey)) {
+      setSectionKey(sections[0]?.key || "starters");
+    }
+  }, [sectionKey, sections]);
+
+  const activeSection =
+    sections.find((s) => s.key === sectionKey) || sections[0] || null;
+  const activePlayers = activeSection?.players || [];
+  const isInjuredSection = activeSection?.isInjured === true;
+
+  // Sort bench players by MIN descending
+  const sortedActivePlayers = useMemo(() => {
+    if (sectionKey !== "bench" || activePlayers.length === 0)
+      return activePlayers;
+    try {
+      const headerNames =
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.names ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
+        [];
+      const normalize = (s) =>
+        (s || "")
+          .toString()
+          .replace(/[^a-z0-9]/gi, "")
+          .toLowerCase();
+      let minIdx = 12;
+      for (let i = 0; i < headerNames.length; i++) {
+        if (normalize(headerNames[i]) === "min") {
+          minIdx = i;
+          break;
+        }
+      }
+      const statToNumber = (s) => {
+        if (s == null) return 0;
+        if (typeof s === "object") s = s.displayValue ?? s.value ?? "";
+        if (typeof s === "number") return s;
+        if (typeof s === "string") {
+          const mmss = s.match(/^(\d+):(\d{2})$/);
+          if (mmss) return parseInt(mmss[1], 10) + parseInt(mmss[2], 10) / 60;
+          const n = parseFloat(s);
+          if (!isNaN(n)) return n;
+          const m = s.match(/(\d+(?:\.\d+)?)/);
+          if (m) return parseFloat(m[1]);
+          return 0;
+        }
+        return 0;
+      };
+      return [...activePlayers].sort((a, b) => {
+        const aVal = a?.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
+        const bVal = b?.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
+        return statToNumber(bVal) - statToNumber(aVal);
+      });
+    } catch (e) {
+      return activePlayers;
+    }
+  }, [activePlayers, details, sectionKey]);
+
+  // Stat keys for live/finished game player cards
+  const GAME_STAT_KEYS = [
+    "fieldGoalsMade-fieldGoalsAttempted",
+    "points",
+    "rebounds",
+    "assists",
+    "plusMinus",
+    "minutesPlayed",
+  ];
+  const GAME_STAT_LABELS = ["FG", "PTS", "REB", "AST", "+/-", "MIN"];
+
+  const SEASON_STAT_KEYS = [
+    "fieldGoalsMade-fieldGoalsAttempted",
+    "fieldGoalPct",
+    "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+    "avgPoints",
+    "avgRebounds",
+    "avgAssists",
+  ];
+  const SEASON_STAT_LABELS = ["FG", "FG%", "3PT", "PTS", "REB", "AST"];
+
+  const currentStatKeys = isGameScheduled ? SEASON_STAT_KEYS : GAME_STAT_KEYS;
+  const currentStatLabels = isGameScheduled ? SEASON_STAT_LABELS : GAME_STAT_LABELS;
+
+  // Render injury row
+  const renderInjury = (inj, idx) => (
+    <View
+      key={`inj-${idx}`}
+      style={[{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.border, marginBottom: 4 }]}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.text }}>
+          {inj?.athlete?.displayName || "Unknown Player"}
+        </Text>
+        <Text style={{ fontSize: 12, color: theme.textSecondary, marginLeft: 8 }}>
+          {inj?.athlete?.jersey && inj?.athlete?.position?.abbreviation
+            ? `\u2022 #${inj.athlete.jersey} \u2022 ${inj.athlete.position.abbreviation}`
+            : inj?.athlete?.jersey
+              ? `#${inj.athlete.jersey}`
+              : inj?.athlete?.position?.abbreviation || ""}
+        </Text>
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            color:
+              inj?.status === "Out"
+                ? "#F44336"
+                : inj?.status === "Day-To-Day"
+                  ? "#FF9800"
+                  : theme.textSecondary,
+          }}
+        >
+          {inj?.status || "Unknown Status"}
+        </Text>
+        {inj?.details?.detail && (
+          <Text style={{ fontSize: 11, fontStyle: "italic", color: theme.textSecondary }}>
+            {inj.details.detail}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+
+  // Render last-5-game card
+  const renderLastFiveGame = (game, idx) => (
+    <TouchableOpacity
+      key={`mini-${teamSide}-${idx}`}
+      activeOpacity={0.8}
+      onPress={() => {
+        const gid = game.id || game.gameId || game.eventId || game.event?.id;
+        if (gid) navigation?.navigate("GameDetails", { gameId: gid, sport: "nba" });
+      }}
+    >
+      <View
+        style={[
+          nbaRosterStyles.miniGameCard,
+          { backgroundColor: theme.surfaceSecondary || theme.surface },
+        ]}
+      >
+        <View style={nbaRosterStyles.miniGameHeader}>
+          <Text
+            style={[
+              nbaRosterStyles.miniGameResult,
+              { color: game.gameResult === "W" ? "#4CAF50" : "#F44336" },
+            ]}
+          >
+            {game.gameResult || "L"}
+          </Text>
+          <Text style={[nbaRosterStyles.miniGameScore, { color: theme.text }]}>
+            {game.score || `${game.awayTeamScore || 0}-${game.homeTeamScore || 0}`}
+          </Text>
+        </View>
+        <View style={nbaRosterStyles.miniGameInfo}>
+          <TeamLogoWithTheme
+            colors={colors}
+            getTeamLogoUrl={getTeamLogoUrl}
+            teamAbbreviation={game.opponent?.abbreviation}
+            logoUri={
+              isDarkMode
+                ? game.opponent?.logos?.[1]?.href || game.opponent?.logos?.[1]?.url
+                : game.opponent?.logos?.[0]?.href || game.opponent?.logos?.[0]?.url
+            }
+            size={32}
+            style={nbaRosterStyles.miniGameOpponentLogo}
+          />
+          <View style={nbaRosterStyles.miniGameMeta}>
+            <Text style={[nbaRosterStyles.miniGameOpponent, { color: theme.text }]}>
+              {game.atVs} {game.opponent?.abbreviation || "OPP"}
+            </Text>
+            <Text style={[nbaRosterStyles.miniGameDate, { color: theme.textSecondary }]}>
+              {new Date(game.gameDate || game.date || "").toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+              })}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (!team) return null;
+
+  return (
+    <View style={{ paddingBottom: 64 }}>
+
+      {/* Section toggle */}
+      {sections.length > 1 && (
+        <View style={nbaRosterStyles.sectionToggle}>
+          {sections.map((s) => (
+            <TouchableOpacity
+              key={s.key}
+              style={[
+                nbaRosterStyles.sectionBtn,
+                sectionKey === s.key && nbaRosterStyles.sectionBtnActive,
+              ]}
+              onPress={() => setSectionKey(s.key)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  nbaRosterStyles.sectionLabel,
+                  {
+                    color:
+                      sectionKey === s.key ? theme.text : theme.textSecondary,
+                  },
+                ]}
+              >
+                {s.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Scheduled game: Injuries + Last 5 Games above the player list */}
+      {isGameScheduled && (
+        <>
+          {injuries.length > 0 && (
+            <View
+              style={[
+                nbaRosterStyles.scheduleSection,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <View style={nbaRosterStyles.scheduleSectionHeader}>
+                <FontAwesome6 name="user-injured" size={16} color={theme.text} />
+                <Text
+                  style={[nbaRosterStyles.scheduleSectionTitle, { color: theme.text }]}
+                >
+                  Injuries ({injuries.length})
+                </Text>
+              </View>
+              <View style={{ padding: 12 }}>
+                {injuries.map((inj, ii) => renderInjury(inj, ii))}
+              </View>
+            </View>
+          )}
+          {lastFiveGames.length > 0 && (
+            <View
+              style={[
+                nbaRosterStyles.scheduleSection,
+                { backgroundColor: theme.surface, marginTop: 12 },
+              ]}
+            >
+              <View style={nbaRosterStyles.scheduleSectionHeader}>
+                <FontAwesome6 name="calendar-days" size={16} color={theme.text} />
+                <Text
+                  style={[nbaRosterStyles.scheduleSectionTitle, { color: theme.text }]}
+                >
+                  Last 5 Games
+                </Text>
+              </View>
+              <View style={{ padding: 8 }}>
+                {lastFiveGames.slice(0, 5).map((g, i) => renderLastFiveGame(g, i))}
+              </View>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Season stats label for scheduled games */}
+      {isGameScheduled && sortedActivePlayers.length > 0 && (
+        <Text
+          style={[nbaRosterStyles.seasonStatsLabel, { color: theme.text }]}
+        >
+          SEASON STATS
+        </Text>
+      )}
+
+      {/* Injured section */}
+      {isInjuredSection ? (
+        sortedActivePlayers.map((inj, idx) => renderInjury(inj, idx))
+      ) : (
+        /* Player cards */
+        sortedActivePlayers.map((player, idx) => (
+          <NBARosterPlayerCard
+            key={player?.key || `${sectionKey}-${idx}`}
+            player={player}
+            theme={theme}
+            teamColor={teamColor}
+            showStats={activeSection?.key !== "injured"}
+            onPress={
+              typeof onPlayerPress === "function"
+                ? () => onPlayerPress(player)
+                : undefined
+            }
+            statKeys={currentStatKeys}
+            statLabels={currentStatLabels}
+            findPlayerStatsMeta={findPlayerStatsMeta}
+          />
+        ))
+      )}
+
+      {/* Empty state */}
+      {sortedActivePlayers.length === 0 && (
+        <Text
+          style={[nbaRosterStyles.emptyText, { color: theme.textSecondary }]}
+        >
+          No roster data available.
+        </Text>
+      )}
+    </View>
+  );
+};
+
 const NBAGameDetailsScreen = ({ route }) => {
   // Live tracker state & resolver (NBA)
   const { width } = Dimensions.get("window");
   const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
   const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
   // live tracker resolver effect is attached after `details` is declared
-  const { gameId } = route.params || {};
+  const { gameId, summerLeague } = route.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode, currentColorPalette } =
     useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -590,6 +2324,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   const shareCardRef = useRef(null);
   const [sharePlayCard, setSharePlayCard] = useState(null);
   const sharePlayCardRef = useRef(null);
+  const [selectedModalPlayer, setSelectedModalPlayer] = useState(null);
 
   useEffect(() => {
     // Reset fallback state whenever a different player card is opened.
@@ -652,6 +2387,32 @@ const NBAGameDetailsScreen = ({ route }) => {
       );
     return away?.id || away?.team?.id || null;
   }, [details]);
+
+  // Collect all players for compare feature
+  const allModalPlayers = useMemo(() => {
+    if (!details?.boxscore?.players) return [];
+    const result = [];
+    const playersBox = details.boxscore.players;
+    for (const teamBox of playersBox) {
+      if (!teamBox?.statistics) continue;
+      for (const group of teamBox.statistics) {
+        if (!Array.isArray(group?.athletes)) continue;
+        for (const athlete of group.athletes) {
+          const meta = findPlayerStatsMeta?.(athlete) || {};
+          result.push({
+            ...athlete,
+            meta,
+            position: group.name,
+          });
+        }
+      }
+    }
+    return result;
+  }, [details, details?.boxscore?.players, findPlayerStatsMeta]);
+
+  const openNbaPlayerModal = useCallback((player) => {
+    setSelectedModalPlayer(player);
+  }, []);
 
   // Helper to color plusMinus stat values: negative => theme.error, positive => theme.success, zero/invalid => theme.text
   const getStatTextColor = (key, rawValue) => {
@@ -1153,7 +2914,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       const wasModalOpen = streamModalVisible === false;
       if (wasModalOpen) {
         console.log("Stream modal closed, fetching fresh NBA game data");
-        NBAService.getGameDetails(gameId)
+        NBAService.getGameDetails(gameId, summerLeague)
           .then(setDetails)
           .catch((e) =>
             console.error(
@@ -1171,7 +2932,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     let mounted = true;
     const load = async () => {
       try {
-        const data = await NBAService.getGameDetails(gameId);
+        const data = await NBAService.getGameDetails(gameId, summerLeague);
         if (mounted) setDetails(data);
       } catch (e) {
         console.error("Failed to load NBA game details", e);
@@ -1236,7 +2997,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       }
 
       try {
-        const data = await NBAService.getGameDetails(gameId);
+        const data = await NBAService.getGameDetails(gameId, summerLeague);
         setDetails(data);
 
         // Check if game just completed and stop future refreshes
@@ -4456,9 +6217,35 @@ const NBAGameDetailsScreen = ({ route }) => {
               </View>
             )}
 
-            {activeTab === "home" && <View>{renderRosterSection("home")}</View>}
+            {activeTab === "home" && (
+              <NBATeamRosterSection
+                details={details}
+                theme={theme}
+                teamSide="home"
+                teamColor={getSmartTeamColors(home, away, colors).homeColor}
+                colors={colors}
+                getTeamLogoUrl={getTeamLogoUrl}
+                isDarkMode={isDarkMode}
+                navigation={navigation}
+                findPlayerStatsMeta={findPlayerStatsMeta}
+                onPlayerPress={openNbaPlayerModal}
+              />
+            )}
 
-            {activeTab === "away" && <View>{renderRosterSection("away")}</View>}
+            {activeTab === "away" && (
+              <NBATeamRosterSection
+                details={details}
+                theme={theme}
+                teamSide="away"
+                teamColor={getSmartTeamColors(home, away, colors).awayColor}
+                colors={colors}
+                getTeamLogoUrl={getTeamLogoUrl}
+                isDarkMode={isDarkMode}
+                navigation={navigation}
+                findPlayerStatsMeta={findPlayerStatsMeta}
+                onPlayerPress={openNbaPlayerModal}
+              />
+            )}
 
             {activeTab === "plays" && <View>{renderPlays()}</View>}
           </View>
@@ -5974,6 +7761,32 @@ const NBAGameDetailsScreen = ({ route }) => {
             </View>
           </View>
         </Modal>
+
+        {/* NBA Player Detail Modal */}
+        <NBAPlayerDetailModal
+          visible={!!selectedModalPlayer}
+          onClose={() => setSelectedModalPlayer(null)}
+          player={selectedModalPlayer}
+          allPlayers={allModalPlayers}
+          details={details}
+          theme={theme}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          getTeamLogoUrl={getTeamLogoUrl}
+          navigation={navigation}
+          findPlayerStatsMeta={findPlayerStatsMeta}
+          onShare={(player) => {
+            setSelectedModalPlayer(null);
+            setShareCardPlayer({
+              player,
+              meta: player?.meta || findPlayerStatsMeta?.(player) || {},
+              displayName:
+                player?.athlete?.displayName ||
+                player?.athlete?.fullName ||
+                "Unknown Player",
+            });
+          }}
+        />
 
         {/* Stream Modal - Only render when streaming is unlocked */}
         {isStreamingUnlocked && (
@@ -8761,8 +10574,371 @@ const styles = StyleSheet.create({
   // Content area
   contentArea: {
     flex: 1,
-    padding: 12,
+    padding: 0,
     marginTop: -12,
+  },
+});
+
+const nbaRosterStyles = StyleSheet.create({
+  playerCard: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  playerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  playerHeadshotWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: "hidden",
+    borderWidth: 2,
+  },
+  playerHeadshot: {
+    width: "100%",
+    height: "100%",
+  },
+  playerFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerFallbackText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  playerNameBlock: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  playerName: {
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+  },
+  playerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  decisionLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginLeft: 8,
+  },
+  playerMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  teamHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    justifyContent: "center",
+  },
+  teamLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+  },
+  teamName: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  sectionToggle: {
+    flexDirection: "row",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  sectionBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sectionBtnActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  seasonStatsLabel: {
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 32,
+    fontSize: 14,
+  },
+  scheduleSection: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  scheduleSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
+  scheduleSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  miniGameCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  miniGameHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  miniGameResult: {
+    fontSize: 17.5,
+    fontWeight: "bold",
+    width: 20,
+    textAlign: "center",
+  },
+  miniGameScore: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  miniGameInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  miniGameOpponentLogo: {
+    width: 20,
+    height: 20,
+  },
+  miniGameDate: {
+    fontSize: 12,
+  },
+  miniGameMeta: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+  },
+  miniGameOpponent: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});
+
+const nbaModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: "85%",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 2,
+    overflow: "hidden",
+  },
+  dragStrip: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 2,
+  },
+  handleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingTop: 10,
+    marginBottom: 16,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  iconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  headshotWrap: {
+    marginBottom: 12,
+  },
+  headshot: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  headshotBadge: {
+    position: "absolute",
+    left: -6,
+    bottom: -6,
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  headshotBadgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  playerName: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  jerseyNum: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  statRowValueLeft: {
+    width: 70,
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "left",
+    paddingRight: 8,
+    alignSelf: "center",
+    marginTop: -6,
+  },
+  statRowValueRight: {
+    width: 70,
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "right",
+    paddingLeft: 8,
+    alignSelf: "center",
+    marginTop: -6,
+  },
+  statBarWrap: {
+    flex: 1,
+    marginLeft: 6,
+    flexDirection: "column",
+    justifyContent: "center",
+  },
+  statRowLabelBelow: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 6,
+    alignSelf: "flex-end",
+  },
+  statRowRight: {
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  statBarTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  statBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  compareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+  },
+  compareHeadshotWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: "hidden",
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  compareHeadshotImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  compareInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  compareName: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  compareSub: {
+    fontSize: 12,
+  },
+  compareChosenClose: {
+    position: "absolute",
+    right: -6,
+    top: -6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

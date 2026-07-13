@@ -542,6 +542,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
       sport: "nba",
       homeTeam: item.homeTeam,
       awayTeam: item.awayTeam,
+      summerLeague: item.summerLeague || null,
     });
   };
 
