@@ -143,19 +143,15 @@ const HomeRunDerbyTile = ({
     ["2", "3", "4", "5", "6", "7", "8", "9"].includes(statusCode);
   const isFinal = abstractState === "Final" || statusCode === "F";
   const isPreview = !isLive && !isFinal;
-  const statusColor = isLive ? "#22C55E" : isFinal ? "#94A3B8" : "#3B82F6";
-  const statusLabel = isLive
-    ? detailed || "LIVE"
-    : isFinal
-      ? "FINAL"
-      : detailed || "SCHEDULED";
+
+  console.log(eventData.id)
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={() =>
         navigation.navigate("HomeRunDerby", {
-          eventId: "788030",
+          eventId: eventData?.id,
         })
       }
       style={[
@@ -231,22 +227,6 @@ const HomeRunDerbyTile = ({
         <View
           style={[
             derbyStyles.tileBadge,
-            { backgroundColor: statusColor + "22", borderColor: statusColor },
-          ]}
-        >
-          <View
-            style={[
-              derbyStyles.tileStatusDot,
-              { backgroundColor: statusColor },
-            ]}
-          />
-          <Text style={[derbyStyles.tileBadgeText, { color: statusColor }]}>
-            {statusLabel}
-          </Text>
-        </View>
-        <View
-          style={[
-            derbyStyles.tileBadge,
             {
               backgroundColor: colors.primary + "22",
               borderColor: colors.primary,
@@ -259,6 +239,11 @@ const HomeRunDerbyTile = ({
           </Text>
           <Ionicons name="chevron-forward" size={12} color={colors.primary} />
         </View>
+                        <LiveViewerBadge
+                          gameId={eventData.id}
+                          status="Final"
+                          style={[styles.viewerBadge, { marginTop: 8 }]}
+                        />
       </View>
     </TouchableOpacity>
   );
@@ -2193,6 +2178,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [showPitchersEnabled, setShowPitchersEnabled] = useState(false);
   const [derbyEventData, setDerbyEventData] = useState(null);
   const DERBY_DATE_STR = "20260713";
+  const DERBY_POLL_MS = 5 * 1000; // 5 seconds for live derby
 
   // Persist grid/list preference
   useEffect(() => {
@@ -2237,33 +2223,46 @@ const MLBScoreboardScreen = ({ navigation }) => {
     });
   };
 
+  // Ref for derbyEventData so polling callbacks don't need it in deps
+  const derbyEventRef = useRef(null);
+  useEffect(() => {
+    derbyEventRef.current = derbyEventData;
+  }, [derbyEventData]);
+
   // Fetch schedule events for the derby date when selected
+  const fetchDerbyEvent = useCallback(async () => {
+    try {
+      const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-07-13&scheduleTypes=events&eventTypes=primary`;
+      const res = await fetch(url, {
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      const data = await res.json();
+      const event = data?.dates?.[0]?.events?.find((e) =>
+        /home run derby/i.test(e?.name || ""),
+      );
+      setDerbyEventData(event || null);
+      derbyEventRef.current = event || null;
+      return event || null;
+    } catch {
+      setDerbyEventData(null);
+      derbyEventRef.current = null;
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     if (activeFilter !== DERBY_DATE_STR) {
       setDerbyEventData(null);
       return;
     }
     let mounted = true;
-    const fetchEvent = async () => {
-      try {
-        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-07-13&scheduleTypes=events&eventTypes=primary`;
-        const res = await fetch(url, {
-          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-        });
-        const data = await res.json();
-        const event = data?.dates?.[0]?.events?.find((e) =>
-          /home run derby/i.test(e?.name || ""),
-        );
-        if (mounted) setDerbyEventData(event || null);
-      } catch {
-        if (mounted) setDerbyEventData(null);
-      }
-    };
-    fetchEvent();
+    fetchDerbyEvent().then(() => {
+      // polling handled by schedulePolling below
+    });
     return () => {
       mounted = false;
     };
-  }, [activeFilter]);
+  }, [activeFilter, fetchDerbyEvent]);
 
   const handleDateSelect = (dateStr) => {
     setActiveFilter(dateStr);
@@ -2449,8 +2448,14 @@ const MLBScoreboardScreen = ({ navigation }) => {
           game.statusType === "IR",
       );
 
-      // Only skip polling if it's not today AND there are no live games
-      if (!isTodayFilter && !hasLiveGames) {
+      // Also check if derby date is selected and derby is live/imminent
+      const isDerbyDate = filter === DERBY_DATE_STR;
+      const derbyEv = derbyEventRef.current;
+      const derbyLive = derbyEv && derbyEv.status?.abstractGameState === "Live";
+      const derbyState = derbyEv?.status?.abstractGameState;
+
+      // Only skip polling if it's not today AND no live games AND no live derby
+      if (!isTodayFilter && !hasLiveGames && !(isDerbyDate && derbyLive)) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -2459,7 +2464,15 @@ const MLBScoreboardScreen = ({ navigation }) => {
         return;
       }
 
-      const desired = getPollingInterval(latestGroups);
+      let desired = getPollingInterval(latestGroups);
+
+      // If derby date is selected, ensure fast polling when derby is live
+      if (isDerbyDate && derbyLive) {
+        desired = DERBY_POLL_MS;
+      } else if (isDerbyDate && !desired) {
+        // Derby date selected but no regular games — still poll for derby updates
+        desired = derbyState === "Preview" ? INTERVAL_SLOW : DERBY_POLL_MS;
+      }
 
       if (!desired) {
         if (intervalRef.current) {
@@ -2477,10 +2490,12 @@ const MLBScoreboardScreen = ({ navigation }) => {
       currentIntervalMs.current = desired;
       intervalRef.current = setInterval(async () => {
         const fresh = await loadData(filter, true, true);
+        // Also refresh derby event data if on derby date
+        if (filter === DERBY_DATE_STR) await fetchDerbyEvent();
         schedulePolling(filter, fresh);
       }, desired);
     },
-    [loadData],
+    [loadData, fetchDerbyEvent],
   );
 
   // Start/stop polling based on screen focus
@@ -2601,9 +2616,13 @@ const MLBScoreboardScreen = ({ navigation }) => {
                 />
               </View>
             )
-          ) : derbyEventData ? /* Derby event is present — skip 'No games found' */
-          null : (
+          ) : derbyEventData /* Derby event is present — skip 'No games found' */ ? null : (
             <View style={styles.emptyState}>
+                          <Ionicons
+                            name="baseball-outline"
+                            size={48}
+                            color={theme.textSecondary}
+                          />
               <Text
                 style={[styles.emptyStateText, { color: theme.textSecondary }]}
               >

@@ -463,7 +463,8 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
 
   const getStatusColor = (item) => {
     if (!item) return theme.textSecondary;
-    if (item?.isCompleted || item?.status?.type?.completed) return theme.success;
+    if (item?.isCompleted || item?.status?.type?.completed)
+      return theme.success;
     if (isLiveGame(item)) return colors.primary;
     return theme.textSecondary;
   };
@@ -557,6 +558,9 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
             ...(sport === "mlb" ? { gamePk: item.id } : { gameId: item.id }),
             competitionCode: item.competitionCode || null,
             sport,
+            homeTeam: homeTeam,
+            awayTeam: awayTeam,
+            summerLeague: item.summerLeague || null,
           });
         }}
         activeOpacity={0.8}
@@ -667,12 +671,12 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                   </Text>
                 </View>
                 {awayTeam.record ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.teamRecord, { color: theme.textSecondary }]}
-                >
-                  {String(awayTeam.record || "")}
-                </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.teamRecord, { color: theme.textSecondary }]}
+                  >
+                    {String(awayTeam.record || "")}
+                  </Text>
                 ) : null}
               </View>
             </View>
@@ -756,12 +760,12 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                   </Text>
                 </View>
                 {homeTeam.record ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.teamRecord, { color: theme.textSecondary }]}
-                >
-                  {String(homeTeam.record || "")}
-                </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.teamRecord, { color: theme.textSecondary }]}
+                  >
+                    {String(homeTeam.record || "")}
+                  </Text>
                 ) : null}
               </View>
             </View>
@@ -801,41 +805,62 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                     )}
               </Text>
             )}
-            {(item?.broadcast?.length >= 1 || item?.broadcasts?.length >= 1) && (!item?.isDomesticCup && !item?.leaguesData?.name?.includes("UEFA") && item?.season?.type !== 3 && item?.season?.type !== 4 && item?.season?.type !== 5) && (
-              <Text
-                allowFontScaling={false}
-                style={[styles.broadcastText, { color: theme.textSecondary }]}
-              >
-                {Array.isArray(item.broadcast || item.broadcasts)
-                  ? (item.broadcast || item.broadcasts).join(", ")
-                  : typeof (item.broadcast || item.broadcasts) === "string"
-                  ? (item.broadcast || item.broadcasts)
-                  : String(
-                      item.broadcast?.displayName ||
-                        item.broadcast?.name ||
-                        ""
-                    )}
-              </Text>
-            )}
-            {item.season?.slug && (item?.isDomesticCup || item?.leaguesData?.name?.includes("UEFA") || item?.season?.type === 3 || item?.season?.type === 4 || item?.season?.type === 5) && (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons
-                name="trophy"
-                size={14}
-                color={colors.primary}
-                style={{ marginRight: 5, marginTop: 2 }}
-              />
-            
-              <Text
-                allowFontScaling={false}
-                style={[styles.venueText, { color: theme.textSecondary }]}
-              >
-                {(item.season.type === 3 || item.season.type === 4 || item.season.type === 5) ? item.notes : 
-                item.season.slug.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}{item?.competitions?.[0]?.leg?.displayValue ? ` - ${item.competitions[0].leg.displayValue}` : ''
-                }
-              </Text>
-            </View>
-            )}
+            {(item?.broadcast?.length >= 1 || item?.broadcasts?.length >= 1) &&
+              !item?.isDomesticCup &&
+              !item?.leaguesData?.name?.includes("UEFA") &&
+              item?.season?.type !== 3 &&
+              item?.season?.type !== 4 &&
+              item?.season?.type !== 5 && (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.broadcastText, { color: theme.textSecondary }]}
+                >
+                  {Array.isArray(item.broadcast || item.broadcasts)
+                    ? (item.broadcast || item.broadcasts).join(", ")
+                    : typeof (item.broadcast || item.broadcasts) === "string"
+                      ? item.broadcast || item.broadcasts
+                      : String(
+                          item.broadcast?.displayName ||
+                            item.broadcast?.name ||
+                            "",
+                        )}
+                </Text>
+              )}
+            {item.season?.slug &&
+              (item?.isDomesticCup ||
+                item?.leaguesData?.name?.includes("UEFA") ||
+                item?.season?.type === 3 ||
+                item?.season?.type === 4 ||
+                item?.season?.type === 5) && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="trophy"
+                    size={14}
+                    color={colors.primary}
+                    style={{ marginRight: 5, marginTop: 2 }}
+                  />
+
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.venueText, { color: theme.textSecondary }]}
+                  >
+                    {item.season.type === 3 ||
+                    item.season.type === 4 ||
+                    item.season.type === 5
+                      ? item.notes
+                      : item.season.slug
+                          .split("-")
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() + word.slice(1),
+                          )
+                          .join(" ")}
+                    {item?.competitions?.[0]?.leg?.displayValue
+                      ? ` - ${item.competitions[0].leg.displayValue}`
+                      : ""}
+                  </Text>
+                </View>
+              )}
           </View>
         </View>
       </TouchableOpacity>

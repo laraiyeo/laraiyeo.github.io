@@ -1,982 +1,1696 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
   StyleSheet,
-  RefreshControl,
+  ScrollView,
+  TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Dimensions,
+  RefreshControl,
 } from "react-native";
+import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import { NFLService } from "../../services/NFLService";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
+import { NFLService } from "../../services/NFLService";
+import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const NFLScoreboardScreen = ({ navigation }) => {
-  const { theme, colors, getTeamLogoUrl } = useTheme();
-  const { isFavorite } = useFavorites();
-  const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdateHash, setLastUpdateHash] = useState("");
-  const [updateInterval, setUpdateInterval] = useState(null);
-  const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // 'yesterday', 'today', 'upcoming'
-  const [isScreenFocused, setIsScreenFocused] = useState(true);
+const { width } = Dimensions.get("window");
 
-  // Cache for each date filter
-  const [gameCache, setGameCache] = useState({
-    yesterday: null,
-    today: null,
-    upcoming: null,
-  });
+// ── Date helpers ────────────────────────────────────────────────────
+const toDateStr = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+};
 
-  // Cache timestamps to know when to refresh
-  const [cacheTimestamps, setCacheTimestamps] = useState({
-    yesterday: 0,
-    today: 0,
-    upcoming: 0,
-  });
+const PST_TIMEZONE = "America/Los_Angeles";
 
-  // Track if preloading has been done to prevent multiple calls
-  const hasPreloadedRef = useRef(false);
-
-  // Helper function to get NFL team abbreviation from ESPN team data
-  const getNFLTeamAbbreviation = (espnTeam) => {
-    // First try direct abbreviation if available
-    if (espnTeam?.abbreviation) {
-      return espnTeam.abbreviation;
-    }
-
-    // ESPN team ID to abbreviation mapping
-    const teamMapping = {
-      2: "BUF",
-      15: "MIA",
-      17: "NE",
-      20: "NYJ",
-      33: "BAL",
-      4: "CIN",
-      5: "CLE",
-      23: "PIT",
-      34: "HOU",
-      11: "IND",
-      30: "JAX",
-      10: "TEN",
-      7: "DEN",
-      12: "KC",
-      13: "LV",
-      24: "LAC",
-      6: "DAL",
-      19: "NYG",
-      21: "PHI",
-      28: "WAS",
-      3: "CHI",
-      8: "DET",
-      9: "GB",
-      16: "MIN",
-      1: "ATL",
-      29: "CAR",
-      18: "NO",
-      27: "TB",
-      22: "ARI",
-      14: "LAR",
-      25: "SF",
-      26: "SEA",
-    };
-
-    const abbr = teamMapping[espnTeam?.id?.toString()];
-    if (abbr) {
-      return abbr;
-    }
-
-    console.warn("No NFL abbreviation mapping found for team:", espnTeam?.id);
-    return null;
-  };
-
-  // Helper function to get NFL team ID for favorites
-  const getNFLTeamId = (espnTeam) => {
-    // ESPN team abbreviations to NFL team IDs mapping
-    const teamMapping = {
-      BUF: "2",
-      MIA: "15",
-      NE: "17",
-      NYJ: "20",
-      BAL: "33",
-      CIN: "4",
-      CLE: "5",
-      PIT: "23",
-      HOU: "34",
-      IND: "11",
-      JAX: "30",
-      TEN: "10",
-      DEN: "7",
-      KC: "12",
-      LV: "13",
-      LAC: "24",
-      DAL: "6",
-      NYG: "19",
-      PHI: "21",
-      WAS: "28",
-      CHI: "3",
-      DET: "8",
-      GB: "9",
-      MIN: "16",
-      ATL: "1",
-      CAR: "29",
-      NO: "18",
-      TB: "27",
-      ARI: "22",
-      LAR: "14",
-      SF: "25",
-      SEA: "26",
-    };
-
-    console.log(
-      "Team abbreviation:",
-      espnTeam.abbreviation,
-      "ESPN ID:",
-      espnTeam.id
-    );
-
-    let nflId = teamMapping[espnTeam.abbreviation];
-
-    if (!nflId) {
-      console.warn(
-        "No NFL ID mapping found for team:",
-        espnTeam.abbreviation,
-        "ESPN ID:",
-        espnTeam.id,
-        "Using ESPN ID as fallback"
-      );
-      return espnTeam.id;
-    }
-
-    console.log("Final NFL ID:", nflId);
-    return nflId;
-  };
-
-  // TeamLogoImage component with fallback support
-  const TeamLogoImage = React.memo(({ team, style, isLosingTeam = false }) => {
-    const [logoSource, setLogoSource] = useState(() => {
-      const teamAbbr = getNFLTeamAbbreviation(team);
-      if (teamAbbr) {
-        return { uri: getTeamLogoUrl("nfl", teamAbbr) };
-      } else {
-        return require("../../../assets/nfl.png");
-      }
-    });
-    const [retryCount, setRetryCount] = useState(0);
-
-    useEffect(() => {
-      const teamAbbr = getNFLTeamAbbreviation(team);
-      if (teamAbbr) {
-        setLogoSource({ uri: getTeamLogoUrl("nfl", teamAbbr) });
-        setRetryCount(0);
-      } else {
-        setLogoSource(require("../../../assets/nfl.png"));
-      }
-    }, [team]);
-
-    const handleError = () => {
-      if (retryCount === 0) {
-        const teamAbbr = getNFLTeamAbbreviation(team);
-        if (teamAbbr) {
-          // Try alternative URL format
-          setLogoSource({
-            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr}.png&w=200&h=200`,
-          });
-          setRetryCount(1);
-        } else {
-          setLogoSource(require("../../../assets/nfl.png"));
-        }
-      } else {
-        // Final fallback
-        setLogoSource(require("../../../assets/nfl.png"));
-      }
-    };
-
-    return (
-      <Image
-        style={[style, isLosingTeam && styles.losingTeamLogo]}
-        source={logoSource}
-        onError={handleError}
-        resizeMode="contain"
-      />
-    );
-  });
-
-  // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
-  const getCacheDuration = (filter) => {
-    return filter === "today" || filter === "upcoming" ? 30000 : 300000; // 30s for today/upcoming, 5min for others
-  };
-
-  // Helper functions for date management
-  const getYesterday = () => {
-    const date = new Date();
-    date.setDate(date.getDate() - 1);
-    return date;
-  };
-
-  const getToday = () => {
+const getDateFromDateStr = (dateStr) => {
+  const safe = String(dateStr || "");
+  const y = Number(safe.slice(0, 4));
+  const m = Number(safe.slice(4, 6));
+  const d = Number(safe.slice(6, 8));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
     return new Date();
+  }
+  return new Date(y, m - 1, d);
+};
+
+const getPstNowParts = (date = new Date()) => {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: PST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(date);
+  const read = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
   };
+};
 
-  const getTomorrow = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 1);
-    return date;
+const getTodayDateStr = () => toDateStr(new Date());
+
+const getAutoSelectedDateStr = () => {
+  const { year, month, day } = getPstNowParts();
+  return toDateStr(new Date(year, month - 1, day));
+};
+
+// ── Date picker bar constants ───────────────────────────────────────
+const DATE_ITEM_W = 90;
+const DATE_FADE_W = 50;
+const DATE_BAR_H = 52;
+
+const DATE_OPTIONS = (() => {
+  const today = getDateFromDateStr(getTodayDateStr());
+  today.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i - 3);
+    return d;
+  });
+})();
+
+const getDateLabel = (date) => {
+  const ds = toDateStr(date);
+  if (ds === getTodayDateStr()) return "Today";
+  const base = getDateFromDateStr(getTodayDateStr());
+  base.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const diff = Math.round((d - base) / 86400000);
+  if (diff === -1) return "Yesterday";
+  if (diff === 1) return "Tomorrow";
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTH_NAMES = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+};
+
+// ── Polling intervals (NFL has ticking clock, faster than NBA) ──────
+const INTERVAL_PRE_FAR = 60 * 60 * 1000;
+const INTERVAL_PRE_MEDIUM = 10 * 60 * 1000;
+const INTERVAL_PRE_SOON = 30 * 1000;
+const INTERVAL_LIVE = 2 * 1000; // NFL: 2s for live games (ticking clock)
+const PRE_MEDIUM_THRESHOLD = 65 * 60 * 1000;
+const PRE_SOON_THRESHOLD = 5 * 60 * 1000;
+
+const getPregamePollingInterval = (msUntilStart) => {
+  if (!Number.isFinite(msUntilStart)) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_MEDIUM_THRESHOLD) return INTERVAL_PRE_FAR;
+  if (msUntilStart > PRE_SOON_THRESHOLD) return INTERVAL_PRE_MEDIUM;
+  if (msUntilStart >= 0) return INTERVAL_PRE_SOON;
+  return INTERVAL_LIVE;
+};
+
+// ── Color utilities ─────────────────────────────────────────────────
+const parseHexColor = (hex) => {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
   };
+};
 
-  const getDateRange = (dateFilter) => {
-    switch (dateFilter) {
-      case "yesterday":
-        const yesterday = getYesterday();
-        return {
-          startDate: yesterday,
-          endDate: yesterday,
-        };
-      case "today":
-        const today = getToday();
-        return {
-          startDate: today,
-          endDate: today,
-        };
-      case "upcoming":
-        const tomorrow = getTomorrow();
-        const endDate = new Date(tomorrow);
-        endDate.setDate(endDate.getDate() + 5); // +6 days total from tomorrow
-        return {
-          startDate: tomorrow,
-          endDate: endDate,
-        };
-      default:
-        const defaultToday = getToday();
-        return {
-          startDate: defaultToday,
-          endDate: defaultToday,
-        };
-    }
+const areColorsSimilar = (colorA, colorB) => {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db) <= 70;
+};
+
+const resolveMatchColors = ({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) => {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+  return {
+    homeColor: homeSecondary ?? homeColor,
+    awayColor: awaySecondary ?? awayColor,
   };
+};
 
-  const formatDateForAPI = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}${month}${day}`;
-  };
+const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
+  return resolveMatchColors({
+    homePrimary: homeTeam?.color ? `#${homeTeam.color}` : null,
+    homeSecondary: homeTeam?.alternateColor
+      ? homeTeam.alternateColor.startsWith("#")
+        ? homeTeam.alternateColor
+        : `#${homeTeam.alternateColor}`
+      : null,
+    awayPrimary: awayTeam?.color ? `#${awayTeam.color}` : null,
+    awaySecondary: awayTeam?.alternateColor
+      ? awayTeam.alternateColor.startsWith("#")
+        ? awayTeam.alternateColor
+        : `#${awayTeam.alternateColor}`
+      : null,
+    homeFallback: colors.primary,
+    awayFallback: colors.secondary || "#666",
+  });
+};
 
-  const getNoGamesMessage = (dateFilter) => {
-    switch (dateFilter) {
-      case "yesterday":
-        return "No games scheduled for yesterday";
-      case "today":
-        return "No games scheduled for today";
-      case "upcoming":
-        return "No upcoming games scheduled";
-      default:
-        return "No games scheduled";
-    }
-  };
+// ── Game status helpers ─────────────────────────────────────────────
+const hasMeaningfulClock = (clock) => {
+  if (!clock) return false;
+  const s = String(clock).trim();
+  if (/^0+(:0+)*$/i.test(s.replace(/\s/g, ""))) return false;
+  return /\d/.test(s);
+};
 
-  // Track screen focus to pause/resume updates
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log("NFLScoreboardScreen: Screen focused");
-      setIsScreenFocused(true);
+const isNflGameLive = (item) => {
+  if (!item || item.isCompleted) return false;
+  const statusText = (item.status || "").toString();
+  const isHalftime = /halftime/i.test(statusText);
+  const isQuarter = /quarter/i.test(statusText) || /overtime/i.test(statusText);
+  return isHalftime || isQuarter || hasMeaningfulClock(item.displayClock);
+};
 
-      return () => {
-        console.log(
-          "NFLScoreboardScreen: Screen unfocused, clearing intervals"
-        );
-        setIsScreenFocused(false);
-        // Clear any existing interval when screen loses focus
-        setUpdateInterval((prevInterval) => {
-          if (prevInterval) {
-            clearInterval(prevInterval);
-          }
-          return null;
-        });
+const isNflGameFinished = (item) => {
+  if (item.isCompleted) return true;
+  const statusText = (item.status || "").toString();
+  return /final/i.test(statusText);
+};
+
+const getStatusPriority = (game) => {
+  if (isNflGameLive(game)) return 1;
+  if (isNflGameFinished(game)) return 3;
+  return 2;
+};
+
+const formatLocalTime = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const parts = fmt.formatToParts(date);
+    const hour = parts.find((p) => p.type === "hour")?.value || "";
+    const minute = parts.find((p) => p.type === "minute")?.value || "00";
+    const ampm = parts.find((p) => p.type === "dayPeriod")?.value || "";
+    return { time: `${hour}:${minute}`, ampm };
+  } catch {
+    return { time: "", ampm: "" };
+  }
+};
+
+const formatDateGroupLabel = (dateString) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const groupGamesByDate = (games = []) => {
+  const map = {};
+  games.forEach((game) => {
+    const d = new Date(game.date);
+    const key = d.toDateString();
+    if (!map[key]) {
+      map[key] = {
+        dateKey: key,
+        dateTs: d.getTime(),
+        label: formatDateGroupLabel(game.date),
+        games: [],
       };
-    }, []) // Remove updateInterval dependency to prevent re-runs
+    }
+    map[key].games.push(game);
+  });
+  // Sort within each group: live → scheduled → finished
+  Object.values(map).forEach((group) => {
+    group.games.sort((a, b) => {
+      const pa = getStatusPriority(a);
+      const pb = getStatusPriority(b);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+  });
+  return Object.values(map).sort((a, b) => a.dateTs - b.dateTs);
+};
+
+const getGameClockText = (item) => {
+  return item.displayClock || "";
+};
+
+const getLiveStatusLine = (item) => {
+  const clock = getGameClockText(item);
+  const statusText = (item.status || "").toString();
+  if (/halftime/i.test(statusText)) return "Halftime";
+  if (clock) return `${clock === "0:00" ? "End" : clock} - ${item.status}`;
+  return item.status || `Q${item.period || 1}`;
+};
+
+const getNflLogoUrl = (team, isDarkMode, getTeamLogoUrl) => {
+  const abbrev = (team?.abbreviation || "").toLowerCase();
+  if (!abbrev) return null;
+  return getTeamLogoUrl("nfl", abbrev);
+};
+
+// ── Polling interval calculation ────────────────────────────────────
+const getNflGamePollingInterval = (game, nowMs) => {
+  if (isNflGameLive(game)) return INTERVAL_LIVE;
+  if (isNflGameFinished(game)) return INTERVAL_PRE_FAR;
+  const startMs = Date.parse(String(game?.date || ""));
+  if (Number.isFinite(startMs)) {
+    return getPregamePollingInterval(startMs - nowMs);
+  }
+  return INTERVAL_PRE_FAR;
+};
+
+const getPollingInterval = (groups) => {
+  const allGames = groups.flatMap((g) => g.games);
+  if (allGames.length === 0) return null;
+  const now = Date.now();
+  let desired = INTERVAL_PRE_FAR;
+  allGames.forEach((game) => {
+    desired = Math.min(desired, getNflGamePollingInterval(game, now));
+  });
+  return desired;
+};
+
+// ── DatePickerBar ───────────────────────────────────────────────────
+const DatePickerBar = ({
+  dates,
+  selectedDateStr,
+  onSelect,
+  isGridView,
+  toggleViewMode,
+  theme,
+  colors,
+}) => {
+  const scrollRef = useRef(null);
+  const [scrollW, setScrollW] = useState(0);
+  const N = dates.length;
+  const selectedIdx = dates.findIndex((d) => toDateStr(d) === selectedDateStr);
+
+  const scrollToIdx = useCallback(
+    (idx, animated = true) => {
+      if (!scrollRef.current || scrollW === 0) return;
+      const maxOffset = Math.max(0, N * DATE_ITEM_W - scrollW);
+      const raw = idx * DATE_ITEM_W - (scrollW / 2 - DATE_ITEM_W / 2);
+      scrollRef.current.scrollTo({
+        x: Math.max(0, Math.min(raw, maxOffset)),
+        animated,
+      });
+    },
+    [scrollW, N],
   );
 
   useEffect(() => {
-    console.log(
-      "NFLScoreboardScreen: Main useEffect triggered for filter:",
-      selectedDateFilter,
-      "focused:",
-      isScreenFocused
-    );
-    // Load the current filter first
-    loadScoreboard();
+    if (selectedIdx < 0 || scrollW === 0) return;
+    const t = setTimeout(() => scrollToIdx(selectedIdx, true), 80);
+    return () => clearTimeout(t);
+  }, [selectedDateStr, selectedIdx, scrollToIdx, scrollW]);
 
-    // Set up continuous fetching for 'today' and 'upcoming' - only if screen is focused
-    if (
-      (selectedDateFilter === "today" || selectedDateFilter === "upcoming") &&
-      isScreenFocused
-    ) {
-      const interval = setInterval(() => {
-        if (isScreenFocused) {
-          loadScoreboard(true); // Silent update
-        }
-      }, 2000);
+  return (
+    <View
+      style={[
+        dateBarStyles.outerWrapper,
+        { backgroundColor: theme.background },
+      ]}
+    >
+      <View style={dateBarStyles.wrapper}>
+        <View
+          style={dateBarStyles.scrollArea}
+          onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}
+        >
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+          >
+            {dates.map((date, idx) => {
+              const ds = toDateStr(date);
+              const isSelected = ds === selectedDateStr;
+              const dist = Math.abs(idx - selectedIdx);
+              const opacity =
+                dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.35 : 0.18;
+              return (
+                <TouchableOpacity
+                  key={ds}
+                  style={dateBarStyles.item}
+                  onPress={() => onSelect(ds)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      dateBarStyles.itemText,
+                      {
+                        color: isSelected ? colors.primary : theme.text,
+                        fontWeight: isSelected ? "700" : "500",
+                        opacity,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getDateLabel(date)}
+                  </Text>
+                  <View
+                    style={[
+                      dateBarStyles.itemIndicator,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-      setUpdateInterval(interval);
+          {/* Left fade */}
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id="dfL_nfl" x1="0%" y1="0%" x2="100%" y2="0%">
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfL_nfl)"
+            />
+          </Svg>
 
-      return () => {
-        if (interval) {
-          clearInterval(interval);
-        }
-      };
-    } else {
-      // Clear interval for non-live filters or when screen is not focused
-      if (updateInterval) {
-        clearInterval(updateInterval);
-        setUpdateInterval(null);
-      }
-    }
-  }, [selectedDateFilter, isScreenFocused]);
+          {/* Right fade */}
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id="dfR_nfl" x1="100%" y1="0%" x2="0%" y2="0%">
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfR_nfl)"
+            />
+          </Svg>
+        </View>
 
-  // Separate effect for initial preloading - only runs once on mount
-  useEffect(() => {
-    console.log(
-      "NFLScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
-    );
-    // Only preload if we haven't done it before
-    if (hasPreloadedRef.current) {
-      console.log("NFLScoreboardScreen: Skipping preload, already done");
-      return;
-    }
-
-    // Mark that we're doing preloading
-    hasPreloadedRef.current = true;
-    console.log("NFLScoreboardScreen: Starting preload for other filters");
-
-    // Preload the other filters in the background after initial load
-    const preloadTimer = setTimeout(() => {
-      if (selectedDateFilter !== "yesterday") {
-        console.log("NFLScoreboardScreen: Preloading yesterday data");
-        loadScoreboard(true, "yesterday");
-      }
-      if (selectedDateFilter !== "upcoming") {
-        console.log("NFLScoreboardScreen: Preloading upcoming data");
-        loadScoreboard(true, "upcoming");
-      }
-    }, 1000); // Wait 1 second after initial load to preload others
-
-    return () => clearTimeout(preloadTimer);
-  }, []); // Empty dependency array - only run once on mount
-
-  const loadScoreboard = async (
-    silentUpdate = false,
-    dateFilter = selectedDateFilter
-  ) => {
-    console.log(
-      "NFLScoreboardScreen: loadScoreboard called - silentUpdate:",
-      silentUpdate,
-      "dateFilter:",
-      dateFilter
-    );
-    const now = Date.now();
-    const cachedData = gameCache[dateFilter];
-    const cacheTime = cacheTimestamps[dateFilter];
-    const cacheDuration = getCacheDuration(dateFilter);
-    const isCacheValid = cachedData && now - cacheTime < cacheDuration;
-
-    // If we have valid cached data, show it immediately
-    if (isCacheValid && !silentUpdate) {
-      console.log("NFLScoreboardScreen: Using cached data for", dateFilter);
-      setGames(cachedData);
-      setLoading(false);
-
-      // Still fetch in background for today's and upcoming games to check for updates
-      if (dateFilter === "today" || dateFilter === "upcoming") {
-        loadScoreboard(true, dateFilter); // Silent background update
-      }
-      return;
-    }
-
-    // If no valid cache, show loading only if not a silent update
-    if (!isCacheValid && !silentUpdate) {
-      setLoading(true);
-    }
-
-    try {
-      const { startDate, endDate } = getDateRange(dateFilter);
-      const formattedStartDate = formatDateForAPI(startDate);
-      const formattedEndDate = formatDateForAPI(endDate);
-      console.log("NFLScoreboardScreen: Making API call for", dateFilter);
-      console.log("NFLScoreboardScreen: startDate object:", startDate);
-      console.log("NFLScoreboardScreen: endDate object:", endDate);
-      console.log(
-        "NFLScoreboardScreen: formatted startDate:",
-        formattedStartDate
-      );
-      console.log("NFLScoreboardScreen: formatted endDate:", formattedEndDate);
-      const scoreboardData = await NFLService.getScoreboard(
-        formattedStartDate,
-        formattedEndDate
-      );
-
-      let processedGames;
-
-      if (
-        !scoreboardData ||
-        !scoreboardData.events ||
-        scoreboardData.events.length === 0
-      ) {
-        // No games for this date range
-        processedGames = [
-          { type: "no-games", message: getNoGamesMessage(dateFilter) },
-        ];
-      } else {
-        const formattedGames = scoreboardData.events.map((game) =>
-          NFLService.formatGameForMobile(game)
-        );
-
-        // Check if any games are still in progress
-        const hasLiveGames = formattedGames.some((game) => !game.isCompleted);
-
-        // If no live games and we have an active interval, stop it
-        if (!hasLiveGames && updateInterval) {
-          clearInterval(updateInterval);
-          setUpdateInterval(null);
-          console.log("All games are final, stopping updates");
-        }
-
-        // Group games by date and sort within each date by status then time
-        const gamesByDate = formattedGames.reduce((acc, game) => {
-          const gameDate = game.date.toLocaleDateString("en-US", {
-            weekday: "long",
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          });
-          if (!acc[gameDate]) acc[gameDate] = [];
-          acc[gameDate].push(game);
-          return acc;
-        }, {});
-
-        // Determine ordering for statuses: Live -> Scheduled -> Finished
-        const statusOrder = (item) => {
-          // Map common status shapes to order index
-          if (
-            !item ||
-            (item.isCompleted === false &&
-              (item.displayClock ||
-                (item.status &&
-                  (item.status.toLowerCase().includes("quarter") ||
-                    item.status.toLowerCase().includes("half") ||
-                    item.status.toLowerCase().includes("overtime")))))
-          )
-            return 0; // Live
-          if (
-            !item.isCompleted &&
-            item.status &&
-            (item.status.toLowerCase().includes("pre") ||
-              item.status.toLowerCase().includes("scheduled") ||
-              item.status.toLowerCase() === "scheduled")
-          )
-            return 1; // Scheduled
-          // Default: Finished
-          return 2;
-        };
-
-        // Sort dates in chronological order (earliest date first) so grouping is Day -> Status -> Time
-        const sortedDates = Object.keys(gamesByDate).sort(
-          (a, b) => new Date(a) - new Date(b)
-        );
-
-        // Flatten back to array with date headers and sort games within each date
-        const groupedGames = [];
-        for (const date of sortedDates) {
-          groupedGames.push({ type: "header", date });
-
-          // Sort the games for this date by status order, then by time/clock
-          const sortedForDate = gamesByDate[date].sort((g1, g2) => {
-            const s1 = statusOrder(g1);
-            const s2 = statusOrder(g2);
-            if (s1 !== s2) return s1 - s2;
-
-            // Same status group - sort by appropriate time field
-            // For Scheduled: sort by start time ascending
-            if (s1 === 1) {
-              return g1.date - g2.date;
-            }
-
-            // For Live: sort by start time ascending (not by game clock)
-            if (s1 === 0) {
-              return g1.date - g2.date;
-            }
-
-            // For Finished: sort by start time ascending (earliest finished games first: 1,2,3)
-            return g1.date - g2.date;
-          });
-
-          sortedForDate.forEach((game) =>
-            groupedGames.push({ type: "game", ...game })
-          );
-        }
-
-        processedGames = groupedGames;
-      }
-
-      // Update cache
-      setGameCache((prev) => ({
-        ...prev,
-        [dateFilter]: processedGames,
-      }));
-
-      setCacheTimestamps((prev) => ({
-        ...prev,
-        [dateFilter]: now,
-      }));
-
-      // Update display if this is for the current filter
-      if (dateFilter === selectedDateFilter) {
-        setGames(processedGames);
-      }
-    } catch (error) {
-      if (!silentUpdate) {
-        Alert.alert("Error", "Failed to load NFL scoreboard");
-      }
-      console.error("Error loading scoreboard:", error);
-
-      // If we have cached data and there's an error, keep showing cached data
-      if (cachedData && dateFilter === selectedDateFilter) {
-        setGames(cachedData);
-      }
-    } finally {
-      if (!silentUpdate) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleDateFilterChange = (filter) => {
-    setSelectedDateFilter(filter);
-
-    // Check if we have cached data for this filter
-    const cachedData = gameCache[filter];
-    const cacheTime = cacheTimestamps[filter];
-    const cacheDuration = getCacheDuration(filter);
-    const isCacheValid = cachedData && Date.now() - cacheTime < cacheDuration;
-
-    if (isCacheValid) {
-      // Show cached data immediately
-      setGames(cachedData);
-      setLoading(false);
-
-      // For today's and upcoming games, still check for updates in background
-      if (filter === "today" || filter === "upcoming") {
-        loadScoreboard(true, filter);
-      }
-    } else {
-      // No valid cache, load fresh data
-      loadScoreboard(false, filter);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadScoreboard(false, selectedDateFilter);
-    setRefreshing(false);
-  };
-
-  const navigateToGameDetails = async (gameId) => {
-    if (!gameId) return;
-
-    // Start navigation immediately but preload drives in background
-    navigation.navigate("GameDetails", { gameId, sport: "nfl" });
-
-    // Preload drives data for better experience (non-blocking)
-    try {
-      await NFLService.getDrives(gameId);
-    } catch (error) {
-      console.warn("Failed to preload drives data:", error);
-    }
-  };
-
-  const getGameStatusText = (item) => {
-    if (!item.status) return "TBD";
-
-    // Special handling for halftime
-    if (item.status.toLowerCase() === "halftime") {
-      return "Halftime";
-    }
-    // Check if game is in progress (not final, not pre-game)
-    if (
-      item.status.toLowerCase().includes("quarter") ||
-      item.status.toLowerCase().includes("half") ||
-      item.status.toLowerCase().includes("overtime")
-    ) {
-      return item.status; // Return the quarter info directly
-    }
-    return item.status; // Return original status for other cases
-  };
-
-  const getGameTimeText = (item) => {
-    // For finished games, show start time instead of clock
-    if (item.isCompleted) {
-      return item.date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-    }
-
-    // For halftime, don't show any time text (status already shows "Halftime")
-    if (item.status && item.status.toLowerCase() === "halftime") {
-      return "";
-    }
-
-    // For scheduled games (not started yet), show game start time
-    if (
-      item.status &&
-      (item.status.toLowerCase() === "scheduled" ||
-        item.status.toLowerCase().includes("pre") ||
-        (!item.status.toLowerCase().includes("quarter") &&
-          !item.status.toLowerCase().includes("half") &&
-          !item.status.toLowerCase().includes("overtime") &&
-          !item.status.toLowerCase().includes("final")))
-    ) {
-      return item.date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-    }
-
-    // For in-progress games, show clock if available
-    return item.displayClock || "";
-  };
-
-  // Convert a displayClock string like "1:46" or "12:34" into total seconds
-  const parseClockValue = (clockStr) => {
-    if (!clockStr || typeof clockStr !== "string") return 0;
-    // Remove non-digit/colon chars
-    const clean = clockStr.replace(/[^0-9:]/g, "");
-    const parts = clean.split(":").map((p) => parseInt(p, 10) || 0);
-    if (parts.length === 2) {
-      return parts[0] * 60 + parts[1];
-    }
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    }
-    return parts[0] || 0;
-  };
-
-  const renderDateHeader = (date) => (
-    <View style={[styles.dateHeader, { backgroundColor: colors.primary }]}>
-      <Text
-        allowFontScaling={false}
-        style={[styles.dateHeaderText, { color: "white" }]}
-      >
-        {date}
-      </Text>
+        <TouchableOpacity
+          onPress={toggleViewMode}
+          style={dateBarStyles.toggleBtn}
+        >
+          <Ionicons
+            name={isGridView ? "list-outline" : "grid-outline"}
+            size={22}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+      </View>
+      <View
+        style={[dateBarStyles.separator, { backgroundColor: theme.border }]}
+      />
     </View>
   );
+};
 
-  // Helper functions for determining losing team styles
-  const getTeamScoreStyle = (item, isAwayTeam) => {
-    if (!item.awayTeam || !item.homeTeam) return styles.teamScore;
+// ── Grid view ───────────────────────────────────────────────────────
+const NFL_GRID_H_PAD = 16;
+const NFL_GRID_GAP = 8;
+const NFL_CARD_WIDTH = (width - NFL_GRID_H_PAD * 2 - NFL_GRID_GAP) / 2;
 
-    const isGameFinal = item.isCompleted;
-    const awayScore = parseInt(item.awayTeam.score || "0");
-    const homeScore = parseInt(item.homeTeam.score || "0");
-    const isLosing =
-      isGameFinal &&
-      ((isAwayTeam && awayScore < homeScore) ||
-        (!isAwayTeam && homeScore < awayScore));
-    return isLosing
-      ? [styles.teamScore, styles.losingTeamScore]
-      : styles.teamScore;
-  };
+const NFLGridCardGradient = ({
+  gradId,
+  awayColor,
+  homeColor,
+  fallbackColor,
+  cardHeight,
+}) => {
+  const left = awayColor || fallbackColor;
+  const right = homeColor || fallbackColor;
+  const safeHeight = Math.max(cardHeight || 1, 1);
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width={NFL_CARD_WIDTH}
+      height={safeHeight}
+      viewBox={`0 0 ${NFL_CARD_WIDTH} ${safeHeight}`}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+    >
+      <Defs>
+        <LinearGradient id={`ngL_${gradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={left} stopOpacity="0.35" />
+          <Stop offset="30%" stopColor={left} stopOpacity="0" />
+          <Stop offset="70%" stopColor={right} stopOpacity="0" />
+          <Stop offset="100%" stopColor={right} stopOpacity="0.35" />
+        </LinearGradient>
+      </Defs>
+      <Rect
+        x={0}
+        y={0}
+        width={NFL_CARD_WIDTH}
+        height={safeHeight}
+        fill={`url(#ngL_${gradId})`}
+      />
+    </Svg>
+  );
+};
 
-  const getTeamScoreColor = (item, isAwayTeam) => {
-    if (!item.awayTeam || !item.homeTeam) return colors.primary;
+const NFLGridCard = ({
+  game,
+  navigation,
+  theme,
+  colors,
+  isDarkMode,
+  isFavorite,
+  getTeamLogoUrl,
+}) => {
+  const [cardHeight, setCardHeight] = useState(0);
+  const [awayLogoError, setAwayLogoError] = useState(false);
+  const [homeLogoError, setHomeLogoError] = useState(false);
+  const away = game.awayTeam || {};
+  const home = game.homeTeam || {};
 
-    const isGameFinal = item.isCompleted;
-    const awayScore = parseInt(item.awayTeam.score || "0");
-    const homeScore = parseInt(item.homeTeam.score || "0");
-    const isLosing =
-      isGameFinal &&
-      ((isAwayTeam && awayScore < homeScore) ||
-        (!isAwayTeam && homeScore < awayScore));
-    return isLosing ? theme.textSecondary : colors.primary;
-  };
+  const { awayColor, homeColor } = getSmartTeamColors(home, away, colors);
 
-  const getTeamNameStyle = (item, isAwayTeam) => {
-    if (!item.awayTeam || !item.homeTeam) return styles.teamName;
+  const awayLogo = getNflLogoUrl(away, isDarkMode, getTeamLogoUrl);
+  const homeLogo = getNflLogoUrl(home, isDarkMode, getTeamLogoUrl);
 
-    const isGameFinal = item.isCompleted;
-    const awayScore = parseInt(item.awayTeam.score || "0");
-    const homeScore = parseInt(item.homeTeam.score || "0");
-    const isLosing =
-      isGameFinal &&
-      ((isAwayTeam && awayScore < homeScore) ||
-        (!isAwayTeam && homeScore < awayScore));
-    return isLosing
-      ? [styles.teamName, styles.losingTeamName]
-      : styles.teamName;
-  };
+  React.useEffect(() => {
+    setAwayLogoError(false);
+  }, [awayLogo]);
+  React.useEffect(() => {
+    setHomeLogoError(false);
+  }, [homeLogo]);
 
-  const getTeamNameColor = (item, isAwayTeam) => {
-    if (!item.awayTeam || !item.homeTeam) return theme.text;
+  const awayAbbr = (away.abbreviation || "AWY").toUpperCase();
+  const homeAbbr = (home.abbreviation || "HME").toUpperCase();
 
-    const isGameFinal = item.isCompleted;
-    const awayScore = parseInt(item.awayTeam.score || "0");
-    const homeScore = parseInt(item.homeTeam.score || "0");
-    const isLosing =
-      isGameFinal &&
-      ((isAwayTeam && awayScore < homeScore) ||
-        (!isAwayTeam && homeScore < awayScore));
-    return isLosing ? theme.textSecondary : theme.text;
-  };
+  const isLive = isNflGameLive(game);
+  const isFinished = isNflGameFinished(game);
+  const isScheduled = !isLive && !isFinished;
 
-  const isLosingTeam = (item, isAwayTeam) => {
-    if (!item.awayTeam || !item.homeTeam) return false;
+  const awayScore = away.score;
+  const homeScore = home.score;
+  const awayWins =
+    isFinished &&
+    awayScore != null &&
+    homeScore != null &&
+    parseInt(awayScore, 10) > parseInt(homeScore, 10);
+  const homeWins =
+    isFinished &&
+    awayScore != null &&
+    homeScore != null &&
+    parseInt(homeScore, 10) > parseInt(awayScore, 10);
 
-    const isGameFinal = item.isCompleted;
-    const awayScore = parseInt(item.awayTeam.score || "0");
-    const homeScore = parseInt(item.homeTeam.score || "0");
-    return (
-      isGameFinal &&
-      ((isAwayTeam && awayScore < homeScore) ||
-        (!isAwayTeam && homeScore < awayScore))
-    );
-  };
+  const awayFav = isFavorite(String(away.id || ""), "nfl");
+  const homeFav = isFavorite(String(home.id || ""), "nfl");
 
-  const renderGameCard = ({ item }) => {
-    const isGameLive =
-      !item.isCompleted &&
-      item.status &&
-      (item.status.toLowerCase().includes("quarter") ||
-        item.status.toLowerCase().includes("half") ||
-        item.status.toLowerCase().includes("overtime"));
+  const awayRecord =
+    typeof away.record === "object" && away.record !== null
+      ? away.record.displayValue || away.record.summary || ""
+      : away.record || "";
+  const homeRecord =
+    typeof home.record === "object" && home.record !== null
+      ? home.record.displayValue || home.record.summary || ""
+      : home.record || "";
 
-    if (item.type === "header") {
-      return renderDateHeader(item.date);
-    }
+  // Possession indicator for grid view: football on left or right of team name
+  const awayHasPossession =
+    isLive &&
+    game.situation?.possession &&
+    String(game.situation.possession) === String(away.id);
+  const homeHasPossession =
+    isLive &&
+    game.situation?.possession &&
+    String(game.situation.possession) === String(home.id);
 
-    if (item.type === "no-games") {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.emptyText, { color: theme.textSecondary }]}
-          >
-            {item.message}
-          </Text>
-        </View>
-      );
-    }
+  const gradId = `ng_${game.id}`;
+  const { time, ampm } = formatLocalTime(game.date);
 
-    return (
-      <TouchableOpacity
-        style={[
-          styles.gameCard,
-          { backgroundColor: theme.surface, shadowColor: theme.text },
-        ]}
-        onPress={() => navigateToGameDetails(item.id)}
-      >
-        {/* Game Status */}
-        <View style={styles.gameHeader}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameStatus, { color: colors.primary }]}
-          >
-            {getGameStatusText(item)}
-          </Text>
-          {getGameTimeText(item) && (
+  let statusLine = "";
+  let statusLine2 = "";
+  if (isLive) {
+    const parts = getLiveStatusLine(game).split(" - ");
+    statusLine = parts[0] || "";
+    statusLine2 = parts.slice(1).join(" - ") || "";
+  } else if (isFinished) {
+    statusLine2 = "Final";
+  } else {
+    statusLine = `${time}`;
+    statusLine2 = ampm;
+  }
+
+  return (
+    <TouchableOpacity
+      style={[
+        nflGridStyles.card,
+        { backgroundColor: theme.surfaceSecondary, width: NFL_CARD_WIDTH },
+      ]}
+      onLayout={(e) => {
+        const nextHeight = Math.round(e.nativeEvent.layout.height || 0);
+        setCardHeight((prev) => (prev !== nextHeight ? nextHeight : prev));
+      }}
+      onPress={() =>
+        navigation.navigate("GameDetails", {
+          gameId: String(game.id),
+          sport: "nfl",
+          homeTeam: game.homeTeam,
+          awayTeam: game.awayTeam,
+        })
+      }
+      activeOpacity={0.8}
+    >
+      <NFLGridCardGradient
+        gradId={gradId}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        fallbackColor={colors.primary}
+        cardHeight={cardHeight}
+      />
+
+      <View style={nflGridStyles.cardTop}>
+        <Text
+          style={[
+            nflGridStyles.statusText,
+            { color: isLive ? colors.primary : theme.text },
+          ]}
+          numberOfLines={1}
+        >
+          <Text style={{ fontWeight: "800" }}>{statusLine}</Text>
+          {statusLine2 ? (
+            <Text style={{ fontWeight: "500", color: theme.textSecondary }}>
+              {` ${statusLine2}`}
+            </Text>
+          ) : null}
+        </Text>
+        <LiveViewerBadge
+          gameId={game.id}
+          status={{ isCompleted: game.isCompleted, status: game.gameStatus }}
+          scale={0.7}
+          style={nflGridStyles.cardBadge}
+        />
+      </View>
+
+      <View style={nflGridStyles.teamsRow}>
+        {/* Away Team */}
+        <View style={nflGridStyles.teamSide}>
+          {isScheduled ? (
+            awayLogo && !awayLogoError ? (
+              <Image
+                cachePolicy="memory-disk"
+                source={{ uri: awayLogo }}
+                style={nflGridStyles.teamLogo}
+                contentFit="contain"
+                onError={() => setAwayLogoError(true)}
+              />
+            ) : (
+              <View
+                style={[
+                  nflGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: awayColor || colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    nflGridStyles.teamLogoPlaceholderText,
+                    { fontSize: 11 },
+                  ]}
+                >
+                  {awayAbbr || "A"}
+                </Text>
+              </View>
+            )
+          ) : (
+            <View style={nflGridStyles.scoreCell}>
+              <Text
+                style={[
+                  nflGridStyles.scoreText,
+                  {
+                    color: awayFav
+                      ? colors.primary
+                      : awayWins
+                        ? colors.primary
+                        : theme.text,
+                    fontWeight: awayWins ? "700" : "400",
+                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {awayScore ?? "-"}
+              </Text>
+              {awayLogo && !awayLogoError && (
+                <Image
+                  cachePolicy="memory-disk"
+                  source={{ uri: awayLogo }}
+                  style={[
+                    nflGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !awayWins ? 0.55 : 1 },
+                  ]}
+                  contentFit="contain"
+                  onError={() => setAwayLogoError(true)}
+                />
+              )}
+            </View>
+          )}
+          <View style={nflGridStyles.teamNameRow}>
+            {/* Possession indicator: football on left or right of team name in grid */}
+            {awayHasPossession && (
+              <Text style={nflGridStyles.possessionLeft}>🏈</Text>
+            )}
             <Text
-              allowFontScaling={false}
-              style={[styles.gameClock, { color: theme.textSecondary }]}
+              style={[
+                nflGridStyles.teamAbbr,
+                {
+                  color: awayFav ? colors.primary : theme.text,
+                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                },
+              ]}
             >
-              {getGameTimeText(item)}
+              {awayFav ? "★ " : ""}
+              {awayAbbr}
+            </Text>
+            {awayHasPossession && (
+              <Text style={nflGridStyles.possessionRight}>🏈</Text>
+            )}
+          </View>
+          {!!awayRecord && (
+            <Text
+              style={[
+                nflGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                },
+              ]}
+            >
+              {awayRecord}
             </Text>
           )}
         </View>
 
-        {/* Teams */}
-        <View style={styles.teamsContainer}>
-          {/* Away Team */}
-          <View style={styles.teamRow}>
-            <View style={styles.teamLogoContainer}>
-              {/* Possession indicator for away team (not during halftime) */}
-              {item.situation?.possession &&
-                item.awayTeam?.id &&
-                item.situation.possession === item.awayTeam.id &&
-                item.status &&
-                item.status.toLowerCase() !== "halftime" && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.possessionIndicator, styles.awayPossession]}
-                  >
-                    🏈
-                  </Text>
-                )}
-              <TeamLogoImage
-                team={item.awayTeam}
-                style={styles.teamLogo}
-                isLosingTeam={isLosingTeam(item, true)}
-              />
-            </View>
-            <View style={styles.teamInfo}>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  getTeamNameStyle(item, true),
-                  {
-                    color: isFavorite(getNFLTeamId(item.awayTeam), "nfl")
-                      ? colors.primary
-                      : getTeamNameColor(item, true),
-                  },
-                ]}
-              >
-                {isFavorite(getNFLTeamId(item.awayTeam), "nfl") && "★ "}
-                {item.awayTeam?.displayName || "TBD"}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.teamRecord, { color: theme.textSecondary }]}
-              >
-                {item.awayTeam?.record || ""}
-              </Text>
-            </View>
-            {isGameLive || item.isCompleted ? (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  getTeamScoreStyle(item, true),
-                  { color: getTeamScoreColor(item, true) },
-                ]}
-              >
-                {item.awayTeam?.score || "0"}
-              </Text>
-            ) : (
-              ""
-            )}
-          </View>
+        <View
+          style={[nflGridStyles.divider, { backgroundColor: theme.border }]}
+        />
 
-          {/* Home Team */}
-          <View style={styles.teamRow}>
-            <View style={styles.teamLogoContainer}>
-              {/* Possession indicator for home team (not during halftime) */}
-              {item.situation?.possession &&
-                item.homeTeam?.id &&
-                item.situation.possession === item.homeTeam.id &&
-                item.status &&
-                item.status.toLowerCase() !== "halftime" && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.possessionIndicator, styles.homePossession]}
-                  >
-                    🏈
-                  </Text>
-                )}
-              <TeamLogoImage
-                team={item.homeTeam}
-                style={styles.teamLogo}
-                isLosingTeam={isLosingTeam(item, false)}
+        {/* Home Team */}
+        <View style={nflGridStyles.teamSide}>
+          {isScheduled ? (
+            homeLogo && !homeLogoError ? (
+              <Image
+                cachePolicy="memory-disk"
+                source={{ uri: homeLogo }}
+                style={nflGridStyles.teamLogo}
+                contentFit="contain"
+                onError={() => setHomeLogoError(true)}
               />
-            </View>
-            <View style={styles.teamInfo}>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  getTeamNameStyle(item, false),
-                  {
-                    color: isFavorite(getNFLTeamId(item.homeTeam), "nfl")
-                      ? colors.primary
-                      : getTeamNameColor(item, false),
-                  },
-                ]}
-              >
-                {isFavorite(getNFLTeamId(item.homeTeam), "nfl") && "★ "}
-                {item.homeTeam?.displayName || "TBD"}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.teamRecord, { color: theme.textSecondary }]}
-              >
-                {item.homeTeam?.record || ""}
-              </Text>
-            </View>
-            {isGameLive || item.isCompleted ? (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  getTeamScoreStyle(item, false),
-                  { color: getTeamScoreColor(item, false) },
-                ]}
-              >
-                {item.homeTeam?.score || "0"}
-              </Text>
             ) : (
-              ""
-            )}
-          </View>
-        </View>
-
-        {/* Game Info */}
-        <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
-          <View style={styles.gameFooterLeft}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.venue, { color: theme.textSecondary }]}
-            >
-              {item.venue || ""}
-            </Text>
-              {item.season &&
-              (item.season.type === 3 || item.season.type === 4 || item.season.type === 5) && item.notes ? (
-              <View style = {{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
-                <Ionicons
-                  name="trophy"
-                  size={16}
-                  color={colors.primary}
-                  style={{ marginRight: 8 }}
-                />
+              <View
+                style={[
+                  nflGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: homeColor || colors.secondary },
+                ]}
+              >
                 <Text
-                  allowFontScaling={false}
-                  style={[styles.playoffIndicator, { color: colors.primary, fontWeight: '700' }]}>
-                  {item.notes}
+                  style={[
+                    nflGridStyles.teamLogoPlaceholderText,
+                    { fontSize: 11 },
+                  ]}
+                >
+                  {homeAbbr || "H"}
                 </Text>
               </View>
-              ) : null}
-            {item.broadcasts && item.broadcasts.length > 0 && (
+            )
+          ) : (
+            <View style={nflGridStyles.scoreCell}>
               <Text
-                allowFontScaling={false}
-                style={[styles.broadcast, { color: theme.textSecondary }]}
+                style={[
+                  nflGridStyles.scoreText,
+                  {
+                    color: homeFav
+                      ? colors.primary
+                      : homeWins
+                        ? colors.primary
+                        : theme.text,
+                    fontWeight: homeWins ? "700" : "400",
+                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                  },
+                ]}
               >
-                {item.broadcasts.join(", ")}
+                {homeScore ?? "-"}
               </Text>
-            )}
-            {/* Show down and distance for in-progress games (but not halftime) */}
-            {item.situation?.downDistanceText &&
-              !item.isCompleted &&
-              item.status &&
-              item.status.toLowerCase() !== "halftime" && (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.downDistance, { color: colors.primary }]}
-                >
-                  {item.situation.downDistanceText}
-                </Text>
+              {homeLogo && !homeLogoError && (
+                <Image
+                  cachePolicy="memory-disk"
+                  source={{ uri: homeLogo }}
+                  style={[
+                    nflGridStyles.scoreLogoOverlay,
+                    { opacity: isFinished && !homeWins ? 0.55 : 1 },
+                  ]}
+                  contentFit="contain"
+                  onError={() => setHomeLogoError(true)}
+                />
               )}
+            </View>
+          )}
+          <View style={nflGridStyles.teamNameRow}>
+            {homeHasPossession && (
+              <Text style={nflGridStyles.possessionLeft}>🏈</Text>
+            )}
+            <Text
+              style={[
+                nflGridStyles.teamAbbr,
+                {
+                  color: homeFav ? colors.primary : theme.text,
+                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                },
+              ]}
+            >
+              {homeFav ? "★ " : ""}
+              {homeAbbr}
+            </Text>
+            {homeHasPossession && (
+              <Text style={nflGridStyles.possessionRight}>🏈</Text>
+            )}
           </View>
-          <View style={styles.gameFooterRight}>
-            <LiveViewerBadge gameId={item.id} status={item.status} style={styles.viewerBadge} />
+          {!!homeRecord && (
+            <Text
+              style={[
+                nflGridStyles.teamRecord,
+                {
+                  color: theme.textSecondary,
+                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                },
+              ]}
+            >
+              {homeRecord}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <View
+        style={[nflGridStyles.cardFooter, { borderTopColor: theme.border }]}
+      >
+        <Text
+          style={[nflGridStyles.venueText, { color: theme.textSecondary }]}
+          numberOfLines={1}
+        >
+          {game.venue || ""}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const NFLGridSection = ({
+  groups,
+  navigation,
+  theme,
+  colors,
+  isDarkMode,
+  isFavorite,
+  getTeamLogoUrl,
+}) => (
+  <View style={nflGridStyles.container}>
+    {groups.map((group) => (
+      <View key={group.dateKey} style={nflGridStyles.groupWrapper}>
+        <View style={nflGridStyles.groupHeaderRow}>
+          <View
+            style={[
+              nflGridStyles.groupBubble,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <Image
+              cachePolicy="memory-disk"
+              source={require("../../../assets/nfl.png")}
+              style={{ width: 18, height: 28, marginRight: 6 }}
+              resizeMode="contain"
+            />
+            <Text
+              style={[nflGridStyles.groupBubbleName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {group.label}
+            </Text>
+            <Text
+              style={[
+                nflGridStyles.groupBubbleCount,
+                { color: theme.textTertiary },
+              ]}
+            >
+              {" "}
+              {group.games.length}
+            </Text>
           </View>
         </View>
-      </TouchableOpacity>
-    );
+
+        <View style={nflGridStyles.cardsRow}>
+          {group.games.map((game) => (
+            <NFLGridCard
+              key={game.id}
+              game={game}
+              navigation={navigation}
+              theme={theme}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isFavorite={isFavorite}
+              getTeamLogoUrl={getTeamLogoUrl}
+            />
+          ))}
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+// ── List view ───────────────────────────────────────────────────────
+const CardGradient = ({
+  gradId,
+  awayColor,
+  homeColor,
+  fallbackColor,
+  theme,
+}) => {
+  const top = awayColor || fallbackColor;
+  const bot = homeColor || fallbackColor;
+  return (
+    <>
+      <Svg
+        style={{ position: "absolute", top: 0, left: 0, right: 0 }}
+        width="100%"
+        height={48}
+        pointerEvents="none"
+      >
+        <Defs>
+          <LinearGradient
+            id={`topGrad_${gradId}`}
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
+            <Stop offset="0%" stopColor={top} stopOpacity="0.18" />
+            <Stop
+              offset="100%"
+              stopColor={theme.surfaceSecondary}
+              stopOpacity="0"
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#topGrad_${gradId})`} />
+      </Svg>
+      <Svg
+        style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
+        width="100%"
+        height={48}
+        pointerEvents="none"
+      >
+        <Defs>
+          <LinearGradient
+            id={`botGrad_${gradId}`}
+            x1="0%"
+            y1="100%"
+            x2="0%"
+            y2="0%"
+          >
+            <Stop offset="0%" stopColor={bot} stopOpacity="0.18" />
+            <Stop
+              offset="100%"
+              stopColor={theme.surfaceSecondary}
+              stopOpacity="0"
+            />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#botGrad_${gradId})`} />
+      </Svg>
+    </>
+  );
+};
+
+const ScoreboardSection = ({
+  groups,
+  navigation,
+  theme,
+  isDarkMode,
+  colors,
+  isFavorite,
+  getTeamLogoUrl,
+}) => {
+  const [logoErrorMap, setLogoErrorMap] = useState({});
+
+  const markLogoError = useCallback((gameId, side) => {
+    setLogoErrorMap((prev) => {
+      const key = `${gameId}_${side}`;
+      if (prev[key]) return prev;
+      return { ...prev, [key]: true };
+    });
+  }, []);
+
+  const hasLogoError = (gameId, side) => !!logoErrorMap[`${gameId}_${side}`];
+
+  return (
+    <View style={styles.scoreboardContainer}>
+      {groups.map((group, gIdx) => (
+        <View
+          key={group.dateKey}
+          style={[styles.eventContainer, { backgroundColor: theme.background }]}
+        >
+          <View
+            style={[
+              styles.eventHeaderContainer,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <View style={styles.eventHeaderMainTap}>
+              <View style={styles.eventLogoContainer}>
+                <Image
+                  cachePolicy="memory-disk"
+                  source={require("../../../assets/nfl.png")}
+                  style={{ width: 24, height: 38, marginRight: 6 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.eventInfo}>
+                <Text
+                  style={[styles.eventName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {group.label}
+                </Text>
+                <Text
+                  style={[styles.eventSubLabel, { color: theme.textTertiary }]}
+                >
+                  NFL
+                </Text>
+              </View>
+            </View>
+            <View style={styles.eventHeaderRight}>
+              <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
+                {" "}
+                {group.games.length}{" "}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.matchesList}>
+            {group.games.map((game, idx) => {
+              const away = game.awayTeam || {};
+              const home = game.homeTeam || {};
+
+              const awayAbbr = (away.abbreviation || "").toUpperCase();
+              const homeAbbr = (home.abbreviation || "").toUpperCase();
+
+              const { awayColor, homeColor } = getSmartTeamColors(
+                home,
+                away,
+                colors,
+              );
+
+              const awayLogo = getNflLogoUrl(away, isDarkMode, getTeamLogoUrl);
+              const homeLogo = getNflLogoUrl(home, isDarkMode, getTeamLogoUrl);
+
+              const isLive = isNflGameLive(game);
+              const isFinished = isNflGameFinished(game);
+              const awayScore = away.score;
+              const homeScore = home.score;
+
+              const awayWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(awayScore, 10) > parseInt(homeScore, 10);
+              const homeWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(homeScore, 10) > parseInt(awayScore, 10);
+
+              let statusLine1 = "";
+              let statusLine2 = "";
+              if (isFinished) {
+                statusLine1 = "Final";
+                const { time, ampm } = formatLocalTime(game.date);
+                statusLine2 = `${time} ${ampm}`.trim();
+              } else if (isLive) {
+                statusLine1 = getLiveStatusLine(game).split(" - ")[0] || "";
+                statusLine2 = getLiveStatusLine(game).split(" - ")[1] || "";
+              } else {
+                const { time, ampm } = formatLocalTime(game.date);
+                statusLine1 = time;
+                statusLine2 = ampm;
+              }
+
+              const awayFav = isFavorite(String(away.id || ""), "nfl");
+              const homeFav = isFavorite(String(home.id || ""), "nfl");
+
+              const awayRecord =
+                typeof away.record === "object" && away.record !== null
+                  ? away.record.displayValue || away.record.summary || ""
+                  : away.record || "";
+              const homeRecord =
+                typeof home.record === "object" && home.record !== null
+                  ? home.record.displayValue || home.record.summary || ""
+                  : home.record || "";
+              const awayHasRecord = !!awayRecord;
+              const homeHasRecord = !!homeRecord;
+
+              // Possession: in list view, football always on the left
+              const awayHasPossession =
+                isLive &&
+                game.situation?.possession &&
+                String(game.situation.possession) === String(away.id);
+              const homeHasPossession =
+                isLive &&
+                game.situation?.possession &&
+                String(game.situation.possession) === String(home.id);
+
+              return (
+                <TouchableOpacity
+                  key={game.id || idx}
+                  style={[
+                    styles.gameRow,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate("GameDetails", {
+                      gameId: String(game.id),
+                      sport: "nfl",
+                      homeTeam: game.homeTeam,
+                      awayTeam: game.awayTeam,
+                    })
+                  }
+                >
+                  <CardGradient
+                    gradId={`${gIdx}_${idx}`}
+                    awayColor={awayColor}
+                    homeColor={homeColor}
+                    fallbackColor={colors.primary}
+                    theme={theme}
+                  />
+
+                  <View style={styles.matchRow}>
+                    <View style={styles.statusContainer}>
+                      <Text
+                        style={[
+                          styles.statusLine1,
+                          {
+                            color: isLive
+                              ? colors.primary
+                              : isFinished
+                                ? theme.textSecondary
+                                : theme.text,
+                            fontWeight: "800",
+                            fontSize: 13,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {statusLine1}
+                      </Text>
+                      {!!statusLine2 && (
+                        <Text
+                          style={[
+                            styles.statusLine2,
+                            { color: theme.textTertiary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {statusLine2}
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={styles.stackedTeams}>
+                      {/* Away */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {awayLogo && !hasLogoError(game.id, "away") ? (
+                            <Image
+                              cachePolicy="memory-disk"
+                              source={{ uri: awayLogo }}
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
+                              contentFit="contain"
+                              onError={() => markLogoError(game.id, "away")}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  borderRadius: 17.5,
+                                  backgroundColor: awayColor || colors.primary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 10,
+                                  fontWeight: "800",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {awayAbbr}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View
+                          style={[
+                            styles.teamTextStack,
+                            awayHasRecord
+                              ? styles.teamTextStackWithRecord
+                              : styles.teamTextStackNoRecord,
+                          ]}
+                        >
+                          {/* Possession indicator always on left in list view */}
+                          <View style={styles.teamNameWithPossession}>
+                            {awayHasPossession && (
+                              <Text style={styles.possessionIndicatorList}>
+                                🏈{" "}
+                              </Text>
+                            )}
+                            <Text
+                              style={[
+                                styles.teamName,
+                                !awayHasRecord && styles.teamNameNoRecord,
+                                {
+                                  color: awayFav ? colors.primary : theme.text,
+                                  fontWeight: awayWins ? "700" : "400",
+                                  opacity: awayWins ? 1 : isFinished ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {awayFav ? "★ " : ""}
+                              {away.displayName || "Away"}
+                            </Text>
+                          </View>
+                          {awayHasRecord ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                {
+                                  color: theme.textSecondary,
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {awayRecord}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && awayScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: awayWins ? colors.primary : theme.text,
+                                fontWeight: awayWins ? "700" : "400",
+                                opacity: !awayWins && isFinished ? 0.55 : 1,
+                              },
+                            ]}
+                          >
+                            {awayScore}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Home */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {homeLogo && !hasLogoError(game.id, "home") ? (
+                            <Image
+                              cachePolicy="memory-disk"
+                              source={{ uri: homeLogo }}
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                              contentFit="contain"
+                              onError={() => markLogoError(game.id, "home")}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  borderRadius: 17.5,
+                                  backgroundColor:
+                                    homeColor || colors.secondary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 10,
+                                  fontWeight: "800",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {homeAbbr}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View
+                          style={[
+                            styles.teamTextStack,
+                            homeHasRecord
+                              ? styles.teamTextStackWithRecord
+                              : styles.teamTextStackNoRecord,
+                          ]}
+                        >
+                          {/* Possession indicator always on left in list view */}
+                          <View style={styles.teamNameWithPossession}>
+                            {homeHasPossession && (
+                              <Text style={styles.possessionIndicatorList}>
+                                🏈{" "}
+                              </Text>
+                            )}
+                            <Text
+                              style={[
+                                styles.teamName,
+                                !homeHasRecord && styles.teamNameNoRecord,
+                                {
+                                  color: homeFav ? colors.primary : theme.text,
+                                  fontWeight: homeWins ? "700" : "400",
+                                  opacity: homeWins ? 1 : isFinished ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {homeFav ? "★ " : ""}
+                              {home.displayName || "Home"}
+                            </Text>
+                          </View>
+                          {homeHasRecord ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                {
+                                  color: theme.textSecondary,
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {homeRecord}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && homeScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: homeWins ? colors.primary : theme.text,
+                                fontWeight: homeWins ? "700" : "400",
+                                opacity: !homeWins && isFinished ? 0.55 : 1,
+                              },
+                            ]}
+                          >
+                            {homeScore}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.gameFooter,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
+                    <View style={styles.gameFooterLeft}>
+                      {game.venue ? (
+                        <Text
+                          style={[styles.venue, { color: theme.textSecondary }]}
+                        >
+                          {game.venue}
+                        </Text>
+                      ) : null}
+                      {/* Down and distance for live games */}
+                      {game.situation?.downDistanceText &&
+                        !game.isCompleted &&
+                        game.status &&
+                        !/halftime/i.test(game.status) && (
+                          <Text
+                            style={[
+                              styles.downDistance,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            {game.situation.downDistanceText}
+                          </Text>
+                        )}
+                      {(game.season?.type === 3 ||
+                        game.season?.type === 4 ||
+                        game.season?.type === 5) &&
+                      game.notes ? (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Ionicons
+                            name="trophy"
+                            size={14}
+                            color={colors.primary}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            style={[
+                              styles.broadcast,
+                              {
+                                color: colors.primary,
+                                fontWeight: "700",
+                                fontStyle: "normal",
+                              },
+                            ]}
+                          >
+                            {game.notes}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {game.broadcast ? (
+                        <Text
+                          style={[
+                            styles.broadcast,
+                            { color: theme.textTertiary },
+                          ]}
+                        >
+                          {game.broadcast}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.gameFooterRight}>
+                      <LiveViewerBadge
+                        gameId={game.id}
+                        status={{
+                          isCompleted: game.isCompleted,
+                          status: game.gameStatus,
+                        }}
+                        style={styles.viewerBadge}
+                      />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
+
+// ── Main screen ─────────────────────────────────────────────────────
+const NFLScoreboardScreen = ({ navigation }) => {
+  const { colors, theme, isDarkMode, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const { isFavorite } = useFavorites();
+
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState(getAutoSelectedDateStr());
+  const [isGridView, setIsGridView] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("viewMode_nfl").then((val) => {
+      if (val !== null) setIsGridView(val === "grid");
+    });
+  }, []);
+
+  const toggleViewMode = () => {
+    setIsGridView((v) => {
+      const next = !v;
+      AsyncStorage.setItem("viewMode_nfl", next ? "grid" : "list");
+      return next;
+    });
   };
+
+  const intervalRef = useRef(null);
+  const currentIntervalMs = useRef(null);
+  const isFocusedRef = useRef(false);
+  const fetchCacheRef = useRef({});
+  const inFlightRef = useRef({});
+  const IN_MEMORY_CACHE_MS = 10 * 1000;
+
+  const loadData = useCallback(
+    async (filter, silent = false, background = false, force = false) => {
+      const now = Date.now();
+      const cacheEntry = fetchCacheRef.current[filter];
+      if (!force && cacheEntry && now - cacheEntry.ts < IN_MEMORY_CACHE_MS) {
+        setGroups(cacheEntry.groups);
+        return cacheEntry.groups;
+      }
+
+      if (inFlightRef.current[filter]) return inFlightRef.current[filter];
+
+      const promise = (async () => {
+        if (!silent) setLoading(true);
+        else if (!background) setFetching(true);
+
+        try {
+          const data = await NFLService.getScoreboard(filter, filter);
+          const events = Array.isArray(data?.events) ? data.events : [];
+          const games = events
+            .map((e) => NFLService.formatGameForMobile(e))
+            .filter(Boolean);
+
+          const sorted = [...games].sort((a, b) => {
+            const pa = getStatusPriority(a);
+            const pb = getStatusPriority(b);
+            if (pa !== pb) return pa - pb;
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          });
+
+          const nextGroups = groupGamesByDate(sorted);
+          setGroups(nextGroups);
+          fetchCacheRef.current[filter] = {
+            groups: nextGroups,
+            ts: Date.now(),
+          };
+
+          return nextGroups;
+        } catch (err) {
+          console.error("NFL scoreboard fetch error:", err);
+          setGroups([]);
+          return [];
+        } finally {
+          setLoading(false);
+          if (!background) setFetching(false);
+        }
+      })();
+
+      inFlightRef.current[filter] = promise;
+      try {
+        const res = await promise;
+        return res;
+      } finally {
+        delete inFlightRef.current[filter];
+      }
+    },
+    [],
+  );
+
+  const schedulePolling = useCallback(
+    (filter, latestGroups) => {
+      if (!isFocusedRef.current) return;
+
+      const isTodayFilter = String(filter) === getTodayDateStr();
+      const allGames = latestGroups.flatMap((g) => g.games);
+      const hasLiveGames = allGames.some((game) => isNflGameLive(game));
+
+      // Only skip polling if it's not today AND there are no live games
+      if (!isTodayFilter && !hasLiveGames) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          currentIntervalMs.current = null;
+        }
+        return;
+      }
+
+      const desired = getPollingInterval(latestGroups);
+
+      if (!desired) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          currentIntervalMs.current = null;
+        }
+        return;
+      }
+
+      if (currentIntervalMs.current === desired && intervalRef.current) return;
+
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      currentIntervalMs.current = desired;
+      intervalRef.current = setInterval(async () => {
+        const fresh = await loadData(filter, true, true);
+        schedulePolling(filter, fresh);
+      }, desired);
+    },
+    [loadData],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      loadData(activeFilter, true, true, true).then((fresh) =>
+        schedulePolling(activeFilter, fresh),
+      );
+
+      return () => {
+        isFocusedRef.current = false;
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          currentIntervalMs.current = null;
+        }
+      };
+    }, [activeFilter, loadData, schedulePolling]),
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const fresh = await loadData(activeFilter, true, false, true);
+    schedulePolling(activeFilter, fresh);
+    setRefreshing(false);
+  };
+
+  const handleDateSelect = (dateStr) => {
+    setActiveFilter(dateStr);
+    loadData(dateStr, true).then((fresh) => schedulePolling(dateStr, fresh));
+  };
+
+  const AD_SPACE = 80;
 
   if (loading) {
     return (
@@ -984,10 +1698,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text
-          allowFontScaling={false}
-          style={[styles.loadingText, { color: theme.textSecondary }]}
-        >
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
           Loading NFL Scoreboard...
         </Text>
       </View>
@@ -996,95 +1707,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Date Filter Buttons */}
-      <View
-        style={[
-          styles.dateFilterContainer,
-          { backgroundColor: theme.surface, borderBottomColor: theme.border },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.dateFilterButton,
-            {
-              backgroundColor:
-                selectedDateFilter === "yesterday"
-                  ? colors.primary
-                  : theme.surfaceSecondary,
-            },
-          ]}
-          onPress={() => handleDateFilterChange("yesterday")}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.dateFilterText,
-              {
-                color: selectedDateFilter === "yesterday" ? "#fff" : theme.text,
-              },
-            ]}
-          >
-            Yesterday
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.dateFilterButton,
-            {
-              backgroundColor:
-                selectedDateFilter === "today"
-                  ? colors.primary
-                  : theme.surfaceSecondary,
-            },
-          ]}
-          onPress={() => handleDateFilterChange("today")}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.dateFilterText,
-              { color: selectedDateFilter === "today" ? "#fff" : theme.text },
-            ]}
-          >
-            Today
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.dateFilterButton,
-            {
-              backgroundColor:
-                selectedDateFilter === "upcoming"
-                  ? colors.primary
-                  : theme.surfaceSecondary,
-            },
-          ]}
-          onPress={() => handleDateFilterChange("upcoming")}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.dateFilterText,
-              {
-                color: selectedDateFilter === "upcoming" ? "#fff" : theme.text,
-              },
-            ]}
-          >
-            Upcoming
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={games}
-        renderItem={renderGameCard}
-        keyExtractor={(item, index) => {
-          if (item.type === "header") return `header-${item.date}`;
-          if (item.type === "no-games") return `no-games-${index}`;
-          return item.id || `game-${index}`;
-        }}
+      <ScrollView
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1092,118 +1715,250 @@ const NFLScoreboardScreen = ({ navigation }) => {
             colors={[colors.primary]}
           />
         }
-        contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() =>
-          !loading && (
-            <View style={styles.emptyContainer}>
+        stickyHeaderIndices={[0]}
+      >
+        <DatePickerBar
+          dates={DATE_OPTIONS}
+          selectedDateStr={activeFilter}
+          onSelect={handleDateSelect}
+          isGridView={isGridView}
+          toggleViewMode={toggleViewMode}
+          theme={theme}
+          colors={colors}
+        />
+
+        <View style={{ opacity: fetching ? 0.45 : 1 }}>
+          {groups.length > 0 ? (
+            isGridView ? (
+              <NFLGridSection
+                groups={groups}
+                navigation={navigation}
+                theme={theme}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isFavorite={isFavorite}
+                getTeamLogoUrl={getTeamLogoUrl}
+              />
+            ) : (
+              <View style={styles.listContainer}>
+                <ScoreboardSection
+                  groups={groups}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isFavorite={isFavorite}
+                  getTeamLogoUrl={getTeamLogoUrl}
+                />
+              </View>
+            )
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="american-football-outline"
+                size={48}
+                color={theme.textSecondary}
+              />
               <Text
-                allowFontScaling={false}
-                style={[styles.emptyText, { color: theme.textSecondary }]}
+                style={[styles.emptyStateText, { color: theme.textSecondary }]}
               >
-                No games scheduled
+                No games found
               </Text>
             </View>
-          )
-        }
-      />
+          )}
+        </View>
+
+        <View
+          style={[styles.bottomPadding, { height: isPro ? 40 : 40 + AD_SPACE }]}
+        />
+      </ScrollView>
+      {!isPro && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };
 
+// ── Styles ──────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 32,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
   },
-  listContainer: {
-    padding: 16,
-  },
-  gameCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  gameHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  emptyState: {
     alignItems: "center",
-    marginBottom: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
   },
-  gameStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  gameClock: {
-    fontSize: 14,
-  },
-  teamsContainer: {
-    marginBottom: 12,
-  },
-  teamRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  teamLogo: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  teamInfo: {
-    flex: 1,
-  },
-  teamName: {
+  emptyStateText: {
+    marginTop: 12,
     fontSize: 16,
-    fontWeight: "600",
-  },
-  teamRecord: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  teamScore: {
-    fontSize: 24,
-    fontWeight: "bold",
-    minWidth: 40,
     textAlign: "center",
   },
-  losingTeamScore: {
-    opacity: 0.6,
+  bottomPadding: { height: 32 },
+  listContainer: {
+    paddingHorizontal: 16,
   },
-  losingTeamName: {
-    opacity: 0.6,
+  scoreboardContainer: {
+    marginBottom: 24,
   },
-  losingTeamLogo: {
-    opacity: 0.5,
+  eventContainer: {
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
   },
-  losingTeamScore: {
-    color: "#999",
+  eventHeaderContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    marginBottom: 5,
+    borderRadius: 12,
   },
-  losingTeamName: {
-    color: "#999",
+  eventHeaderMainTap: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  eventLogoContainer: {
+    marginRight: 12,
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eventHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+    paddingRight: 5,
+  },
+  eventCount: {
+    fontSize: 13.5,
+  },
+  eventInfo: { flex: 1 },
+  eventName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  eventSubLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    textTransform: "uppercase",
+  },
+  matchesList: { gap: 5 },
+  gameRow: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 12,
+  },
+  matchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  statusContainer: {
+    width: 60,
+    marginRight: 14,
+    alignItems: "center",
+  },
+  statusLine1: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  statusLine2: {
+    fontSize: 11,
+    opacity: 0.7,
+    textAlign: "center",
+  },
+  stackedTeams: { flex: 1 },
+  teamWithLogo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  teamLogoSmall: {
+    width: 35,
+    height: 35,
+    marginRight: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  teamLogoSmallImg: {
+    width: 35,
+    height: 35,
+    borderRadius: 3,
+  },
+  teamNameWithPossession: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  possessionIndicatorList: {
+    fontSize: 12,
+  },
+  teamName: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  teamNameNoRecord: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  teamTextStack: {
+    flex: 1,
+  },
+  teamTextStackWithRecord: {
+    justifyContent: "flex-start",
+  },
+  teamTextStackNoRecord: {
+    justifyContent: "center",
+  },
+  teamRecord: {
+    marginTop: 1,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  scoreText: {
+    fontSize: 16,
+    marginLeft: 8,
+    minWidth: 22,
+    textAlign: "right",
+  },
+  downDistance: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 2,
   },
   gameFooter: {
+    marginTop: -8,
     borderTopWidth: 1,
     paddingTop: 8,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   gameFooterLeft: { flex: 1 },
   gameFooterRight: { alignItems: "flex-end" },
@@ -1216,73 +1971,198 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: "italic",
   },
-  downDistance: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 2,
+});
+
+const dateBarStyles = StyleSheet.create({
+  outerWrapper: {
+    marginBottom: 15,
   },
-  teamLogoContainer: {
+  wrapper: {
     flexDirection: "row",
     alignItems: "center",
-    position: "relative",
+    height: DATE_BAR_H,
   },
-  possessionIndicator: {
-    fontSize: 12,
-    position: "absolute",
-    zIndex: 10,
+  separator: {
+    height: StyleSheet.hairlineWidth,
   },
-  awayPossession: {
-    right: -5,
-    top: -2,
+  scrollArea: {
+    flex: 1,
+    height: DATE_BAR_H,
+    overflow: "hidden",
   },
-  homePossession: {
-    left: -5,
-    top: -2,
+  item: {
+    width: DATE_ITEM_W,
+    height: DATE_BAR_H,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
-  dateHeader: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 8,
-  },
-  dateHeaderText: {
-    fontSize: 16,
-    fontWeight: "bold",
+  itemText: {
+    fontSize: 13,
     textAlign: "center",
   },
-  dateFilterContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
+  itemIndicator: {
+    height: 2,
+    width: 24,
+    borderRadius: 1,
+    marginTop: 4,
   },
-  dateFilterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+  toggleBtn: {
+    height: DATE_BAR_H,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+const nflGridStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: NFL_GRID_H_PAD,
+    marginBottom: 24,
+  },
+  groupWrapper: {
+    marginBottom: 16,
+  },
+  groupHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    gap: 8,
+  },
+  groupBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     borderRadius: 20,
-    minWidth: 80,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  groupBubbleName: {
+    fontSize: 13,
+    fontWeight: "600",
+    maxWidth: 200,
+  },
+  groupBubbleCount: {
+    marginLeft: 6,
+    fontSize: 12,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: NFL_GRID_GAP,
+  },
+  card: {
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 2,
+  },
+  cardTop: {
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  teamsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+    alignItems: "flex-start",
+  },
+  teamSide: {
+    flex: 1,
     alignItems: "center",
   },
-  activeFilterButton: {
-    // Background color applied dynamically
+  divider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginHorizontal: 4,
+    opacity: 0.35,
   },
-  dateFilterText: {
-    fontSize: 14,
-    fontWeight: "600",
+  teamLogo: {
+    width: 50,
+    height: 50,
+    marginBottom: 5,
   },
-  activeFilterText: {
-    // Color applied dynamically
-  },
-  emptyContainer: {
-    flex: 1,
+  teamLogoPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 50,
+    marginBottom: 5,
   },
-  emptyText: {
-    fontSize: 16,
+  teamLogoPlaceholderText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "white",
+  },
+  scoreCell: {
+    width: 80,
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+    position: "relative",
+  },
+  scoreText: {
+    fontSize: 38,
+    lineHeight: 50,
+  },
+  scoreLogoOverlay: {
+    position: "absolute",
+    bottom: -5,
+    right: -5,
+    width: 30,
+    height: 30,
+    opacity: 0.75,
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  possessionLeft: {
+    fontSize: 10,
+    marginRight: 3,
+  },
+  possessionRight: {
+    fontSize: 10,
+    marginLeft: 3,
+  },
+  teamAbbr: {
+    fontSize: 11,
+    fontWeight: "700",
     textAlign: "center",
+    textTransform: "uppercase",
+  },
+  teamRecord: {
+    fontSize: 9,
+    fontWeight: "500",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  cardFooter: {
+    borderTopWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  venueText: {
+    fontSize: 9,
+    textAlign: "center",
+  },
+  cardBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
   },
 });
 

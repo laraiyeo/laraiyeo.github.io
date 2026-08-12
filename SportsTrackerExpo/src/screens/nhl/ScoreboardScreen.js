@@ -18,7 +18,7 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import { NHLService } from "../../services/NHLService";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
@@ -1669,6 +1669,11 @@ const NHLScoreboardScreen = ({ navigation }) => {
             )
           ) : (
             <View style={styles.emptyState}>
+                          <FontAwesome6
+                            name="hockey-puck"
+                            size={48}
+                            color={theme.textSecondary}
+                          />
               <Text
                 style={[styles.emptyStateText, { color: theme.textSecondary }]}
               >

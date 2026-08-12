@@ -1,5 +1,11 @@
-﻿import React, { useState, useEffect, useRef } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+﻿import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -8,13 +14,14 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Image,
   Animated,
   Modal,
   Dimensions,
   Share,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -25,7 +32,13 @@ import ChatComponent from "../../components/ChatComponent";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { useGamePresence } from "../../hooks/useGamePresence";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Circle,
+} from "react-native-svg";
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -59,6 +72,554 @@ const calculateColorSimilarity = (color1, color2) => {
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
   return normalizedDistance < 0.3;
 };
+
+// NFL team color map (abbreviation → primary hex, no leading #)
+const NFL_TEAM_COLORS = {
+  ARI: "97233F",
+  ATL: "A71930",
+  BAL: "241773",
+  BUF: "00338D",
+  CAR: "0085CA",
+  CHI: "0B162A",
+  CIN: "FB4F14",
+  CLE: "FF3C00",
+  DAL: "003594",
+  DEN: "FB4F14",
+  DET: "0076B6",
+  GB: "203731",
+  HOU: "03202F",
+  IND: "002C5F",
+  JAX: "006778",
+  KC: "E31837",
+  LAC: "0080C6",
+  LAR: "003594",
+  LV: "A5ACAF",
+  MIA: "008E97",
+  MIN: "4F2683",
+  NE: "002244",
+  NO: "D3BC8D",
+  NYG: "0B2265",
+  NYJ: "125740",
+  PHI: "004C54",
+  PIT: "FFB612",
+  SF: "AA0000",
+  SEA: "002244",
+  TB: "D50A0A",
+  TEN: "4B92DB",
+  WAS: "5A1414",
+};
+
+const getNflTeamColor = (abbreviation, fallback = "#888888") => {
+  const abbr = String(abbreviation || "").toUpperCase();
+  const hex = NFL_TEAM_COLORS[abbr];
+  return hex ? `#${hex}` : fallback;
+};
+
+const getTextOnColor = (hex) => {
+  const v = String(hex || "").replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(v)) return "#FFFFFF";
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  const l = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return l > 0.55 ? "#111111" : "#FFFFFF";
+};
+
+const { width } = Dimensions.get("window");
+
+const NflHeaderGradient = ({ homeColor, awayColor, theme, height }) => (
+  <View style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
+    <Svg width={width} height={height} pointerEvents="none">
+      <Defs>
+        <LinearGradient id="nflHeaderGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={awayColor} stopOpacity="0.3" />
+          <Stop
+            offset="40%"
+            stopColor={theme.surfaceSecondary || theme.surface}
+            stopOpacity="0"
+          />
+          <Stop
+            offset="60%"
+            stopColor={theme.surfaceSecondary || theme.surface}
+            stopOpacity="0"
+          />
+          <Stop offset="100%" stopColor={homeColor} stopOpacity="0.3" />
+        </LinearGradient>
+      </Defs>
+      <Rect width={width} height={height} fill="url(#nflHeaderGrad)" />
+    </Svg>
+  </View>
+);
+
+const NflStatusBadge = ({
+  statusMain,
+  statusSub,
+  isFinished,
+  isPre,
+  theme,
+  colors,
+}) => (
+  <View style={nflHeaderStyles.statusBadge}>
+    <Text
+      style={[
+        nflHeaderStyles.statusMain,
+        {
+          color: isFinished
+            ? theme.textSecondary
+            : isPre
+              ? theme.text
+              : theme.error || colors.primary,
+        },
+      ]}
+    >
+      {statusMain || "--"}
+    </Text>
+    {!!statusSub && (
+      <Text
+        style={[
+          nflHeaderStyles.statusSub,
+          { color: theme.textTertiary || theme.textSecondary },
+        ]}
+      >
+        {statusSub}
+      </Text>
+    )}
+  </View>
+);
+
+const NflPlayFieldMini = ({ play, teamColor, startYard, endYard }) => {
+  const safeColor = teamColor || "#888888";
+
+  // Field dimensions (landscape, no rotation)
+  const fieldWidth = 300;
+  const fieldHeight = 130;
+
+  const hasDriveVisualization = startYard != null && endYard != null;
+
+  // Yard markers (same as share card)
+  const renderYardMarkers = () => {
+    const markers = [];
+    const yardNumbers = [10, 20, 30, 40, 50, 40, 30, 20, 10];
+    for (let i = 0; i < yardNumbers.length; i++) {
+      const leftPosition = 10 + i * 10;
+      markers.push(
+        <View
+          key={`yard-${i}`}
+          style={{
+            position: "absolute",
+            left: `${leftPosition}%`,
+            top: 0,
+            bottom: 0,
+            width: 1,
+            backgroundColor: "white",
+            opacity: 0.45,
+          }}
+        />,
+      );
+      markers.push(
+        <View
+          key={`hash-top-${i}`}
+          style={{
+            position: "absolute",
+            left: `${leftPosition}%`,
+            top: "15%",
+            width: 4,
+            height: 1.5,
+            backgroundColor: "white",
+            marginLeft: -1.5,
+          }}
+        />,
+      );
+      markers.push(
+        <View
+          key={`hash-bot-${i}`}
+          style={{
+            position: "absolute",
+            left: `${leftPosition}%`,
+            bottom: "15%",
+            width: 4,
+            height: 1.5,
+            backgroundColor: "white",
+            marginLeft: -1.5,
+          }}
+        />,
+      );
+      markers.push(
+        <Text
+          key={`lbl-top-${i}`}
+          style={{
+            position: "absolute",
+            left: `${leftPosition}%`,
+            top: "3.5%",
+            fontSize: 8,
+            fontWeight: "800",
+            color: "white",
+            marginLeft: -4.5,
+          }}
+        >
+          {yardNumbers[i]}
+        </Text>,
+      );
+      markers.push(
+        <Text
+          key={`lbl-bot-${i}`}
+          style={{
+            position: "absolute",
+            left: `${leftPosition}%`,
+            bottom: "3.5%",
+            fontSize: 8,
+            fontWeight: "800",
+            color: "white",
+            marginLeft: -4.5,
+            transform: [{ rotate: "180deg" }],
+          }}
+        >
+          {yardNumbers[i]}
+        </Text>,
+      );
+    }
+    return markers;
+  };
+
+  // Hash marks (same as share card)
+  const renderHashMarks = () => {
+    const marks = [];
+    for (let i = 1; i < 100; i++) {
+      marks.push(
+        <View
+          key={`hm-t-${i}`}
+          style={{
+            position: "absolute",
+            left: `${i}%`,
+            top: 0,
+            width: 1,
+            height: 3,
+            backgroundColor: "white",
+            opacity: 0.35,
+          }}
+        />,
+      );
+      marks.push(
+        <View
+          key={`hm-b-${i}`}
+          style={{
+            position: "absolute",
+            left: `${i}%`,
+            bottom: 0,
+            width: 1,
+            height: 3,
+            backgroundColor: "white",
+            opacity: 0.35,
+          }}
+        />,
+      );
+    }
+    return marks;
+  };
+
+  // Play/Drive gradient visualization
+  const renderDriveGradient = () => {
+    if (!hasDriveVisualization) return null;
+    const startPosForStart = 100 - startYard;
+    const startPosForEnd = 100 - (endYard ?? startYard);
+    const start = Math.min(startPosForStart, startPosForEnd);
+    const width = Math.abs(startPosForEnd - startPosForStart);
+
+    const gradientId = `drv-g-${startYard}-${endYard}`;
+    const lighter = safeColor.startsWith("#") ? `${safeColor}33` : safeColor;
+    const darker = safeColor.startsWith("#") ? `${safeColor}FF` : safeColor;
+    const startIsLeft = startPosForStart <= startPosForEnd;
+
+    const stops = startIsLeft
+      ? [
+          <Stop key="s1" offset="0%" stopColor={lighter} stopOpacity={0.35} />,
+          <Stop key="s2" offset="100%" stopColor={darker} stopOpacity={0.95} />,
+        ]
+      : [
+          <Stop key="s3" offset="0%" stopColor={darker} stopOpacity={0.95} />,
+          <Stop
+            key="s4"
+            offset="100%"
+            stopColor={lighter}
+            stopOpacity={0.35}
+          />,
+        ];
+
+    return (
+      <>
+        {width > 0 && (
+          <Svg
+            width="100%"
+            height="100%"
+            style={{ position: "absolute", left: `${start}%` }}
+          >
+            <Defs>
+              <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                {stops}
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width={`${width}%`}
+              height="100%"
+              fill={`url(#${gradientId})`}
+              opacity={1}
+            />
+          </Svg>
+        )}
+        <View
+          style={{
+            position: "absolute",
+            left: `${start}%`,
+            top: 0,
+            bottom: 0,
+            width: 1,
+            backgroundColor: safeColor,
+            opacity: 1,
+            marginLeft: -1,
+          }}
+        />
+        {width > 0 && (
+          <View
+            style={{
+              position: "absolute",
+              left: `${start + width}%`,
+              top: 0,
+              bottom: 0,
+              width: 1,
+              backgroundColor: safeColor,
+              opacity: 1,
+              marginLeft: -1,
+            }}
+          />
+        )}
+      </>
+    );
+  };
+
+  return (
+    <View style={{ width: "100%", overflow: "hidden", marginVertical: 4 }}>
+      <View
+        style={{
+          width: "100%",
+          aspectRatio: fieldWidth / fieldHeight,
+          backgroundColor: "#2d5016",
+          borderWidth: 2,
+          borderColor: "#1a3009",
+          borderRadius: 4,
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        {/* Left end zone */}
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: "10%",
+            backgroundColor: safeColor,
+            opacity: 0.65,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 7,
+              fontWeight: "800",
+              color: "white",
+            }}
+          >
+            NFL
+          </Text>
+        </View>
+
+        {/* Right end zone */}
+        <View
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "10%",
+            backgroundColor: safeColor,
+            opacity: 0.65,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 7,
+              fontWeight: "800",
+              color: "white",
+            }}
+          >
+            NFL
+          </Text>
+        </View>
+
+        {/* Field interior */}
+        <View
+          style={{
+            position: "absolute",
+            left: "10%",
+            right: "10%",
+            top: 0,
+            bottom: 0,
+          }}
+        >
+          {renderYardMarkers()}
+          {renderHashMarks()}
+
+          {/* Midfield line */}
+          <View
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              bottom: 0,
+              width: 2,
+              backgroundColor: "white",
+              opacity: 1,
+              marginLeft: -0.5,
+            }}
+          />
+
+          {/* NFL logo */}
+          <Image
+            source={require("../../../assets/nfl.png")}
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: 20,
+              height: 20,
+              marginLeft: -10,
+              marginTop: -10,
+              opacity: 1,
+            }}
+            resizeMode="contain"
+          />
+
+          {/* Drive gradient visualization */}
+          {renderDriveGradient()}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const NflTeamSide = ({
+  team,
+  logo,
+  score,
+  record,
+  side,
+  isPre,
+  isFinished,
+  isWinner,
+  isLoser,
+  theme,
+  colors,
+  showPossession,
+  onPress,
+}) => (
+  <View style={nflHeaderStyles.teamSide}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <View style={nflHeaderStyles.logoScoreRow}>
+        {side === "home" && !isPre ? (
+          <Text
+            style={[
+              nflHeaderStyles.teamScore,
+              {
+                color: isWinner
+                  ? theme.text
+                  : isLoser
+                    ? theme.textSecondary
+                    : theme.text,
+                fontWeight: isWinner ? "800" : "400",
+              },
+            ]}
+          >
+            {score}
+          </Text>
+        ) : null}
+
+        <View style={nflHeaderStyles.logoWrap}>
+          {showPossession && side === "home" ? (
+            <View style={nflHeaderStyles.possessionBadgeHome}>
+              <FontAwesome6 name="football" size={10} color={theme.text} />
+            </View>
+          ) : null}
+          <Image
+            source={{ uri: logo }}
+            style={[
+              nflHeaderStyles.teamLogo,
+              { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
+            ]}
+            resizeMode="contain"
+          />
+          {showPossession && side === "away" ? (
+            <View style={nflHeaderStyles.possessionBadgeAway}>
+              <FontAwesome6 name="football" size={10} color={theme.text} />
+            </View>
+          ) : null}
+        </View>
+
+        {side === "away" && !isPre ? (
+          <Text
+            style={[
+              nflHeaderStyles.teamScore,
+              {
+                color: isWinner
+                  ? theme.text
+                  : isLoser
+                    ? theme.textSecondary
+                    : theme.text,
+                fontWeight: isWinner ? "800" : "400",
+              },
+            ]}
+          >
+            {score}
+          </Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+
+    <View style={nflHeaderStyles.teamNameRow}>
+      <Text
+        style={[
+          nflHeaderStyles.teamName,
+          {
+            color: theme.text,
+            opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+          },
+        ]}
+        numberOfLines={2}
+      >
+        {team?.name || team?.abbreviation || ""}
+      </Text>
+      {record ? (
+        <Text
+          style={[
+            nflHeaderStyles.teamRecord,
+            {
+              color: theme.textSecondary,
+              opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
+            },
+          ]}
+          numberOfLines={2}
+        >
+          {record}
+        </Text>
+      ) : null}
+    </View>
+  </View>
+);
 
 // Component to display play probability like scoreboard copy card
 const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
@@ -134,11 +695,12 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
 
 const GameDetailsScreen = ({ route }) => {
   const { gameId, sport } = route.params;
+  const navigation = useNavigation();
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isFavorite } = useFavorites();
   const [gameDetails, setGameDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("stats"); // Default to stats tab
+  const [activeTab, setActiveTab] = useState("main"); // Default to main tab
   const [drivesData, setDrivesData] = useState(null);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -149,10 +711,26 @@ const GameDetailsScreen = ({ route }) => {
   const [formattedGameData, setFormattedGameData] = useState(null); // Formatted like scoreboard
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [driveModalVisible, setDriveModalVisible] = useState(false);
+  const [selectedDriveIdx, setSelectedDriveIdx] = useState(null);
+  const [livePlayIdx, setLivePlayIdx] = useState(0);
+
+  // Reset livePlayIdx to latest play when drives data updates
+  useEffect(() => {
+    if (!drivesData || drivesData.length === 0) {
+      setLivePlayIdx(0);
+      return;
+    }
+    let totalPlays = 0;
+    for (const drive of drivesData) {
+      totalPlays += (drive.plays || []).length;
+    }
+    setLivePlayIdx(Math.max(0, totalPlays - 1));
+  }, [drivesData]);
+
+  const [expandedNflPlayId, setExpandedNflPlayId] = useState(null);
   const [updateInterval, setUpdateInterval] = useState(null);
   const [lastUpdateHash, setLastUpdateHash] = useState("");
   const [lastSituationHash, setLastSituationHash] = useState("");
-  const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [awayRosterData, setAwayRosterData] = useState(null);
   const [homeRosterData, setHomeRosterData] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
@@ -180,7 +758,10 @@ const GameDetailsScreen = ({ route }) => {
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
-  const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+  const scrollY = useMemo(() => new Animated.Value(0), []);
+  const [headerH, setHeaderH] = useState(190);
+  const [linescoreAvailableW, setLinescoreAvailableW] = useState(0);
+  const [teamPositionFilter, setTeamPositionFilter] = useState("ALL");
 
   // Stream API functions (adapted from MLB)
   const STREAM_API_BASE = "https://streamed.pk/api";
@@ -203,7 +784,6 @@ const GameDetailsScreen = ({ route }) => {
       }
 
       const allMatches = await response.json();
-      console.log(`Found ${allMatches.length} total live matches`);
 
       // Filter matches by american football / nfl
       const matches = allMatches.filter((match) => {
@@ -216,7 +796,6 @@ const GameDetailsScreen = ({ route }) => {
               match.title.toLowerCase().includes("football")))
         );
       });
-      console.log(`Filtered to ${matches.length} NFL matches`);
 
       liveMatchesCache = matches;
       cacheTimestamp = now;
@@ -291,27 +870,18 @@ const GameDetailsScreen = ({ route }) => {
 
   const findNFLMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      console.log(
-        `Finding NFL streams for: ${awayTeamName} vs ${homeTeamName}`,
-      );
-
       const liveMatches = await fetchLiveMatches();
       if (
         !liveMatches ||
         !Array.isArray(liveMatches) ||
         liveMatches.length === 0
       ) {
-        console.log("No live NFL matches data available");
         return {};
       }
 
       // Try to find our match
       const homeNormalized = normalizeNFLTeamName(homeTeamName).toLowerCase();
       const awayNormalized = normalizeNFLTeamName(awayTeamName).toLowerCase();
-
-      console.log(
-        `Normalized NFL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
-      );
 
       let bestMatch = null;
       let bestScore = 0;
@@ -399,41 +969,20 @@ const GameDetailsScreen = ({ route }) => {
           totalScore += strategy();
         });
 
-        console.log(
-          `NFL Match "${match.title.substring(
-            0,
-            50,
-          )}..." score: ${totalScore.toFixed(2)}`,
-        );
-
         if (totalScore > bestScore) {
           bestScore = totalScore;
           bestMatch = match;
 
           // Early exit if we find a very good match
           if (bestScore >= 1.0) {
-            console.log(
-              `Found excellent NFL match with score ${bestScore}, stopping search early`,
-            );
             break;
           }
         }
       }
 
       if (!bestMatch || bestScore < 0.3) {
-        console.log(
-          `No good matching NFL live match found (best score: ${bestScore.toFixed(
-            2,
-          )})`,
-        );
         return {};
       }
-
-      console.log(
-        `Found matching NFL match: ${
-          bestMatch.title
-        } (score: ${bestScore.toFixed(2)})`,
-      );
 
       // Collect only the first stream from each source (like soccer does)
       const allStreams = {};
@@ -456,10 +1005,6 @@ const GameDetailsScreen = ({ route }) => {
                 source.source.charAt(0).toUpperCase() + source.source.slice(1)
               } Stream`,
             };
-            console.log(
-              `Added NFL stream for ${source.source}:`,
-              allStreams[sourceKey],
-            );
           }
         } catch (error) {
           console.error(
@@ -469,7 +1014,6 @@ const GameDetailsScreen = ({ route }) => {
         }
       }
 
-      console.log(`Final NFL streams found:`, allStreams);
       return allStreams;
     } catch (error) {
       console.error("Error in findNFLMatchStreams:", error);
@@ -497,8 +1041,6 @@ const GameDetailsScreen = ({ route }) => {
   // Stream modal functions
   const openStreamModal = async () => {
     try {
-      console.log("openStreamModal: invoked");
-
       // Check if streaming is unlocked
       if (!isStreamingUnlocked) {
         Alert.alert(
@@ -560,19 +1102,6 @@ const GameDetailsScreen = ({ route }) => {
         awayComp?.teamData ||
         null;
 
-      console.log(
-        "openStreamModal: competition title =",
-        competition?.title || competition?.name,
-      );
-      console.log("openStreamModal: homeComp =", homeComp);
-      console.log("openStreamModal: awayComp =", awayComp);
-      console.log(
-        "openStreamModal: resolved homeTeam =",
-        homeTeam?.displayName || homeTeam?.name,
-        "resolved awayTeam =",
-        awayTeam?.displayName || awayTeam?.name,
-      );
-
       if (!awayTeam || !homeTeam) {
         console.warn("openStreamModal: team info missing after fallbacks");
         Alert.alert("Error", "Team information not available");
@@ -601,7 +1130,6 @@ const GameDetailsScreen = ({ route }) => {
         "";
 
       const streams = await findNFLMatchStreams(homeName, awayName);
-      console.log("openStreamModal: streams result =", streams);
       setAvailableStreams(streams || {});
 
       // Generate initial stream URL - use first available stream
@@ -629,13 +1157,6 @@ const GameDetailsScreen = ({ route }) => {
         );
         setCurrentStreamType(initialStreamType);
       }
-
-      console.log(
-        "openStreamModal: initialStreamType =",
-        initialStreamType,
-        "initialUrl =",
-        initialUrl,
-      );
       setStreamUrl(initialUrl);
       setIsStreamLoading(false);
     } catch (err) {
@@ -769,13 +1290,6 @@ const GameDetailsScreen = ({ route }) => {
       SEA: "26",
     };
 
-    console.log(
-      "Team abbreviation:",
-      espnTeam.abbreviation,
-      "ESPN ID:",
-      espnTeam.id,
-    );
-
     let nflId = teamMapping[espnTeam.abbreviation];
 
     if (!nflId) {
@@ -788,8 +1302,6 @@ const GameDetailsScreen = ({ route }) => {
       );
       return espnTeam.id;
     }
-
-    console.log("Final NFL ID:", nflId);
     return nflId;
   };
 
@@ -860,6 +1372,8 @@ const GameDetailsScreen = ({ route }) => {
     setGameSituation(null);
     setLastUpdateHash("");
     setLastSituationHash("");
+    setSelectedDriveIdx(null);
+    setExpandedNflPlayId(null);
   }, [gameId]);
 
   // Reload data when the screen comes into focus (useful when navigating back)
@@ -887,6 +1401,13 @@ const GameDetailsScreen = ({ route }) => {
     }
   }, [gameDetails, homeRosterData, awayRosterData]);
 
+  // Reset team tab state when switching between away/home
+  useEffect(() => {
+    if (activeTab === "away" || activeTab === "home") {
+      setTeamPositionFilter("ALL");
+    }
+  }, [activeTab]);
+
   // Set up live updates when gameDetails is loaded
   useEffect(() => {
     if (!gameDetails) return;
@@ -900,7 +1421,6 @@ const GameDetailsScreen = ({ route }) => {
       const interval = setInterval(() => {
         // Skip update if stream modal is open
         if (streamModalVisible) {
-          console.log("Stream modal open, skipping NFL game update");
           return;
         }
 
@@ -936,9 +1456,9 @@ const GameDetailsScreen = ({ route }) => {
       const statusDesc = status?.type?.description?.toLowerCase();
       const isScheduled = statusDesc?.includes("scheduled");
 
-      // If we're on drives tab but game is scheduled, switch to stats tab
+      // If we're on drives tab but game is scheduled, switch to main tab
       if (activeTab === "drives" && isScheduled) {
-        setActiveTab("stats");
+        setActiveTab("main");
       }
 
       // Only load drives if we're on drives tab, game is not scheduled, and drives data is not already loaded
@@ -970,7 +1490,6 @@ const GameDetailsScreen = ({ route }) => {
       const statusDesc = status?.type?.description?.toLowerCase();
       const isScheduled = statusDesc?.includes("scheduled");
 
-      console.log("Stream modal closed, immediately fetching NFL game data");
       loadGameDetails(true);
 
       if (!isScheduled) {
@@ -1014,15 +1533,6 @@ const GameDetailsScreen = ({ route }) => {
       if (currentSituationHash !== lastSituationHash || !silentUpdate) {
         setGameSituation(situation);
         setLastSituationHash(currentSituationHash);
-
-        // Debug logging for possession data
-        console.log("=== GAME SITUATION LOADED ===");
-        console.log("Full situation data:", situation);
-        console.log("Direct possession property:", situation?.possession);
-        console.log("Down:", situation?.down);
-        console.log("Distance:", situation?.distance);
-        console.log("Yard Line:", situation?.yardLine);
-        console.log("============================");
       }
     } catch (error) {
       if (!silentUpdate) {
@@ -1286,18 +1796,6 @@ const GameDetailsScreen = ({ route }) => {
   };
 
   const handleDrivePress = async (drive) => {
-    console.log(
-      "Drive pressed:",
-      drive.id,
-      "hasPlaysData:",
-      drive.hasPlaysData,
-      "plays count:",
-      drive.plays?.length || 0,
-    );
-    console.log(
-      "Drive plays reference:",
-      drive.plays?.$ref || drive.plays?.href || "None",
-    );
     setSelectedDrive(drive);
     setDriveModalVisible(true);
 
@@ -1309,7 +1807,6 @@ const GameDetailsScreen = ({ route }) => {
 
     if (needsPlaysData && hasPlaysRef) {
       try {
-        console.log("Loading plays for drive on demand:", drive.id);
         const playsData = await NFLService.getDrivePlays(drive);
 
         // Update the drive with the loaded plays data
@@ -1318,8 +1815,6 @@ const GameDetailsScreen = ({ route }) => {
           plays: playsData,
           hasPlaysData: true,
         };
-
-        console.log("Updated drive with", playsData.length, "plays");
 
         // Update the selected drive with plays data
         setSelectedDrive(updatedDrive);
@@ -1336,9 +1831,7 @@ const GameDetailsScreen = ({ route }) => {
         // Continue showing the modal even if plays failed to load
       }
     } else if (!hasPlaysRef) {
-      console.log("Drive has no plays reference, no plays available");
     } else {
-      console.log("Drive already has plays data");
     }
   };
 
@@ -1348,12 +1841,10 @@ const GameDetailsScreen = ({ route }) => {
   };
 
   // Handler for long press on plays in drive modal
-  const handlePlayPress = async (play) => {
-    console.log("Long press detected on play:", play);
-
+  const handlePlayPress = async (play, overrideDrive) => {
     try {
       // Get team information for the scoring team
-      const driveTeam = selectedDrive?.team;
+      const driveTeam = overrideDrive?.team || selectedDrive?.team;
       const teamLogo = driveTeam?.logos?.[0]?.href || "";
       const teamColor = driveTeam?.color ? `#${driveTeam.color}` : "#000000";
       const teamAbbr = driveTeam?.abbreviation || "";
@@ -1377,7 +1868,6 @@ const GameDetailsScreen = ({ route }) => {
         // Convert to percentage if needed
         winProbability =
           rawProbability <= 1 ? rawProbability * 100 : rawProbability;
-        console.log("Using cached play win probability:", winProbability, "%");
       } else if (
         gameDetails?.winprobability &&
         Array.isArray(gameDetails.winprobability)
@@ -1403,11 +1893,6 @@ const GameDetailsScreen = ({ route }) => {
 
             winProbability =
               rawProbability <= 1 ? rawProbability * 100 : rawProbability;
-            console.log(
-              "Using cached game win probability:",
-              winProbability,
-              "%",
-            );
           } else {
             // Fallback to the most recent probability data
             const recentProb =
@@ -1424,16 +1909,9 @@ const GameDetailsScreen = ({ route }) => {
 
               winProbability =
                 rawProbability <= 1 ? rawProbability * 100 : rawProbability;
-              console.log(
-                "Using fallback cached win probability:",
-                winProbability,
-                "%",
-              );
             }
           }
-        } catch (error) {
-          console.log("Error processing cached win probability:", error);
-        }
+        } catch (error) {}
       } else {
         // Final fallback: use a reasonable default based on score difference
         const scoreDiff = homeScore - awayScore;
@@ -1447,11 +1925,6 @@ const GameDetailsScreen = ({ route }) => {
         } else {
           winProbability = 50; // Tied game
         }
-        console.log(
-          "Using fallback win probability based on score:",
-          winProbability,
-          "%",
-        );
       }
 
       // Process participant data - extract athlete IDs and find them in cached boxscore data
@@ -1536,12 +2009,6 @@ const GameDetailsScreen = ({ route }) => {
             return null;
           })
           .filter((p) => p !== null);
-
-        console.log(
-          "Processed participants using cached boxscore data:",
-          enrichedParticipants.length,
-          "players",
-        );
       }
 
       // Enrich play with team and game data for the share card
@@ -1559,12 +2026,7 @@ const GameDetailsScreen = ({ route }) => {
         winProbability,
         participants: enrichedParticipants,
         gameDetails: gameDetails,
-      });
-
-      console.log("Share card play set successfully:", {
-        playText: play.text,
-        teamName,
-        participants: enrichedParticipants.length,
+        _drive: overrideDrive || selectedDrive,
       });
     } catch (error) {
       console.error("Error in handlePlayPress:", error);
@@ -2527,10 +2989,28 @@ const GameDetailsScreen = ({ route }) => {
   const venue =
     gameDetails.gameInfo.venue.fullName || competition?.venue?.fullName;
 
+  const gameNote = gameDetails.header?.gameNote || null;
+
+  const headerText =
+    gameDetails.season?.type !== 3
+      ? `${
+          gameDetails.header?.season?.type === 1
+            ? "Preseason"
+            : gameDetails.header?.season?.type === 2
+              ? "Regular Season"
+              : null
+        } Week ${
+          gameDetails.header?.week +
+          (gameDetails.header?.season?.type === 1 ? -1 : 0)
+        }`
+      : null;
+
   // Helper functions for determining losing team styles
   const isGameFinal = status?.type?.completed;
   const awayScore = parseInt(awayTeam?.score || "0");
   const homeScore = parseInt(homeTeam?.score || "0");
+  const awayRecord = awayTeam?.record?.[0]?.summary || "";
+  const homeRecord = homeTeam?.record?.[0]?.summary || "";
   const isAwayTeamLosing = isGameFinal && awayScore < homeScore;
   const isHomeTeamLosing = isGameFinal && homeScore < awayScore;
 
@@ -2986,381 +3466,434 @@ const GameDetailsScreen = ({ route }) => {
     );
   };
 
-  // Helper function to render stats content
-  const renderStatsContent = () => (
-    <View>
-      {/* Linescore */}
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: colors.primary }]}
-        >
-          Line Score
-        </Text>
+  // Helper function to render stats content (NHL-style: possession ring + bar stats + leaders)
+  const renderStatsContent = () => {
+    const awayStats = gameDetails.boxscore?.teams?.[0]?.statistics || [];
+    const homeStats = gameDetails.boxscore?.teams?.[1]?.statistics || [];
+
+    // Parse a stat display value into a number for bar comparison
+    const parseStatNum = (val) => {
+      if (val == null) return 0;
+      const s = String(val);
+      // Handle "9-14" style (take first number)
+      const slashMatch = s.match(/^(\d+(?:\.\d+)?)/);
+      if (slashMatch) return Number(slashMatch[1]) || 0;
+      const n = Number(s.replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    // Stats to show as bars
+    const barStats = [
+      { key: "totalYards", label: "Total Yards" },
+      { key: "netPassingYards", label: "Passing Yards" },
+      { key: "rushingYards", label: "Rushing Yards" },
+      { key: "firstDowns", label: "First Downs" },
+      { key: "thirdDownEff", label: "3rd Down Conv" },
+      { key: "fourthDownEff", label: "4th Down Conv" },
+      { key: "turnovers", label: "Turnovers" },
+      { key: "totalPenaltiesYards", label: "Penalties" },
+      { key: "sacksYardsLost", label: "Sacks" },
+    ];
+
+    const findStat = (stats, key) => stats.find((s) => s.name === key);
+
+    // Possession data
+    const awayPossStat = findStat(awayStats, "possessionTime");
+    const homePossStat = findStat(homeStats, "possessionTime");
+    const awayPossSecs = Number(awayPossStat?.value) || 0;
+    const homePossSecs = Number(homePossStat?.value) || 0;
+    const totalPoss = awayPossSecs + homePossSecs;
+    const awayPossPct = totalPoss > 0 ? awayPossSecs / totalPoss : 0.5;
+    const homePossPct = totalPoss > 0 ? homePossSecs / totalPoss : 0.5;
+
+    // Possession ring dimensions
+    const possRadius = 52;
+    const possStroke = 20;
+    const possSize = possRadius * 2 + possStroke * 2;
+    const possCirc = 2 * Math.PI * possRadius;
+    const homePossLen = possCirc * Math.max(0, Math.min(1, homePossPct));
+
+    return (
+      <View style={[{ paddingBottom: 40 }]}>
+        {/* Stats Card */}
         <View
           style={[
-            styles.linescoreContainer,
-            { backgroundColor: theme.surfaceSecondary },
+            nflStatsStyles.card,
+            { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
           <View
             style={[
-              styles.linescoreTable,
-              { backgroundColor: theme.surfaceSecondary },
+              nflStatsStyles.headerRow,
+              { borderBottomColor: theme.border },
             ]}
           >
-            <View
-              style={[
-                styles.linescoreHeader,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              ></Text>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                1
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                2
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                3
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                4
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.linescoreHeaderCell,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                T
-              </Text>
-            </View>
-            <View
-              style={[styles.linescoreRow, { borderBottomColor: theme.border }]}
-            >
-              <View style={styles.linescoreTeamContainer}>
-                <TeamLogoImage
-                  team={awayTeam?.team}
-                  style={styles.linescoreTeamLogo}
-                  isLosingTeam={isAwayTeamLosing}
-                />
+            <Text style={[nflStatsStyles.headerTitle, { color: theme.text }]}>
+              Stats
+            </Text>
+          </View>
+
+          <View style={nflStatsStyles.body}>
+            {/* Possession Ring */}
+            {totalPoss > 0 && (
+              <View style={nflStatsStyles.featureBlock}>
                 <Text
-                  allowFontScaling={false}
-                  style={[styles.linescoreTeamCell, { color: theme.text }]}
+                  style={[
+                    nflStatsStyles.featureLabel,
+                    { color: theme.textSecondary },
+                  ]}
                 >
-                  {awayTeam?.team?.abbreviation}
+                  Time of Possession
                 </Text>
-              </View>
-              {[0, 1, 2, 3].map((quarterIndex) => {
-                const score =
-                  awayTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return (
+                <View style={nflStatsStyles.featureValuesRow}>
                   <Text
-                    allowFontScaling={false}
-                    key={quarterIndex}
-                    style={[styles.linescoreCell, { color: theme.text }]}
+                    style={[
+                      nflStatsStyles.featureValueText,
+                      { color: theme.text },
+                    ]}
                   >
-                    {score}
+                    {awayPossStat?.displayValue || "0:00"}
                   </Text>
-                );
-              })}
-              <Text
-                allowFontScaling={false}
-                style={[styles.linescoreTotalCell, { color: colors.primary }]}
-              >
-                {awayTeam?.score || "0"}
-              </Text>
-            </View>
-            <View
-              style={[styles.linescoreRow, { borderBottomColor: theme.border }]}
-            >
-              <View style={styles.linescoreTeamContainer}>
-                <TeamLogoImage
-                  team={homeTeam?.team}
-                  style={styles.linescoreTeamLogo}
-                  isLosingTeam={isHomeTeamLosing}
-                />
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.linescoreTeamCell, { color: theme.text }]}
-                >
-                  {homeTeam?.team?.abbreviation}
-                </Text>
-              </View>
-              {[0, 1, 2, 3].map((quarterIndex) => {
-                const score =
-                  homeTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return (
+
+                  <View style={nflStatsStyles.faceoffRingWrap}>
+                    <Svg
+                      width={possSize}
+                      height={possSize}
+                      style={{ transform: [{ rotate: "-90deg" }] }}
+                    >
+                      <Circle
+                        cx={possSize / 2}
+                        cy={possSize / 2}
+                        r={possRadius}
+                        stroke={awayColor}
+                        strokeWidth={possStroke}
+                        fill="none"
+                      />
+                      <Circle
+                        cx={possSize / 2}
+                        cy={possSize / 2}
+                        r={possRadius}
+                        stroke={homeColor}
+                        strokeWidth={possStroke}
+                        fill="none"
+                        strokeDasharray={`${homePossLen} ${Math.max(0, possCirc - homePossLen)}`}
+                        strokeLinecap="butt"
+                      />
+                    </Svg>
+                    <View
+                      style={[
+                        nflStatsStyles.faceoffRingInner,
+                        { backgroundColor: theme.surface },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          nflStatsStyles.faceoffPctText,
+                          nflStatsStyles.faceoffPctLeft,
+                          { color: theme.text },
+                        ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {(awayPossPct * 100).toFixed(1)}%
+                      </Text>
+                      <View
+                        style={[
+                          nflStatsStyles.faceoffSplitLine,
+                          { backgroundColor: theme.border },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          nflStatsStyles.faceoffPctText,
+                          nflStatsStyles.faceoffPctRight,
+                          { color: theme.text },
+                        ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {(homePossPct * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                  </View>
                   <Text
-                    allowFontScaling={false}
-                    key={quarterIndex}
-                    style={[styles.linescoreCell, { color: theme.text }]}
+                    style={[
+                      nflStatsStyles.featureValueText,
+                      { color: theme.text },
+                    ]}
                   >
-                    {score}
+                    {homePossStat?.displayValue || "0:00"}
                   </Text>
-                );
-              })}
-              <Text
-                allowFontScaling={false}
-                style={[styles.linescoreTotalCell, { color: colors.primary }]}
-              >
-                {homeTeam?.score || "0"}
-              </Text>
-            </View>
+                </View>
+              </View>
+            )}
+
+            {/* Bar Stats */}
+            {barStats.map((stat) => {
+              const awayVal = findStat(awayStats, stat.key);
+              const homeVal = findStat(homeStats, stat.key);
+              const awayNum = parseStatNum(awayVal?.displayValue);
+              const homeNum = parseStatNum(homeVal?.displayValue);
+              const total = awayNum + homeNum;
+              const awayShare = total > 0 ? awayNum / total : 0.5;
+              const homeShare = total > 0 ? homeNum / total : 0.5;
+
+              return (
+                <View key={stat.key} style={nflStatsStyles.statRowWrap}>
+                  <View style={nflStatsStyles.statValueRow}>
+                    <Text
+                      style={[
+                        nflStatsStyles.statValueText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {awayVal?.displayValue || "-"}
+                    </Text>
+                    <Text
+                      style={[
+                        nflStatsStyles.statValueText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {homeVal?.displayValue || "-"}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      nflStatsStyles.statBarTrack,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        nflStatsStyles.statBarFillLeft,
+                        {
+                          width: `${Math.max(0, Math.min(100, awayShare * 100))}%`,
+                          backgroundColor: awayColor,
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        nflStatsStyles.statBarFillRight,
+                        {
+                          width: `${Math.max(0, Math.min(100, homeShare * 100))}%`,
+                          backgroundColor: homeColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      nflStatsStyles.statCategoryLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {stat.label.toUpperCase()}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         </View>
-      </View>
 
-      {/* Prediction Section - Only for scheduled games */}
-      {(() => {
-        const statusDesc = status?.type?.description?.toLowerCase();
-        const isScheduled = statusDesc?.includes("scheduled");
-        const predictor = gameDetails.predictor;
-
-        if (!isScheduled || !predictor) return null;
-
-        // Get win probabilities
-        const awayWinChance = parseFloat(
-          predictor.awayTeam?.gameProjection || "0",
-        );
-        const homeWinChance = parseFloat(
-          predictor.homeTeam?.gameProjection || "0",
-        );
-
-        // Get team colors (fallback to default if not available)
-        const awayTeamColor = awayTeam?.team?.color
-          ? `#${awayTeam.team.color}`
-          : colors.primary;
-        const homeTeamColor = homeTeam?.team?.color
-          ? `#${homeTeam.team.color}`
-          : colors.secondary;
-
-        return (
-          <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.sectionTitle, { color: colors.primary }]}
-            >
-              {predictor.header || "Prediction"}
-            </Text>
+        {/* Game Leaders */}
+        {gameDetails?.leaders &&
+          renderGameLeaders(gameDetails.leaders, awayTeam, homeTeam) && (
             <View
               style={[
-                styles.predictionContainer,
-                { backgroundColor: theme.surfaceSecondary },
+                nflMainStyles.leadersCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              {/* Team Headers */}
-              <View style={styles.predictionHeader}>
-                <View style={styles.predictionTeamHeaderLeft}>
-                  <TeamLogoImage
-                    team={awayTeam?.team}
-                    style={styles.predictionTeamLogo}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.predictionTeamName, { color: theme.text }]}
-                  >
-                    {awayTeam?.team?.abbreviation}
-                  </Text>
-                </View>
+              <View
+                style={[
+                  nflMainStyles.leadersHeaderRow,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
                 <Text
-                  allowFontScaling={false}
-                  style={[styles.predictionVs, { color: theme.textSecondary }]}
+                  style={[nflMainStyles.leadersTitle, { color: theme.text }]}
                 >
-                  vs
+                  {isGamePre ? "Team Leaders" : "Game Leaders"}
                 </Text>
-                <View style={styles.predictionTeamHeaderRight}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.predictionTeamName, { color: theme.text }]}
-                  >
-                    {homeTeam?.team?.abbreviation}
-                  </Text>
-                  <TeamLogoImage
-                    team={homeTeam?.team}
-                    style={styles.predictionTeamLogo}
-                  />
-                </View>
               </View>
+              <View style={nflMainStyles.leadersBody}>
+                {renderGameLeaders(gameDetails.leaders, awayTeam, homeTeam)}
+              </View>
+            </View>
+          )}
 
-              {/* Win Probability Bar */}
-              <View style={styles.predictionBarContainer}>
+        {/* Prediction - scheduled games only */}
+        {(() => {
+          const statusDesc = status?.type?.description?.toLowerCase();
+          const isScheduled = statusDesc?.includes("scheduled");
+          const predictor = gameDetails.predictor;
+          if (!isScheduled || !predictor) return null;
+
+          const awayWinChance = parseFloat(
+            predictor.awayTeam?.gameProjection || "0",
+          );
+          const homeWinChance = parseFloat(
+            predictor.homeTeam?.gameProjection || "0",
+          );
+          const awayTeamColor = awayTeam?.team?.color
+            ? `#${awayTeam.team.color}`
+            : colors.primary;
+          const homeTeamColor = homeTeam?.team?.color
+            ? `#${homeTeam.team.color}`
+            : colors.secondary;
+
+          return (
+            <View
+              style={[
+                nflMainStyles.leadersCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  marginTop: 14,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  nflMainStyles.leadersHeaderRow,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[nflMainStyles.leadersTitle, { color: theme.text }]}
+                >
+                  {predictor.header || "Prediction"}
+                </Text>
+              </View>
+              <View
+                style={[nflMainStyles.leadersBody, { paddingVertical: 12 }]}
+              >
                 <View
-                  style={[
-                    styles.predictionBar,
-                    { backgroundColor: theme.border },
-                  ]}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                  }}
                 >
-                  {/* Away team fill */}
                   <View
-                    style={[
-                      styles.predictionFill,
-                      styles.predictionAwayFill,
-                      {
-                        width: `${awayWinChance}%`,
-                        backgroundColor: awayTeamColor,
-                      },
-                    ]}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <TeamLogoImage
+                      team={awayTeam?.team}
+                      style={{ width: 24, height: 24 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "700",
+                        color: theme.text,
+                      }}
+                    >
+                      {awayTeam?.team?.abbreviation}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    vs
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "700",
+                        color: theme.text,
+                      }}
+                    >
+                      {homeTeam?.team?.abbreviation}
+                    </Text>
+                    <TeamLogoImage
+                      team={homeTeam?.team}
+                      style={{ width: 24, height: 24 }}
+                    />
+                  </View>
+                </View>
+                <View
+                  style={{
+                    height: 24,
+                    borderRadius: 12,
+                    flexDirection: "row",
+                    overflow: "hidden",
+                    backgroundColor: theme.border,
+                  }}
+                >
+                  <View
+                    style={{
+                      height: "100%",
+                      width: `${awayWinChance}%`,
+                      backgroundColor: awayTeamColor,
+                      borderTopLeftRadius: 12,
+                      borderBottomLeftRadius: 12,
+                    }}
                   />
-                  {/* Home team fill */}
                   <View
-                    style={[
-                      styles.predictionFill,
-                      styles.predictionHomeFill,
-                      {
-                        width: `${homeWinChance}%`,
-                        backgroundColor: homeTeamColor,
-                      },
-                    ]}
+                    style={{
+                      height: "100%",
+                      width: `${homeWinChance}%`,
+                      backgroundColor: homeTeamColor,
+                      borderTopRightRadius: 12,
+                      borderBottomRightRadius: 12,
+                    }}
                   />
                 </View>
-              </View>
-
-              {/* Win Percentages */}
-              <View style={styles.predictionPercentages}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.predictionPercentage,
-                    { color: theme.textSecondary },
-                  ]}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginTop: 8,
+                  }}
                 >
-                  {awayWinChance.toFixed(1)}%
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.predictionPercentage,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {homeWinChance.toFixed(1)}%
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "700",
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    {awayWinChance.toFixed(1)}%
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "700",
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    {homeWinChance.toFixed(1)}%
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        );
-      })()}
-
-      {/* Team Stats */}
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: colors.primary }]}
-        >
-          Team Statistics
-        </Text>
-        <View
-          style={[
-            styles.statsContainer,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
-        >
-          <View
-            style={[
-              styles.statsHeader,
-              {
-                backgroundColor: theme.surface,
-                borderBottomColor: theme.border,
-              },
-            ]}
-          >
-            <View style={styles.statsTeamHeader}>
-              <TeamLogoImage
-                team={awayTeam?.team}
-                style={styles.statsTeamLogo}
-                isLosingTeam={isAwayTeamLosing}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.statsTeamName, { color: theme.text }]}
-              >
-                {awayTeam?.team?.abbreviation}
-              </Text>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsLabel, { color: theme.textSecondary }]}
-            >
-              Stat
-            </Text>
-            <View style={styles.statsTeamHeader}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.statsTeamName, { color: theme.text }]}
-              >
-                {homeTeam?.team?.abbreviation}
-              </Text>
-              <TeamLogoImage
-                team={homeTeam?.team}
-                style={styles.statsTeamLogo}
-                isLosingTeam={isHomeTeamLosing}
-              />
-            </View>
-          </View>
-          {gameDetails.boxscore?.teams &&
-            renderTeamStats(gameDetails.boxscore.teams)}
-        </View>
+          );
+        })()}
       </View>
-
-      {/* Game/Team Leaders */}
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: colors.primary }]}
-        >
-          {(() => {
-            const statusDesc = status?.type?.description?.toLowerCase();
-            return statusDesc?.includes("scheduled")
-              ? "Team Leaders"
-              : "Game Leaders";
-          })()}
-        </Text>
-        <View
-          style={[
-            styles.leadersContainer,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
-        >
-          {gameDetails.leaders &&
-            renderGameLeaders(gameDetails.leaders, awayTeam, homeTeam)}
-        </View>
-      </View>
-    </View>
-  );
+    );
+  };
 
   // Helper function to format position group names
   const formatPositionGroupName = (positionName) => {
@@ -3536,20 +4069,10 @@ const GameDetailsScreen = ({ route }) => {
   const renderTeamContent = (team, teamType) => {
     const statusDesc = status?.type?.description?.toLowerCase();
     const isScheduled = statusDesc?.includes("scheduled");
-    const sectionTitle = isScheduled ? "Roster" : "Box Score";
 
     if (!gameDetails.boxscore?.players && !isScheduled) {
       return (
         <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <View style={styles.teamBoxScoreHeader}>
-            <TeamLogoImage team={team?.team} style={styles.teamBoxScoreLogo} />
-            <Text
-              allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text }]}
-            >
-              {team?.team?.displayName || team?.team?.name} {sectionTitle}
-            </Text>
-          </View>
           <Text
             allowFontScaling={false}
             style={[styles.placeholderText, { color: theme.textSecondary }]}
@@ -3560,32 +4083,14 @@ const GameDetailsScreen = ({ route }) => {
       );
     }
 
-    // For scheduled games, show roster instead of box score
     if (isScheduled) {
       return (
         <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <View style={styles.teamBoxScoreHeader}>
-            <TeamLogoImage team={team?.team} style={styles.teamBoxScoreLogo} />
-            <Text
-              allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text }]}
-            >
-              {team?.team?.displayName || team?.team?.name} {sectionTitle}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.teamBoxScoreContainer,
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-          >
-            {renderTeamRoster(team)}
-          </View>
+          {renderTeamRoster(team)}
         </View>
       );
     }
 
-    // Find the team's boxscore data by matching team ID
     const teamBoxScore = gameDetails.boxscore.players.find(
       (playerTeam) =>
         playerTeam.team?.id === team?.team?.id ||
@@ -3595,15 +4100,6 @@ const GameDetailsScreen = ({ route }) => {
     if (!teamBoxScore || !teamBoxScore.statistics) {
       return (
         <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <View style={styles.teamBoxScoreHeader}>
-            <TeamLogoImage team={team?.team} style={styles.teamBoxScoreLogo} />
-            <Text
-              allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text }]}
-            >
-              {team?.team?.displayName || team?.team?.name} {sectionTitle}
-            </Text>
-          </View>
           <Text
             allowFontScaling={false}
             style={[styles.placeholderText, { color: theme.textSecondary }]}
@@ -3614,438 +4110,707 @@ const GameDetailsScreen = ({ route }) => {
       );
     }
 
-    return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <View style={styles.teamBoxScoreHeader}>
-          <TeamLogoImage team={team?.team} style={styles.teamBoxScoreLogo} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: theme.text }]}
-          >
-            {team?.team?.displayName || team?.team?.name} {sectionTitle}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.teamBoxScoreContainer,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
-        >
-          {teamBoxScore.statistics.map((statCategory, categoryIndex) => {
-            if (!statCategory.athletes || statCategory.athletes.length === 0)
-              return null;
+    // Build filter categories from the statistics array names
+    const statCategories = teamBoxScore.statistics
+      .filter((cat) => cat.athletes && cat.athletes.length > 0)
+      .map((cat) => ({
+        name: cat.name,
+        text: cat.text || cat.name,
+        labels: cat.labels || [],
+      }));
 
+    const categoryNames = statCategories.map((c) => c.name);
+    const activeFilter =
+      teamPositionFilter && categoryNames.includes(teamPositionFilter)
+        ? teamPositionFilter
+        : categoryNames[0] || "";
+
+    // Format category name: capitalize first letter, split on caps
+    const fmtCatName = (name) => {
+      if (!name) return "";
+      return name
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, (s) => s.toUpperCase())
+        .trim();
+    };
+
+    // Get player stats for the active category
+    const getPlayerStats = (athlete) => {
+      const cat = teamBoxScore.statistics.find((c) => c.name === activeFilter);
+      if (!cat) return [];
+      const entry = cat.athletes?.find(
+        (a) =>
+          a.athlete?.id === athlete?.id ||
+          a.athlete?.id === athlete?.id?.toString(),
+      );
+      if (!entry) return [];
+      const labels = cat.labels || [];
+      return entry.stats
+        ? entry.stats.slice(0, 6).map((val, i) => ({
+            label: labels[i] || `S${i + 1}`,
+            value: String(val ?? "0"),
+          }))
+        : [];
+    };
+
+    // Build flat player list for the selected category
+    const playersList = [];
+    const seenIds = new Set();
+    const sourceCategories = teamBoxScore.statistics.filter(
+      (c) => c.name === activeFilter,
+    );
+
+    sourceCategories.forEach((cat) => {
+      (cat.athletes || []).forEach((entry) => {
+        const athlete = entry.athlete;
+        if (!athlete || seenIds.has(athlete.id)) return;
+        seenIds.add(athlete.id);
+        const stats = getPlayerStats(athlete);
+        if (stats.length > 0) {
+          playersList.push({ athlete, stats });
+        }
+      });
+    });
+
+    const teamColor = getNflTeamColor(team?.team?.abbreviation, colors.primary);
+
+    return (
+      <View style={{ paddingTop: 12, paddingBottom: 40 }}>
+        {/* Category filter bar */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={nflTeamStyles.posBarContent}
+        >
+          {categoryNames.map((catName) => {
+            const isActive = activeFilter === catName;
             return (
-              <View
-                key={categoryIndex}
+              <TouchableOpacity
+                key={catName}
+                activeOpacity={0.8}
+                onPress={() => setTeamPositionFilter(catName)}
                 style={[
-                  styles.statCategoryContainer,
-                  { backgroundColor: theme.surface },
+                  nflTeamStyles.posChip,
+                  {
+                    borderColor: isActive ? teamColor : theme.border,
+                    backgroundColor: isActive
+                      ? teamColor + "22"
+                      : theme.surface,
+                  },
                 ]}
               >
                 <Text
-                  allowFontScaling={false}
-                  style={[styles.statCategoryTitle, { color: theme.text }]}
-                >
-                  {statCategory.text ||
-                    statCategory.name.charAt(0).toUpperCase() +
-                      statCategory.name.slice(1)}
-                </Text>
-
-                {/* Header */}
-                <View
                   style={[
-                    styles.statTableHeader,
-                    { backgroundColor: theme.surfaceSecondary },
+                    nflTeamStyles.posChipLabel,
+                    {
+                      color: isActive ? theme.text : theme.textSecondary,
+                      fontWeight: isActive ? "800" : "600",
+                    },
                   ]}
                 >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.statTableHeaderPlayer,
-                      { color: theme.text },
-                    ]}
-                  >
-                    Player
-                  </Text>
-                  {(statCategory.labels || [])
-                    .slice(0, 4)
-                    .map((label, labelIndex) => (
+                  {fmtCatName(catName)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Player cards */}
+        <View style={nflTeamStyles.playerListWrap}>
+          {playersList.length === 0 ? (
+            <View style={nflTeamStyles.emptyWrap}>
+              <Text
+                style={[
+                  nflTeamStyles.emptyText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                No players found
+              </Text>
+            </View>
+          ) : (
+            playersList.map((playerData, idx) => {
+              const athlete = playerData.athlete;
+              const headshotUri =
+                athlete?.headshot?.href ||
+                `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${athlete?.id}.png`;
+
+              return (
+                <TouchableOpacity
+                  key={athlete?.id || idx}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const cat =
+                      teamBoxScore.statistics.find(
+                        (c) => c.name === activeFilter,
+                      ) || teamBoxScore.statistics[0];
+                    if (cat) handlePlayerLongPress(athlete, cat, team);
+                  }}
+                  style={[
+                    nflTeamStyles.playerCard,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: teamColor,
+                    },
+                  ]}
+                >
+                  <View style={nflTeamStyles.playerCardTopRow}>
+                    <View
+                      style={[
+                        nflTeamStyles.playerCardHeadshotWrap,
+                        {
+                          backgroundColor: teamColor + "33",
+                          borderColor: teamColor,
+                        },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: headshotUri }}
+                        style={nflTeamStyles.playerCardHeadshot}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    <View style={nflTeamStyles.playerCardNameBlock}>
                       <Text
-                        allowFontScaling={false}
-                        key={labelIndex}
                         style={[
-                          styles.statTableHeaderStat,
+                          nflTeamStyles.playerCardName,
                           { color: theme.text },
                         ]}
+                        numberOfLines={1}
                       >
-                        {label}
+                        {athlete?.displayName ||
+                          `${athlete?.firstName || ""} ${athlete?.lastName || ""}`.trim() ||
+                          "Unknown"}
                       </Text>
-                    ))}
-                </View>
+                      <Text
+                        style={[
+                          nflTeamStyles.playerCardMeta,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {athlete?.jersey ? `#${athlete.jersey}` : ""}
+                        {athlete?.jersey && athlete?.position?.abbreviation
+                          ? " · "
+                          : ""}
+                        {athlete?.position?.abbreviation || ""}
+                      </Text>
+                    </View>
+                  </View>
 
-                {/* Players */}
-                {statCategory.athletes.map((playerData, playerIndex) => {
-                  const player = playerData.athlete;
-                  const stats = playerData.stats || [];
-
-                  return (
-                    <TouchableOpacity
-                      key={playerIndex}
-                      style={[
-                        styles.statTableRow,
-                        { borderBottomColor: theme.border },
-                      ]}
-                      onPress={() =>
-                        handlePlayerPress(player, statCategory, team)
-                      }
-                      onLongPress={() =>
-                        handlePlayerLongPress(player, statCategory, team)
-                      }
-                      delayLongPress={400}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.statTablePlayerCell}>
+                  {/* Stats row (up to 6 stats, like NHL) */}
+                  <View style={nflTeamStyles.playerCardStatsRow}>
+                    {playerData.stats.map((stat, i) => (
+                      <View key={i} style={nflTeamStyles.playerCardStatCell}>
                         <Text
-                          allowFontScaling={false}
                           style={[
-                            styles.statTablePlayerName,
+                            nflTeamStyles.playerCardStatValue,
                             { color: theme.text },
                           ]}
                           numberOfLines={1}
                         >
-                          {player.firstName
-                            ? `${player.firstName.charAt(0)}. `
-                            : ""}
-                          {player.lastName || player.displayName || "Unknown"}
+                          {stat.value}
                         </Text>
                         <Text
-                          allowFontScaling={false}
                           style={[
-                            styles.statTablePlayerNumber,
-                            { color: theme.textTertiary },
+                            nflTeamStyles.playerCardStatLabel,
+                            { color: theme.textSecondary },
                           ]}
                         >
-                          #{player.jersey || "N/A"}
+                          {stat.label}
                         </Text>
                       </View>
-                      {stats.slice(0, 4).map((stat, statIndex) => (
-                        <Text
-                          allowFontScaling={false}
-                          key={statIndex}
-                          style={[
-                            styles.statTableStatCell,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {stat || "0"}
-                        </Text>
-                      ))}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            );
-          })}
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </View>
     );
   };
 
-  // Helper function to render drives content
+  // ── Drives tab: win probability lookup ─────────────────────────────
+  const getPlayWinPct = (play, driveTeamId) => {
+    if (!play) return null;
+    const wpArr = gameDetails?.winprobability;
+    if (!Array.isArray(wpArr) || wpArr.length === 0) return null;
+
+    // Try matching by playId
+    const playId = String(play.id || "");
+    let entry = wpArr.find((w) => String(w.playId) === playId);
+
+    // Fallback: find nearest by sequence
+    if (!entry) {
+      const seq = Number(play.sequenceNumber) || 0;
+      let best = null;
+      let bestDist = Infinity;
+      for (const w of wpArr) {
+        const wSeq = Number(w.playId?.replace(/\D/g, "")) || 0;
+        const dist = Math.abs(wSeq - seq);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = w;
+        }
+      }
+      if (best && bestDist < 500) entry = best;
+    }
+
+    if (!entry) return null;
+    const homePct = entry.homeWinPercentage ?? entry.homeWinProbability ?? 0.5;
+    const isHomeDriving = String(driveTeamId) === String(homeTeam?.team?.id);
+    const raw = isHomeDriving ? homePct : 1 - homePct;
+    return Math.round(raw * 1000) / 10; // one decimal
+  };
+
+  // ── Drives tab content (NHL Plays-style layout) ────────────────────
   const renderDrivesContent = () => {
-    // Only show loading if we're loading drives AND we don't have existing data
     if (loadingDrives && !drivesData) {
       return (
-        <View style={[styles.section, { backgroundColor: theme.background }]}>
+        <View style={nflDrivesStyles.emptyWrap}>
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: colors.primary }]}
+            style={[nflDrivesStyles.emptyText, { color: theme.textSecondary }]}
           >
-            Drive Information
+            Loading drives…
           </Text>
-          <View
-            style={[styles.drivesContainer, { backgroundColor: theme.surface }]}
-          >
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text
-              allowFontScaling={false}
-              style={[styles.placeholderText, { color: theme.textSecondary }]}
-            >
-              Loading drives...
-            </Text>
-          </View>
         </View>
       );
     }
 
-    if (!drivesData || !drivesData.length) {
+    if (!drivesData || drivesData.length === 0) {
       return (
-        <View style={[styles.section, { backgroundColor: theme.background }]}>
+        <View style={nflDrivesStyles.emptyWrap}>
           <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: colors.primary }]}
+            style={[nflDrivesStyles.emptyText, { color: theme.textSecondary }]}
           >
-            Drive Information
+            No drive information available
           </Text>
-          <View
-            style={[styles.drivesContainer, { backgroundColor: theme.surface }]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.placeholderText, { color: theme.textSecondary }]}
-            >
-              No drive information available for this game
-            </Text>
-          </View>
         </View>
       );
     }
+
+    // drivesData is chronological; we display reversed (last first)
+    const totalDrives = drivesData.length;
+    const reversedDrives = [...drivesData].reverse();
+
+    // Auto-select last drive on first render (which is first in reversed list = index 0)
+    const activeIdx = selectedDriveIdx !== null ? selectedDriveIdx : 0;
+    // Map from reversed index back to original index
+    const origIdx = totalDrives - 1 - activeIdx;
+    const activeDrive = drivesData[origIdx] || drivesData[totalDrives - 1];
+    const activeDriveNum = origIdx + 1;
+
+    // Plays for the active drive (reversed - last play first)
+    const drivePlays = [...(activeDrive?.plays || [])].reverse();
+
+    // Team info for the active drive
+    const driveTeamId = activeDrive?.team?.id;
+    const driveTeamAbbr = activeDrive?.team?.abbreviation || "";
+    const driveTeamColor = getNflTeamColor(driveTeamAbbr, colors.primary);
+    const driveIsTD = activeDrive?.isScore;
 
     return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: colors.primary }]}
+      <View style={nflDrivesStyles.sectionWrap}>
+        {/* ── Drive selector bar ──────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={nflDrivesStyles.driveBarContent}
         >
-          Drive Information
-        </Text>
-        <ScrollView style={styles.drivesScrollView}>
-          {[...drivesData].reverse().map((drive, index) => {
-            const driveNumber = drivesData.length - index;
+          {reversedDrives.map((drive, revIdx) => {
+            const origDriveIdx = totalDrives - 1 - revIdx;
+            const num = origDriveIdx + 1;
+            const isActive = revIdx === activeIdx;
+            const team = drive.team;
+            const abbr = team?.abbreviation || "";
+            const teamColor = getNflTeamColor(abbr, colors.primary);
+            const isTD = drive.isScore;
+            const teamLogo = team?.logos?.[0]?.href || team?.logo || "";
 
             return (
               <TouchableOpacity
-                key={`drive-${drive.id || index}`}
+                key={`drv-${drive.id || revIdx}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setSelectedDriveIdx(revIdx);
+                  setExpandedNflPlayId(null);
+                }}
                 style={[
-                  styles.driveCard,
-                  { backgroundColor: theme.surfaceSecondary },
+                  nflDrivesStyles.driveChip,
+                  {
+                    borderColor: isActive ? teamColor : theme.border,
+                    backgroundColor: isTD
+                      ? teamColor + "33"
+                      : isActive
+                        ? theme.surfaceSecondary
+                        : theme.surface,
+                  },
                 ]}
-                onPress={() => handleDrivePress(drive)}
-                activeOpacity={0.7}
               >
-                <View style={styles.driveHeader}>
-                  <View style={styles.driveTeamInfo}>
-                    {drive.team && (
-                      <TeamLogoImage
-                        team={drive.team}
-                        style={styles.driveTeamLogo}
-                      />
-                    )}
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.driveTeamName, { color: theme.text }]}
-                    >
-                      {drive.team?.displayName || "Unknown Team"}
-                    </Text>
-                  </View>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.driveNumber, { color: colors.primary }]}
-                  >{`Drive ${driveNumber}`}</Text>
-                </View>
-
-                <View style={styles.driveDetails}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.driveResult, { color: colors.primary }]}
-                  >
-                    {drive.displayResult || drive.result || "In Progress"}
-                  </Text>
-                  {drive.description && (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.driveDescription,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {drive.description}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Visual Yard Line Display */}
-                {renderDriveYardLine(drive, awayTeam, homeTeam)}
-
-                <View
+                {teamLogo ? (
+                  <Image
+                    source={{ uri: teamLogo }}
+                    style={nflDrivesStyles.driveChipLogo}
+                    resizeMode="contain"
+                  />
+                ) : null}
+                <Text
                   style={[
-                    styles.driveStats,
-                    { backgroundColor: theme.surface },
+                    nflDrivesStyles.driveChipLabel,
+                    {
+                      color: isActive ? theme.text : theme.textSecondary,
+                      fontWeight: isActive ? "800" : "600",
+                    },
                   ]}
                 >
-                  <View style={styles.driveStatItem}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.driveStatLabel,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      Start
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.driveStatValue, { color: theme.text }]}
-                    >
-                      {drive.start?.text || "N/A"}
-                    </Text>
-                  </View>
-
-                  {/* Show End for completed drives or Current for drives in progress */}
-                  {(() => {
-                    const driveEnded = drive.end?.text;
-
-                    if (driveEnded) {
-                      return (
-                        <View style={styles.driveStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.driveStatLabel,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            End
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.driveStatValue,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {drive.end.text}
-                          </Text>
-                        </View>
-                      );
-                    } else {
-                      // Drive in progress - find current position
-                      let currentPosition = "N/A";
-
-                      if (drive.plays && drive.plays.length > 0) {
-                        const sortedPlays = [...drive.plays].sort((a, b) => {
-                          const seqA = parseInt(a.sequenceNumber) || 0;
-                          const seqB = parseInt(b.sequenceNumber) || 0;
-                          return seqB - seqA;
-                        });
-                        const mostRecentPlay = sortedPlays[0];
-
-                        if (mostRecentPlay.end?.text) {
-                          currentPosition = mostRecentPlay.end.text;
-                        } else if (mostRecentPlay.end?.yardLine !== undefined) {
-                          // Format yard line with team abbreviation like "CHI 33" or "MIN 24"
-                          const yardLine = mostRecentPlay.end.yardLine;
-                          if (yardLine === 50) {
-                            currentPosition = "50";
-                          } else if (yardLine > 50) {
-                            const yardLineFromGoal = 100 - yardLine;
-                            const opponentTeam =
-                              drive.team?.abbreviation ===
-                              homeTeam?.team?.abbreviation
-                                ? awayTeam
-                                : homeTeam;
-                            currentPosition = `${
-                              opponentTeam?.team?.abbreviation ||
-                              opponentTeam?.abbreviation
-                            } ${yardLineFromGoal}`;
-                          } else {
-                            currentPosition = `${mostRecentPlay.end.possessionText}`;
-                          }
-                        }
-                      }
-
-                      // Fallback to start position if no current found
-                      if (currentPosition === "N/A" && drive.start?.text) {
-                        currentPosition = drive.start.text;
-                      }
-
-                      return (
-                        <View style={styles.driveStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.driveStatLabel,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            Current
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.driveStatValue,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {currentPosition}
-                          </Text>
-                        </View>
-                      );
-                    }
-                  })()}
-
-                  {drive.timeElapsed?.displayValue && (
-                    <View style={styles.driveStatItem}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.driveStatLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        Time
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.driveStatValue, { color: theme.text }]}
-                      >
-                        {drive.timeElapsed.displayValue}
-                      </Text>
-                    </View>
-                  )}
-                  {drive.plays && drive.plays.length > 0 && (
-                    <View style={styles.driveStatItem}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.driveStatLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        Plays
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.driveStatValue, { color: theme.text }]}
-                      >
-                        {drive.plays.length}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Tap indicator */}
-                <View
-                  style={[
-                    styles.tapIndicator,
-                    { borderTopColor: theme.border },
-                  ]}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.tapIndicatorText,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Tap to view plays
-                  </Text>
-                </View>
+                  {num}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
+
+        {/* ── Drive result banner ─────────────────────────────────── */}
+        <View
+          style={[
+            nflDrivesStyles.driveBanner,
+            {
+              backgroundColor: theme.surfaceSecondary,
+              flexDirection: "row",
+              borderColor: activeDrive?.team?.color
+                ? getNflTeamColor(activeDrive.team.abbreviation, colors.primary)
+                : theme.border,
+            },
+          ]}
+        >
+          <View
+            style={[{ flex: 1, justifyContent: "center", paddingRight: 8 }]}
+          >
+            <Text
+              style={[nflDrivesStyles.driveBannerTitle, { color: theme.text }]}
+            >
+              Drive {activeDriveNum}
+            </Text>
+            <Text
+              style={[
+                nflDrivesStyles.driveBannerResult,
+                { color: driveIsTD ? driveTeamColor : theme.textSecondary },
+              ]}
+            >
+              {activeDrive?.displayResult ||
+                activeDrive?.result ||
+                "In Progress"}
+            </Text>
+            {!!activeDrive?.description && (
+              <Text
+                style={[
+                  nflDrivesStyles.driveBannerDesc,
+                  { color: theme.textTertiary },
+                ]}
+              >
+                {activeDrive.description}
+              </Text>
+            )}
+          </View>
+          <View style={[{ alignItems: "center", justifyContent: "center" }]}>
+            {activeDrive?.team?.logo ? (
+              <Image
+                source={{ uri: activeDrive.team.logo }}
+                style={nflDrivesStyles.bubbleLogo}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── Play cards (NHL Plays-style) ────────────────────────── */}
+        <View style={nflDrivesStyles.playsWrap}>
+          {drivePlays.length === 0 ? (
+            <View style={nflDrivesStyles.emptyWrap}>
+              <Text
+                style={[
+                  nflDrivesStyles.emptyText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                No plays available for this drive
+              </Text>
+            </View>
+          ) : (
+            drivePlays.map((play, pIdx) => {
+              const playId = play.id || `p-${pIdx}`;
+              const isExpanded = expandedNflPlayId === playId;
+
+              // Period + clock
+              const period = play.period?.number || 0;
+              const clock = play.clock?.displayValue || "";
+              const periodLabel =
+                period <= 4
+                  ? `Q${period}`
+                  : period > 4
+                    ? `OT${period - 4}`
+                    : "";
+
+              // Play type
+              const playType = play.type?.text || play.type?.abbreviation || "";
+
+              // Play text
+              const playText = play.text || play.shortText || "";
+
+              // Down & distance
+              const ddText =
+                play.start?.downDistanceText ||
+                play.end?.downDistanceText ||
+                "";
+
+              // Win probability
+              const winPct = getPlayWinPct(play, driveTeamId);
+
+              // Scoring play?
+              const isScoring = !!play.scoringPlay;
+
+              // Expandable?
+              const hasYardLine =
+                play.start?.yardLine !== undefined ||
+                play.end?.yardLine !== undefined;
+              const canExpand = hasYardLine || isScoring;
+
+              // Team color for card border
+              const cardBorderColor = isScoring ? driveTeamColor : theme.border;
+
+              return (
+                <View key={playId} style={nflDrivesStyles.playRowWrap}>
+                  {/* Time column */}
+                  <View style={nflDrivesStyles.playTimeCol}>
+                    <Text
+                      style={[
+                        nflDrivesStyles.playClockText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {clock || "--:--"}
+                    </Text>
+                    <Text
+                      style={[
+                        nflDrivesStyles.playPeriodText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {periodLabel}
+                    </Text>
+                  </View>
+
+                  {/* Play card */}
+                  <TouchableOpacity
+                    activeOpacity={canExpand ? 0.85 : 1}
+                    disabled={!canExpand}
+                    onPress={() =>
+                      setExpandedNflPlayId((prev) =>
+                        prev === playId ? null : playId,
+                      )
+                    }
+                    style={[
+                      nflDrivesStyles.playCard,
+                      {
+                        borderColor: cardBorderColor,
+                        backgroundColor: isScoring
+                          ? driveTeamColor + "18"
+                          : theme.surface,
+                      },
+                    ]}
+                  >
+                    {/* Header row: type + W% */}
+                    <View style={nflDrivesStyles.playCardHeaderRow}>
+                      <Text
+                        style={[
+                          nflDrivesStyles.playTypeLabel,
+                          { color: isScoring ? driveTeamColor : theme.text },
+                        ]}
+                      >
+                        {playType}
+                      </Text>
+                      <View
+                        style={[{ flexDirection: "row", alignItems: "center" }]}
+                      >
+                        <Text
+                          style={[
+                            nflDrivesStyles.playScore,
+                            {
+                              color: isScoring ? driveTeamColor : theme.text,
+                              fontWeight:
+                                play.awayScore < play.homeScore ? "500" : "800",
+                            },
+                          ]}
+                        >
+                          {play.awayScore ?? null}
+                        </Text>
+                        <Text
+                          style={[
+                            nflDrivesStyles.playScore,
+                            { color: isScoring ? driveTeamColor : theme.text },
+                          ]}
+                        >
+                          &nbsp;-&nbsp;
+                        </Text>
+                        <Text
+                          style={[
+                            nflDrivesStyles.playScore,
+                            {
+                              color: isScoring ? driveTeamColor : theme.text,
+                              fontWeight:
+                                play.awayScore > play.homeScore ? "500" : "800",
+                            },
+                          ]}
+                        >
+                          {play.homeScore ?? null}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Main description */}
+                    <Text
+                      style={[
+                        nflDrivesStyles.playMainText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {playText}
+                    </Text>
+
+                    {!!ddText || winPct !== null ? (
+                      <View
+                        style={[
+                          {
+                            flexDirection: "row",
+                            alignItems: "center",
+                            marginTop: 4,
+                          },
+                        ]}
+                      >
+                        {/* Down & distance sub-line */}
+                        {!!ddText && (
+                          <Text
+                            style={[
+                              nflDrivesStyles.playSubText,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {ddText}
+                          </Text>
+                        )}
+                        {winPct !== null && (
+                          <Text
+                            style={[
+                              nflDrivesStyles.playWinPct,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            W {winPct.toFixed(1)}%
+                          </Text>
+                        )}
+                      </View>
+                    ) : null}
+
+                    {/* Expanded: field display + share */}
+                    {isExpanded && (
+                      <View style={nflDrivesStyles.playExpandedWrap}>
+                        {/* Field visualization */}
+                        {hasYardLine &&
+                          (() => {
+                            // Scoring plays use the full drive span;
+                            // regular plays use the individual play's yard lines
+                            const fieldStartYard = isScoring
+                              ? (activeDrive?.start?.yardLine ??
+                                play.start?.yardLine)
+                              : play.start?.yardLine;
+                            const fieldEndYard = isScoring
+                              ? (activeDrive?.end?.yardLine ??
+                                play.end?.yardLine)
+                              : (play.end?.yardLine ?? play.start?.yardLine);
+                            return (
+                              <NflPlayFieldMini
+                                play={play}
+                                teamColor={driveTeamColor}
+                                startYard={fieldStartYard}
+                                endYard={fieldEndYard}
+                              />
+                            );
+                          })()}
+
+                        {/* Score + down & distance */}
+                        <View style={nflDrivesStyles.playScoreRow}>
+                          <Text
+                            style={[
+                              nflDrivesStyles.playScoreText,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {play.awayScore ?? 0} - {play.homeScore ?? 0}
+                          </Text>
+                          {!!ddText && (
+                            <Text
+                              style={[
+                                nflDrivesStyles.playScoreText,
+                                { color: theme.textSecondary, marginLeft: 12 },
+                              ]}
+                            >
+                              {ddText}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Win probability */}
+                        {winPct !== null && (
+                          <View style={nflDrivesStyles.playScoreRow}>
+                            <Text
+                              style={[
+                                nflDrivesStyles.playWinPctExpanded,
+                                { color: theme.text },
+                              ]}
+                            >
+                              Win Probability: {winPct.toFixed(1)}%
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Share button */}
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={async () => {
+                            await handlePlayPress(play, activeDrive);
+                          }}
+                          style={[
+                            nflDrivesStyles.playShareBtn,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="share-outline"
+                            size={14}
+                            color={theme.text}
+                          />
+                          <Text
+                            style={[
+                              nflDrivesStyles.playShareBtnText,
+                              { color: theme.text },
+                            ]}
+                          >
+                            Share
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          )}
+        </View>
       </View>
     );
   };
@@ -4271,6 +5036,8 @@ const GameDetailsScreen = ({ route }) => {
   // Helper function to render tab content
   const renderTabContent = () => {
     switch (activeTab) {
+      case "main":
+        return renderMainContent();
       case "stats":
         return renderStatsContent();
       case "away":
@@ -4280,816 +5047,1796 @@ const GameDetailsScreen = ({ route }) => {
       case "drives":
         return renderDrivesContent();
       default:
-        return renderStatsContent();
+        return renderMainContent();
     }
   };
 
-  // Sticky header component
-  const renderStickyHeader = () => {
-    return (
-      <Animated.View
-        style={[
-          styles.stickyHeader,
-          {
-            opacity: stickyHeaderOpacity,
-            transform: [
-              {
-                translateY: stickyHeaderOpacity.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-20, 0], // Smaller, more subtle slide effect
-                }),
-              },
-            ],
-          },
-          {
-            backgroundColor: theme.surfaceSecondary,
-            borderBottomColor: theme.border,
-          },
-        ]}
-        pointerEvents={showStickyHeader ? "auto" : "none"}
-      >
-        {/* Away Team */}
-        <View style={styles.stickyTeamAway}>
-          <TeamLogoImage
-            team={awayTeam?.team}
-            style={styles.stickyTeamLogo}
-            isLosingTeam={isAwayTeamLosing}
-          />
-          {status?.type?.description !== "Scheduled" ? (
-            <Text
-              allowFontScaling={false}
-              style={getStickyTeamScoreStyle(isAwayTeamLosing)}
-            >
-              {awayTeam?.score || "0"}
-            </Text>
-          ) : (
-            ""
-          )}
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.stickyTeamName,
-              {
-                color: isFavorite(getNFLTeamId(awayTeam?.team), "nfl")
-                  ? colors.primary
-                  : isAwayTeamLosing
-                    ? theme.textSecondary
-                    : theme.text,
-              },
-            ]}
-          >
-            {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
-            {getNFLTeamAbbreviation(awayTeam?.team) || "AWAY"}
-          </Text>
-          {/* Possession indicator for away team */}
-          {(() => {
-            // Find possession from drives data
-            if (!drivesData || status?.type?.description === "Halftime")
-              return null;
+  // ── Derived header values ──────────────────────────────────────────
+  const isGameFinished = Boolean(status?.type?.completed);
+  const isGamePre =
+    !status?.period &&
+    !status?.type?.completed &&
+    (status?.type?.description || "").toLowerCase().includes("scheduled");
+  const isGameLive =
+    !isGamePre &&
+    !isGameFinished &&
+    (status?.type?.description === "In Progress" ||
+      status?.type?.state === "in" ||
+      (status?.period && status?.period > 0));
 
-            const currentDrive = drivesData.find(
-              (drive) => !drive.end?.text && drive.result !== "End of Game",
-            );
+  const awayAbbr = getNFLTeamAbbreviation(awayTeam?.team) || "AWY";
+  const homeAbbr = getNFLTeamAbbreviation(homeTeam?.team) || "HME";
+  const awayColor = getNflTeamColor(awayAbbr, colors.primary);
+  const homeColor = getNflTeamColor(
+    homeAbbr,
+    colors.secondary || colors.primary,
+  );
 
-            const possessionTeamId = currentDrive?.team?.id;
-            const showPossession = possessionTeamId === awayTeam?.team?.id;
+  const awayWins = isGameFinished && awayScore > homeScore;
+  const homeWins = isGameFinished && homeScore > awayScore;
 
-            return showPossession ? (
-              <Text
-                allowFontScaling={false}
-                style={styles.stickyPossessionIndicator}
-              >
-                🏈
-              </Text>
-            ) : null;
-          })()}
-        </View>
-
-        {/* Status and Time */}
-        <View style={styles.stickyStatus}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.stickyStatusText, { color: colors.primary }]}
-          >
-            {status?.type?.completed
-              ? "Final"
-              : status?.type?.description === "Halftime"
-                ? "Halftime"
-                : status?.period &&
-                    status?.period > 0 &&
-                    !status?.type?.completed
-                  ? status.period <= 4
-                    ? `${["1st", "2nd", "3rd", "4th"][status.period - 1]} Quarter`
-                    : `OT ${status.period - 4}`
-                  : status?.type?.description ||
-                    status?.type?.name ||
-                    "Scheduled"}
-          </Text>
-          {/* Show clock for in-progress games or start time for scheduled games */}
-          {status?.displayClock &&
-          !status?.type?.completed &&
-          status?.type?.description !== "Halftime" ? (
-            <Text
-              allowFontScaling={false}
-              style={[styles.stickyClock, { color: theme.textSecondary }]}
-            >
-              {status.displayClock}
-            </Text>
-          ) : !status?.type?.completed && !status?.period && gameDate ? (
-            <Text
-              allowFontScaling={false}
-              style={[styles.stickyClock, { color: theme.textSecondary }]}
-            >
-              {new Date(gameDate).toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              })}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Home Team */}
-        <View style={styles.stickyTeamHome}>
-          {/* Possession indicator for home team */}
-          {(() => {
-            // Find possession from drives data
-            if (!drivesData || status?.type?.description === "Halftime")
-              return null;
-
-            const currentDrive = drivesData.find(
-              (drive) => !drive.end?.text && drive.result !== "End of Game",
-            );
-
-            const possessionTeamId = currentDrive?.team?.id;
-            const showPossession = possessionTeamId === homeTeam?.team?.id;
-
-            return showPossession ? (
-              <Text
-                allowFontScaling={false}
-                style={styles.stickyPossessionIndicator}
-              >
-                🏈
-              </Text>
-            ) : null;
-          })()}
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.stickyTeamName,
-              {
-                color: isFavorite(getNFLTeamId(homeTeam?.team), "nfl")
-                  ? colors.primary
-                  : isHomeTeamLosing
-                    ? theme.textSecondary
-                    : theme.text,
-              },
-            ]}
-          >
-            {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
-            {getNFLTeamAbbreviation(homeTeam?.team) || "HOME"}
-          </Text>
-          {status?.type?.description !== "Scheduled" ? (
-            <Text
-              allowFontScaling={false}
-              style={getStickyTeamScoreStyle(isHomeTeamLosing)}
-            >
-              {homeTeam?.score || "0"}
-            </Text>
-          ) : (
-            ""
-          )}
-          <TeamLogoImage
-            team={homeTeam?.team}
-            style={styles.stickyTeamLogo}
-            isLosingTeam={isHomeTeamLosing}
-          />
-        </View>
-      </Animated.View>
+  // Possession from drives data
+  let possessionTeamId = null;
+  if (drivesData) {
+    const currentDrive = drivesData.find(
+      (d) => !d.end?.text && d.result !== "End of Game",
     );
-  };
+    if (currentDrive?.team?.id) possessionTeamId = currentDrive.team.id;
+  }
+  const awayHasPossession =
+    possessionTeamId === awayTeam?.team?.id &&
+    status?.type?.description !== "Halftime";
+  const homeHasPossession =
+    possessionTeamId === homeTeam?.team?.id &&
+    status?.type?.description !== "Halftime";
 
-  // Handle scroll events
-  const handleScroll = (event) => {
-    const scrollY = event.nativeEvent.contentOffset.y;
+  // Status lines
+  const nflStatusLine1 = isGameFinished
+    ? "Final"
+    : status?.type?.description === "Halftime"
+      ? "Halftime"
+      : status?.period && status?.period > 0
+        ? status.period <= 4
+          ? `${["1st", "2nd", "3rd", "4th"][status.period - 1]} QTR`
+          : `OT ${status.period - 4}`
+        : status?.type?.description || status?.type?.name || "Scheduled";
 
-    // Define the transition range - moved earlier
-    const fadeStartY = 100; // Start fading in when scrolled past this point
-    const fadeEndY = 150; // Fully visible at this point
+  const date = new Date(gameDate);
 
-    // Calculate opacity based on scroll position within the transition range
-    let opacity = 0;
-    if (scrollY >= fadeStartY) {
-      if (scrollY >= fadeEndY) {
-        opacity = 1; // Fully visible
-      } else {
-        // Gradual transition between fadeStartY and fadeEndY
-        opacity = (scrollY - fadeStartY) / (fadeEndY - fadeStartY);
+  const nflStatusLine2 =
+    isGameLive &&
+    status?.displayClock &&
+    status?.type?.description !== "Halftime"
+      ? status.displayClock
+      : `${date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })} · ${date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}`;
+
+  const awayLogoUri = awayTeam?.team?.logo || getTeamLogoUrl("nfl", awayAbbr);
+  const homeLogoUri = homeTeam?.team?.logo || getTeamLogoUrl("nfl", homeAbbr);
+
+  // Scroll-driven sticky mini header interpolation (matches NHL pattern)
+  const stickyThreshold = headerH > 0 ? headerH - 40 : 120;
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 54],
+    extrapolate: "clamp",
+  });
+
+  // ── Live field player stats helper (reused by share card + live field) ──
+  const getPlayPlayerStats = (player, playTypeId, participantType) => {
+    if (!gameDetails?.boxscore?.players || !player?.athlete?.id) return [];
+
+    let playerBoxscoreData = null;
+    for (const teamData of gameDetails.boxscore.players) {
+      if (teamData.statistics) {
+        for (const statCategory of teamData.statistics) {
+          if (statCategory.athletes) {
+            for (const athleteData of statCategory.athletes) {
+              const athlete = athleteData.athlete;
+              if (
+                athlete &&
+                (athlete.id === player.athlete.id ||
+                  athlete.id === player.athlete.id.toString())
+              ) {
+                if (!playerBoxscoreData) playerBoxscoreData = {};
+                playerBoxscoreData[statCategory.name] = athleteData.stats || [];
+              }
+            }
+          }
+        }
       }
     }
+    if (!playerBoxscoreData) return [];
 
-    // Update state for conditional padding
-    const shouldShow = opacity > 0;
-    if (shouldShow !== showStickyHeader) {
-      setShowStickyHeader(shouldShow);
+    const stats = [];
+    // Interception (26) / Fumble Return (36)
+    if (playTypeId === "26" || playTypeId === "36") {
+      if (participantType === "passer") {
+        const p = playerBoxscoreData.passing || [];
+        if (p[1]) stats.push(`${p[1]} yds`);
+        if (p[4]) stats.push(`${p[4]} INT`);
+      } else if (participantType === "passDefender") {
+        const d = playerBoxscoreData.interceptions || [];
+        if (d[0]) stats.push(`${d[0]} INT`);
+        if (d[1]) stats.push(`${d[1]} INT yds`);
+      } else if (participantType === "returner") {
+        const r = playerBoxscoreData.receiving || [];
+        if (r[5]) stats.push(`${r[5]} tgt`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
     }
+    // Kickoff (53)
+    else if (playTypeId === "53") {
+      if (participantType === "returner") {
+        const r = playerBoxscoreData.kickReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    }
+    // Kick Return TD (32)
+    else if (playTypeId === "32") {
+      if (participantType === "returner" || participantType === "scorer") {
+        const r = playerBoxscoreData.kickReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[4]) stats.push(`${r[4]} TD`);
+      } else if (
+        participantType === "patScorer" ||
+        participantType === "kicker"
+      ) {
+        const k = playerBoxscoreData.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      }
+    }
+    // Punt (52) / Punt Return (34)
+    else if (playTypeId === "52" || playTypeId === "34") {
+      if (participantType === "returner") {
+        const r = playerBoxscoreData.puntReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      } else if (participantType === "punter") {
+        const p = playerBoxscoreData.punting || [];
+        if (p[0]) stats.push(`${p[0]} punts`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+      } else if (
+        participantType === "patScorer" ||
+        participantType === "kicker"
+      ) {
+        const k = playerBoxscoreData.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      }
+    }
+    // Fumble (29) / Fumble Recovery (80)
+    else if (playTypeId === "29" || playTypeId === "80") {
+      if (
+        participantType === "fumbler" ||
+        participantType === "rusher" ||
+        participantType === "passer"
+      ) {
+        const f = playerBoxscoreData.fumbles || [];
+        if (f[0]) stats.push(`${f[0]} fum`);
+      } else if (participantType === "recoverer") {
+        const f = playerBoxscoreData.fumbles || [];
+        if (f[2]) stats.push(`${f[2]} rec`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy" ||
+        participantType === "forcedBy"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    }
+    // Sack (7)
+    else if (playTypeId === "7") {
+      if (participantType === "passer") {
+        const p = playerBoxscoreData.passing || [];
+        if (p[5]) stats.push(`${p[5]} sck`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+      } else if (
+        participantType === "sackedBy" ||
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[2]) stats.push(`${d[2]} sck`);
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    }
+    // Field Goal (59)
+    else if (playTypeId === "59") {
+      if (participantType === "kicker") {
+        const k = playerBoxscoreData.kicking || [];
+        if (k[0]) stats.push(`${k[0]} FG`);
+        if (k[1]) stats.push(`${k[1]}%`);
+      }
+    }
+    // Regular plays
+    else {
+      if (participantType === "rusher") {
+        const r = playerBoxscoreData.rushing || [];
+        if (r[0]) stats.push(`${r[0]} att`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[3]) stats.push(`${r[3]} TD`);
+      } else if (participantType === "passer") {
+        const p = playerBoxscoreData.passing || [];
+        if (p[0]) stats.push(`${p[0]} c/att`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+        if (p[3]) stats.push(`${p[3]} TD`);
+      } else if (participantType === "receiver") {
+        const r = playerBoxscoreData.receiving || [];
+        if (r[0]) stats.push(`${r[0]} rec`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[3]) stats.push(`${r[3]} TD`);
+      } else if (
+        participantType === "assistedBy" ||
+        participantType === "tackler"
+      ) {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      } else if (participantType === "passDefender") {
+        const d = playerBoxscoreData.defensive || [];
+        if (d[4]) stats.push(`${d[4]} PD`);
+      } else if (participantType === "kicker") {
+        const k = playerBoxscoreData.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      } else if (participantType === "punter") {
+        const p = playerBoxscoreData.punting || [];
+        if (p[0]) stats.push(`${p[0]} punts`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+      }
+    }
+    return stats;
+  };
 
-    // Smoothly animate to the calculated opacity
-    Animated.timing(stickyHeaderOpacity, {
-      toValue: opacity,
-      duration: 0, // Immediate response to scroll
-      useNativeDriver: true,
-    }).start();
+  // ── Main tab content ─────────────────────────────────────────────
+  const renderMainContent = () => {
+    const scoringPlays = gameDetails?.scoringPlays || [];
+
+    return (
+      <View style={[{ paddingBottom: 20 }]}>
+        {/* ── Live Field View (NHL rink-style) ── */}
+        {isGameLive &&
+          (() => {
+            // Collect all plays from all drives in chronological order
+            const allPlays = [];
+            if (drivesData) {
+              for (const drive of drivesData) {
+                if (drive.plays?.length) {
+                  for (const play of drive.plays) {
+                    allPlays.push({ play, drive });
+                  }
+                }
+              }
+            }
+            allPlays.sort(
+              (a, b) =>
+                (parseInt(a.play.sequenceNumber) || 0) -
+                (parseInt(b.play.sequenceNumber) || 0),
+            );
+
+            const safeIdx =
+              allPlays.length > 0
+                ? Math.max(0, Math.min(livePlayIdx, allPlays.length - 1))
+                : 0;
+            const currentEntry = allPlays[safeIdx];
+            const currentPlay = currentEntry?.play;
+            const currentDrive = currentEntry?.drive;
+
+            const navBtn = (label, disabled, onPress) => (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={disabled}
+                onPress={onPress}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: disabled
+                    ? theme.surfaceSecondary
+                    : colors.primary + "22",
+                  borderWidth: 1,
+                  borderColor: disabled ? theme.border : colors.primary,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: disabled ? theme.textTertiary : colors.primary,
+                  }}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+
+            if (!currentPlay) {
+              return (
+                <View
+                  style={[
+                    nflMainStyles.fieldCard,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      textAlign: "center",
+                      padding: 20,
+                    }}
+                  >
+                    No plays available
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {navBtn("◀ Prev Play", true, () => {})}
+                    {navBtn("Next Play ▶", true, () => {})}
+                  </View>
+                </View>
+              );
+            }
+
+            const play = currentPlay;
+            const playTypeId = play.type?.id;
+            const playTypeText =
+              play.type?.text || play.type?.abbreviation || "";
+            const playText = play.text || play.shortText || "";
+            const ddText =
+              play.start?.downDistanceText || play.end?.downDistanceText || "";
+            const period = play.period?.number || 0;
+            const clock = play.clock?.displayValue || "";
+            const periodLabel =
+              period <= 4 ? `Q${period}` : period > 4 ? `OT${period - 4}` : "";
+
+            // ── Team / field info (use drive team, same as drives tab) ──
+            const driveTeam = currentDrive?.team;
+            const driveTeamAbbr = driveTeam?.abbreviation || "";
+            const driveTeamColor = getNflTeamColor(
+              driveTeamAbbr,
+              colors.primary,
+            );
+            const awayTeamAbbr =
+              getNFLTeamAbbreviation(awayTeam?.team) || "AWY";
+            const homeTeamAbbr =
+              getNFLTeamAbbreviation(homeTeam?.team) || "HME";
+            const startYard = play.start?.yardLine;
+            const endYard = play.end?.yardLine;
+
+            const isScoring = !!play.scoringPlay;
+            const fieldStartYard = isScoring
+              ? (currentDrive?.start?.yardLine ?? startYard)
+              : startYard;
+            const fieldEndYard = isScoring
+              ? (currentDrive?.end?.yardLine ?? endYard)
+              : (endYard ?? startYard);
+
+            // ── Enrich participants (resolve $ref from drives API, same as handlePlayPress) ──
+            const enrichedParticipants = [];
+            if (play.participants && play.participants.length > 0) {
+              const findAthleteInBoxscore = (athleteId) => {
+                if (!gameDetails?.boxscore?.players) return null;
+                for (const teamData of gameDetails.boxscore.players) {
+                  if (teamData.statistics) {
+                    for (const statCategory of teamData.statistics) {
+                      if (statCategory.athletes) {
+                        for (const athleteData of statCategory.athletes) {
+                          const athlete = athleteData.athlete;
+                          if (
+                            athlete &&
+                            (athlete.id === athleteId ||
+                              athlete.id === athleteId.toString())
+                          ) {
+                            return {
+                              ...athlete,
+                              headshot: athlete.headshot || {
+                                href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${athleteId}.png`,
+                              },
+                            };
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                return null;
+              };
+
+              for (const participant of play.participants) {
+                // Already populated
+                if (
+                  participant.athlete &&
+                  typeof participant.athlete === "object" &&
+                  participant.athlete.displayName
+                ) {
+                  enrichedParticipants.push({
+                    ...participant,
+                    athlete: {
+                      ...participant.athlete,
+                      headshot: participant.athlete.headshot || {
+                        href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${participant.athlete.id}.png`,
+                      },
+                    },
+                    team: participant.team || driveTeam,
+                  });
+                  continue;
+                }
+
+                // Resolve $ref
+                if (participant.athlete && participant.athlete.$ref) {
+                  const athleteRef = participant.athlete.$ref;
+                  const athleteIdMatch = athleteRef.match(/\/athletes\/(\d+)/);
+                  if (athleteIdMatch) {
+                    const athleteId = athleteIdMatch[1];
+                    const athleteData = findAthleteInBoxscore(athleteId);
+                    if (athleteData) {
+                      enrichedParticipants.push({
+                        ...participant,
+                        athlete: { ...athleteData, id: athleteId },
+                        team: driveTeam,
+                      });
+                      continue;
+                    }
+                  }
+                }
+              }
+            }
+
+            // ── Build participants list ──
+            let participantsList = [...enrichedParticipants].sort(
+              (a, b) => (a.order || 0) - (b.order || 0),
+            );
+
+            const isSpecialPlayType = [
+              "53",
+              "26",
+              "36",
+              "52",
+              "29",
+              "80",
+              "7",
+              "32",
+              "34",
+            ].includes(playTypeId);
+            const isRushingPlay = playTypeId === "5";
+            const isPassingPlay = playTypeId === "24";
+            const isScoringPlay =
+              play.scoringPlay ||
+              play.text?.toLowerCase().includes("touchdown");
+
+            let mainPlayer = null;
+            if (isScoringPlay) {
+              mainPlayer = participantsList.find(
+                (p) =>
+                  p.type === "scorer" ||
+                  p.type === "rusher" ||
+                  p.type === "receiver",
+              );
+            }
+            if (!mainPlayer) {
+              if (isSpecialPlayType && participantsList.length > 1) {
+                mainPlayer = participantsList.find(
+                  (p) =>
+                    p.type === "recoverer" ||
+                    p.type === "returner" ||
+                    p.type === "sackedBy" ||
+                    p.type === "passDefender",
+                );
+              } else if (isRushingPlay) {
+                mainPlayer = participantsList.find((p) => p.type === "rusher");
+              } else if (isPassingPlay) {
+                mainPlayer = participantsList.find(
+                  (p) => p.type === "receiver",
+                );
+              }
+              if (!mainPlayer) mainPlayer = participantsList[0];
+            }
+            if (
+              mainPlayer &&
+              (isSpecialPlayType ||
+                isRushingPlay ||
+                isPassingPlay ||
+                isScoringPlay)
+            ) {
+              participantsList = [
+                mainPlayer,
+                ...participantsList.filter(
+                  (p) =>
+                    p.athlete?.displayName !== mainPlayer?.athlete?.displayName,
+                ),
+              ];
+            }
+
+            const mainAthlete = mainPlayer?.athlete;
+            const mainId = mainAthlete?.id;
+            const mainHeadshot =
+              mainAthlete?.headshot?.href ||
+              (mainId
+                ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${mainId}.png`
+                : null);
+            const mainStats = mainPlayer
+              ? getPlayPlayerStats(mainPlayer, playTypeId, mainPlayer.type)
+              : [];
+
+            const testLiveField = false; // Set to true to test live field rendering
+
+            return (
+              <View
+                style={[
+                  nflMainStyles.fieldCard,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {/* ── Field header ── */}
+                <View
+                  style={[
+                    nflMainStyles.fieldHeaderRow,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      nflMainStyles.fieldHeaderTitle,
+                      { color: theme.text },
+                    ]}
+                  >
+                    Live Field
+                  </Text>
+                </View>
+
+                {/* ── Field body ── */}
+                <View style={nflMainStyles.fieldBody}>
+                  {/* NflPlayFieldMini (the detailed field from the copy card) */}
+                  <NflPlayFieldMini
+                    play={play}
+                    teamColor={driveTeamColor}
+                    startYard={fieldStartYard}
+                    endYard={fieldEndYard}
+                  />
+
+                  {/* Play description */}
+                  <View
+                    style={{
+                      paddingHorizontal: 2,
+                      paddingTop: 6,
+                      paddingBottom: 12,
+                    }}
+                  >
+                    {/* Play type + time row */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "700",
+                          color: isScoring
+                            ? driveTeamColor
+                            : theme.textSecondary,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        {playTypeText}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "600",
+                          color: theme.textSecondary,
+                        }}
+                      >
+                        {periodLabel} {clock}
+                      </Text>
+                    </View>
+
+                    {/* Play text */}
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "600",
+                        color: theme.text,
+                        lineHeight: 18,
+                      }}
+                    >
+                      {playText}
+                    </Text>
+
+                    {/* Down & distance + score */}
+                    {(!!ddText || play.awayScore !== undefined) && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: 4,
+                        }}
+                      >
+                        {!!ddText && (
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: "600",
+                              color: colors.primary,
+                            }}
+                          >
+                            {ddText}
+                          </Text>
+                        )}
+                        {play.awayScore !== undefined && (
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: "600",
+                              color: theme.textSecondary,
+                            }}
+                          >
+                            {awayTeamAbbr} {play.awayScore} - {play.homeScore}{" "}
+                            {homeTeamAbbr}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* ── Players section (NHL LivePlaySection styling) ── */}
+                  <View
+                    style={{
+                      borderRadius: 10,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.border,
+                      backgroundColor: theme.surfaceSecondary,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: "relative",
+                        overflow: "hidden",
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        gap: 7,
+                      }}
+                    >
+                      {/* Gradient background */}
+                      <View
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                      >
+                        <Svg width="100%" height="100%" pointerEvents="none">
+                          <Defs>
+                            <LinearGradient
+                              id={`liveFieldGrad-${safeIdx}`}
+                              x1="0%"
+                              y1="0%"
+                              x2="100%"
+                              y2="0%"
+                            >
+                              <Stop
+                                offset="0%"
+                                stopColor={driveTeamColor}
+                                stopOpacity="0.22"
+                              />
+                              <Stop
+                                offset="70%"
+                                stopColor={driveTeamColor}
+                                stopOpacity="0"
+                              />
+                              <Stop
+                                offset="100%"
+                                stopColor={driveTeamColor}
+                                stopOpacity="0"
+                              />
+                            </LinearGradient>
+                          </Defs>
+                          <Rect
+                            width="100%"
+                            height="100%"
+                            fill={`url(#liveFieldGrad-${safeIdx})`}
+                          />
+                        </Svg>
+                      </View>
+
+                      {/* Team header row */}
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: "900",
+                            letterSpacing: 0.5,
+                            color: driveTeamColor,
+                          }}
+                        >
+                          {(
+                            driveTeam?.displayName ||
+                            driveTeam?.name ||
+                            driveTeamAbbr
+                          ).toUpperCase()}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: "700",
+                            letterSpacing: 0.35,
+                            color: theme.textSecondary,
+                          }}
+                        >
+                          {driveTeamAbbr === awayTeamAbbr ? "AWAY" : "HOME"}
+                        </Text>
+                      </View>
+
+                      {/* Player row */}
+                      {mainAthlete ? (
+                        (() => {
+                          const fullName = String(
+                            mainAthlete?.displayName ||
+                              mainAthlete?.fullName ||
+                              mainAthlete?.name ||
+                              (mainAthlete?.firstName && mainAthlete?.lastName
+                                ? `${mainAthlete.firstName} ${mainAthlete.lastName}`
+                                : null) ||
+                              "Unknown",
+                          ).trim();
+                          const number =
+                            mainAthlete?.jersey != null &&
+                            Number.isFinite(Number(mainAthlete.jersey))
+                              ? `#${Number(mainAthlete.jersey)}`
+                              : mainAthlete?.number != null &&
+                                  Number.isFinite(Number(mainAthlete.number))
+                                ? `#${Number(mainAthlete.number)}`
+                                : "";
+                          const position = String(
+                            mainPlayer?.type ||
+                              mainAthlete?.position?.abbreviation ||
+                              "",
+                          ).toUpperCase();
+                          const meta = [driveTeamAbbr, number, position]
+                            .filter(Boolean)
+                            .join(" \u00B7 ");
+
+                          return (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 8,
+                                justifyContent: "flex-start",
+                              }}
+                            >
+                              {/* Info block */}
+                              <View
+                                style={{
+                                  flex: 1,
+                                  minWidth: 0,
+                                  alignItems: "flex-start",
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: "800",
+                                    lineHeight: 15,
+                                    color: theme.text,
+                                  }}
+                                  numberOfLines={1}
+                                >
+                                  {fullName}
+                                </Text>
+                                {!!meta && (
+                                  <Text
+                                    style={{
+                                      marginTop: 1,
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      lineHeight: 13,
+                                      color: theme.textSecondary,
+                                    }}
+                                    numberOfLines={1}
+                                  >
+                                    {meta}
+                                  </Text>
+                                )}
+                                {mainStats.length > 0 && (
+                                  <View
+                                    style={{
+                                      marginTop: 4,
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      justifyContent: "flex-start",
+                                      gap: 6,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    {mainStats.map((stat, idx) => {
+                                      const parts = stat
+                                        ? stat.split(" ")
+                                        : ["—"];
+                                      const value = parts.shift() || "—";
+                                      const label = parts.join(" ");
+                                      return (
+                                        <View
+                                          key={`stat-${idx}`}
+                                          style={{
+                                            minWidth: 30,
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: "800",
+                                              lineHeight: 13,
+                                              color: theme.text,
+                                            }}
+                                            numberOfLines={1}
+                                          >
+                                            {value}
+                                          </Text>
+                                          <Text
+                                            style={{
+                                              marginTop: 1,
+                                              fontSize: 8,
+                                              fontWeight: "700",
+                                              letterSpacing: 0.18,
+                                              color: theme.textSecondary,
+                                            }}
+                                          >
+                                            {label || "STAT"}
+                                          </Text>
+                                        </View>
+                                      );
+                                    })}
+                                  </View>
+                                )}
+                              </View>
+
+                              {/* Headshot */}
+                              <View
+                                style={{
+                                  width: 58,
+                                  height: 58,
+                                  borderRadius: 29,
+                                  borderWidth: 2,
+                                  overflow: "visible",
+                                  position: "relative",
+                                  borderColor: driveTeamColor,
+                                  backgroundColor: driveTeamColor + "66",
+                                }}
+                              >
+                                {mainHeadshot ? (
+                                  <Image
+                                    source={{ uri: mainHeadshot }}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      borderRadius: 29,
+                                    }}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <View
+                                    style={{
+                                      flex: 1,
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      borderRadius: 29,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 14,
+                                        fontWeight: "700",
+                                        color: theme.textSecondary,
+                                      }}
+                                    >
+                                      {fullName
+                                        .split(/\s+/)
+                                        .filter(Boolean)
+                                        .map((p) => p[0])
+                                        .slice(0, 2)
+                                        .join("")
+                                        .toUpperCase() || "?"}
+                                    </Text>
+                                  </View>
+                                )}
+
+                                {/* Team logo badge */}
+                                <View
+                                  style={{
+                                    position: "absolute",
+                                    left: -2,
+                                    bottom: -3,
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: 10,
+                                    backgroundColor: "rgba(255,255,255,0.95)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderWidth: 1,
+                                    borderColor: driveTeamColor,
+                                  }}
+                                >
+                                  <TeamLogoImage
+                                    team={driveTeam}
+                                    style={{ width: 20, height: 20 }}
+                                  />
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })()
+                      ) : (
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: "600",
+                            paddingVertical: 2,
+                            color: theme.textSecondary,
+                            textAlign: "left",
+                          }}
+                        >
+                          No player tagged for this play
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
+                {testLiveField && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 8,
+                      paddingHorizontal: 12,
+                      paddingBottom: 12,
+                      paddingTop: 4,
+                    }}
+                  >
+                    {navBtn("◀ Prev Play", safeIdx <= 0, () =>
+                      setLivePlayIdx((i) => Math.max(0, i - 1)),
+                    )}
+                    {navBtn("Next Play ▶", safeIdx >= allPlays.length - 1, () =>
+                      setLivePlayIdx((i) =>
+                        Math.min(allPlays.length - 1, i + 1),
+                      ),
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+
+        {/* Linescore */}
+        {(() => {
+          const awayLinescores = awayTeam?.linescores || [];
+          const homeLinescores = homeTeam?.linescores || [];
+          const hasLinescores =
+            awayLinescores.length > 0 || homeLinescores.length > 0;
+          if (!hasLinescores) return null;
+
+          const maxPeriods = Math.max(
+            awayLinescores.length,
+            homeLinescores.length,
+            4,
+          );
+          const periodLabels = [];
+          for (let i = 0; i < maxPeriods; i++) {
+            if (i < 4) periodLabels.push(String(i + 1));
+            else periodLabels.push(`OT${i - 3}`);
+          }
+
+          const awayTotal = Number(awayTeam?.score ?? 0);
+          const homeTotal = Number(homeTeam?.score ?? 0);
+          const awayAbbr = getNFLTeamAbbreviation(awayTeam?.team) || "AWY";
+          const homeAbbr = getNFLTeamAbbreviation(homeTeam?.team) || "HME";
+          const awayTeamColor = getNflTeamColor(awayAbbr, colors.primary);
+          const homeTeamColor = getNflTeamColor(
+            homeAbbr,
+            colors.secondary || colors.primary,
+          );
+
+          const CELL_W = 32;
+          const ROW_H = 34;
+          const LABEL_W = 48;
+          const TOTAL_W = 38;
+
+          const cellW =
+            linescoreAvailableW > 0 && periodLabels.length > 0
+              ? Math.max(CELL_W, linescoreAvailableW / periodLabels.length)
+              : CELL_W;
+
+          const headerBg = theme.surfaceSecondary ?? "rgba(128,128,128,0.08)";
+          const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+
+          return (
+            <View
+              style={[
+                nflMainStyles.linescoreCard,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <View style={{ flexDirection: "row" }}>
+                {/* Team labels column */}
+                <View style={{ width: LABEL_W }}>
+                  <View
+                    style={[
+                      nflMainStyles.linescoreCell,
+                      {
+                        height: ROW_H,
+                        borderBottomColor: borderCol,
+                        backgroundColor: headerBg,
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      nflMainStyles.linescoreCell,
+                      {
+                        height: ROW_H,
+                        borderBottomColor: awayTeamColor,
+                        borderBottomWidth: 2,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        nflMainStyles.linescoreTeamAbbr,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {awayAbbr}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      nflMainStyles.linescoreCell,
+                      {
+                        height: ROW_H,
+                        borderBottomColor: homeTeamColor,
+                        borderBottomWidth: 2,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        nflMainStyles.linescoreTeamAbbr,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {homeAbbr}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Scrollable period columns */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  bounces={false}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ flexDirection: "column" }}
+                  onLayout={(e) =>
+                    setLinescoreAvailableW(e.nativeEvent.layout.width)
+                  }
+                >
+                  <View style={{ flexDirection: "row" }}>
+                    {periodLabels.map((label, idx) => (
+                      <View
+                        key={`ph-${idx}`}
+                        style={[
+                          nflMainStyles.linescoreCell,
+                          {
+                            width: cellW,
+                            height: ROW_H,
+                            backgroundColor: headerBg,
+                            borderBottomColor: borderCol,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            nflMainStyles.linescorePeriodNum,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={{ flexDirection: "row" }}>
+                    {periodLabels.map((_, idx) => (
+                      <View
+                        key={`pa-${idx}`}
+                        style={[
+                          nflMainStyles.linescoreCell,
+                          {
+                            width: cellW,
+                            height: ROW_H,
+                            borderBottomColor: awayTeamColor,
+                            borderBottomWidth: 2,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            nflMainStyles.linescoreRunsText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {awayLinescores[idx]?.displayValue || "-"}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={{ flexDirection: "row" }}>
+                    {periodLabels.map((_, idx) => (
+                      <View
+                        key={`phm-${idx}`}
+                        style={[
+                          nflMainStyles.linescoreCell,
+                          {
+                            width: cellW,
+                            height: ROW_H,
+                            borderBottomColor: homeTeamColor,
+                            borderBottomWidth: 2,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            nflMainStyles.linescoreRunsText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {homeLinescores[idx]?.displayValue || "-"}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+
+                {/* Stuck totals column */}
+                <View
+                  style={[
+                    nflMainStyles.linescoreTotalsSection,
+                    { borderLeftColor: borderCol },
+                  ]}
+                >
+                  <View
+                    style={[
+                      nflMainStyles.linescoreTotalsRow,
+                      {
+                        height: ROW_H,
+                        backgroundColor: headerBg,
+                        borderBottomColor: borderCol,
+                      },
+                    ]}
+                  >
+                    <View style={{ width: TOTAL_W, alignItems: "center" }}>
+                      <Text
+                        style={[
+                          nflMainStyles.linescoreTotalHeader,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        T
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      nflMainStyles.linescoreTotalsRow,
+                      {
+                        height: ROW_H,
+                        borderBottomColor: awayTeamColor,
+                        borderBottomWidth: 2,
+                      },
+                    ]}
+                  >
+                    <View style={{ width: TOTAL_W, alignItems: "center" }}>
+                      <Text
+                        style={[
+                          nflMainStyles.linescoreTotalVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {awayTotal}
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      nflMainStyles.linescoreTotalsRow,
+                      {
+                        height: ROW_H,
+                        borderBottomColor: homeTeamColor,
+                        borderBottomWidth: 2,
+                      },
+                    ]}
+                  >
+                    <View style={{ width: TOTAL_W, alignItems: "center" }}>
+                      <Text
+                        style={[
+                          nflMainStyles.linescoreTotalVal,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {homeTotal}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* Scoring Summary */}
+        {scoringPlays.length > 0 && (
+          <View
+            style={[
+              nflMainStyles.scoringCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={[
+                nflMainStyles.scoringHeaderRow,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <Text style={[nflMainStyles.scoringTitle, { color: theme.text }]}>
+                Scoring Summary
+              </Text>
+            </View>
+            <View style={nflMainStyles.scoringBody}>
+              {scoringPlays.map((play, idx) => {
+                const isHome = play.team?.id === homeTeam?.team?.id;
+                const teamColor = isHome ? homeColor : awayColor;
+                return (
+                  <View
+                    key={play.id || idx}
+                    style={[
+                      nflMainStyles.scoringRow,
+                      { borderLeftColor: teamColor },
+                    ]}
+                  >
+                    <View style={nflMainStyles.scoringTimeCol}>
+                      <Text
+                        style={[
+                          nflMainStyles.scoringPeriod,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {play.period?.number <= 4
+                          ? `Q${play.period?.number || "?"}`
+                          : `OT${play.period?.number - 4 || "?"}`}
+                      </Text>
+                      <Text
+                        style={[
+                          nflMainStyles.scoringClock,
+                          { color: theme.textTertiary },
+                        ]}
+                      >
+                        {play.clock?.displayValue || ""}
+                      </Text>
+                    </View>
+                    <View style={nflMainStyles.scoringInfoCol}>
+                      <Text
+                        style={[
+                          nflMainStyles.scoringPlayText,
+                          { color: theme.text },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {play.text || ""}
+                      </Text>
+                      <Text
+                        style={[
+                          nflMainStyles.scoringScore,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {play.awayScore} - {play.homeScore}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Officials */}
+        {gameDetails?.gameInfo?.officials &&
+          gameDetails.gameInfo.officials.length > 0 && (
+            <View
+              style={[
+                nflMainStyles.officialsCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <View
+                style={[
+                  nflMainStyles.officialsHeaderRow,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[nflMainStyles.officialsTitle, { color: theme.text }]}
+                >
+                  Officials
+                </Text>
+              </View>
+              <View style={nflMainStyles.officialsBody}>
+                {gameDetails.gameInfo.officials.map((official, idx) => (
+                  <View key={idx} style={nflMainStyles.officialRow}>
+                    <Text
+                      style={[
+                        nflMainStyles.officialName,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {official.displayName || official.fullName || ""}
+                    </Text>
+                    <Text
+                      style={[
+                        nflMainStyles.officialRole,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {official.position?.displayName ||
+                        official.position?.name ||
+                        ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+        {/* Venue */}
+        {(venue || competition?.venue?.fullName) && (
+          <View
+            style={[
+              nflMainStyles.venueCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[nflMainStyles.venueName, { color: theme.text }]}>
+              {venue || competition?.venue?.fullName}
+            </Text>
+            {gameDate && (
+              <Text
+                style={[
+                  nflMainStyles.venueDate,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {new Date(gameDate).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Sticky Header - Always render but animated */}
-      {renderStickyHeader()}
-
-      {/* Main Content */}
-      <ScrollView
+      {/* Main Content with sticky tab bar */}
+      <Animated.ScrollView
         style={[styles.scrollView, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
-        onScroll={handleScroll}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
         scrollEventThrottle={16}
+        stickyHeaderIndices={[1]}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Game Header */}
-        <View style={[styles.gameHeader, { backgroundColor: theme.surface }]}>
-          <View style={styles.teamContainer}>
-            {/* Debug possession data */}
-            {(() => {
-              // Find possession from drives data like the yard line graphic does
-              let possessionTeamId = null;
-              if (drivesData) {
-                const currentDrive = drivesData.find(
-                  (drive) => !drive.end?.text && drive.result !== "End of Game",
-                );
-                if (currentDrive?.team?.id) {
-                  possessionTeamId = currentDrive.team.id;
-                }
-              }
-
-              console.log("=== POSSESSION DEBUG ===");
-              console.log(
-                "drivesData found current drive possession team ID:",
-                possessionTeamId,
-              );
-              console.log("awayTeam.team.id:", awayTeam?.team?.id);
-              console.log("homeTeam.team.id:", homeTeam?.team?.id);
-              console.log(
-                "Possession match away:",
-                possessionTeamId === awayTeam?.team?.id,
-              );
-              console.log(
-                "Possession match home:",
-                possessionTeamId === homeTeam?.team?.id,
-              );
-              console.log(
-                "status.type.description:",
-                status?.type?.description,
-              );
-              console.log("========================");
-              return null;
-            })()}
-            {/* Away Team */}
-            <View style={styles.team}>
-              {status?.type?.description !== "Scheduled" ? (
-                <Text
-                  allowFontScaling={false}
-                  style={getTeamScoreStyle(isAwayTeamLosing)}
-                >
-                  {awayTeam?.score || "0"}
-                </Text>
-              ) : (
-                ""
-              )}
-              <View style={styles.teamLogoContainer}>
-                {/* Possession indicator for away team (not during halftime) */}
-                {(() => {
-                  // Find possession from drives data
-                  if (!drivesData || status?.type?.description === "Halftime")
-                    return null;
-
-                  const currentDrive = drivesData.find(
-                    (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game",
-                  );
-
-                  const possessionTeamId = currentDrive?.team?.id;
-                  const showPossession =
-                    possessionTeamId === awayTeam?.team?.id;
-
-                  return showPossession ? (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.possessionIndicator,
-                        styles.awayPossession,
-                      ]}
-                    >
-                      🏈
-                    </Text>
-                  ) : null;
-                })()}
-                <TeamLogoImage
-                  team={awayTeam?.team}
-                  style={styles.teamLogo}
-                  isLosingTeam={isAwayTeamLosing}
-                />
-              </View>
-              <View style={styles.teamNameContainer}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    getTeamNameStyle(isAwayTeamLosing),
-                    {
-                      color: isFavorite(getNFLTeamId(awayTeam?.team), "nfl")
-                        ? colors.primary
-                        : isAwayTeamLosing
-                          ? theme.textSecondary
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
-                  {awayTeam?.team?.abbreviation ||
-                    awayTeam?.team?.shortDisplayName ||
-                    awayTeam?.team?.name}
-                </Text>
-              </View>
-            </View>
-
-            {/* VS/Quarter Info */}
-            <View style={styles.vsContainer}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.vsText, { color: theme.textSecondary }]}
-              >
-                VS
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.gameStatus, { color: colors.primary }]}
-              >
-                {status?.type?.completed
-                  ? "Final"
-                  : status?.type?.description === "Halftime"
-                    ? "Halftime"
-                    : status?.period &&
-                        status?.period > 0 &&
-                        !status?.type?.completed
-                      ? status.period <= 4
-                        ? `${
-                            ["1st", "2nd", "3rd", "4th"][status.period - 1]
-                          } Quarter`
-                        : `OT ${status.period - 4}`
-                      : status?.type?.description ||
-                        status?.type?.name ||
-                        "Scheduled"}
-              </Text>
-              {/* Show clock for in-progress games or start time for scheduled games */}
-              {status?.displayClock &&
-              !status?.type?.completed &&
-              status?.type?.description !== "Halftime" ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameClock, { color: theme.textSecondary }]}
-                >
-                  {status.displayClock}
-                </Text>
-              ) : !status?.type?.completed && !status?.period && gameDate ? (
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameClock, { color: theme.textSecondary }]}
-                >
-                  {new Date(gameDate).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </Text>
-              ) : null}
-            </View>
-
-            {/* Home Team */}
-            <View style={styles.team}>
-              {status?.type?.description !== "Scheduled" ? (
-                <Text
-                  allowFontScaling={false}
-                  style={getTeamScoreStyle(isHomeTeamLosing)}
-                >
-                  {homeTeam?.score || "0"}
-                </Text>
-              ) : (
-                ""
-              )}
-              <View style={styles.teamLogoContainer}>
-                <TeamLogoImage
-                  team={homeTeam?.team}
-                  style={styles.teamLogo}
-                  isLosingTeam={isHomeTeamLosing}
-                />
-                {/* Possession indicator for home team (not during halftime) */}
-                {(() => {
-                  // Find possession from drives data
-                  if (!drivesData || status?.type?.description === "Halftime")
-                    return null;
-
-                  const currentDrive = drivesData.find(
-                    (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game",
-                  );
-
-                  const possessionTeamId = currentDrive?.team?.id;
-                  const showPossession =
-                    possessionTeamId === homeTeam?.team?.id;
-
-                  return showPossession ? (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.possessionIndicator,
-                        styles.homePossession,
-                      ]}
-                    >
-                      🏈
-                    </Text>
-                  ) : null;
-                })()}
-              </View>
-              <View style={styles.teamNameContainer}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    getTeamNameStyle(isHomeTeamLosing),
-                    {
-                      color: isFavorite(getNFLTeamId(homeTeam?.team), "nfl")
-                        ? colors.primary
-                        : isHomeTeamLosing
-                          ? theme.textSecondary
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
-                  {homeTeam?.team?.abbreviation ||
-                    homeTeam?.team?.shortDisplayName ||
-                    homeTeam?.team?.name}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Game Info or Yard Line */}
-          {!status?.type?.completed && status?.period && status?.period > 0 ? (
-            <View
-              style={[
-                styles.yardLineContainer,
-                { borderTopColor: theme.border },
-              ]}
-            >
-              {/* Football Field - always show during active game */}
-              <View style={styles.yardLineField}>
-                {/* Field yard lines - proper football field layout (Away left, Home right) */}
-                {[0, 10, 20, 30, 40, 50, 40, 30, 20, 10, 0].map(
-                  (yard, index) => {
-                    const isLeftEndZone = index === 0;
-                    const isRightEndZone = index === 10;
-                    const isLastYardLine = index === 10;
-
-                    return (
-                      <View
-                        key={index}
-                        style={[
-                          styles.yardLineMark,
-                          isLastYardLine && styles.lastYardLineMark,
-                        ]}
-                      >
-                        {isLeftEndZone ? (
-                          // Away team end zone (left)
-                          <TeamLogoImage
-                            team={awayTeam?.team}
-                            style={styles.endZoneLogo}
-                          />
-                        ) : isRightEndZone ? (
-                          // Home team end zone (right)
-                          <TeamLogoImage
-                            team={homeTeam?.team}
-                            style={styles.endZoneLogo}
-                          />
-                        ) : (
-                          <Text
-                            allowFontScaling={false}
-                            style={styles.yardLineNumber}
-                          >
-                            {yard}
-                          </Text>
-                        )}
-                      </View>
-                    );
-                  },
-                )}
-
-                {/* Ball position indicator - use drives data */}
-                {status?.type?.description !== "Halftime" &&
-                  drivesData &&
-                  (() => {
-                    // Find the current drive in progress
-                    const currentDrive = drivesData.find(
-                      (drive) =>
-                        !drive.end?.text && drive.result !== "End of Game",
-                    );
-
-                    if (!currentDrive?.plays?.length) return null;
-
-                    // Get the most recent play
-                    const sortedPlays = [...currentDrive.plays].sort((a, b) => {
-                      const seqA = parseInt(a.sequenceNumber) || 0;
-                      const seqB = parseInt(b.sequenceNumber) || 0;
-                      return seqB - seqA;
-                    });
-                    const mostRecentPlay = sortedPlays[0];
-
-                    if (!mostRecentPlay?.end) return null;
-
-                    // Get the possession team abbreviation and yard line
-                    const possessionText = mostRecentPlay.end.possessionText; // e.g., "LV 22"
-                    const yardLine = mostRecentPlay.end.yardLine; // e.g., 22
-
-                    if (!possessionText || yardLine === undefined) return null;
-
-                    // Extract team abbreviation from possessionText (e.g., "LV" from "LV 22")
-                    const teamAbbr = possessionText.split(" ")[0];
-
-                    console.log("Ball Position Debug:", {
-                      possessionText,
-                      teamAbbr,
-                      yardLine,
-                      homeTeamAbbr: homeTeam?.team?.abbreviation,
-                      awayTeamAbbr: awayTeam?.team?.abbreviation,
-                    });
-
-                    // Determine which side of the field the ball is on
-                    let ballPosition = 50; // default to midfield
-
-                    // NFL field logic: Away team (left) = 0-50%, Home team (right) = 50-100%
-                    // possessionText like "LV 7" means the ball is at LV's 7-yard line (7 yards from LV's goal)
-                    if (teamAbbr === homeTeam?.team?.abbreviation) {
-                      // Ball is on HOME team's side of field (right side, 50-100%)
-                      // "LV 7" = 7 yards from home endzone = 93% from left edge
-                      // Formula: 100 - (yardLine / 50 * 50) = 100 - yardLine
-                      ballPosition = 100 - yardLine;
-                    } else if (teamAbbr === awayTeam?.team?.abbreviation) {
-                      // Ball is on AWAY team's side of field (left side, 0-50%)
-                      // "LAC 7" = 7 yards from away endzone = 7% from left edge
-                      // Formula: yardLine / 50 * 50 = yardLine
-                      ballPosition = 100 - yardLine;
-                    } else {
-                      // Fallback: try to determine based on possession team
-                      const possessionTeam = currentDrive.team?.abbreviation;
-                      if (possessionTeam === homeTeam?.team?.abbreviation) {
-                        // Home team has possession - ball is on home side
-                        ballPosition = 100 - yardLine;
-                      } else if (
-                        possessionTeam === awayTeam?.team?.abbreviation
-                      ) {
-                        // Away team has possession - ball is on away side
-                        ballPosition = yardLine;
-                      }
-                    }
-
-                    console.log("Calculated ball position:", ballPosition);
-
-                    return (
-                      <View
-                        style={[
-                          styles.ballPosition,
-                          {
-                            left: `${Math.max(2, Math.min(98, ballPosition))}%`,
-                          },
-                        ]}
-                      >
-                        <Text allowFontScaling={false} style={styles.ballIcon}>
-                          🏈
-                        </Text>
-                      </View>
-                    );
-                  })()}
-              </View>
-
-              {/* Down and Distance Info - show under the yard line graphic */}
-              {status?.type?.description !== "Halftime" &&
-                drivesData &&
-                (() => {
-                  // Find the current drive in progress
-                  const currentDrive = drivesData.find(
-                    (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game",
-                  );
-
-                  if (!currentDrive?.plays?.length) return null;
-
-                  // Get the most recent play
-                  const sortedPlays = [...currentDrive.plays].sort((a, b) => {
-                    const seqA = parseInt(a.sequenceNumber) || 0;
-                    const seqB = parseInt(b.sequenceNumber) || 0;
-                    return seqB - seqA;
-                  });
-                  const mostRecentPlay = sortedPlays[0];
-
-                  if (!mostRecentPlay?.end) return null;
-
-                  // Extract down, distance, and position from the play end data
-                  const down = mostRecentPlay.end.down;
-                  const distance = mostRecentPlay.end.distance;
-                  const shortDownDistanceText =
-                    mostRecentPlay.end.shortDownDistanceText; // e.g., "1st & 10"
-                  const possessionText = mostRecentPlay.end.possessionText; // e.g., "LV 22"
-
-                  if (!down || distance === undefined) return null;
-
-                  return (
-                    <View style={styles.headerDownAndDistance}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.headerDownText,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {shortDownDistanceText ||
-                          `${
-                            ["1st", "2nd", "3rd", "4th"][down - 1]
-                          } & ${distance}`}
-                      </Text>
-                      {possessionText && (
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.headerPossessionText,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {possessionText}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })()}
-            </View>
-          ) : (
-            <View style={[styles.gameInfo, { borderTopColor: theme.border }]}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.venue, { color: theme.textSecondary }]}
-              >
-                {venue || competition?.venue || "TBD"}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.date, { color: theme.textSecondary }]}
-              >
-                {gameDate
-                  ? new Date(gameDate).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })
-                  : "TBD"}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Stream Button - Show for live games and when streaming is unlocked */}
-        {(() => {
-          const isGameLive =
-            status?.type?.description === "In Progress" ||
-            status?.type?.state === "in" ||
-            (status?.period && status?.period > 0 && !status?.type?.completed);
-
-          if (!isGameLive || !isStreamingUnlocked) return null;
-
-          return (
-            <TouchableOpacity
-              style={[
-                styles.streamButton,
-                { backgroundColor: colors.primary, margin: 10 },
-              ]}
-              onPress={openStreamModal}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.streamButtonText, { color: "#fff" }]}
-              >
-                📺 Watch Live Stream
-              </Text>
-            </TouchableOpacity>
-          );
-        })()}
-
-        {/* Tab Navigation */}
+        {/* ── NHL-style Game Header ─────────────────────────────────── */}
         <View
           style={[
-            styles.tabContainer,
-            { backgroundColor: theme.surface, borderBottomColor: theme.border },
+            nflHeaderStyles.header,
+            { backgroundColor: theme.surfaceSecondary || theme.surface },
+          ]}
+          onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
+        >
+          <NflHeaderGradient
+            awayColor={awayColor}
+            homeColor={homeColor}
+            theme={theme}
+            height={headerH}
+          />
+
+          {/* Venue / League row */}
+          <View style={nflHeaderStyles.leagueRow}>
+            <Text
+              style={[
+                nflHeaderStyles.leagueName,
+                { color: theme.textTertiary || theme.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {(venue || competition?.venue?.fullName || "NFL").toString()}
+              {" · "}
+              {gameNote || headerText || "NFL"}
+            </Text>
+          </View>
+
+          {/* Teams + Status */}
+          <View style={nflHeaderStyles.teamsRow}>
+            <NflTeamSide
+              team={{
+                ...awayTeam?.team,
+                name:
+                  awayTeam?.team?.shortDisplayName ||
+                  awayTeam?.team?.displayName ||
+                  awayTeam?.team?.name ||
+                  "Away",
+              }}
+              logo={awayLogoUri}
+              score={awayTeam?.score ?? "0"}
+              record={awayRecord}
+              side="away"
+              isPre={isGamePre}
+              isFinished={isGameFinished}
+              isWinner={awayWins}
+              isLoser={homeWins}
+              theme={theme}
+              colors={colors}
+              showPossession={awayHasPossession}
+              onPress={() =>
+                navigation.navigate("TeamPage", {
+                  teamId: awayTeam?.team?.id,
+                  team: {
+                    id: awayTeam?.team?.id,
+                    abbreviation: awayAbbr,
+                    displayName:
+                      awayTeam?.team?.displayName || awayTeam?.team?.name,
+                  },
+                  sport: "nfl",
+                })
+              }
+            />
+
+            <View style={nflHeaderStyles.statusCenter}>
+              <NflStatusBadge
+                statusMain={nflStatusLine1}
+                statusSub={nflStatusLine2}
+                isFinished={isGameFinished}
+                isPre={isGamePre}
+                theme={theme}
+                colors={colors}
+              />
+
+              {isGameLive && isStreamingUnlocked && (
+                <TouchableOpacity
+                  style={[
+                    nflHeaderStyles.streamBtn,
+                    { borderColor: colors.primary },
+                  ]}
+                  onPress={openStreamModal}
+                  activeOpacity={0.8}
+                >
+                  <View style={nflHeaderStyles.streamBtnInner}>
+                    <View
+                      style={[
+                        nflHeaderStyles.streamBtnDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        nflHeaderStyles.streamBtnText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      Stream
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <NflTeamSide
+              team={{
+                ...homeTeam?.team,
+                name:
+                  homeTeam?.team?.shortDisplayName ||
+                  homeTeam?.team?.displayName ||
+                  homeTeam?.team?.name ||
+                  "Home",
+              }}
+              logo={homeLogoUri}
+              record={homeRecord}
+              score={homeTeam?.score ?? "0"}
+              side="home"
+              isPre={isGamePre}
+              isFinished={isGameFinished}
+              isWinner={homeWins}
+              isLoser={awayWins}
+              theme={theme}
+              colors={colors}
+              showPossession={homeHasPossession}
+              onPress={() =>
+                navigation.navigate("TeamPage", {
+                  teamId: homeTeam?.team?.id,
+                  team: {
+                    id: homeTeam?.team?.id,
+                    abbreviation: homeAbbr,
+                    displayName:
+                      homeTeam?.team?.displayName || homeTeam?.team?.name,
+                  },
+                  sport: "nfl",
+                })
+              }
+            />
+          </View>
+
+          {/* Down & Distance / Venue line under header */}
+          {isGameLive && drivesData
+            ? (() => {
+                const currentDrive = drivesData.find(
+                  (d) => !d.end?.text && d.result !== "End of Game",
+                );
+                if (!currentDrive?.plays?.length) return null;
+                const sortedPlays = [...currentDrive.plays].sort(
+                  (a, b) =>
+                    (parseInt(b.sequenceNumber) || 0) -
+                    (parseInt(a.sequenceNumber) || 0),
+                );
+                const latest = sortedPlays[0];
+                if (!latest?.end) return null;
+                const ddText = latest.end.shortDownDistanceText;
+                const possText = latest.end.possessionText;
+                if (!ddText) return null;
+                return (
+                  <View style={nflHeaderStyles.downDistanceRow}>
+                    <Text
+                      style={[
+                        nflHeaderStyles.downDistanceText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {ddText}
+                    </Text>
+                    {!!possText && (
+                      <Text
+                        style={[
+                          nflHeaderStyles.possessionLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {possText}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })()
+            : null}
+        </View>
+
+        {/* ── Sticky Unit: Mini Header + Tab Bar ─────────────────── */}
+        <View
+          style={[
+            nflHeaderStyles.stickyUnit,
+            {
+              backgroundColor: theme.surface,
+              borderBottomColor: theme.border,
+            },
           ]}
         >
-          <TouchableOpacity
+          {/* Mini header (compact score summary) — animated visibility */}
+          <Animated.View
             style={[
-              styles.tabButton,
+              nflHeaderStyles.stickyMini,
               {
-                backgroundColor:
-                  activeTab === "stats" ? colors.primary : "transparent",
-                borderRightColor: theme.border,
+                height: stickyMiniHeight,
+                opacity: stickyOpacity,
+                overflow: "hidden",
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
               },
             ]}
-            onPress={() => setActiveTab("stats")}
           >
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.tabText,
-                { color: activeTab === "stats" ? "#fff" : theme.text },
-              ]}
-            >
-              Stats
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              {
-                backgroundColor:
-                  activeTab === "away" ? colors.primary : "transparent",
-                borderRightColor: theme.border,
-              },
-            ]}
-            onPress={() => setActiveTab("away")}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.tabText,
-                { color: activeTab === "away" ? "#fff" : theme.text },
-              ]}
-            >
-              Away
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              {
-                backgroundColor:
-                  activeTab === "home" ? colors.primary : "transparent",
-                borderRightColor: theme.border,
-              },
-            ]}
-            onPress={() => setActiveTab("home")}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.tabText,
-                { color: activeTab === "home" ? "#fff" : theme.text },
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-          {/* Only show drives tab for non-scheduled games */}
-          {(() => {
-            const statusDesc = status?.type?.description?.toLowerCase();
-            const isScheduled = statusDesc?.includes("scheduled");
-            return !isScheduled;
-          })() && (
-            <TouchableOpacity
-              style={[
-                styles.tabButton,
-                {
-                  backgroundColor:
-                    activeTab === "drives" ? colors.primary : "transparent",
-                  borderRightColor: "transparent",
-                },
-              ]}
-              onPress={() => setActiveTab("drives")}
-            >
+            <View style={nflHeaderStyles.miniSide}>
+              <Image
+                source={{ uri: awayLogoUri }}
+                style={nflHeaderStyles.miniLogo}
+                resizeMode="contain"
+              />
               <Text
-                allowFontScaling={false}
                 style={[
-                  styles.tabText,
-                  { color: activeTab === "drives" ? "#fff" : theme.text },
+                  nflHeaderStyles.miniAbbr,
+                  {
+                    color: theme.text,
+                    opacity: isGameFinished ? (awayWins ? 1 : 0.55) : 1,
+                  },
                 ]}
+                numberOfLines={1}
               >
-                Drives
+                {awayAbbr}
               </Text>
-            </TouchableOpacity>
-          )}
+              {!isGamePre && (
+                <Text
+                  style={[
+                    nflHeaderStyles.miniScore,
+                    {
+                      color: awayWins ? theme.text : theme.textSecondary,
+                      fontWeight: isGameFinished
+                        ? awayWins
+                          ? "800"
+                          : "500"
+                        : "800",
+                    },
+                  ]}
+                >
+                  {awayTeam?.score ?? 0}
+                </Text>
+              )}
+            </View>
+
+            <View style={nflHeaderStyles.miniStatusBlock}>
+              <Text
+                style={[nflHeaderStyles.miniStatusLine, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {nflStatusLine1}
+              </Text>
+              {!!nflStatusLine2 && (
+                <Text
+                  style={[
+                    nflHeaderStyles.miniStatusSub,
+                    { color: theme.textTertiary || theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {nflStatusLine2}
+                </Text>
+              )}
+            </View>
+
+            <View
+              style={[nflHeaderStyles.miniSide, { justifyContent: "flex-end" }]}
+            >
+              {!isGamePre && (
+                <Text
+                  style={[
+                    nflHeaderStyles.miniScore,
+                    {
+                      color: homeWins ? theme.text : theme.textSecondary,
+                      fontWeight: isGameFinished
+                        ? homeWins
+                          ? "800"
+                          : "500"
+                        : "800",
+                    },
+                  ]}
+                >
+                  {homeTeam?.score ?? 0}
+                </Text>
+              )}
+              <Text
+                style={[
+                  nflHeaderStyles.miniAbbr,
+                  {
+                    color: theme.text,
+                    opacity: isGameFinished ? (homeWins ? 1 : 0.55) : 1,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {homeAbbr}
+              </Text>
+              <Image
+                source={{ uri: homeLogoUri }}
+                style={nflHeaderStyles.miniLogo}
+                resizeMode="contain"
+              />
+            </View>
+          </Animated.View>
+
+          {/* Tab bar */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={nflHeaderStyles.tabBarContent}
+          >
+            {["main", "drives", "away", "home", "stats"].map((tab) => {
+              const isScheduled = (status?.type?.description || "")
+                .toLowerCase()
+                .includes("scheduled");
+              if (tab === "drives" && isScheduled) return null;
+              const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+              const isActive = activeTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[
+                    nflHeaderStyles.tabBarButton,
+                    {
+                      borderBottomColor: isActive
+                        ? colors.primary
+                        : "transparent",
+                    },
+                  ]}
+                  onPress={() => setActiveTab(tab)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      nflHeaderStyles.tabBarLabel,
+                      {
+                        color: isActive ? theme.text : theme.textSecondary,
+                        fontWeight: isActive ? "700" : "600",
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Tab Content */}
@@ -5222,213 +6969,404 @@ const GameDetailsScreen = ({ route }) => {
           </View>
         </Modal>
 
-        {/* Player Copy Card Modal (opened on long-press) */}
+        {/* Player Copy Card Modal (NHL-style, opened on long-press) */}
         <Modal
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           visible={playerCopyModalVisible}
           onRequestClose={() => setPlayerCopyModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
+          <View style={nflShareStyles.overlay}>
             <View
-              style={[
-                styles.modalContent,
-                { backgroundColor: theme.surface, borderRadius: 0, padding: 0 },
-              ]}
+              ref={playerCopyCardRef}
+              collapsable={false}
+              style={[nflShareStyles.card, { backgroundColor: theme.surface }]}
             >
               {selectedPlayer ? (
-                <View
-                  ref={playerCopyCardRef}
-                  collapsable={false}
-                  style={{
-                    padding: 20,
-                    backgroundColor: theme.surface,
-                    borderRadius: 0,
-                  }}
-                >
-                  <View style={styles.playerHeader}>
-                    <Image
-                      source={{
-                        uri: NFLService.convertToHttps(
-                          selectedPlayer.headshot?.href ||
-                            selectedPlayer.headshot,
-                        ),
-                      }}
-                      style={[
-                        styles.playerHeadshot,
-                        {
-                          backgroundColor: `#${
-                            selectedPlayer?.team?.team?.primaryColor ||
-                            selectedPlayer?.team?.team?.color ||
-                            colors.primary
-                          }`,
-                        },
-                      ]}
-                    />
-                    <View style={styles.playerInfo}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.playerName, { color: theme.text }]}
-                      >
-                        {selectedPlayer.displayName ||
-                          `${selectedPlayer.firstName || ""} ${
-                            selectedPlayer.lastName || ""
-                          }`.trim()}
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.playerDetails,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {" "}
-                          #{selectedPlayer.jersey || "N/A"}
-                        </Text>
-                      </Text>
-                      <View style={styles.playerTeamInfo}>
-                        {selectedPlayer.team?.team && (
-                          <TeamLogoImage
-                            team={selectedPlayer.team.team}
-                            style={styles.playerTeamLogo}
-                          />
-                        )}
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.playerTeamName,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {selectedPlayer.team?.team?.displayName ||
-                            selectedPlayer.team?.team?.name ||
-                            selectedPlayer.team?.team?.abbreviation ||
-                            "No team info"}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                (() => {
+                  const teamColor = `#${
+                    selectedPlayer?.team?.team?.primaryColor ||
+                    selectedPlayer?.team?.team?.color ||
+                    colors.primary.replace("#", "")
+                  }`;
+                  const headshotUri = NFLService.convertToHttps(
+                    selectedPlayer.headshot?.href || selectedPlayer.headshot,
+                  );
+                  const pos =
+                    selectedPlayer?.position?.abbreviation ||
+                    selectedPlayer?.allStats?.name ||
+                    "";
+                  const fullName =
+                    selectedPlayer.displayName ||
+                    `${selectedPlayer.firstName || ""} ${selectedPlayer.lastName || ""}`.trim();
 
-                  <View
-                    style={[
-                      styles.playerCopyCardSection,
-                      { backgroundColor: theme.surfaceSecondary },
-                    ]}
-                  >
-                    <View style={styles.playerCopyCardDateWrap}>
-                      <Text
-                        allowFontScaling={false}
+                  // Build stat grid items in boxscore order (no reordering)
+                  const statItems = [];
+                  let topStats = [];
+                  if (playerStats?.splits?.categories) {
+                    const clickedCat = (
+                      selectedPlayer?.allStats?.name || ""
+                    ).toLowerCase();
+
+                    // Filter categories to clicked one
+                    const filteredCats = playerStats.splits.categories.filter(
+                      (c) => {
+                        const n = (c.name || "").toLowerCase();
+                        return n === clickedCat;
+                      },
+                    );
+                    const catsToUse =
+                      filteredCats.length > 0
+                        ? filteredCats
+                        : playerStats.splits.categories;
+
+                    catsToUse.forEach((cat) => {
+                      const labels = cat.labels || [];
+                      const stats = cat.stats || [];
+                      labels.forEach((label, i) => {
+                        const val = stats[i];
+                        let displayValue = "0";
+                        if (val !== undefined && val !== null) {
+                          if (typeof val === "object" && val.displayValue) {
+                            displayValue = val.displayValue;
+                          } else if (
+                            typeof val === "object" &&
+                            val.value !== undefined
+                          ) {
+                            displayValue = val.value.toString();
+                          } else {
+                            displayValue = val.toString();
+                          }
+                        }
+                        statItems.push({ label, value: displayValue });
+                      });
+                    });
+
+                    // Build top stats using specific indices per category (matching play share card)
+                    const topStatIndices = {
+                      passing: [0, 1, 3],
+                      rushing: [0, 1, 3],
+                      receiving: [0, 1, 3],
+                      defensive: [0, 2, 4],
+                      interceptions: [0, 1],
+                      kicking: [0, 1, 4],
+                      punting: [0, 1, 2],
+                      fumbles: [0, 1, 2],
+                      kickReturns: [0, 1, 4],
+                      puntReturns: [0, 1, 4],
+                    };
+                    const indices = topStatIndices[clickedCat] || [0, 1, 2];
+                    const firstCat = catsToUse[0];
+                    if (firstCat) {
+                      const labels = firstCat.labels || [];
+                      topStats = indices
+                        .filter((i) => i < labels.length)
+                        .map((i) => {
+                          const label = labels[i];
+                          const match = statItems.find(
+                            (item) => item.label === label,
+                          );
+                          return match || null;
+                        })
+                        .filter(Boolean);
+                    }
+                  }
+
+                  return (
+                    <>
+                      {/* Card Header */}
+                      <View
                         style={[
-                          styles.playerCopyCardDate,
-                          { color: theme.textSecondary },
+                          nflShareStyles.cardHeader,
+                          {
+                            backgroundColor: `${teamColor}22`,
+                            borderBottomColor: teamColor,
+                          },
                         ]}
                       >
-                        {gameDate
-                          ? (() => {
-                              const d = new Date(gameDate);
-                              const dateStr = d.toLocaleDateString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              });
-                              const timeStr = d
-                                .toLocaleTimeString(undefined, {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })
-                                .replace(" ", "");
-                              return `${dateStr} @ ${timeStr}`;
-                            })()
-                          : ""}
-                      </Text>
-                    </View>
-
-                    <View style={styles.playerCopyCardScoresRow}>
-                      {awayTeam && (
-                        <View style={styles.playerCopyCardTeamWrap}>
-                          <TeamLogoImage
-                            team={awayTeam.team || awayTeam}
-                            style={styles.playerCopyCardTeamLogo}
-                          />
-                          <Text
-                            allowFontScaling={false}
+                        {/* Top row: position badge + score */}
+                        <View style={nflShareStyles.headerTopRow}>
+                          <View
                             style={[
-                              styles.playerCopyCardScoreText,
-                              {
-                                color:
-                                  parseInt(awayTeam?.score) >
-                                  parseInt(homeTeam?.score)
-                                    ? colors.primary
-                                    : theme.textSecondary,
-                              },
+                              nflShareStyles.posBadge,
+                              { backgroundColor: teamColor },
                             ]}
                           >
-                            {awayTeam?.score ?? "0"}
-                          </Text>
+                            <Text
+                              style={[
+                                nflShareStyles.posBadgeText,
+                                { color: getTextOnColor(teamColor) },
+                              ]}
+                            >
+                              {pos
+                                .replace(/([A-Z])/g, " $1")
+                                .replace(/^./, (s) => s.toUpperCase())
+                                .trim() || "POS"}
+                            </Text>
+                          </View>
+                          {isGameFinished || isGameLive ? (
+                            <View style={nflShareStyles.scoreWrap}>
+                              <TeamLogoImage
+                                team={awayTeam?.team || awayTeam}
+                                style={nflShareStyles.scoreLogo}
+                              />
+                              <Text
+                                style={[
+                                  nflShareStyles.scoreText,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                <Text
+                                  style={{
+                                    fontWeight:
+                                      parseInt(awayTeam?.score) >
+                                      parseInt(homeTeam?.score)
+                                        ? "800"
+                                        : "400",
+                                  }}
+                                >
+                                  {awayTeam?.score ?? "0"}
+                                </Text>
+                                {" - "}
+                                <Text
+                                  style={{
+                                    fontWeight:
+                                      parseInt(homeTeam?.score) >
+                                      parseInt(awayTeam?.score)
+                                        ? "800"
+                                        : "400",
+                                  }}
+                                >
+                                  {homeTeam?.score ?? "0"}
+                                </Text>
+                              </Text>
+                              <TeamLogoImage
+                                team={homeTeam?.team || homeTeam}
+                                style={nflShareStyles.scoreLogo}
+                              />
+                            </View>
+                          ) : (
+                            <Text
+                              style={{
+                                fontWeight: "800",
+                                color: theme.text,
+                                fontSize: 10,
+                              }}
+                            >
+                              {gameDate
+                                ? new Date(gameDate).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  )
+                                : "GAME"}
+                            </Text>
+                          )}
                         </View>
-                      )}
 
-                      <Text
-                        allowFontScaling={false}
+                        {/* Headshot + name row */}
+                        <View style={nflShareStyles.headshotRow}>
+                          <Image
+                            source={{ uri: headshotUri }}
+                            style={[
+                              nflShareStyles.cardHeadshot,
+                              { borderColor: teamColor },
+                            ]}
+                            resizeMode="cover"
+                          />
+                          <View style={nflShareStyles.nameBlock}>
+                            {/* Top priority stats above name (NHL-style) */}
+                            {topStats.length > 0 ? (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  gap: 14,
+                                  marginBottom: 8,
+                                }}
+                              >
+                                {topStats.map((item, i) => (
+                                  <View
+                                    key={`top-${i}`}
+                                    style={{ alignItems: "center" }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 18,
+                                        fontWeight: "800",
+                                        color: theme.text,
+                                        lineHeight: 20,
+                                      }}
+                                    >
+                                      {item.value}
+                                    </Text>
+                                    <Text
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: "600",
+                                        textTransform: "uppercase",
+                                        letterSpacing: 0.4,
+                                        color: theme.textSecondary,
+                                        marginTop: 1,
+                                      }}
+                                    >
+                                      {item.label}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            ) : null}
+                            <View style={nflShareStyles.nameDateRow}>
+                              <View style={nflShareStyles.nameTeamWrap}>
+                                <Text
+                                  style={[
+                                    nflShareStyles.fullName,
+                                    { color: theme.text },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {fullName}
+                                </Text>
+                                <View style={nflShareStyles.teamNameRow}>
+                                  <TeamLogoImage
+                                    team={selectedPlayer?.team?.team}
+                                    style={nflShareStyles.teamNameLogo}
+                                  />
+                                  <Text
+                                    style={[
+                                      nflShareStyles.teamNameLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {selectedPlayer?.team?.team?.displayName ||
+                                      selectedPlayer?.team?.team?.name ||
+                                      selectedPlayer?.team?.team
+                                        ?.abbreviation ||
+                                      ""}
+                                  </Text>
+                                </View>
+                              </View>
+                              {gameDate && (
+                                <View style={nflShareStyles.dateWrap}>
+                                  <Text
+                                    style={[
+                                      nflShareStyles.gameDateLine,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {new Date(gameDate).toLocaleDateString(
+                                      "en-US",
+                                      { month: "short", day: "numeric" },
+                                    )}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      nflShareStyles.gameDateLine,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {new Date(gameDate).toLocaleDateString(
+                                      "en-US",
+                                      { year: "numeric" },
+                                    )}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Stat grid (dynamic columns) */}
+                      {(() => {
+                        const gridItems = statItems.slice(0, 9);
+                        const count = gridItems.length;
+                        const cols = count >= 3 ? 3 : count === 2 ? 2 : 1;
+                        const fullRows = Math.floor(count / cols);
+                        const lastRowCount = count % cols || cols;
+                        const isLastRowIncomplete = lastRowCount < cols;
+
+                        return (
+                          <View style={nflShareStyles.statGrid}>
+                            {gridItems.map((item, i) => {
+                              const row = Math.floor(i / cols);
+                              const col = i % cols;
+                              const isInLastRow = row === fullRows;
+                              const rowItemCount = isInLastRow
+                                ? lastRowCount
+                                : cols;
+                              const widthPct = `${100 / rowItemCount}%`;
+                              const borderRight = col < rowItemCount - 1;
+                              const borderBottom = row < fullRows;
+
+                              return (
+                                <View
+                                  key={`stat-${i}`}
+                                  style={[
+                                    nflShareStyles.statCell,
+                                    {
+                                      borderColor: theme.border,
+                                      width: widthPct,
+                                    },
+                                    borderRight && {
+                                      borderRightWidth:
+                                        StyleSheet.hairlineWidth,
+                                    },
+                                    borderBottom && {
+                                      borderBottomWidth:
+                                        StyleSheet.hairlineWidth,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      nflShareStyles.statVal,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {item.value}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      nflShareStyles.statLbl,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {item.label}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        );
+                      })()}
+
+                      {/* Footer */}
+                      <View
                         style={[
-                          styles.playerCopyCardVsText,
-                          { color: theme.textSecondary },
+                          nflShareStyles.cardFooter,
+                          { borderTopColor: theme.border },
                         ]}
                       >
-                        -
-                      </Text>
-
-                      {homeTeam && (
-                        <View style={styles.playerCopyCardTeamWrap}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.playerCopyCardScoreText,
-                              {
-                                color:
-                                  parseInt(homeTeam?.score) >
-                                  parseInt(awayTeam?.score)
-                                    ? colors.primary
-                                    : theme.textSecondary,
-                              },
-                            ]}
-                          >
-                            {homeTeam?.score ?? "0"}
-                          </Text>
-                          <TeamLogoImage
-                            team={homeTeam.team || homeTeam}
-                            style={styles.playerCopyCardTeamLogo}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.playerStatsContainer}>
-                    {loadingPlayerStats ? (
-                      <View style={styles.playerStatsLoading}>
-                        <ActivityIndicator
-                          size="large"
-                          color={colors.primary}
-                        />
                         <Text
-                          allowFontScaling={false}
-                          style={styles.loadingText}
+                          style={[
+                            nflShareStyles.cardBrand,
+                            { color: theme.text },
+                          ]}
                         >
-                          Loading player stats...
+                          SportsHeart{" "}
+                          <Ionicons
+                            name="heart"
+                            size={10}
+                            color={colors.primary}
+                          />
                         </Text>
                       </View>
-                    ) : playerStats ? (
-                      <View style={styles.playerStatsContent}>
-                        {renderPlayerModalGrid(playerStats)}
-                      </View>
-                    ) : (
-                      <Text allowFontScaling={false} style={styles.noStatsText}>
-                        Unable to load player statistics
-                      </Text>
-                    )}
-                  </View>
-                </View>
+                    </>
+                  );
+                })()
               ) : (
                 <View style={{ padding: 24, alignItems: "center" }}>
                   <Text
@@ -5439,31 +7377,13 @@ const GameDetailsScreen = ({ route }) => {
                   </Text>
                 </View>
               )}
-
-              {/* Footer inside the card */}
-              <View style={styles.shareCardFooter}>
-                <Text
-                  style={[
-                    styles.shareCardFooterText,
-                    {
-                      color: theme.text,
-                      textShadowColor: "rgba(0, 0, 0, 0.8)",
-                      textShadowOffset: { width: 1, height: 1 },
-                      textShadowRadius: 5,
-                    },
-                  ]}
-                >
-                  SportsHeart{" "}
-                  <Ionicons name="heart" size={18} color={colors.primary} />
-                </Text>
-              </View>
             </View>
 
-            {/* Actions outside of modal content: Cancel + Share (matches NBA pattern) */}
-            <View style={styles.playerCopyModalActions}>
+            {/* Actions */}
+            <View style={nflShareStyles.actions}>
               <TouchableOpacity
                 style={[
-                  styles.playerCopyShareButton,
+                  nflShareStyles.actionBtn,
                   { backgroundColor: colors.secondary },
                 ]}
                 onPress={async () => {
@@ -5471,29 +7391,30 @@ const GameDetailsScreen = ({ route }) => {
                   setPlayerCopyModalVisible(false);
                 }}
               >
-                <Ionicons name="share-outline" size={18} color="#fff" />
-                <Text
-                  style={[
-                    styles.playerCopyShareText,
-                    { color: "#fff", marginLeft: 8 },
-                  ]}
-                >
-                  Share
-                </Text>
+                <View style={nflShareStyles.actionBtnRow}>
+                  <Ionicons name="share-outline" size={16} color="#fff" />
+                  <Text style={nflShareStyles.actionBtnTxt}>Share</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.playerCopyCancelButton,
-                  { backgroundColor: theme.surfaceSecondary },
+                  nflShareStyles.actionBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                  },
                 ]}
                 onPress={() => setPlayerCopyModalVisible(false)}
               >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.playerCopyCancelText, { color: theme.text }]}
-                >
-                  Cancel
-                </Text>
+                <View style={nflShareStyles.actionBtnRow}>
+                  <Ionicons name="close" size={16} color={theme.text} />
+                  <Text
+                    style={[nflShareStyles.actionBtnTxt, { color: theme.text }]}
+                  >
+                    Close
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -5796,11 +7717,7 @@ const GameDetailsScreen = ({ route }) => {
                                 },
                               ]}
                               onPress={() => {
-                                console.log(
-                                  "TouchableOpacity onPress triggered for play:",
-                                  index,
-                                );
-                                handlePlayPress(play);
+                                handlePlayPress(play, selectedDrive);
                               }}
                               activeOpacity={0.7}
                             >
@@ -5889,1160 +7806,1190 @@ const GameDetailsScreen = ({ route }) => {
                 </>
               )}
             </View>
+          </View>
+        </Modal>
 
-            {/* NFL Play Share Card Overlay - Render inside drive modal */}
-{
-  shareCardPlay && (
-    <View
-      style={[
-        styles.modalOverlay,
-        {
-          backgroundColor: "rgba(0,0,0,0.85)",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1000,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
-        activeOpacity={1}
-        onPress={() => {
-          console.log("Modal overlay tapped - closing share card");
-          setShareCardPlay(null);
-        }}
-      />
-      <View
-        ref={nflPlayShareCardRef}
-        collapsable={false}
-        style={[styles.nflPlayShareCard, { backgroundColor: theme.surface }]}
-      >
-        {shareCardPlay &&
-          (() => {
-            console.log(
-              "Rendering share card modal with play data:",
-              shareCardPlay,
-            );
-            const play = shareCardPlay;
+        {/* NFL Play Share Card Modal - Standalone, accessible from drives tab */}
+        <Modal
+          visible={!!shareCardPlay}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShareCardPlay(null)}
+        >
+          <View
+            style={[
+              styles.modalOverlay,
+              {
+                backgroundColor: "rgba(0,0,0,0.85)",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 1000,
+                alignItems: "center",
+                justifyContent: "center",
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+              activeOpacity={1}
+              onPress={() => {
+                setShareCardPlay(null);
+              }}
+            />
+            <View
+              ref={nflPlayShareCardRef}
+              collapsable={false}
+              style={[
+                styles.nflPlayShareCard,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              {shareCardPlay &&
+                (() => {
+                  const play = shareCardPlay;
 
-            let teamColor = play.teamColor || "#000000";
+                  let teamColor = play.teamColor || "#000000";
 
-            let teamLogo = NFLService.convertToHttps(play.driveTeam || "");
+                  let teamLogo = NFLService.convertToHttps(
+                    play.driveTeam || "",
+                  );
 
-            let teamName = play.teamName || "";
+                  let teamName = play.teamName || "";
 
-            let teamAbbr = play.teamAbbr || "";
+                  let teamAbbr = play.teamAbbr || "";
 
-            let winProbability = play.winProbability || 50;
+                  let winProbability = play.winProbability || 50;
 
-            // For interceptions (26) and fumbles (29), use the other team's color instead of the drive team's color
-            const playTypeId = play.type?.id;
-            if (
-              playTypeId === "26" ||
-              playTypeId === "29" ||
-              playTypeId === "36" ||
-              playTypeId === "80" ||
-              playTypeId === "34"
-            ) {
-              // Determine which team is the drive team
-              const driveTeamId = play.driveTeam?.id;
-              const homeTeamId = play.homeTeam?.team?.id;
-              const awayTeamId = play.awayTeam?.team?.id;
-              winProbability = 100 - winProbability;
+                  // For interceptions (26) and fumbles (29), use the other team's color instead of the drive team's color
+                  const playTypeId = play.type?.id;
+                  if (
+                    playTypeId === "26" ||
+                    playTypeId === "29" ||
+                    playTypeId === "36" ||
+                    playTypeId === "80" ||
+                    playTypeId === "34"
+                  ) {
+                    // Determine which team is the drive team
+                    const driveTeamId = play.driveTeam?.id;
+                    const homeTeamId = play.homeTeam?.team?.id;
+                    const awayTeamId = play.awayTeam?.team?.id;
+                    winProbability = 100 - winProbability;
 
-              // Use the other team's color
-              if (driveTeamId === homeTeamId) {
-                // Drive team is home, use away team's color
-                teamColor = play.awayTeam?.team?.color
-                  ? `#${play.awayTeam.team.color}`
-                  : "#000000";
-                teamLogo = play.awayTeam?.team;
-                teamName = play.awayTeam?.team?.displayName || teamName;
-                teamAbbr = play.awayTeam?.team?.abbreviation || teamAbbr;
-              } else if (driveTeamId === awayTeamId) {
-                // Drive team is away, use home team's color
-                teamColor = play.homeTeam?.team?.color
-                  ? `#${play.homeTeam.team.color}`
-                  : "#000000";
-                teamLogo = play.homeTeam?.team;
-                teamName = play.homeTeam?.team?.displayName || teamName;
-                teamAbbr = play.homeTeam?.team?.abbreviation || teamAbbr;
-              }
-            }
-            const clock = play.clock?.displayValue || "";
-            const period = play.period?.number || "";
-            const playText = play.text || "";
-            const downDistanceText =
-              play.start?.downDistanceText || play.end?.downDistanceText || "";
-            const yardLine = play.end?.yardLine || play.end?.yardLine || 0;
-            const possession =
-              play.start?.possessionText || play.start?.yardLine || "";
+                    // Use the other team's color
+                    if (driveTeamId === homeTeamId) {
+                      // Drive team is home, use away team's color
+                      teamColor = play.awayTeam?.team?.color
+                        ? `#${play.awayTeam.team.color}`
+                        : "#000000";
+                      teamLogo = play.awayTeam?.team;
+                      teamName = play.awayTeam?.team?.displayName || teamName;
+                      teamAbbr = play.awayTeam?.team?.abbreviation || teamAbbr;
+                    } else if (driveTeamId === awayTeamId) {
+                      // Drive team is away, use home team's color
+                      teamColor = play.homeTeam?.team?.color
+                        ? `#${play.homeTeam.team.color}`
+                        : "#000000";
+                      teamLogo = play.homeTeam?.team;
+                      teamName = play.homeTeam?.team?.displayName || teamName;
+                      teamAbbr = play.homeTeam?.team?.abbreviation || teamAbbr;
+                    }
+                  }
+                  const clock = play.clock?.displayValue || "";
+                  const period = play.period?.number || "";
+                  const playText = play.text || "";
+                  const downDistanceText =
+                    play.start?.downDistanceText ||
+                    play.end?.downDistanceText ||
+                    "";
+                  const yardLine =
+                    play.end?.yardLine || play.end?.yardLine || 0;
+                  const possession =
+                    play.start?.possessionText || play.start?.yardLine || "";
 
-            // Get scores
-            const homeScore = parseInt(play.homeScore) || 0;
-            const awayScore = parseInt(play.awayScore) || 0;
+                  // Get scores
+                  const homeScore = parseInt(play.homeScore) || 0;
+                  const awayScore = parseInt(play.awayScore) || 0;
 
-            // Get team logos
-            const homeTeamLogo = NFLService.convertToHttps(
-              play.homeTeam?.team?.logos?.[0]?.href || "",
-            );
-            const awayTeamLogo = NFLService.convertToHttps(
-              play.awayTeam?.team?.logos?.[0]?.href || "",
-            );
+                  // Get team logos
+                  const homeTeamLogo = NFLService.convertToHttps(
+                    play.homeTeam?.team?.logos?.[0]?.href || "",
+                  );
+                  const awayTeamLogo = NFLService.convertToHttps(
+                    play.awayTeam?.team?.logos?.[0]?.href || "",
+                  );
 
-            console.log("Win probability in modal:", winProbability);
+                  const headerTint = teamColor.startsWith("#")
+                    ? `${teamColor}33`
+                    : teamColor;
+                  const shareDrive = play._drive;
+                  let driveSummary;
+                  if (shareDrive) {
+                    driveSummary =
+                      shareDrive.description ||
+                      (() => {
+                        const parts = [];
+                        if (shareDrive.plays?.length)
+                          parts.push(
+                            `${shareDrive.plays.length} play${shareDrive.plays.length === 1 ? "" : "s"}`,
+                          );
+                        if (shareDrive.yards)
+                          parts.push(`${shareDrive.yards} yds`);
+                        if (shareDrive.timeElapsed?.displayValue)
+                          parts.push(shareDrive.timeElapsed.displayValue);
+                        if (shareDrive.result || shareDrive.displayResult)
+                          parts.push(
+                            shareDrive.displayResult || shareDrive.result,
+                          );
+                        return parts.length > 0 ? parts.join(", ") : "Drive";
+                      })();
+                  } else {
+                    // Fallback: build summary from play data
+                    const parts = [];
+                    if (period)
+                      parts.push(period > 4 ? `OT${period - 4}` : `Q${period}`);
+                    if (clock) parts.push(clock);
+                    if (play.type?.text) parts.push(play.type.text);
+                    if (downDistanceText) parts.push(downDistanceText);
+                    driveSummary =
+                      parts.length > 0
+                        ? parts.join(" · ")
+                        : play.text || "Play";
+                  }
+                  const fieldWidth = 350;
+                  const fieldHeight = 240;
+                  const fieldWrapAspectRatio = fieldHeight / fieldWidth;
+                  const rotatedFieldWidthPct = `${(fieldWidth / fieldHeight) * 100}%`;
+                  const rotatedFieldHeightPct = `${(fieldHeight / fieldWidth) * 100}%`;
+                  // Scoring plays show full drive span; regular plays show individual play span
+                  const isScoringShare = !!play.scoringPlay;
+                  const driveStartYard = isScoringShare
+                    ? (shareDrive?.start?.yardLine ?? play.start?.yardLine)
+                    : play.start?.yardLine;
+                  const driveEndYard = isScoringShare
+                    ? (shareDrive?.end?.yardLine ?? play.end?.yardLine)
+                    : (play.end?.yardLine ?? play.start?.yardLine);
+                  const hasDriveVisualization =
+                    driveStartYard != null && driveEndYard != null;
 
-            const headerTint = teamColor.startsWith("#")
-              ? `${teamColor}33`
-              : teamColor;
-            const driveSummary = selectedDrive
-              ? `${selectedDrive.plays?.length || 0} plays • ${
-                  selectedDrive.yards || 0
-                } yards • ${selectedDrive.timeElapsed?.displayValue || "0:00"}`
-              : "—";
-            const fieldWidth = 350;
-            const fieldHeight = 240;
-            const fieldWrapAspectRatio = fieldHeight / fieldWidth;
-            const rotatedFieldWidthPct = `${(fieldWidth / fieldHeight) * 100}%`;
-            const rotatedFieldHeightPct = `${(fieldHeight / fieldWidth) * 100}%`;
-            const driveStartYard = selectedDrive?.start?.yardLine;
-            const driveEndYard = yardLine;
-            const hasDriveVisualization =
-              selectedDrive &&
-              selectedDrive.start?.yardLine != null &&
-              selectedDrive.end?.yardLine != null;
+                  // Extract players from play (similar to scoreboard.js)
+                  const players = play.participants || [];
 
-            // Extract players from play (similar to scoreboard.js)
-            const players = play.participants || [];
+                  const renderYardMarkers = () => {
+                    const markers = [];
+                    const yardNumbers = [10, 20, 30, 40, 50, 40, 30, 20, 10];
 
-            const renderYardMarkers = () => {
-              const markers = [];
-              const yardNumbers = [10, 20, 30, 40, 50, 40, 30, 20, 10];
+                    for (let i = 0; i < yardNumbers.length; i++) {
+                      const leftPosition = 10 + i * 10;
 
-              for (let i = 0; i < yardNumbers.length; i++) {
-                const leftPosition = 10 + i * 10;
+                      markers.push(
+                        <View
+                          key={`yard-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPosition}%`,
+                            top: 0,
+                            bottom: 0,
+                            width: 1,
+                            backgroundColor: "white",
+                            opacity: 0.45,
+                          }}
+                        />,
+                      );
 
-                markers.push(
-                  <View
-                    key={`yard-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${leftPosition}%`,
-                      top: 0,
-                      bottom: 0,
-                      width: 1,
-                      backgroundColor: "white",
-                      opacity: 0.45,
-                    }}
-                  />,
-                );
+                      markers.push(
+                        <View
+                          key={`hash-top-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPosition}%`,
+                            top: "15%",
+                            width: 4,
+                            height: 1.5,
+                            backgroundColor: "white",
+                            marginLeft: -1.5,
+                          }}
+                        />,
+                      );
 
-                markers.push(
-                  <View
-                    key={`hash-top-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${leftPosition}%`,
-                      top: "15%",
-                      width: 4,
-                      height: 1.5,
-                      backgroundColor: "white",
-                      marginLeft: -1.5,
-                    }}
-                  />,
-                );
+                      markers.push(
+                        <View
+                          key={`hash-bottom-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPosition}%`,
+                            bottom: "15%",
+                            width: 4,
+                            height: 1.5,
+                            backgroundColor: "white",
+                            marginLeft: -1.5,
+                          }}
+                        />,
+                      );
 
-                markers.push(
-                  <View
-                    key={`hash-bottom-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${leftPosition}%`,
-                      bottom: "15%",
-                      width: 4,
-                      height: 1.5,
-                      backgroundColor: "white",
-                      marginLeft: -1.5,
-                    }}
-                  />,
-                );
+                      markers.push(
+                        <Text
+                          key={`label-top-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPosition}%`,
+                            top: "3.5%",
+                            fontSize: 8,
+                            fontWeight: "800",
+                            color: "white",
+                            marginLeft: -4.5,
+                          }}
+                        >
+                          {yardNumbers[i]}
+                        </Text>,
+                      );
 
-                markers.push(
-                  <Text
-                    key={`label-top-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${leftPosition}%`,
-                      top: "3.5%",
-                      fontSize: 8,
-                      fontWeight: "800",
-                      color: "white",
-                      marginLeft: -4.5,
-                    }}
-                  >
-                    {yardNumbers[i]}
-                  </Text>,
-                );
+                      markers.push(
+                        <Text
+                          key={`label-bottom-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${leftPosition}%`,
+                            bottom: "3.5%",
+                            fontSize: 8,
+                            fontWeight: "800",
+                            color: "white",
+                            marginLeft: -4.5,
+                            transform: [{ rotate: "180deg" }],
+                          }}
+                        >
+                          {yardNumbers[i]}
+                        </Text>,
+                      );
+                    }
 
-                markers.push(
-                  <Text
-                    key={`label-bottom-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${leftPosition}%`,
-                      bottom: "3.5%",
-                      fontSize: 8,
-                      fontWeight: "800",
-                      color: "white",
-                      marginLeft: -4.5,
-                      transform: [{ rotate: "180deg" }],
-                    }}
-                  >
-                    {yardNumbers[i]}
-                  </Text>,
-                );
-              }
+                    return markers;
+                  };
 
-              return markers;
-            };
+                  const renderHashMarks = () => {
+                    const marks = [];
+                    for (let i = 1; i < 100; i++) {
+                      marks.push(
+                        <View
+                          key={`hash-top-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${i}%`,
+                            top: 0,
+                            width: 1,
+                            height: 3,
+                            backgroundColor: "white",
+                            opacity: 0.35,
+                          }}
+                        />,
+                      );
+                      marks.push(
+                        <View
+                          key={`hash-bottom-${i}`}
+                          style={{
+                            position: "absolute",
+                            left: `${i}%`,
+                            bottom: 0,
+                            width: 1,
+                            height: 3,
+                            backgroundColor: "white",
+                            opacity: 0.35,
+                          }}
+                        />,
+                      );
+                    }
+                    return marks;
+                  };
 
-            const renderHashMarks = () => {
-              const marks = [];
-              for (let i = 1; i < 100; i++) {
-                marks.push(
-                  <View
-                    key={`hash-top-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${i}%`,
-                      top: 0,
-                      width: 1,
-                      height: 3,
-                      backgroundColor: "white",
-                      opacity: 0.35,
-                    }}
-                  />,
-                );
-                marks.push(
-                  <View
-                    key={`hash-bottom-${i}`}
-                    style={{
-                      position: "absolute",
-                      left: `${i}%`,
-                      bottom: 0,
-                      width: 1,
-                      height: 3,
-                      backgroundColor: "white",
-                      opacity: 0.35,
-                    }}
-                  />,
-                );
-              }
-              return marks;
-            };
-
-            return (
-              <>
-                {/* Header */}
-                <View
-                  style={{
-                    backgroundColor: headerTint,
-                    borderBottomWidth: 2,
-                    borderBottomColor: teamColor,
-                    paddingHorizontal: 14,
-                    paddingTop: 12,
-                    paddingBottom: 10,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <View>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: "800",
-                          color: theme.text,
-                        }}
-                      >
-                        {period > 4 ? `OT${period - 4}` : `Q${period}`} {clock}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "700",
-                          color: theme.textSecondary,
-                        }}
-                      >
-                        {downDistanceText || possession}
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                      }}
-                    >
-                      {homeTeamLogo ? (
-                        <TeamLogoImage
-                          team={play.homeTeam?.team}
-                          style={{ width: 18, height: 18 }}
-                        />
-                      ) : null}
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: homeScore > awayScore ? "800" : "500",
-                          color: theme.text,
-                        }}
-                      >
-                        {homeScore}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: "700",
-                          color: theme.textSecondary,
-                        }}
-                      >
-                        -
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: awayScore > homeScore ? "800" : "500",
-                          color: theme.text,
-                        }}
-                      >
-                        {awayScore}
-                      </Text>
-                      {awayTeamLogo ? (
-                        <TeamLogoImage
-                          team={play.awayTeam?.team}
-                          style={{ width: 18, height: 18 }}
-                        />
-                      ) : null}
-                    </View>
-                  </View>
-
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
-                    {teamLogo ? (
-                      <TeamLogoImage
-                        team={teamLogo}
-                        style={{ width: 28, height: 28 }}
-                      />
-                    ) : null}
-                    <Text
-                      style={{
-                        fontSize: 18,
-                        fontWeight: "800",
-                        color: theme.text,
-                      }}
-                    >
-                      {teamAbbr} - {play.type.text || "Play"}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: theme.textSecondary,
-                      lineHeight: 16,
-                    }}
-                    numberOfLines={2}
-                  >
-                    {playText}
-                  </Text>
-                </View>
-
-                {/* Body */}
-                <View style={{ flexDirection: "row" }}>
-                  <View
-                    style={{
-                      width: "48%",
-                      borderRightWidth: StyleSheet.hairlineWidth,
-                      borderRightColor: theme.border,
-                      paddingHorizontal: 8,
-                      paddingVertical: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        fontWeight: "700",
-                        color: theme.textSecondary,
-                        marginBottom: 8,
-                        textAlign: "center",
-                      }}
-                    >
-                      {driveSummary}
-                    </Text>
-                    <View
-                      style={{
-                        width: "100%",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}
-                    >
+                  return (
+                    <>
+                      {/* Header */}
                       <View
                         style={{
-                          width: "100%",
-                          aspectRatio: fieldWrapAspectRatio,
-                          position: "relative",
-                          overflow: "hidden",
-                          alignSelf: "stretch",
-                          justifyContent: "center",
-                          alignItems: "center",
+                          backgroundColor: headerTint,
+                          borderBottomWidth: 2,
+                          borderBottomColor: teamColor,
+                          paddingHorizontal: 14,
+                          paddingTop: 12,
+                          paddingBottom: 10,
                         }}
                       >
                         <View
                           style={{
-                            width: rotatedFieldWidthPct,
-                            height: rotatedFieldHeightPct,
-                            position: "relative",
-                            backgroundColor: "#2d5016",
-                            borderWidth: 2,
-                            borderColor: "#1a3009",
-                            borderRadius: 4,
-                            overflow: "hidden",
-                            transform: [{ rotate: "90deg" }],
-                          }}
-                        >
-                        <View
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: "10%",
-                            backgroundColor: teamColor,
-                            opacity: 0.65,
-                            justifyContent: "center",
+                            flexDirection: "row",
+                            justifyContent: "space-between",
                             alignItems: "center",
+                            marginBottom: 6,
                           }}
                         >
-                          <Text
-                            style={{
-                              fontSize: 8,
-                              fontWeight: "800",
-                              color: "white",
-                              transform: [{ rotate: "-90deg" }],
-                            }}
-                          >
-                            NFL
-                          </Text>
-                        </View>
-
-                        <View
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: "10%",
-                            backgroundColor: teamColor,
-                            opacity: 0.65,
-                            justifyContent: "center",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 8,
-                              fontWeight: "800",
-                              color: "white",
-                              transform: [{ rotate: "90deg" }],
-                            }}
-                          >
-                            NFL
-                          </Text>
-                        </View>
-
-                        <View
-                          style={{
-                            position: "absolute",
-                            left: "10%",
-                            right: "10%",
-                            top: 0,
-                            bottom: 0,
-                          }}
-                        >
-                          {renderYardMarkers()}
-                          {renderHashMarks()}
-
+                          <View>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "800",
+                                color: theme.text,
+                              }}
+                            >
+                              {period > 4 ? `OT${period - 4}` : `Q${period}`}{" "}
+                              {clock}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: "700",
+                                color: theme.textSecondary,
+                              }}
+                            >
+                              {downDistanceText || possession}
+                            </Text>
+                          </View>
                           <View
                             style={{
-                              position: "absolute",
-                              left: "50%",
-                              top: 0,
-                              bottom: 0,
-                              width: 2,
-                              backgroundColor: "white",
-                              opacity: 1,
-                              marginLeft: -0.5,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
                             }}
-                          />
+                          >
+                            {homeTeamLogo ? (
+                              <TeamLogoImage
+                                team={play.homeTeam?.team}
+                                style={{ width: 18, height: 18 }}
+                              />
+                            ) : null}
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight:
+                                  homeScore > awayScore ? "800" : "500",
+                                color: theme.text,
+                              }}
+                            >
+                              {homeScore}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: "700",
+                                color: theme.textSecondary,
+                              }}
+                            >
+                              -
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight:
+                                  awayScore > homeScore ? "800" : "500",
+                                color: theme.text,
+                              }}
+                            >
+                              {awayScore}
+                            </Text>
+                            {awayTeamLogo ? (
+                              <TeamLogoImage
+                                team={play.awayTeam?.team}
+                                style={{ width: 18, height: 18 }}
+                              />
+                            ) : null}
+                          </View>
+                        </View>
 
-                          <Image
-                            source={require("../../../assets/nfl.png")}
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                            marginBottom: 6,
+                          }}
+                        >
+                          {teamLogo ? (
+                            <TeamLogoImage
+                              team={teamLogo}
+                              style={{ width: 28, height: 28 }}
+                            />
+                          ) : null}
+                          <Text
                             style={{
-                              position: "absolute",
-                              left: "50%",
-                              top: "50%",
-                              width: 30,
-                              height: 30,
-                              marginLeft: -14.5,
-                              marginTop: -15,
-                              opacity: 1,
+                              fontSize: 18,
+                              fontWeight: "800",
+                              color: theme.text,
                             }}
-                            resizeMode="contain"
-                          />
-
-                          {hasDriveVisualization && (
-                            (() => {
-                              const startPosForStart = 100 - driveStartYard;
-                              const startPosForEnd = 100 - driveEndYard;
-                              const start = Math.min(startPosForStart, startPosForEnd);
-                              const width = Math.abs(startPosForEnd - startPosForStart);
-                              const gradientId = `drive-gradient-${driveStartYard}-${driveEndYard}`;
-                              const lighter = teamColor && teamColor.startsWith("#")
-                                ? `${teamColor}33`
-                                : teamColor;
-                              const darker = teamColor && teamColor.startsWith("#")
-                                ? `${teamColor}FF`
-                                : teamColor;
-                              const startIsLeft = startPosForStart <= startPosForEnd;
-
-                              const stops = startIsLeft
-                                ? [
-                                    <Stop key="s1" offset="0%" stopColor={lighter} stopOpacity={0.35} />,
-                                    <Stop key="s2" offset="100%" stopColor={darker} stopOpacity={0.95} />,
-                                  ]
-                                : [
-                                    <Stop key="s3" offset="0%" stopColor={darker} stopOpacity={0.95} />,
-                                    <Stop key="s4" offset="100%" stopColor={lighter} stopOpacity={0.35} />,
-                                  ];
-
-                              return (
-                                <>
-                                  <Svg
-                                    width="100%"
-                                    height="100%"
-                                    style={{ position: "absolute", left: `${start}%` }}
-                                  >
-                                    <Defs>
-                                      <LinearGradient
-                                        id={gradientId}
-                                        x1="0%"
-                                        y1="0%"
-                                        x2="100%"
-                                        y2="0%"
-                                      >
-                                        {stops}
-                                      </LinearGradient>
-                                    </Defs>
-                                    <Rect
-                                      x="0"
-                                      y="0"
-                                      width={`${width}%`}
-                                      height="100%"
-                                      fill={`url(#${gradientId})`}
-                                      opacity={1}
-                                    />
-                                  </Svg>
-
-                                  {/* Start and end indicator lines */}
-                                  <View
-                                    style={{
-                                      position: "absolute",
-                                      left: `${start}%`,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: 1,
-                                      backgroundColor: teamColor,
-                                      opacity: 1,
-                                      marginLeft: -1,
-                                    }}
-                                  />
-                                  <View
-                                    style={{
-                                      position: "absolute",
-                                      left: `${start + width}%`,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: 1,
-                                      backgroundColor: teamColor,
-                                      opacity: 1,
-                                      marginLeft: -1,
-                                    }}
-                                  />
-                                </>
-                              );
-                            })()
-                          )}
+                          >
+                            {teamAbbr} - {play.type.text || "Play"}
+                          </Text>
                         </View>
-                        </View>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                            lineHeight: 16,
+                          }}
+                          numberOfLines={2}
+                        >
+                          {playText}
+                        </Text>
                       </View>
-                    </View>
-                  </View>
 
-                  <View
-                    style={{
-                      flex: 1,
-                      paddingHorizontal: 12,
-                      paddingVertical: 12,
-                      justifyContent: "center",
-                    }}
-                  >
-                    {/* Players Section */}
-                    {players.length > 0 &&
-                      (() => {
-                        // Remove duplicates based on athlete ID
-                        const uniquePlayers = [];
-                        const seenIds = new Set();
+                      {/* Body */}
+                      <View style={{ flexDirection: "row" }}>
+                        <View
+                          style={{
+                            width: "48%",
+                            borderRightWidth: StyleSheet.hairlineWidth,
+                            borderRightColor: theme.border,
+                            paddingHorizontal: 8,
+                            paddingVertical: 12,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: "700",
+                              color: theme.textSecondary,
+                              marginBottom: 8,
+                              textAlign: "center",
+                            }}
+                          >
+                            {driveSummary}
+                          </Text>
+                          <View
+                            style={{
+                              width: "100%",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: "100%",
+                                aspectRatio: fieldWrapAspectRatio,
+                                position: "relative",
+                                overflow: "hidden",
+                                alignSelf: "stretch",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              }}
+                            >
+                              <View
+                                style={{
+                                  width: rotatedFieldWidthPct,
+                                  height: rotatedFieldHeightPct,
+                                  position: "relative",
+                                  backgroundColor: "#2d5016",
+                                  borderWidth: 2,
+                                  borderColor: "#1a3009",
+                                  borderRadius: 4,
+                                  overflow: "hidden",
+                                  transform: [{ rotate: "90deg" }],
+                                }}
+                              >
+                                <View
+                                  style={{
+                                    position: "absolute",
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: "10%",
+                                    backgroundColor: teamColor,
+                                    opacity: 0.65,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      fontSize: 8,
+                                      fontWeight: "800",
+                                      color: "white",
+                                      transform: [{ rotate: "-90deg" }],
+                                    }}
+                                  >
+                                    NFL
+                                  </Text>
+                                </View>
 
-                        players.forEach((player) => {
-                          const athleteId = player?.athlete?.id;
-                          if (athleteId && !seenIds.has(athleteId)) {
-                            seenIds.add(athleteId);
-                            uniquePlayers.push(player);
-                          }
-                        });
+                                <View
+                                  style={{
+                                    position: "absolute",
+                                    right: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: "10%",
+                                    backgroundColor: teamColor,
+                                    opacity: 0.65,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      fontSize: 8,
+                                      fontWeight: "800",
+                                      color: "white",
+                                      transform: [{ rotate: "90deg" }],
+                                    }}
+                                  >
+                                    NFL
+                                  </Text>
+                                </View>
 
-                        // If no unique players found, return null
-                        if (uniquePlayers.length === 0) return null;
+                                <View
+                                  style={{
+                                    position: "absolute",
+                                    left: "10%",
+                                    right: "10%",
+                                    top: 0,
+                                    bottom: 0,
+                                  }}
+                                >
+                                  {renderYardMarkers()}
+                                  {renderHashMarks()}
 
-                        // Sort participants by order first
-                        let participantsList = [...uniquePlayers].sort(
-                          (a, b) => (a.order || 0) - (b.order || 0),
-                        );
+                                  <View
+                                    style={{
+                                      position: "absolute",
+                                      left: "50%",
+                                      top: 0,
+                                      bottom: 0,
+                                      width: 2,
+                                      backgroundColor: "white",
+                                      opacity: 1,
+                                      marginLeft: -0.5,
+                                    }}
+                                  />
 
-                        // Check for special cases using play type ID (like scoreboard.js)
-                        const playTypeId = play.type?.id;
-                        const isSpecialPlayType = [
-                          "53",
-                          "26",
-                          "36",
-                          "52",
-                          "29",
-                          "80",
-                          "7",
-                          "32",
-                          "34",
-                        ].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
-                        const isRushingPlay = playTypeId === "5"; // Rush
-                        const isPassingPlay = playTypeId === "24"; // Pass Reception
-                        const isScoringPlay =
-                          play.scoringPlay ||
-                          play.text?.toLowerCase().includes("touchdown");
+                                  <Image
+                                    source={require("../../../assets/nfl.png")}
+                                    style={{
+                                      position: "absolute",
+                                      left: "50%",
+                                      top: "50%",
+                                      width: 30,
+                                      height: 30,
+                                      marginLeft: -14.5,
+                                      marginTop: -15,
+                                      opacity: 1,
+                                    }}
+                                    resizeMode="contain"
+                                  />
 
-                        console.log(
-                          "Play type ID:",
-                          playTypeId,
-                          "Is special:",
-                          isSpecialPlayType,
-                          "Is scoring:",
-                          isScoringPlay,
-                        );
-                        console.log(
-                          "Available participant types:",
-                          participantsList.map(
-                            (p) => `${p.athlete?.displayName}: ${p.type}`,
-                          ),
-                        );
+                                  {hasDriveVisualization &&
+                                    (() => {
+                                      const startPosForStart =
+                                        100 - driveStartYard;
+                                      const startPosForEnd = 100 - driveEndYard;
+                                      const start = Math.min(
+                                        startPosForStart,
+                                        startPosForEnd,
+                                      );
+                                      const width = Math.abs(
+                                        startPosForEnd - startPosForStart,
+                                      );
+                                      const gradientId = `drive-gradient-${driveStartYard}-${driveEndYard}`;
+                                      const lighter =
+                                        teamColor && teamColor.startsWith("#")
+                                          ? `${teamColor}33`
+                                          : teamColor;
+                                      const darker =
+                                        teamColor && teamColor.startsWith("#")
+                                          ? `${teamColor}FF`
+                                          : teamColor;
+                                      const startIsLeft =
+                                        startPosForStart <= startPosForEnd;
 
-                        // Get main participant using same logic as scoreboard.js
-                        let mainPlayer;
+                                      const stops = startIsLeft
+                                        ? [
+                                            <Stop
+                                              key="s1"
+                                              offset="0%"
+                                              stopColor={lighter}
+                                              stopOpacity={0.35}
+                                            />,
+                                            <Stop
+                                              key="s2"
+                                              offset="100%"
+                                              stopColor={darker}
+                                              stopOpacity={0.95}
+                                            />,
+                                          ]
+                                        : [
+                                            <Stop
+                                              key="s3"
+                                              offset="0%"
+                                              stopColor={darker}
+                                              stopOpacity={0.95}
+                                            />,
+                                            <Stop
+                                              key="s4"
+                                              offset="100%"
+                                              stopColor={lighter}
+                                              stopOpacity={0.35}
+                                            />,
+                                          ];
 
-                        // First check if it's a scoring play and prioritize the scorer
-                        if (isScoringPlay) {
-                          const scorer = participantsList.find(
-                            (p) =>
-                              p.type === "scorer" ||
-                              p.type === "rusher" ||
-                              p.type === "receiver",
-                          );
-                          if (scorer) {
-                            console.log(
-                              "Found scoring participant:",
-                              scorer?.athlete?.displayName,
-                              "Type:",
-                              scorer?.type,
-                            );
-                            mainPlayer = scorer;
-                          }
-                        }
+                                      return (
+                                        <>
+                                          <Svg
+                                            width="100%"
+                                            height="100%"
+                                            style={{
+                                              position: "absolute",
+                                              left: `${start}%`,
+                                            }}
+                                          >
+                                            <Defs>
+                                              <LinearGradient
+                                                id={gradientId}
+                                                x1="0%"
+                                                y1="0%"
+                                                x2="100%"
+                                                y2="0%"
+                                              >
+                                                {stops}
+                                              </LinearGradient>
+                                            </Defs>
+                                            <Rect
+                                              x="0"
+                                              y="0"
+                                              width={`${width}%`}
+                                              height="100%"
+                                              fill={`url(#${gradientId})`}
+                                              opacity={1}
+                                            />
+                                          </Svg>
 
-                        // If no scorer found or not a scoring play, use regular logic
-                        if (!mainPlayer) {
-                          if (
-                            isSpecialPlayType &&
-                            participantsList.length > 1
-                          ) {
-                            // For special play types, look for recoverer, returner, or sackedBy participant type
-                            const specialParticipant = participantsList.find(
-                              (p) =>
-                                p.type === "recoverer" ||
-                                p.type === "returner" ||
-                                p.type === "sackedBy" ||
-                                p.type === "passDefender",
-                            );
-                            console.log(
-                              "Found special participant:",
-                              specialParticipant?.athlete?.displayName,
-                              "Type:",
-                              specialParticipant?.type,
-                            );
-                            mainPlayer =
-                              specialParticipant || participantsList[0];
-                          } else if (isRushingPlay) {
-                            // For rushing plays, prioritize the rusher
-                            const rusher = participantsList.find(
-                              (p) => p.type === "rusher",
-                            );
-                            mainPlayer = rusher || participantsList[0];
-                          } else if (isPassingPlay) {
-                            // For passing plays, prioritize the receiver
-                            const receiver = participantsList.find(
-                              (p) => p.type === "receiver",
-                            );
-                            mainPlayer = receiver || participantsList[0];
-                          } else {
-                            mainPlayer = participantsList[0]; // Use first participant normally
-                          }
-                        }
+                                          {/* Start and end indicator lines */}
+                                          <View
+                                            style={{
+                                              position: "absolute",
+                                              left: `${start}%`,
+                                              top: 0,
+                                              bottom: 0,
+                                              width: 1,
+                                              backgroundColor: teamColor,
+                                              opacity: 1,
+                                              marginLeft: -1,
+                                            }}
+                                          />
+                                          <View
+                                            style={{
+                                              position: "absolute",
+                                              left: `${start + width}%`,
+                                              top: 0,
+                                              bottom: 0,
+                                              width: 1,
+                                              backgroundColor: teamColor,
+                                              opacity: 1,
+                                              marginLeft: -1,
+                                            }}
+                                          />
+                                        </>
+                                      );
+                                    })()}
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
 
-                        console.log(
-                          "Selected main participant:",
-                          mainPlayer?.athlete?.displayName,
-                          "Type:",
-                          mainPlayer?.type,
-                        );
+                        <View
+                          style={{
+                            flex: 1,
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            justifyContent: "center",
+                          }}
+                        >
+                          {/* Players Section */}
+                          {players.length > 0 &&
+                            (() => {
+                              // Remove duplicates based on athlete ID
+                              const uniquePlayers = [];
+                              const seenIds = new Set();
 
-                        // Reorder participants array to put main participant first
-                        if (
-                          mainPlayer &&
-                          (isSpecialPlayType ||
-                            isRushingPlay ||
-                            isPassingPlay ||
-                            isScoringPlay)
-                        ) {
-                          const otherParticipants = participantsList.filter(
-                            (p) =>
-                              p.athlete?.displayName !==
-                              mainPlayer.athlete?.displayName,
-                          );
-                          participantsList = [mainPlayer, ...otherParticipants];
-                        }
+                              players.forEach((player) => {
+                                const athleteId = player?.athlete?.id;
+                                if (athleteId && !seenIds.has(athleteId)) {
+                                  seenIds.add(athleteId);
+                                  uniquePlayers.push(player);
+                                }
+                              });
 
-                        // Safety check - ensure mainPlayer exists
-                        if (!mainPlayer || !mainPlayer.athlete) return null;
+                              // If no unique players found, return null
+                              if (uniquePlayers.length === 0) return null;
 
-                        // Helper function to get player stats from cached boxscore data
-                        const getPlayerStats = (
-                          player,
-                          playTypeId,
-                          participantType,
-                        ) => {
-                          if (
-                            !gameDetails?.boxscore?.players ||
-                            !player?.athlete?.id
-                          )
-                            return [];
+                              // Sort participants by order first
+                              let participantsList = [...uniquePlayers].sort(
+                                (a, b) => (a.order || 0) - (b.order || 0),
+                              );
 
-                          // Find player in boxscore
-                          let playerBoxscoreData = null;
-                          for (const teamData of gameDetails.boxscore.players) {
-                            if (teamData.statistics) {
-                              for (const statCategory of teamData.statistics) {
-                                if (statCategory.athletes) {
-                                  for (const athleteData of statCategory.athletes) {
-                                    const athlete = athleteData.athlete;
-                                    if (
-                                      athlete &&
-                                      (athlete.id === player.athlete.id ||
-                                        athlete.id ===
-                                          player.athlete.id.toString())
-                                    ) {
-                                      if (!playerBoxscoreData)
-                                        playerBoxscoreData = {};
-                                      playerBoxscoreData[statCategory.name] =
-                                        athleteData.stats || [];
+                              // Check for special cases using play type ID (like scoreboard.js)
+                              const playTypeId = play.type?.id;
+                              const isSpecialPlayType = [
+                                "53",
+                                "26",
+                                "36",
+                                "52",
+                                "29",
+                                "80",
+                                "7",
+                                "32",
+                                "34",
+                              ].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
+                              const isRushingPlay = playTypeId === "5"; // Rush
+                              const isPassingPlay = playTypeId === "24"; // Pass Reception
+                              const isScoringPlay =
+                                play.scoringPlay ||
+                                play.text?.toLowerCase().includes("touchdown");
+
+                              // Get main participant using same logic as scoreboard.js
+                              let mainPlayer;
+
+                              // First check if it's a scoring play and prioritize the scorer
+                              if (isScoringPlay) {
+                                const scorer = participantsList.find(
+                                  (p) =>
+                                    p.type === "scorer" ||
+                                    p.type === "rusher" ||
+                                    p.type === "receiver",
+                                );
+                                if (scorer) {
+                                  mainPlayer = scorer;
+                                }
+                              }
+
+                              // If no scorer found or not a scoring play, use regular logic
+                              if (!mainPlayer) {
+                                if (
+                                  isSpecialPlayType &&
+                                  participantsList.length > 1
+                                ) {
+                                  // For special play types, look for recoverer, returner, or sackedBy participant type
+                                  const specialParticipant =
+                                    participantsList.find(
+                                      (p) =>
+                                        p.type === "recoverer" ||
+                                        p.type === "returner" ||
+                                        p.type === "sackedBy" ||
+                                        p.type === "passDefender",
+                                    );
+                                  mainPlayer =
+                                    specialParticipant || participantsList[0];
+                                } else if (isRushingPlay) {
+                                  // For rushing plays, prioritize the rusher
+                                  const rusher = participantsList.find(
+                                    (p) => p.type === "rusher",
+                                  );
+                                  mainPlayer = rusher || participantsList[0];
+                                } else if (isPassingPlay) {
+                                  // For passing plays, prioritize the receiver
+                                  const receiver = participantsList.find(
+                                    (p) => p.type === "receiver",
+                                  );
+                                  mainPlayer = receiver || participantsList[0];
+                                } else {
+                                  mainPlayer = participantsList[0]; // Use first participant normally
+                                }
+                              }
+
+                              // Reorder participants array to put main participant first
+                              if (
+                                mainPlayer &&
+                                (isSpecialPlayType ||
+                                  isRushingPlay ||
+                                  isPassingPlay ||
+                                  isScoringPlay)
+                              ) {
+                                const otherParticipants =
+                                  participantsList.filter(
+                                    (p) =>
+                                      p.athlete?.displayName !==
+                                      mainPlayer.athlete?.displayName,
+                                  );
+                                participantsList = [
+                                  mainPlayer,
+                                  ...otherParticipants,
+                                ];
+                              }
+
+                              // Safety check - ensure mainPlayer exists
+                              if (!mainPlayer || !mainPlayer.athlete)
+                                return null;
+
+                              // Helper function to get player stats from cached boxscore data
+                              const getPlayerStats = (
+                                player,
+                                playTypeId,
+                                participantType,
+                              ) => {
+                                if (
+                                  !gameDetails?.boxscore?.players ||
+                                  !player?.athlete?.id
+                                )
+                                  return [];
+
+                                // Find player in boxscore
+                                let playerBoxscoreData = null;
+                                for (const teamData of gameDetails.boxscore
+                                  .players) {
+                                  if (teamData.statistics) {
+                                    for (const statCategory of teamData.statistics) {
+                                      if (statCategory.athletes) {
+                                        for (const athleteData of statCategory.athletes) {
+                                          const athlete = athleteData.athlete;
+                                          if (
+                                            athlete &&
+                                            (athlete.id === player.athlete.id ||
+                                              athlete.id ===
+                                                player.athlete.id.toString())
+                                          ) {
+                                            if (!playerBoxscoreData)
+                                              playerBoxscoreData = {};
+                                            playerBoxscoreData[
+                                              statCategory.name
+                                            ] = athleteData.stats || [];
+                                          }
+                                        }
+                                      }
                                     }
                                   }
                                 }
-                              }
-                            }
-                          }
 
-                          if (!playerBoxscoreData) return [];
+                                if (!playerBoxscoreData) return [];
 
-                          // Define stat display logic based on play type and participant type
-                          const stats = [];
+                                // Define stat display logic based on play type and participant type
+                                const stats = [];
 
-                          // Special case: Interception (type 26)
-                          if (playTypeId === "26" || playTypeId === "36") {
-                            if (participantType === "passer") {
-                              // Show yards and interceptions
-                              const passing = playerBoxscoreData.passing || [];
-                              if (passing[1]) stats.push(`${passing[1]} yds`);
-                              if (passing[4]) stats.push(`${passing[4]} INT`);
-                            } else if (participantType === "passDefender") {
-                              // Show interceptions and interception yards
-                              const defensive =
-                                playerBoxscoreData.interceptions || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} INT`);
-                              if (defensive[1])
-                                stats.push(`${defensive[1]} INT yds`);
-                            } else if (participantType === "returner") {
-                              // Show targets and yards
-                              const receiving =
-                                playerBoxscoreData.receiving || [];
-                              if (receiving[5])
-                                stats.push(`${receiving[5]} tgt`);
-                              if (receiving[1])
-                                stats.push(`${receiving[1]} yds`);
-                            } else if (
-                              participantType === "tackler" ||
-                              participantType === "assistedBy"
-                            ) {
-                              // Show total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            }
-                          }
-                          // Special case: Kickoff (type 53)
-                          else if (playTypeId === "53") {
-                            if (participantType === "returner") {
-                              // Show kick returns and yards
-                              const returning =
-                                playerBoxscoreData.kickReturns || [];
-                              if (returning[0])
-                                stats.push(`${returning[0]} ret`);
-                              if (returning[1])
-                                stats.push(`${returning[1]} yds`);
-                            } else if (
-                              participantType === "tackler" ||
-                              participantType === "assistedBy"
-                            ) {
-                              // Show total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            }
-                          } else if (playTypeId === "32") {
-                            if (
-                              participantType === "returner" ||
-                              participantType === "scorer"
-                            ) {
-                              const returning =
-                                playerBoxscoreData.kickReturns || [];
-                              if (returning[0])
-                                stats.push(`${returning[0]} ret`);
-                              if (returning[1])
-                                stats.push(`${returning[1]} yds`);
-                              if (returning[4])
-                                stats.push(`${returning[4]} TD`);
-                            } else if (
-                              participantType === "patScorer" ||
-                              participantType === "kicker"
-                            ) {
-                              const kicking = playerBoxscoreData.kicking || [];
-                              if (kicking[3]) stats.push(`${kicking[3]} XP`);
-                            }
-                          }
-                          // Special case: Punt (type 52)
-                          else if (playTypeId === "52" || playTypeId === "34") {
-                            if (participantType === "returner") {
-                              // Show punt returns and yards
-                              const returning =
-                                playerBoxscoreData.puntReturns || [];
-                              if (returning[0])
-                                stats.push(`${returning[0]} ret`);
-                              if (returning[1])
-                                stats.push(`${returning[1]} yds`);
-                            } else if (
-                              participantType === "tackler" ||
-                              participantType === "assistedBy"
-                            ) {
-                              // Show total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            } else if (participantType === "punter") {
-                              // Show punts and yards
-                              const punting = playerBoxscoreData.punting || [];
-                              if (punting[0]) stats.push(`${punting[0]} punts`);
-                              if (punting[1]) stats.push(`${punting[1]} yds`);
-                            } else if (
-                              participantType === "patScorer" ||
-                              participantType === "kicker"
-                            ) {
-                              const kicking = playerBoxscoreData.kicking || [];
-                              if (kicking[3]) stats.push(`${kicking[3]} XP`);
-                            }
-                            // Don't show stats for kicker
-                          } else if (
-                            playTypeId === "29" ||
-                            playTypeId === "80"
-                          ) {
-                            if (
-                              participantType === "fumbler" ||
-                              participantType === "rusher" ||
-                              participantType === "passer"
-                            ) {
-                              // Show fumbles
-                              const fumbles = playerBoxscoreData.fumbles || [];
-                              if (fumbles[0]) stats.push(`${fumbles[0]} fum`);
-                            } else if (participantType === "recoverer") {
-                              // Show fumbles recovered
-                              const defensive =
-                                playerBoxscoreData.fumbles || [];
-                              if (defensive[2])
-                                stats.push(`${defensive[2]} rec`);
-                            } else if (
-                              participantType === "tackler" ||
-                              participantType === "assistedBy" ||
-                              participantType === "forcedBy"
-                            ) {
-                              // Show total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            }
-                          }
-                          // Special case: Sack (type 7)
-                          else if (playTypeId === "7") {
-                            if (participantType === "passer") {
-                              // Show sacks and yards
-                              const passing = playerBoxscoreData.passing || [];
-                              if (passing[5]) stats.push(`${passing[5]} sck`);
-                              if (passing[1]) stats.push(`${passing[1]} yds`);
-                            } else if (
-                              participantType === "sackedBy" ||
-                              participantType === "tackler" ||
-                              participantType === "assistedBy"
-                            ) {
-                              // Show sacks and total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[2])
-                                stats.push(`${defensive[2]} sck`);
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            }
-                          }
-                          // Special case: Field Goal (type 59)
-                          else if (playTypeId === "59") {
-                            if (participantType === "kicker") {
-                              // Show field goals made and percentage
-                              const kicking = playerBoxscoreData.kicking || [];
-                              if (kicking[0]) stats.push(`${kicking[0]} FG`);
-                              if (kicking[1]) stats.push(`${kicking[1]}%`);
-                            }
-                          }
-                          // Regular cases
-                          else {
-                            if (participantType === "rusher") {
-                              // Show attempts, yards, touchdowns
-                              const rushing = playerBoxscoreData.rushing || [];
-                              if (rushing[0]) stats.push(`${rushing[0]} att`);
-                              if (rushing[1]) stats.push(`${rushing[1]} yds`);
-                              if (rushing[3]) stats.push(`${rushing[3]} TD`);
-                            } else if (participantType === "passer") {
-                              // Show completions/attempts, yards, touchdowns
-                              const passing = playerBoxscoreData.passing || [];
-                              if (passing[0]) stats.push(`${passing[0]} c/att`);
-                              if (passing[1]) stats.push(`${passing[1]} yds`);
-                              if (passing[3]) stats.push(`${passing[3]} TD`);
-                            } else if (participantType === "receiver") {
-                              // Show receptions, yards, touchdowns
-                              const receiving =
-                                playerBoxscoreData.receiving || [];
-                              if (receiving[0])
-                                stats.push(`${receiving[0]} rec`);
-                              if (receiving[1])
-                                stats.push(`${receiving[1]} yds`);
-                              if (receiving[3])
-                                stats.push(`${receiving[3]} TD`);
-                            } else if (
-                              participantType === "assistedBy" ||
-                              participantType === "tackler"
-                            ) {
-                              // Show total tackles
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[0])
-                                stats.push(`${defensive[0]} tkl`);
-                            } else if (participantType === "passDefender") {
-                              // Show passes defended
-                              const defensive =
-                                playerBoxscoreData.defensive || [];
-                              if (defensive[4])
-                                stats.push(`${defensive[4]} PD`);
-                            } else if (participantType === "kicker") {
-                              // Show field goals and extra points
-                              const kicking = playerBoxscoreData.kicking || [];
-                              if (kicking[0]) stats.push(`${kicking[3]} XP`);
-                            } else if (participantType === "punter") {
-                              // Show punts and yards
-                              const punting = playerBoxscoreData.punting || [];
-                              if (punting[0]) stats.push(`${punting[0]} punts`);
-                              if (punting[1]) stats.push(`${punting[1]} yds`);
-                            }
-                          }
+                                // Special case: Interception (type 26)
+                                if (
+                                  playTypeId === "26" ||
+                                  playTypeId === "36"
+                                ) {
+                                  if (participantType === "passer") {
+                                    // Show yards and interceptions
+                                    const passing =
+                                      playerBoxscoreData.passing || [];
+                                    if (passing[1])
+                                      stats.push(`${passing[1]} yds`);
+                                    if (passing[4])
+                                      stats.push(`${passing[4]} INT`);
+                                  } else if (
+                                    participantType === "passDefender"
+                                  ) {
+                                    // Show interceptions and interception yards
+                                    const defensive =
+                                      playerBoxscoreData.interceptions || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} INT`);
+                                    if (defensive[1])
+                                      stats.push(`${defensive[1]} INT yds`);
+                                  } else if (participantType === "returner") {
+                                    // Show targets and yards
+                                    const receiving =
+                                      playerBoxscoreData.receiving || [];
+                                    if (receiving[5])
+                                      stats.push(`${receiving[5]} tgt`);
+                                    if (receiving[1])
+                                      stats.push(`${receiving[1]} yds`);
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
+                                    // Show total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  }
+                                }
+                                // Special case: Kickoff (type 53)
+                                else if (playTypeId === "53") {
+                                  if (participantType === "returner") {
+                                    // Show kick returns and yards
+                                    const returning =
+                                      playerBoxscoreData.kickReturns || [];
+                                    if (returning[0])
+                                      stats.push(`${returning[0]} ret`);
+                                    if (returning[1])
+                                      stats.push(`${returning[1]} yds`);
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
+                                    // Show total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  }
+                                } else if (playTypeId === "32") {
+                                  if (
+                                    participantType === "returner" ||
+                                    participantType === "scorer"
+                                  ) {
+                                    const returning =
+                                      playerBoxscoreData.kickReturns || [];
+                                    if (returning[0])
+                                      stats.push(`${returning[0]} ret`);
+                                    if (returning[1])
+                                      stats.push(`${returning[1]} yds`);
+                                    if (returning[4])
+                                      stats.push(`${returning[4]} TD`);
+                                  } else if (
+                                    participantType === "patScorer" ||
+                                    participantType === "kicker"
+                                  ) {
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[3])
+                                      stats.push(`${kicking[3]} XP`);
+                                  }
+                                }
+                                // Special case: Punt (type 52)
+                                else if (
+                                  playTypeId === "52" ||
+                                  playTypeId === "34"
+                                ) {
+                                  if (participantType === "returner") {
+                                    // Show punt returns and yards
+                                    const returning =
+                                      playerBoxscoreData.puntReturns || [];
+                                    if (returning[0])
+                                      stats.push(`${returning[0]} ret`);
+                                    if (returning[1])
+                                      stats.push(`${returning[1]} yds`);
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
+                                    // Show total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  } else if (participantType === "punter") {
+                                    // Show punts and yards
+                                    const punting =
+                                      playerBoxscoreData.punting || [];
+                                    if (punting[0])
+                                      stats.push(`${punting[0]} punts`);
+                                    if (punting[1])
+                                      stats.push(`${punting[1]} yds`);
+                                  } else if (
+                                    participantType === "patScorer" ||
+                                    participantType === "kicker"
+                                  ) {
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[3])
+                                      stats.push(`${kicking[3]} XP`);
+                                  }
+                                  // Don't show stats for kicker
+                                } else if (
+                                  playTypeId === "29" ||
+                                  playTypeId === "80"
+                                ) {
+                                  if (
+                                    participantType === "fumbler" ||
+                                    participantType === "rusher" ||
+                                    participantType === "passer"
+                                  ) {
+                                    // Show fumbles
+                                    const fumbles =
+                                      playerBoxscoreData.fumbles || [];
+                                    if (fumbles[0])
+                                      stats.push(`${fumbles[0]} fum`);
+                                  } else if (participantType === "recoverer") {
+                                    // Show fumbles recovered
+                                    const defensive =
+                                      playerBoxscoreData.fumbles || [];
+                                    if (defensive[2])
+                                      stats.push(`${defensive[2]} rec`);
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy" ||
+                                    participantType === "forcedBy"
+                                  ) {
+                                    // Show total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  }
+                                }
+                                // Special case: Sack (type 7)
+                                else if (playTypeId === "7") {
+                                  if (participantType === "passer") {
+                                    // Show sacks and yards
+                                    const passing =
+                                      playerBoxscoreData.passing || [];
+                                    if (passing[5])
+                                      stats.push(`${passing[5]} sck`);
+                                    if (passing[1])
+                                      stats.push(`${passing[1]} yds`);
+                                  } else if (
+                                    participantType === "sackedBy" ||
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
+                                    // Show sacks and total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[2])
+                                      stats.push(`${defensive[2]} sck`);
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  }
+                                }
+                                // Special case: Field Goal (type 59)
+                                else if (playTypeId === "59") {
+                                  if (participantType === "kicker") {
+                                    // Show field goals made and percentage
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[0])
+                                      stats.push(`${kicking[0]} FG`);
+                                    if (kicking[1])
+                                      stats.push(`${kicking[1]}%`);
+                                  }
+                                }
+                                // Regular cases
+                                else {
+                                  if (participantType === "rusher") {
+                                    // Show attempts, yards, touchdowns
+                                    const rushing =
+                                      playerBoxscoreData.rushing || [];
+                                    if (rushing[0])
+                                      stats.push(`${rushing[0]} att`);
+                                    if (rushing[1])
+                                      stats.push(`${rushing[1]} yds`);
+                                    if (rushing[3])
+                                      stats.push(`${rushing[3]} TD`);
+                                  } else if (participantType === "passer") {
+                                    // Show completions/attempts, yards, touchdowns
+                                    const passing =
+                                      playerBoxscoreData.passing || [];
+                                    if (passing[0])
+                                      stats.push(`${passing[0]} c/att`);
+                                    if (passing[1])
+                                      stats.push(`${passing[1]} yds`);
+                                    if (passing[3])
+                                      stats.push(`${passing[3]} TD`);
+                                  } else if (participantType === "receiver") {
+                                    // Show receptions, yards, touchdowns
+                                    const receiving =
+                                      playerBoxscoreData.receiving || [];
+                                    if (receiving[0])
+                                      stats.push(`${receiving[0]} rec`);
+                                    if (receiving[1])
+                                      stats.push(`${receiving[1]} yds`);
+                                    if (receiving[3])
+                                      stats.push(`${receiving[3]} TD`);
+                                  } else if (
+                                    participantType === "assistedBy" ||
+                                    participantType === "tackler"
+                                  ) {
+                                    // Show total tackles
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[0])
+                                      stats.push(`${defensive[0]} tkl`);
+                                  } else if (
+                                    participantType === "passDefender"
+                                  ) {
+                                    // Show passes defended
+                                    const defensive =
+                                      playerBoxscoreData.defensive || [];
+                                    if (defensive[4])
+                                      stats.push(`${defensive[4]} PD`);
+                                  } else if (participantType === "kicker") {
+                                    // Show field goals and extra points
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[0])
+                                      stats.push(`${kicking[3]} XP`);
+                                  } else if (participantType === "punter") {
+                                    // Show punts and yards
+                                    const punting =
+                                      playerBoxscoreData.punting || [];
+                                    if (punting[0])
+                                      stats.push(`${punting[0]} punts`);
+                                    if (punting[1])
+                                      stats.push(`${punting[1]} yds`);
+                                  }
+                                }
 
-                          return stats;
-                        };
+                                return stats;
+                              };
 
-                        const formatPlayerName = (player) => {
-                          const fullName =
-                            player.athlete?.displayName ||
-                            player.athlete?.fullName;
-                          if (!fullName) return "Unknown";
+                              const formatPlayerName = (player) => {
+                                const fullName =
+                                  player.athlete?.displayName ||
+                                  player.athlete?.fullName;
+                                if (!fullName) return "Unknown";
 
-                          const nameParts = fullName.split(" ");
-                          const formattedName =
-                            nameParts.length === 1
-                              ? fullName
-                              : `${nameParts[0][0]}. ${nameParts
-                                  .slice(1)
-                                  .join(" ")}`;
+                                const nameParts = fullName.split(" ");
+                                const formattedName =
+                                  nameParts.length === 1
+                                    ? fullName
+                                    : `${nameParts[0][0]}. ${nameParts
+                                        .slice(1)
+                                        .join(" ")}`;
 
-                          return formattedName;
-                        };
+                                return formattedName;
+                              };
 
-                        const mainPlayerDisplay = formatPlayerName(mainPlayer);
-                        const mainPlayerId = mainPlayer.athlete?.id;
-                        const mainPlayerHeadshot =
-                          mainPlayer.athlete?.headshot?.href ||
-                          `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${mainPlayerId}.png`;
-                        const otherPlayers = participantsList.slice(1);
-                        const mainPlayerStats = getPlayerStats(
-                          mainPlayer,
-                          playTypeId,
-                          mainPlayer.type,
-                        );
-                        const parseStatItem = (stat) => {
-                          if (!stat) return { value: "—", label: "" };
-                          const parts = stat.split(" ");
-                          if (parts.length === 1) {
-                            return { value: stat, label: "" };
-                          }
-                          const value = parts.shift();
-                          return { value, label: parts.join(" ") };
-                        };
+                              const mainPlayerDisplay =
+                                formatPlayerName(mainPlayer);
+                              const mainPlayerId = mainPlayer.athlete?.id;
+                              const mainPlayerHeadshot =
+                                mainPlayer.athlete?.headshot?.href ||
+                                `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${mainPlayerId}.png`;
+                              const otherPlayers = participantsList.slice(1);
+                              const mainPlayerStats = getPlayerStats(
+                                mainPlayer,
+                                playTypeId,
+                                mainPlayer.type,
+                              );
+                              const parseStatItem = (stat) => {
+                                if (!stat) return { value: "—", label: "" };
+                                const parts = stat.split(" ");
+                                if (parts.length === 1) {
+                                  return { value: stat, label: "" };
+                                }
+                                const value = parts.shift();
+                                return { value, label: parts.join(" ") };
+                              };
 
-                        return (
-                          <View>
-                            <View
-                              style={{
-                                alignItems: "center",
-                                marginBottom: 10,
-                              }}
-                            >
-                              <Image
-                                source={{ uri: mainPlayerHeadshot }}
-                                style={{
-                                  width: 60,
-                                  height: 60,
-                                  borderRadius: 30,
-                                  marginBottom: 8,
-                                  backgroundColor: teamColor + "88",
-                                  borderWidth: 2,
-                                  borderColor: teamColor,
-                                }}
-                              />
-                              <Text
-                                style={{
-                                  fontSize: 16,
-                                  fontWeight: "800",
-                                  color: theme.text,
-                                  textAlign: "center",
-                                }}
-                                numberOfLines={2}
-                              >
-                                {mainPlayerDisplay}
-                              </Text>
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  marginTop: 4,
-                                }}
-                              >
-                                <TeamLogoImage
-                                  team={teamLogo}
-                                  style={{ width: 14, height: 14 }}
-                                  isDarkMode={isDarkMode}
-                                />
-                                <Text
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: "600",
-                                    color: theme.textSecondary,
-                                    textAlign: "center",
-                                  }}
-                                  numberOfLines={2}
-                                >
-                                  {teamName || teamAbbr}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View
-                              style={{
-                                flexDirection: "row",
-                                flexWrap: "wrap",
-                                justifyContent: "space-between",
-                                marginBottom: 10,
-                              }}
-                            >
-                              {(mainPlayerStats.length
-                                ? mainPlayerStats
-                                : ["—"]
-                              ).map((stat, idx) => {
-                                const parsed = parseStatItem(stat);
-                                return (
+                              return (
+                                <View>
                                   <View
-                                    key={`${stat}-${idx}`}
                                     style={{
-                                      width: "31%",
-                                      paddingVertical: 6,
                                       alignItems: "center",
+                                      marginBottom: 10,
                                     }}
                                   >
+                                    <Image
+                                      source={{ uri: mainPlayerHeadshot }}
+                                      style={{
+                                        width: 60,
+                                        height: 60,
+                                        borderRadius: 30,
+                                        marginBottom: 8,
+                                        backgroundColor: teamColor + "88",
+                                        borderWidth: 2,
+                                        borderColor: teamColor,
+                                      }}
+                                    />
                                     <Text
                                       style={{
                                         fontSize: 16,
@@ -7050,153 +8997,220 @@ const GameDetailsScreen = ({ route }) => {
                                         color: theme.text,
                                         textAlign: "center",
                                       }}
+                                      numberOfLines={2}
                                     >
-                                      {parsed.value}
+                                      {mainPlayerDisplay}
                                     </Text>
-                                    <Text
+                                    <View
                                       style={{
-                                        fontSize: 10,
-                                        fontWeight: "700",
-                                        textTransform: "uppercase",
-                                        letterSpacing: 0.4,
-                                        color: theme.textSecondary,
-                                        textAlign: "center",
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        marginTop: 4,
                                       }}
                                     >
-                                      {parsed.label || "STAT"}
-                                    </Text>
+                                      <TeamLogoImage
+                                        team={teamLogo}
+                                        style={{ width: 14, height: 14 }}
+                                        isDarkMode={isDarkMode}
+                                      />
+                                      <Text
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "600",
+                                          color: theme.textSecondary,
+                                          textAlign: "center",
+                                        }}
+                                        numberOfLines={2}
+                                      >
+                                        {teamName || teamAbbr}
+                                      </Text>
+                                    </View>
                                   </View>
-                                );
-                              })}
-                            </View>
 
-                            {otherPlayers.map((player, idx) => {
-                              const otherName = formatPlayerName(player);
-                              const otherStats = getPlayerStats(
-                                player,
-                                playTypeId,
-                                player.type,
-                              );
-                              if (!otherStats.length) return null;
-                              return (
-                                <View
-                                  key={`${player.athlete?.id || idx}`}
-                                  style={{ marginBottom: 10 }}
-                                >
-                                  <Text
+                                  <View
                                     style={{
-                                      fontSize: 12,
-                                      fontWeight: "700",
-                                      color: theme.text,
-                                      textAlign: "center",
+                                      flexDirection: "row",
+                                      flexWrap: "wrap",
+                                      justifyContent: "space-between",
+                                      marginBottom: 10,
                                     }}
-                                    numberOfLines={1}
                                   >
-                                    {otherName}
-                                  </Text>
-                                  <Text
-                                    style={{
-                                      fontSize: 11,
-                                      color: theme.textSecondary,
-                                      textAlign: "center",
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {otherStats.join(" • ").toUpperCase()}
-                                  </Text>
+                                    {(mainPlayerStats.length
+                                      ? mainPlayerStats
+                                      : ["—"]
+                                    ).map((stat, idx) => {
+                                      const parsed = parseStatItem(stat);
+                                      return (
+                                        <View
+                                          key={`${stat}-${idx}`}
+                                          style={{
+                                            width: "31%",
+                                            paddingVertical: 6,
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              fontSize: 16,
+                                              fontWeight: "800",
+                                              color: theme.text,
+                                              textAlign: "center",
+                                            }}
+                                          >
+                                            {parsed.value}
+                                          </Text>
+                                          <Text
+                                            style={{
+                                              fontSize: 10,
+                                              fontWeight: "700",
+                                              textTransform: "uppercase",
+                                              letterSpacing: 0.4,
+                                              color: theme.textSecondary,
+                                              textAlign: "center",
+                                            }}
+                                          >
+                                            {parsed.label || "STAT"}
+                                          </Text>
+                                        </View>
+                                      );
+                                    })}
+                                  </View>
+
+                                  {otherPlayers.map((player, idx) => {
+                                    const otherName = formatPlayerName(player);
+                                    const otherStats = getPlayerStats(
+                                      player,
+                                      playTypeId,
+                                      player.type,
+                                    );
+                                    if (!otherStats.length) return null;
+                                    return (
+                                      <View
+                                        key={`${player.athlete?.id || idx}`}
+                                        style={{ marginBottom: 10 }}
+                                      >
+                                        <Text
+                                          style={{
+                                            fontSize: 12,
+                                            fontWeight: "700",
+                                            color: theme.text,
+                                            textAlign: "center",
+                                          }}
+                                          numberOfLines={1}
+                                        >
+                                          {otherName}
+                                        </Text>
+                                        <Text
+                                          style={{
+                                            fontSize: 11,
+                                            color: theme.textSecondary,
+                                            textAlign: "center",
+                                          }}
+                                          numberOfLines={1}
+                                        >
+                                          {otherStats.join(" • ").toUpperCase()}
+                                        </Text>
+                                      </View>
+                                    );
+                                  })}
                                 </View>
                               );
-                            })}
-                          </View>
-                        );
-                      })()}
-                  </View>
-                </View>
+                            })()}
+                        </View>
+                      </View>
 
-                {/* Footer inside the card */}
-                <View
+                      {/* Footer inside the card */}
+                      <View
+                        style={[
+                          styles.shareCardFooterPlay,
+                          { borderTopColor: theme.border },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontWeight: "800",
+                            color: theme.text,
+                          }}
+                        >
+                          W {winProbability.toFixed(1)}%
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontWeight: "800",
+                            letterSpacing: 0.4,
+                            color: theme.text,
+                          }}
+                        >
+                          SportsHeart{" "}
+                          <Ionicons
+                            name="heart"
+                            size={10}
+                            color={colors.primary}
+                          />
+                        </Text>
+                      </View>
+                    </>
+                  );
+                })()}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.nflPlayShareCardActions}>
+              <View style={styles.nflPlayShareCardTopButtons}>
+                <TouchableOpacity
                   style={[
-                    styles.shareCardFooterPlay,
-                    { borderTopColor: theme.border },
+                    styles.nflPlayShareCardButton,
+                    { backgroundColor: colors.secondary },
                   ]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(nflPlayShareCardRef, {
+                        format: "png",
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: "image/png",
+                        dialogTitle: "Share Play",
+                      });
+                    } catch (error) {
+                      console.error("Error sharing play:", error);
+                    }
+                  }}
                 >
+                  <Ionicons name="share-outline" size={24} color="#fff" />
                   <Text
-                    style={{
-                      fontSize: 9,
-                      fontWeight: "800",
-                      color: theme.text,
-                    }}
+                    style={[
+                      styles.nflPlayShareCardButtonText,
+                      { color: "#fff" },
+                    ]}
                   >
-                    W {winProbability.toFixed(1)}%
+                    Share
                   </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.nflPlayShareCardButton,
+                    styles.nflPlayShareCardCancelButton,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() => setShareCardPlay(null)}
+                >
+                  <Ionicons name="close" size={24} color={theme.text} />
                   <Text
-                    style={{
-                      fontSize: 9,
-                      fontWeight: "800",
-                      letterSpacing: 0.4,
-                      color: theme.text,
-                    }}
+                    style={[
+                      styles.nflPlayShareCardButtonText,
+                      { color: theme.text },
+                    ]}
                   >
-                    SportsHeart{" "}
-                    <Ionicons name="heart" size={10} color={colors.primary} />
+                    Cancel
                   </Text>
-                </View>
-              </>
-            );
-          })()}
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.nflPlayShareCardActions}>
-        <View style={styles.nflPlayShareCardTopButtons}>
-          <TouchableOpacity
-            style={[
-              styles.nflPlayShareCardButton,
-              { backgroundColor: colors.secondary },
-            ]}
-            onPress={async () => {
-              try {
-                const uri = await captureRef(nflPlayShareCardRef, {
-                  format: "png",
-                  quality: 2,
-                });
-                await Sharing.shareAsync(uri, {
-                  mimeType: "image/png",
-                  dialogTitle: "Share Play",
-                });
-              } catch (error) {
-                console.error("Error sharing play:", error);
-              }
-            }}
-          >
-            <Ionicons name="share-outline" size={24} color="#fff" />
-            <Text
-              style={[styles.nflPlayShareCardButtonText, { color: "#fff" }]}
-            >
-              Share
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.nflPlayShareCardButton,
-              styles.nflPlayShareCardCancelButton,
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-            onPress={() => setShareCardPlay(null)}
-          >
-            <Ionicons name="close" size={24} color={theme.text} />
-            <Text
-              style={[styles.nflPlayShareCardButtonText, { color: theme.text }]}
-            >
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  )
-}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </Modal>
 
@@ -7366,28 +9380,11 @@ const GameDetailsScreen = ({ route }) => {
                       onMessage={(event) => {
                         try {
                           const data = JSON.parse(event.nativeEvent.data);
-                          console.log("WebView instrumentation:", data);
-                        } catch (e) {
-                          console.log(
-                            "WebView message (raw):",
-                            event.nativeEvent.data,
-                          );
-                        }
+                        } catch (e) {}
                       }}
-                      onNavigationStateChange={(navState) => {
-                        console.log("WebView navigation state change:", {
-                          url: navState.url,
-                          title: navState.title,
-                          loading: navState.loading,
-                        });
-                      }}
+                      onNavigationStateChange={(navState) => {}}
                       // Block popup navigation within the WebView
                       onShouldStartLoadWithRequest={(request) => {
-                        console.log(
-                          "NFL WebView navigation request:",
-                          request.url,
-                        );
-
                         // Allow the initial stream URL to load
                         if (request.url === streamUrl) {
                           return true;
@@ -7418,7 +9415,6 @@ const GameDetailsScreen = ({ route }) => {
                           ) {
                             return true;
                           }
-                          console.log("Invalid URL:", request.url);
                           return false;
                         }
 
@@ -7442,21 +9438,12 @@ const GameDetailsScreen = ({ route }) => {
                         );
 
                         if (hasPopupKeywords && !allowIfEmbed) {
-                          console.log(
-                            "Blocked NFL popup/cross-domain navigation:",
-                            request.url,
-                          );
                           return false;
                         }
 
                         if (sameRootDomain || allowIfEmbed) {
                           return true;
                         }
-
-                        console.log(
-                          "Blocked NFL popup/cross-domain navigation:",
-                          request.url,
-                        );
                         return false;
                       }}
                       onOpenWindow={() => false}
@@ -7476,7 +9463,7 @@ const GameDetailsScreen = ({ route }) => {
             </View>
           </Modal>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {isLoggedIn && (
         <>
@@ -7571,26 +9558,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  stickyHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
   },
   stickyTeamAway: {
     flexDirection: "row",
@@ -9627,6 +11594,1147 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+});
+
+// ── NHL-style header styles ────────────────────────────────────────
+const nflHeaderStyles = StyleSheet.create({
+  header: {
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+  leagueRow: {
+    marginTop: -6,
+    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  leagueName: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  teamsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  teamSide: {
+    flex: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  logoScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  logoWrap: {
+    position: "relative",
+  },
+  teamLogo: {
+    width: 70,
+    height: 70,
+  },
+  possessionBadgeAway: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  possessionBadgeHome: {
+    position: "absolute",
+    top: -4,
+    left: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "90deg" }],
+  },
+  teamScore: {
+    fontSize: 32,
+    lineHeight: 48,
+    fontWeight: "800",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  teamNameRow: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: 130,
+    gap: 6,
+  },
+  teamName: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
+    maxWidth: 130,
+    textAlign: "center",
+  },
+  teamRecord: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  statusCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusMain: {
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statusSub: {
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  streamBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+    borderWidth: 1,
+    marginHorizontal: 5,
+    marginTop: 6,
+  },
+  streamBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
+  streamBtnDot: { width: 8, height: 8, borderRadius: 4 },
+  streamBtnText: { fontWeight: "700", fontSize: 12 },
+  downDistanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 10,
+  },
+  downDistanceText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  possessionLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  // Sticky header
+  stickyHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderBottomWidth: 1,
+  },
+  stickySide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  stickyLogo: {
+    width: 34,
+    height: 30,
+  },
+  stickyAbbr: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  stickyScore: {
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: "800",
+  },
+  stickyStatusBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+    paddingHorizontal: 4,
+  },
+  stickyStatusLine: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  stickyStatusSub: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 1,
+  },
+  // Sticky unit (contains mini header + tab bar)
+  stickyUnit: {
+    borderBottomWidth: 1,
+  },
+  stickyMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    overflow: "hidden",
+    borderBottomWidth: 1,
+  },
+  miniSide: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  miniLogo: {
+    width: 34,
+    height: 30,
+  },
+  miniAbbr: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  miniScore: {
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: "800",
+  },
+  miniStatusBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+    paddingHorizontal: 4,
+  },
+  miniStatusLine: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  miniStatusSub: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 1,
+  },
+  // Tab bar (horizontal scrollable, 4 visible at a time)
+  tabBarContent: {
+    flexDirection: "row",
+  },
+  tabBarButton: {
+    width: width / 4,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  tabBarLabel: {
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+});
+
+// ── Main tab styles ────────────────────────────────────────────────
+const nflMainStyles = StyleSheet.create({
+  fieldCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  fieldHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fieldHeaderAccent: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+  },
+  fieldHeaderTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  fieldHeaderDrive: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  fieldBody: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 14,
+  },
+  fieldGraphic: {
+    width: "100%",
+    height: 60,
+    borderRadius: 6,
+    position: "relative",
+    overflow: "hidden",
+  },
+  endZone: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: "10%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  endZoneText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  yardLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 2,
+  },
+  yardNum: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 8,
+    fontWeight: "700",
+  },
+  ballMarker: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -10,
+    marginLeft: -8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  downDistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 10,
+  },
+  downDistText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  possText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  // Win probability
+  wpCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  wpHeaderRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  wpTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  wpBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  wpTeamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  wpLogo: {
+    width: 24,
+    height: 20,
+  },
+  wpPct: {
+    fontSize: 14,
+    fontWeight: "800",
+    minWidth: 36,
+    textAlign: "center",
+  },
+  wpBarTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  wpBarFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  // Scoring summary
+  scoringCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  scoringHeaderRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  scoringTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  scoringBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  scoringRow: {
+    flexDirection: "row",
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    marginBottom: 4,
+    gap: 10,
+  },
+  scoringTimeCol: {
+    width: 48,
+    alignItems: "flex-start",
+  },
+  scoringPeriod: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  scoringClock: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  scoringInfoCol: {
+    flex: 1,
+  },
+  scoringPlayText: {
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
+  },
+  scoringScore: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  // Leaders card
+  leadersCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  leadersHeaderRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  leadersTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  leadersBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  // Officials card
+  officialsCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  officialsHeaderRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  officialsTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  officialsBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  officialRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  officialName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  officialRole: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  // Venue card
+  venueCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 20,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+  },
+  venueName: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  venueDate: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  // Linescore
+  linescoreCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  linescoreCell: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  linescoreTeamAbbr: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textAlign: "center",
+  },
+  linescorePeriodNum: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  linescoreRunsText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  linescoreTotalsSection: {
+    borderLeftWidth: 1,
+    flexDirection: "column",
+  },
+  linescoreTotalsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  linescoreTotalHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  linescoreTotalVal: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
+
+// ── Drives tab styles (NHL Plays-style) ────────────────────────────
+const nflDrivesStyles = StyleSheet.create({
+  sectionWrap: {
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  driveBarContent: {
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  driveChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  driveChipLogo: {
+    width: 18,
+    height: 18,
+  },
+  bubbleLogo: {
+    width: 40,
+    height: 40,
+  },
+  driveChipLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  driveBanner: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  driveBannerTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  driveBannerResult: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  driveBannerDesc: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  playsWrap: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  playRowWrap: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  playTimeCol: {
+    width: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 10,
+  },
+  playClockText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  playPeriodText: {
+    marginTop: 1,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  playCard: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  playCardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  playTypeLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  playScore: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  playWinPct: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  playMainText: {
+    marginTop: 7,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+  playSubText: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: "500",
+    flex: 1,
+  },
+  playExpandedWrap: {
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(128,128,128,0.2)",
+    paddingTop: 10,
+    gap: 8,
+  },
+  playScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playScoreText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  playShareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: "center",
+  },
+  playShareBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emptyWrap: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  playWinPctExpanded: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
+
+// ── Stats tab styles (NHL-style: possession ring + bar stats) ─────
+const nflStatsStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 14,
+  },
+  featureBlock: {
+    gap: 8,
+  },
+  featureValuesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  featureValueText: {
+    minWidth: 52,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  featureLabel: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  faceoffRingWrap: {
+    width: 156,
+    height: 156,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  faceoffRingInner: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  faceoffPctText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.25,
+    textAlign: "center",
+  },
+  faceoffPctLeft: {
+    position: "absolute",
+    left: 4,
+    width: "40%",
+    top: "50%",
+    marginTop: -8,
+  },
+  faceoffPctRight: {
+    position: "absolute",
+    right: 4,
+    width: "40%",
+    top: "50%",
+    marginTop: -8,
+  },
+  faceoffSplitLine: {
+    width: 2,
+    height: "80%",
+    opacity: 0.9,
+  },
+  statRowWrap: {
+    gap: 6,
+  },
+  statValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  statValueText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  statBarTrack: {
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  statBarFillLeft: {
+    height: "100%",
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+  },
+  statBarFillRight: {
+    height: "100%",
+    marginLeft: "auto",
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+  },
+  statCategoryLabel: {
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "none",
+  },
+  emptyText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});
+
+// ── Team tab styles (category filter + player cards) ──────────────
+const nflTeamStyles = StyleSheet.create({
+  posBarContent: {
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  posChip: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  posChipLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  playerListWrap: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  playerCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  playerCardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  playerCardHeadshotWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 2,
+  },
+  playerCardHeadshot: {
+    width: "100%",
+    height: "100%",
+  },
+  playerCardNameBlock: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  playerCardName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  playerCardMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  playerCardStatsRow: {
+    flexDirection: "row",
+    marginTop: 2,
+    paddingTop: 10,
+    justifyContent: "space-between",
+  },
+  playerCardStatCell: {
+    alignItems: "center",
+    flex: 1,
+  },
+  playerCardStatValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  playerCardStatLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginTop: 1,
+  },
+  statsWrap: {
+    paddingHorizontal: 12,
+  },
+  emptyWrap: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+});
+
+// ── Player share/copy card styles (NHL-style) ────────────────────
+const nflShareStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
+  },
+  card: {
+    width: Math.min(width - 48, 540),
+    overflow: "hidden",
+    borderRadius: 0,
+  },
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  posBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  posBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  scoreWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scoreLogo: {
+    width: 22,
+    height: 22,
+  },
+  scoreText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardHeadshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  nameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  nameDateRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  nameTeamWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  fullName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+  teamNameLogo: {
+    width: 18,
+    height: 18,
+  },
+  teamNameLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  dateWrap: {
+    alignItems: "flex-end",
+    marginLeft: 6,
+    flexShrink: 0,
+  },
+  gameDateLine: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "right",
+    lineHeight: 12,
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  statVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  cardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  cardBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  actionBtnTxt: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  actionBtnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
 });
 

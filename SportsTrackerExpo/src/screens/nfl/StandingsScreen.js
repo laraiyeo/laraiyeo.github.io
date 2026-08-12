@@ -1,25 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
+import { useFavorites } from "../../context/FavoritesContext";
+import { NFLService } from "../../services/NFLService";
 
-const StandingsScreen = ({ route }) => {
-  const { sport } = route.params;
+// Helper to normalize API team info to what UI expects
+const normalizeTeam = (entry) => {
+  const team = entry.team || {};
+  const stats = entry.stats || {};
+
+  const statObj = stats;
+
+  return {
+    id: team.id?.toString() || undefined,
+    abbreviation: team.abbreviation,
+    displayName: team.displayName,
+    shortDisplayName: team.shortDisplayName || team.displayName,
+    logo: team.logo,
+    seed: statObj.rank || statObj.seed || null,
+    wins: statObj.wins || "0",
+    losses: statObj.losses || "0",
+    ties: statObj.ties || "0",
+    winPercentage: statObj.winPercent || statObj.winPercentage || "0.000",
+    pointsFor: statObj.pointsFor || statObj.pf || "0",
+    pointsAgainst: statObj.pointsAgainst || statObj.pa || "0",
+    differential: statObj.differential || statObj.diff || "0",
+    streak: statObj.streak || "",
+    conferenceName: team.conferenceName,
+    divisionName: team.divisionName,
+    clinchIndicator: team.clincher || null,
+  };
+};
+
+const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
+  const { colors, getTeamLogoUrl } = useTheme();
+  const [imageError, setImageError] = useState(false);
+
+  const logoUri = getTeamLogoUrl("nfl", teamAbbreviation);
+
+  if (!logoUri || imageError) {
+    return (
+      <Ionicons
+        name="football"
+        size={size}
+        color={colors.primary}
+        style={iconStyle}
+      />
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: logoUri }}
+      style={style}
+      onError={() => setImageError(true)}
+    />
+  );
+};
+
+const NFLStandingsScreen = () => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const { isFavorite } = useFavorites();
-  const [standings, setStandings] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [intervalId, setIntervalId] = useState(null);
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
+  const [standings, setStandings] = useState(null);
+  const [intervalId, setIntervalId] = useState(null);
+
+  // NFL team abbreviation -> id mapping for navigation
+  const abbrToIdMap = {
+    buf: "2",
+    mia: "15",
+    ne: "17",
+    nyj: "20",
+    bal: "33",
+    cin: "4",
+    cle: "5",
+    pit: "23",
+    hou: "34",
+    ind: "11",
+    jax: "30",
+    ten: "10",
+    den: "7",
+    kc: "12",
+    lv: "13",
+    lac: "24",
+    dal: "6",
+    nyg: "19",
+    phi: "21",
+    was: "28",
+    chi: "3",
+    det: "8",
+    gb: "9",
+    min: "16",
+    atl: "1",
+    car: "29",
+    no: "18",
+    tb: "27",
+    ari: "22",
+    lar: "14",
+    sf: "25",
+    sea: "26",
+  };
+
+  const mapAbbrToId = (abbr) => {
+    if (!abbr) return null;
+    return abbrToIdMap[String(abbr).toLowerCase()] || null;
+  };
 
   useEffect(() => {
-    // Fetch on mount only (like StatsScreen - no background updates)
-    fetchStandings();
-    
-    // No interval - just fetch once and cache the data like StatsScreen
-    
+    let mounted = true;
+    const load = async (silent = false) => {
+      try {
+        if (!silent && mounted) {
+          setLoading(true);
+        }
+
+        const data = await NFLService.getStandings();
+        if (!mounted) return;
+        const formattedData = NFLService.formatStandingsForMobile(data);
+        setStandings(formattedData);
+      } catch (e) {
+        console.error("Failed to load NFL standings", e);
+      } finally {
+        if (mounted && !silent) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+
     return () => {
+      mounted = false;
       if (intervalId) {
         clearInterval(intervalId);
         setIntervalId(null);
@@ -27,197 +153,340 @@ const StandingsScreen = ({ route }) => {
     };
   }, []);
 
-  const fetchStandings = async (silent = false) => {
-    try {
-      // Only show loading for non-silent updates
-      if (!silent) {
-        setLoading(true);
-      }
-      
-      const response = await fetch('https://cdn.espn.com/core/nfl/standings?xhr=1');
-      const data = await response.json();
-      
-      setStandings(data);
-    } catch (error) {
-      console.error('Error fetching standings:', error);
-    } finally {
-      // Only clear loading for non-silent updates
-      if (!silent) {
-        setLoading(false);
-      }
-    }
+  if (loading)
+    return (
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  if (!standings)
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={{ color: theme.text }}>No standings available</Text>
+      </View>
+    );
+
+  // Team navigation function with proper ID handling
+  const navigateToTeam = (team) => {
+    const safeId = team.id || mapAbbrToId(team.abbreviation) || team;
+    navigation.navigate("TeamPage", { teamId: safeId, sport: "nfl" });
   };
 
-  const getTeamLogo = (teamAbbreviation) => {
-    return getTeamLogoUrl('nfl', teamAbbreviation);
+  // Helper function to get NFL team ID for favorites
+  const getNFLTeamId = (team) => {
+    return team?.id || mapAbbrToId(team?.abbreviation) || null;
   };
 
-  const getNFLTeamId = (espnTeam) => {
-    // ESPN team abbreviations to NFL team IDs mapping
-    const teamMapping = {
-      'BUF': '2', 'MIA': '15', 'NE': '17', 'NYJ': '20',
-      'BAL': '33', 'CIN': '4', 'CLE': '5', 'PIT': '23',
-      'HOU': '34', 'IND': '11', 'JAX': '30', 'TEN': '10',
-      'DEN': '7', 'KC': '12', 'LV': '13', 'LAC': '24',
-      'DAL': '6', 'NYG': '19', 'PHI': '21', 'WAS': '28',
-      'CHI': '3', 'DET': '8', 'GB': '9', 'MIN': '16',
-      'ATL': '1', 'CAR': '29', 'NO': '18', 'TB': '27',
-      'ARI': '22', 'LAR': '14', 'SF': '25', 'SEA': '26'
-    };
+  // Helper to render a single team row
+  const renderTeamRow = (entry, index) => {
+    const team = normalizeTeam(entry);
+    const teamId = getNFLTeamId(team);
+    const isFav = teamId && isFavorite(teamId, "nfl");
 
-    console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
-    
-    let nflId = teamMapping[espnTeam.abbreviation];
-    
-    if (!nflId) {
-      console.warn('No NFL ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
-      return espnTeam.id;
-    }
-    
-    console.log('Final NFL ID:', nflId);
-    return nflId;
-  };
+    const diffValue = parseInt(team.differential);
+    const diffFormatted =
+      diffValue > 0 ? `${team.differential}` : team.differential;
 
-  const renderNFLStandings = () => {
-    if (!standings?.content?.standings?.groups) return null;
-
-    const groups = standings.content.standings.groups;
-    const afc = groups.find(group => group.name === "American Football Conference");
-    const nfc = groups.find(group => group.name === "National Football Conference");
+    // Clinch indicator styling
+    const clinchCode = team.clinchIndicator
+      ? team.clinchIndicator.toUpperCase()
+      : null;
+    const clinchColor =
+      clinchCode === "X"
+        ? theme.success
+        : clinchCode === "*"
+          ? colors.primary
+          : clinchCode === "Z"
+            ? theme.warning
+            : clinchCode === "E"
+              ? theme.error
+              : clinchCode === "Y"
+                ? theme.info
+                : null;
 
     return (
-      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-        {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
-          <View key={confIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
-            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary, borderBottomColor: theme.border }]}>{conference.name}</Text>
-            
-            {conference.groups.map((division, divIndex) => (
-              <View key={divIndex} style={styles.divisionContainer}>
-                <Text allowFontScaling={false} style={[styles.divisionTitle, { color: theme.text }]}>{division.name}</Text>
-                
-                <View style={[styles.tableContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={[styles.tableHeader, { backgroundColor: colors.primary }]}>
-                    <Text allowFontScaling={false} style={[styles.headerCell, styles.teamColumn, { color: 'white' }]}>Team</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>W</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>L</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>T</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PCT</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PF</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PA</Text>
-                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>DIFF</Text>
-                  </View>
-                  
-                  {division.standings.entries
-                    .sort((a, b) => {
-                      const aWins = parseInt(a.stats.find(stat => stat.name === "wins")?.value || "0");
-                      const bWins = parseInt(b.stats.find(stat => stat.name === "wins")?.value || "0");
-                      if (aWins !== bWins) return bWins - aWins;
-                      
-                      const aWinPct = parseFloat(a.stats.find(stat => stat.name === "winPercent")?.value || "0");
-                      const bWinPct = parseFloat(b.stats.find(stat => stat.name === "winPercent")?.value || "0");
-                      return bWinPct - aWinPct;
-                    })
-                    .map((entry, teamIndex) => {
-                      const wins = entry.stats.find(stat => stat.name === "wins")?.displayValue || "0";
-                      const losses = entry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-                      const ties = entry.stats.find(stat => stat.name === "ties")?.displayValue || "0";
-                      const winPercent = entry.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-                      const pointsFor = entry.stats.find(stat => stat.name === "pointsFor")?.displayValue || "0";
-                      const pointsAgainst = entry.stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
-                      const differential = entry.stats.find(stat => stat.name === "differential")?.displayValue || "0";
-                      
-                      const diffValue = parseInt(differential);
-                      const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : theme.textSecondary;
-                      const nflTeamId = getNFLTeamId(entry.team);
-                      const clinchCode = entry.team?.clincher ? entry.team.clincher.toUpperCase() : null;
-                      const clinchColor = clinchCode === 'X' ? theme.success : clinchCode === '*' ? colors.primary : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : clinchCode === 'Y' ? theme.info : theme.surface;
-                      
-                      return (
-                        <TouchableOpacity 
-                          key={teamIndex} 
-                          style={[styles.tableRow, { borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]}
-                          onPress={() => navigation.navigate('TeamPage', { teamId: nflTeamId, sport: 'nfl' })}
-                        >
-                          <View style={[styles.tableCell, styles.teamColumn]}>
-                            <Image 
-                              source={{ uri: getTeamLogo(entry.team.abbreviation) }}
-                              style={styles.teamLogo}
-                              defaultSource={{ uri: `https://via.placeholder.com/20x20?text=NFL` }}
-                            />
-                            <Text allowFontScaling={false} style={[
-                              styles.teamName, 
-                              { 
-                                color: isFavorite(nflTeamId, 'nfl') ? colors.primary : theme.text 
-                              }
-                            ]} numberOfLines={1}>
-                              {isFavorite(nflTeamId, 'nfl') && '★ '}
-                              {entry.team.shortDisplayName}
-                            </Text>
-                          </View>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{wins}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{losses}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{ties}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{winPercent}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{pointsFor}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{pointsAgainst}</Text>
-                          <Text allowFontScaling={false} style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
-              </View>
-            ))}
+      <TouchableOpacity
+        key={`${team.id || team.abbreviation}-${index}`}
+        style={[
+          styles.teamRow,
+          { backgroundColor: theme.surface },
+          clinchCode
+            ? { borderLeftWidth: 4, borderLeftColor: clinchColor }
+            : null,
+        ]}
+        onPress={() => navigateToTeam(team)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.teamRank}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.rankText, { color: theme.textSecondary }]}
+          >
+            {team.seed || index + 1}
+          </Text>
+        </View>
+
+        <TeamLogo
+          teamAbbreviation={team.abbreviation}
+          size={28}
+          style={styles.teamLogo}
+          iconStyle={{ marginHorizontal: 8 }}
+        />
+
+        <View style={styles.teamInfo}>
+          <View style={styles.teamNameContainer}>
+            {isFav && (
+              <Ionicons
+                name="star"
+                size={16}
+                color={colors.primary}
+                style={styles.favoriteIcon}
+              />
+            )}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamName,
+                { color: isFav ? colors.primary : theme.text },
+              ]}
+              numberOfLines={1}
+            >
+              {team.displayName}
+            </Text>
           </View>
-        ))}
+          <View style={styles.recordStreakContainer}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.teamRecord, { color: theme.textSecondary }]}
+            >
+              {team.wins}-{team.losses}
+              {team.ties !== "0" ? `-${team.ties}` : ""} ({team.winPercentage})
+            </Text>
+            {team.streak && (
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.teamStreak,
+                  {
+                    color:
+                      team.streak.charAt(0) === "W"
+                        ? theme.success
+                        : team.streak.charAt(0) === "L"
+                          ? theme.error
+                          : theme.textSecondary,
+                  },
+                ]}
+              >
+                {team.streak}
+              </Text>
+            )}
+          </View>
+          <View style={styles.ppgContainer}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.ppgText, { color: theme.textSecondary }]}
+            >
+              PF: {team.pointsFor} | PA: {team.pointsAgainst} |
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.diffText,
+                {
+                  color:
+                    diffValue > 0
+                      ? theme.success
+                      : diffValue < 0
+                        ? theme.error
+                        : theme.textSecondary,
+                },
+              ]}
+            >
+              &nbsp;{diffFormatted}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.teamStats}>
+          {team.clinchIndicator && (
+            <Text
+              allowFontScaling={false}
+              style={[styles.clinchText, { color: clinchColor }]}
+            >
+              {team.clinchIndicator}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Helper to render a division section
+  const renderDivision = (
+    divisionName,
+    teams,
+    conferenceIndex,
+    divisionIndex,
+  ) => {
+    if (!teams || teams.length === 0) return null;
+
+    return (
+      <View
+        key={`${conferenceIndex}-${divisionIndex}`}
+        style={styles.divisionContainer}
+      >
+        {divisionName !== "teams" && (
+          <View
+            style={[styles.divisionHeader, { backgroundColor: theme.surface }]}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[styles.divisionTitle, { color: theme.text }]}
+            >
+              {divisionName}
+            </Text>
+          </View>
+        )}
+        {teams.map((teamEntry, teamIndex) =>
+          renderTeamRow(teamEntry, teamIndex),
+        )}
+      </View>
+    );
+  };
+
+  // Helper to render a conference
+  const renderConference = (conferenceName, divisions, conferenceIndex) => {
+    return (
+      <View key={conferenceIndex} style={styles.conferenceContainer}>
+        <View
+          style={[styles.conferenceHeader, { backgroundColor: colors.primary }]}
+        >
+          <Text allowFontScaling={false} style={styles.conferenceTitle}>
+            {conferenceName}
+          </Text>
+        </View>
+        {Object.entries(divisions).map(([divisionName, teams], divisionIndex) =>
+          renderDivision(divisionName, teams, conferenceIndex, divisionIndex),
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {Object.entries(standings).map(
+          ([conferenceName, divisions], conferenceIndex) =>
+            renderConference(conferenceName, divisions, conferenceIndex),
+        )}
 
         {/* Legend for clinch colors */}
-        <View style={[styles.legendContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-          <Text allowFontScaling={false} style={[styles.legendTitle, { color: colors.primary }]}>Legend</Text>
+        <View
+          style={[
+            styles.legendContainer,
+            {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.legendTitle, { color: colors.primary }]}
+          >
+            Legend
+          </Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: colors.primary }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Division and Home Field</Text>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  { backgroundColor: colors.primary },
+                ]}
+              />
+              <Text
+                allowFontScaling={false}
+                style={[styles.legendLabel, { color: theme.text }]}
+              >
+                * - Clinched Division and Home Field
+              </Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Playoffs</Text>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  { backgroundColor: theme.success },
+                ]}
+              />
+              <Text
+                allowFontScaling={false}
+                style={[styles.legendLabel, { color: theme.text }]}
+              >
+                X - Clinched Playoffs
+              </Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Division</Text>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  { backgroundColor: theme.warning },
+                ]}
+              />
+              <Text
+                allowFontScaling={false}
+                style={[styles.legendLabel, { color: theme.text }]}
+              >
+                Z - Clinched Division
+              </Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.info }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Y - Clinched Wild Card</Text>
+              <View
+                style={[styles.legendSwatch, { backgroundColor: theme.info }]}
+              />
+              <Text
+                allowFontScaling={false}
+                style={[styles.legendLabel, { color: theme.text }]}
+              >
+                Y - Clinched Wild Card
+              </Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>E - Eliminated</Text>
+              <View
+                style={[styles.legendSwatch, { backgroundColor: theme.error }]}
+              />
+              <Text
+                allowFontScaling={false}
+                style={[styles.legendLabel, { color: theme.text }]}
+              >
+                E - Eliminated
+              </Text>
             </View>
           </View>
         </View>
       </ScrollView>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading standings...</Text>
-      </View>
-    );
-  }
-
-  if (!standings) {
-    return (
-      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
-        <Text allowFontScaling={false} style={[styles.errorText, { color: theme.text }]}>Standings not available</Text>
-      </View>
-    );
-  }
-
-  return renderNFLStandings();
+      {!isPro && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
+          <BannerAdWrapper />
+        </View>
+      )}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -226,113 +495,126 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
+  scrollContent: {
+    padding: 16,
   },
   conferenceContainer: {
-    margin: 10,
+    marginBottom: 24,
+  },
+  conferenceHeader: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginBottom: 8,
   },
   conferenceTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
   },
   divisionContainer: {
-    margin: 10,
+    marginBottom: 16,
+  },
+  divisionHeader: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginBottom: 4,
   },
   divisionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
+    fontWeight: "600",
   },
-  tableContainer: {
-    borderWidth: 1,
-    borderRadius: 4,
+  teamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 2,
+    borderRadius: 8,
   },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 5,
+  teamRank: {
+    width: 30,
+    marginRight: 12,
   },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-  },
-  headerCell: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  tableCell: {
-    flex: 1,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  teamColumn: {
-    flex: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+  rankText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
   teamLogo: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
+    width: 32,
+    height: 32,
+    marginRight: 12,
   },
-  teamName: {
-    fontSize: 12,
-    fontWeight: '500',
+  teamInfo: {
     flex: 1,
   },
-    legendContainer: {
-    marginHorizontal: 10,
+  teamNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  teamName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  favoriteIcon: {
+    marginRight: 6,
+  },
+  recordStreakContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  teamRecord: {
+    fontSize: 12,
+    marginRight: 8,
+  },
+  teamStreak: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  ppgContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  ppgText: {
+    fontSize: 11,
+  },
+  diffText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  teamStats: {
+    alignItems: "flex-end",
+    minWidth: 40,
+  },
+  clinchText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  legendContainer: {
     marginTop: 12,
     padding: 12,
-    borderTopWidth: 1,
     borderRadius: 6,
-    marginBottom: 25,
+    marginBottom: 8,
   },
   legendTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   legendItems: {
-    flexDirection: 'column',
-    justifyContent: 'space-between',
+    flexDirection: "column",
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   legendSwatch: {
@@ -346,4 +628,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default StandingsScreen;
+export default NFLStandingsScreen;

@@ -2346,6 +2346,11 @@ const Top5ScoreboardScreen = ({ navigation }) => {
             )
           ) : (
             <View style={styles.emptyState}>
+                          <Ionicons
+                            name="football-outline"
+                            size={48}
+                            color={theme.textSecondary}
+                          />
               <Text
                 style={[styles.emptyStateText, { color: theme.textSecondary }]}
               >

@@ -17,7 +17,7 @@ export class NFLService extends BaseCacheService {
         game.status &&
         (game.status.type?.state === "in" ||
           game.status.type?.completed === false ||
-          game.competitions?.[0]?.status?.type?.state === "in")
+          game.competitions?.[0]?.status?.type?.state === "in"),
     );
   }
 
@@ -31,7 +31,7 @@ export class NFLService extends BaseCacheService {
     const hasScheduled = data.events.some(
       (game) =>
         game.status?.type?.state === "pre" ||
-        game.competitions?.[0]?.status?.type?.state === "pre"
+        game.competitions?.[0]?.status?.type?.state === "pre",
     );
     if (hasScheduled) return "scheduled";
 
@@ -109,7 +109,7 @@ export class NFLService extends BaseCacheService {
         const data = await response.json();
         return data.sports[0].leagues[0].teams;
       },
-      "teams"
+      "teams",
     );
   }
 
@@ -139,7 +139,7 @@ export class NFLService extends BaseCacheService {
         const data = await response.json();
         return data;
       },
-      "scoreboard"
+      "scoreboard",
     );
   }
 
@@ -157,7 +157,7 @@ export class NFLService extends BaseCacheService {
         const data = await response.json();
         return data;
       },
-      "game_details"
+      "game_details",
     );
   }
 
@@ -178,7 +178,7 @@ export class NFLService extends BaseCacheService {
     positionGroup,
     boxScoreData,
     playerName,
-    preferredStatCategory = null
+    preferredStatCategory = null,
   ) {
     if (!boxScoreData || !boxScoreData.gamepackageJSON?.boxscore?.players) {
       return [];
@@ -285,6 +285,8 @@ export class NFLService extends BaseCacheService {
     return {
       id: game.id,
       status: formattedStatus,
+      gameStatus:
+        game.status.type.state === "in" ? "in" : game.status.type.state,
       displayClock: game.status.displayClock,
       period: game.status.period,
       isCompleted: game.status.type.completed,
@@ -298,6 +300,8 @@ export class NFLService extends BaseCacheService {
         logo: this.convertToHttps(homeTeam.team.logo),
         score: homeTeam.score,
         record: homeTeam.records?.[0]?.summary || "0-0",
+        color: homeTeam.team.color,
+        alternateColor: homeTeam.team.alternateColor,
       },
       awayTeam: {
         id: awayTeam.id,
@@ -306,10 +310,13 @@ export class NFLService extends BaseCacheService {
         logo: this.convertToHttps(awayTeam.team.logo),
         score: awayTeam.score,
         record: awayTeam.records?.[0]?.summary || "0-0",
+        color: awayTeam.team.color,
+        alternateColor: awayTeam.team.alternateColor,
       },
       venue: competition.venue?.fullName || "",
       date: new Date(game.date),
       broadcasts: competition.broadcasts?.[0]?.names || [],
+      broadcast: competition.broadcasts?.[0]?.names?.join(", ") || "",
     };
   }
 
@@ -353,7 +360,7 @@ export class NFLService extends BaseCacheService {
                 } else {
                   try {
                     const teamResponse = await fetch(
-                      this.convertToHttps(teamUrl)
+                      this.convertToHttps(teamUrl),
                     );
                     teamInfo = await teamResponse.json();
                     teamCache.set(teamUrl, teamInfo);
@@ -373,7 +380,7 @@ export class NFLService extends BaseCacheService {
               console.log(
                 `Drive ${actualDriveIndex + 1}/${
                   drives.length
-                }: indexFromEnd=${driveIndexFromEnd}, shouldFetch=${shouldFetchPlays}, isLiveUpdate=${isLiveUpdate}`
+                }: indexFromEnd=${driveIndexFromEnd}, shouldFetch=${shouldFetchPlays}, isLiveUpdate=${isLiveUpdate}`,
               );
 
               const playsRef = drive.plays?.$ref || drive.plays?.href;
@@ -382,17 +389,17 @@ export class NFLService extends BaseCacheService {
                   console.log(
                     `Fetching plays for drive ${
                       actualDriveIndex + 1
-                    } during initial load`
+                    } during initial load`,
                   );
                   const playsResponse = await fetch(
-                    this.convertToHttps(playsRef)
+                    this.convertToHttps(playsRef),
                   );
                   const playsResult = await playsResponse.json();
                   playsData = playsResult.items || [];
                   console.log(
                     `Loaded ${playsData.length} plays for drive ${
                       actualDriveIndex + 1
-                    }`
+                    }`,
                   );
                 } catch (error) {
                   console.warn("Error fetching plays for drive:", error);
@@ -401,7 +408,7 @@ export class NFLService extends BaseCacheService {
                 console.log(
                   `Skipping plays for drive ${
                     actualDriveIndex + 1
-                  } (will load on demand). PlaysRef: ${playsRef}, shouldFetch: ${shouldFetchPlays}`
+                  } (will load on demand). PlaysRef: ${playsRef}, shouldFetch: ${shouldFetchPlays}`,
                 );
               }
 
@@ -426,7 +433,7 @@ export class NFLService extends BaseCacheService {
                 hasPlaysData: false,
               };
             }
-          })
+          }),
         );
 
         detailedDrives.push(...batchResults);
@@ -473,13 +480,13 @@ export class NFLService extends BaseCacheService {
                 console.log(
                   `[Complete] Drive ${actualDriveIndex + 1}/${
                     drives.length
-                  }: Using inline plays data (${playsData.length} plays)`
+                  }: Using inline plays data (${playsData.length} plays)`,
                 );
               } else {
                 console.log(
                   `[Complete] Drive ${actualDriveIndex + 1}/${
                     drives.length
-                  }: No inline plays data available`
+                  }: No inline plays data available`,
                 );
               }
 
@@ -504,7 +511,7 @@ export class NFLService extends BaseCacheService {
                 hasPlaysData: false,
               };
             }
-          })
+          }),
         );
 
         detailedDrives.push(...batchResults);
@@ -539,7 +546,7 @@ export class NFLService extends BaseCacheService {
         "Successfully fetched",
         plays.length,
         "plays for drive:",
-        drive.id
+        drive.id,
       );
       return plays;
     } catch (error) {
@@ -639,7 +646,7 @@ export class NFLService extends BaseCacheService {
           const foundPlayerInCategory = athletes.find(
             (athlete) =>
               athlete.athlete.id === playerId.toString() ||
-              athlete.athlete.id === playerId
+              athlete.athlete.id === playerId,
           );
 
           if (foundPlayerInCategory) {
@@ -873,11 +880,92 @@ export class NFLService extends BaseCacheService {
           return null;
         }
       },
-      "probability"
+      "probability",
     );
   }
 
   static clearCache() {
     return super.clearCache();
+  }
+
+  // Fetch NFL standings
+  static async getStandings() {
+    const cacheKey = "nfl_standings";
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const response = await fetch(
+          "https://cdn.espn.com/core/nfl/standings?xhr=1",
+        );
+        const data = await response.json();
+        return data;
+      },
+      "standings",
+    );
+  }
+
+  // Format NFL standings data for mobile (mirrors NBAService.formatStandingsForMobile)
+  static formatStandingsForMobile(standingsData) {
+    try {
+      const groups = standingsData?.content?.standings?.groups || [];
+      const formatted = {};
+
+      groups.forEach((group) => {
+        const confName = group.name; // "American Football Conference" or "National Football Conference"
+        formatted[confName] = {};
+
+        // NFL has nested groups for divisions
+        if (group.groups && group.groups.length > 0) {
+          group.groups.forEach((division) => {
+            const divName = division.name || "teams";
+            const entries = division.standings?.entries || [];
+            formatted[confName][divName] = entries.map((entry) => ({
+              team: {
+                id: entry.team?.id,
+                displayName: entry.team?.displayName || "",
+                shortDisplayName: entry.team?.shortDisplayName || "",
+                abbreviation: entry.team?.abbreviation || "",
+                logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
+                color: entry.team?.color,
+                alternateColor: entry.team?.alternateColor,
+                clincher: entry.team?.clincher || null,
+              },
+              stats: Array.isArray(entry.stats)
+                ? entry.stats.reduce((acc, stat) => {
+                    acc[stat.name] = stat.displayValue;
+                    return acc;
+                  }, {})
+                : entry.stats || {},
+            }));
+          });
+        } else {
+          // Flat group fallback
+          const entries = group.standings?.entries || [];
+          formatted[confName]["teams"] = entries.map((entry) => ({
+            team: {
+              id: entry.team?.id,
+              displayName: entry.team?.displayName || "",
+              shortDisplayName: entry.team?.shortDisplayName || "",
+              abbreviation: entry.team?.abbreviation || "",
+              logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
+              color: entry.team?.color,
+              alternateColor: entry.team?.alternateColor,
+              clincher: entry.team?.clincher || null,
+            },
+            stats: Array.isArray(entry.stats)
+              ? entry.stats.reduce((acc, stat) => {
+                  acc[stat.name] = stat.displayValue;
+                  return acc;
+                }, {})
+              : entry.stats || {},
+          }));
+        }
+      });
+
+      return formatted;
+    } catch (error) {
+      console.error("Error formatting NFL standings:", error);
+      return {};
+    }
   }
 }

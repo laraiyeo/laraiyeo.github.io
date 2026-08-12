@@ -5,6 +5,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import {
   Dimensions,
   PanResponder,
   TouchableWithoutFeedback,
+  Image as RNImage,
   Platform,
 } from "react-native";
 import { Image } from "expo-image";
@@ -35,6 +37,9 @@ import * as Sharing from "expo-sharing";
 import { useTheme } from "../../context/ThemeContext";
 import { MLBService } from "../../services/MLBService";
 import WBCService from "../../services/WBCService";
+import { useGamePresence } from "../../hooks/useGamePresence";
+
+const { width } = Dimensions.get("window");
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const BASEBALL_SPRITE = require("../../../assets/baseball-1.png");
@@ -49,8 +54,6 @@ const RIB_SPEED_OPTIONS = [
 
 const RIB_BASE_STEP = 3200;
 const ribStepMs = (speed) => Math.round(RIB_BASE_STEP / Math.abs(speed));
-
-const DERBY_DIAMOND_SIZE = 180;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtDerbyDate = (iso) => {
@@ -92,11 +95,66 @@ const getTextOnColor = (hex) => {
   return lum > 0.45 ? "#000000" : "#ffffff";
 };
 
-const AnimBaseball = Animated.createAnimatedComponent(
-  require("react-native").Image,
-);
+const AnimBaseball = Animated.createAnimatedComponent(RNImage);
 
 // ─── At-Bat Diamond Visualization ─────────────────────────────────────────────
+const FIELD_DIMENSIONS = {
+  leftLine: 329,
+  left: 369,
+  leftCenter: 381,
+  center: 401,
+  rightCenter: 398,
+  right: 369,
+  rightLine: 330,
+};
+const SVG_W = 300,
+  SVG_H = 220;
+const HOME_X = SVG_W / 2,
+  HOME_Y = SVG_H - 10;
+const BASE_DIST = 22;
+const SCALE = (SVG_H - 20) / FIELD_DIMENSIONS.center;
+
+const R = (n) => Math.round(n * 10) / 10; // round to 1 decimal
+
+const FENCE_POINTS = [
+  {
+    name: "leftLine",
+    angle: (Math.PI * 3) / 4,
+    dist: FIELD_DIMENSIONS.leftLine,
+  },
+  { name: "left", angle: (Math.PI * 11) / 16, dist: FIELD_DIMENSIONS.left },
+  {
+    name: "leftCenter",
+    angle: (Math.PI * 5) / 8,
+    dist: FIELD_DIMENSIONS.leftCenter,
+  },
+  { name: "center", angle: Math.PI / 2, dist: FIELD_DIMENSIONS.center },
+  {
+    name: "rightCenter",
+    angle: (Math.PI * 3) / 8,
+    dist: FIELD_DIMENSIONS.rightCenter,
+  },
+  { name: "right", angle: (Math.PI * 5) / 16, dist: FIELD_DIMENSIONS.right },
+  { name: "rightLine", angle: Math.PI / 4, dist: FIELD_DIMENSIONS.rightLine },
+];
+
+const fenceSvgPoints = FENCE_POINTS.map((fp) => ({
+  x: R(HOME_X + Math.cos(fp.angle) * fp.dist * SCALE),
+  y: R(HOME_Y - Math.sin(fp.angle) * fp.dist * SCALE),
+}));
+
+// Build fence path as straight line segments connecting each wall point
+const fencePath = `M ${fenceSvgPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`;
+
+// Grass fill: home → left foul pole → along fence → right foul pole → home
+const grassPath =
+  `M ${HOME_X} ${HOME_Y} L ${fenceSvgPoints[0].x} ${fenceSvgPoints[0].y} ` +
+  fenceSvgPoints
+    .slice(1)
+    .map((p) => `L ${p.x} ${p.y}`)
+    .join(" ") +
+  " Z";
+
 const DerbyDiamondView = ({
   hits = [],
   currentHitIdx = -1,
@@ -104,57 +162,166 @@ const DerbyDiamondView = ({
   theme,
   colors,
 }) => {
-  const size = DERBY_DIAMOND_SIZE;
-  const cx = size / 2,
-    cy = size / 2,
-    r = size * 0.38;
-  const corners = {
-    home: { x: cx, y: cy + r },
-    first: { x: cx + r, y: cy },
-    second: { x: cx, y: cy - r },
-    third: { x: cx - r, y: cy },
-  };
+  const b1 = { x: R(HOME_X + BASE_DIST), y: R(HOME_Y - BASE_DIST) };
+  const b2 = { x: HOME_X, y: R(HOME_Y - BASE_DIST * 2) };
+  const b3 = { x: R(HOME_X - BASE_DIST), y: R(HOME_Y - BASE_DIST) };
+  const mound = { x: HOME_X, y: R(HOME_Y - BASE_DIST) };
+
   const hitDots = hits.map((h, i) => {
-    const angle = (i / Math.max(hits.length, 1)) * Math.PI * 2 - Math.PI / 2;
-    const dist = r * (0.4 + (h.isHomeRun ? 0.8 : 0.3) + ((i * 7) % 20) / 100);
+    const totalDist = h?.totalDistance || h?.hitData?.totalDistance || 0;
+    const isHR = h?.isHomeRun;
+    const coords = h?.hitData?.coordinates;
+    const landingX = coords?.landingPosX;
+    const landingY = coords?.landingPosY;
+
+    const fenceStartAngle = Math.PI / 4;   // right field foul line (45°)
+    const fenceEndAngle = (Math.PI * 3) / 4; // left field foul line (135°)
+
+    let angle;
+    if (landingX != null && landingY != null && (landingX !== 0 || landingY !== 0)) {
+      // Use real Statcast landing coordinates
+      // landingPosX: negative = left field, positive = right field
+      const maxX = 320;
+      const normalizedX = Math.max(-1, Math.min(1, landingX / maxX));
+      // Map: -1 (far left) → fenceEndAngle (135°), +1 (far right) → fenceStartAngle (45°)
+      angle = Math.PI / 2 - normalizedX * (Math.PI / 4);
+      // Clamp within foul lines with small buffer
+      angle = Math.max(fenceStartAngle + 0.04, Math.min(fenceEndAngle - 0.04, angle));
+    } else {
+      // Fallback: pseudo-random spread based on index (for data without coordinates)
+      const spread = fenceEndAngle - fenceStartAngle;
+      const baseAngle =
+        fenceStartAngle + (i / Math.max(hits.length - 1, 1)) * spread;
+      const noise = (((i * 7 + 3) % 11) - 5) * 0.025;
+      angle = Math.max(
+        fenceStartAngle + 0.04,
+        Math.min(fenceEndAngle - 0.04, baseAngle + noise),
+      );
+    }
+    let dist;
+    if (totalDist > 50) {
+      dist = totalDist * SCALE;
+    } else if (isHR) {
+      const fenceAtAngle = FENCE_POINTS.reduce(
+        (best, fp) => {
+          const d = Math.abs(fp.angle - angle);
+          return d < best.d ? { dist: fp.dist, d } : best;
+        },
+        { dist: FIELD_DIMENSIONS.center, d: Infinity },
+      ).dist;
+      dist = (fenceAtAngle * 0.85 + (((i * 17) % 25) - 12)) * SCALE;
+    } else {
+      dist = (80 + ((i * 13) % 50)) * SCALE;
+    }
     return {
-      x: cx + Math.cos(angle) * dist,
-      y: cy + Math.sin(angle) * dist,
+      x: R(HOME_X + Math.cos(angle) * dist),
+      y: R(HOME_Y - Math.sin(angle) * dist),
       hit: h,
       idx: i,
     };
   });
+
+  // Use viewBox larger than the rendered SVG so dots beyond the fence don't clip
+  const viewBox = `0 -40 ${SVG_W} ${SVG_H + 40}`;
+
   return (
     <View style={{ alignItems: "center", marginVertical: 8 }}>
-      <Svg width={size} height={size}>
+      <Svg
+        width={SVG_W}
+        height={SVG_H}
+        viewBox={viewBox}
+        style={{ transform: [{ translateY: -5 }] }}
+      >
+        {/* Grass field */}
         <Path
-          d={`M${corners.home.x},${corners.home.y} L${corners.first.x},${corners.first.y} L${corners.second.x},${corners.second.y} L${corners.third.x},${corners.third.y} Z`}
+          d={grassPath}
+          fill={theme.surfaceSecondary || "rgba(128,128,128,0.08)"}
+        />
+        {/* Outfield fence */}
+        <Path d={fencePath} fill="none" stroke={theme.border} strokeWidth={2} />
+        {/* Foul lines */}
+        <Path
+          d={`M ${HOME_X} ${HOME_Y} L ${fenceSvgPoints[0].x} ${fenceSvgPoints[0].y}`}
+          stroke={theme.border}
+          strokeWidth={1}
+          opacity={0.6}
+        />
+        <Path
+          d={`M ${HOME_X} ${HOME_Y} L ${fenceSvgPoints[fenceSvgPoints.length - 1].x} ${fenceSvgPoints[fenceSvgPoints.length - 1].y}`}
+          stroke={theme.border}
+          strokeWidth={1}
+          opacity={0.6}
+        />
+        {/* Infield dirt */}
+        <Circle
+          cx={HOME_X}
+          cy={mound.y}
+          r={R(BASE_DIST * 1.1)}
+          fill={theme.surface || "rgba(128,128,128,0.06)"}
+          stroke={theme.border}
+          strokeWidth={1}
+        />
+        {/* Base paths */}
+        <Path
+          d={`M ${HOME_X} ${HOME_Y} L ${b1.x} ${b1.y} L ${b2.x} ${b2.y} L ${b3.x} ${b3.y} Z`}
           fill="none"
           stroke={theme.border}
-          strokeWidth={2}
+          strokeWidth={1.5}
         />
-        {Object.values(corners).map((c, i) => (
-          <Circle
+        {/* Bases */}
+        {[b1, b2, b3].map((b, i) => (
+          <Rect
             key={i}
-            cx={c.x}
-            cy={c.y}
-            r={5}
+            x={R(b.x - 3)}
+            y={R(b.y - 3)}
+            width={6}
+            height={6}
             fill={theme.surfaceSecondary}
             stroke={theme.border}
             strokeWidth={1.5}
+            transform={`rotate(45 ${b.x} ${b.y})`}
           />
         ))}
+        {/* Home plate */}
+        <Path
+          d={`M ${HOME_X - 4} ${HOME_Y - 2} L ${HOME_X + 4} ${HOME_Y - 2} L ${HOME_X + 4} ${HOME_Y + 2} L ${HOME_X} ${HOME_Y + 4} L ${HOME_X - 4} ${HOME_Y + 2} Z`}
+          fill={theme.surfaceSecondary}
+          stroke={theme.border}
+          strokeWidth={1.5}
+        />
+        {/* Pitcher's mound */}
+        <Circle
+          cx={mound.x}
+          cy={mound.y}
+          r={3}
+          fill={theme.surfaceSecondary}
+          stroke={theme.border}
+          strokeWidth={1.5}
+        />
+        {/* Hit dots */}
         {hitDots.map((d) => (
-          <Circle
-            key={d.idx}
-            cx={d.x}
-            cy={d.y}
-            r={d.idx === currentHitIdx ? 7 : 5}
-            fill={d.hit.isHomeRun ? colors.primary : theme.textSecondary}
-            stroke={d.idx === currentHitIdx ? "#fff" : "transparent"}
-            strokeWidth={d.idx === currentHitIdx ? 2 : 0}
-            opacity={d.idx <= currentHitIdx ? 0.9 : 0.25}
-          />
+          <React.Fragment key={d.idx}>
+            {d.idx === currentHitIdx && (
+              <Circle
+                cx={d.x}
+                cy={d.y}
+                r={9}
+                fill="transparent"
+                stroke="#fff"
+                strokeWidth={2}
+                opacity={0.5}
+              />
+            )}
+            <Circle
+              cx={d.x}
+              cy={d.y}
+              r={d.idx === currentHitIdx ? 6 : 4}
+              fill={d.hit.isHomeRun ? colors.primary : theme.textSecondary}
+              stroke={d.idx === currentHitIdx ? "#fff" : "transparent"}
+              strokeWidth={d.idx === currentHitIdx ? 2 : 0}
+              opacity={d.idx <= currentHitIdx ? 0.9 : 0.25}
+            />
+          </React.Fragment>
         ))}
       </Svg>
     </View>
@@ -162,7 +329,7 @@ const DerbyDiamondView = ({
 };
 
 // ─── Hit Timeline ─────────────────────────────────────────────────────────────
-const HitTimeline = ({ hits, currentIdx, theme, colors }) => (
+const HitTimeline = ({ hits, currentIdx, theme, colors, onHitPress }) => (
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
@@ -172,39 +339,42 @@ const HitTimeline = ({ hits, currentIdx, theme, colors }) => (
       const isActive = i === currentIdx;
       const isPast = i < currentIdx;
       return (
-        <View
+        <TouchableOpacity
           key={i}
+          onPress={() => onHitPress?.(i)}
+          activeOpacity={0.7}
           style={{
             width: 26,
             height: 26,
             borderRadius: 13,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: isActive
-              ? colors.primary
-              : h.isHomeRun
-                ? isPast
-                  ? colors.primary + "44"
-                  : theme.surfaceSecondary
-                : theme.surfaceSecondary,
+            backgroundColor: h.isHomeRun
+              ? isActive
+                ? colors.primary
+                : isPast
+                  ? colors.primary + "22"
+                  : colors.primary + "22"
+              : theme.surfaceSecondary,
             borderWidth: isActive ? 2 : 1,
             borderColor: isActive ? "#fff" : theme.border,
           }}
         >
           <Text
             style={{
-              fontSize: 8,
+              fontSize: h.isHomeRun ? 8 : 12,
               fontWeight: "800",
               color: isActive
                 ? "#fff"
                 : h.isHomeRun
                   ? colors.primary
                   : theme.textSecondary,
+              marginTop: h.isHomeRun ? 0 : -1.5,
             }}
           >
             {h.isHomeRun ? "HR" : "×"}
           </Text>
-        </View>
+        </TouchableOpacity>
       );
     })}
   </ScrollView>
@@ -256,8 +426,8 @@ const PlayerProfileModal = ({
         const result = {};
         (group?.splits || []).forEach((s) => {
           const m = s?.stat?.metric;
-          if (m?.name && m?.averageValue != null)
-            result[m.name] = { value: m.averageValue, unit: m.unit };
+          if (m?.name && m?.maxValue != null)
+            result[m.name] = { value: m.maxValue, unit: m.unit };
         });
         return result;
       }
@@ -353,7 +523,6 @@ const PlayerProfileModal = ({
                   bottom: -4,
                   width: 24,
                   height: 24,
-                  borderRadius: 12,
                 }}
                 resizeMode="contain"
               />
@@ -398,7 +567,7 @@ const PlayerProfileModal = ({
                   marginBottom: 10,
                 }}
               >
-                STATCAST METRICS
+                STATCAST METRICS (MAX)
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                 {Object.entries(metricStats).map(([key, m]) => (
@@ -431,7 +600,7 @@ const PlayerProfileModal = ({
                         textTransform: "uppercase",
                       }}
                     >
-                      {m.unit || key}
+                      MAX {m.unit || key}
                     </Text>
                   </View>
                 ))}
@@ -572,9 +741,10 @@ const PoolSeedCard = ({
         style={[
           sStyles.poolCard,
           {
-            backgroundColor: theme.surfaceSecondary,
-            borderColor: seed?.isWinner ? colors.primary : theme.border,
-            borderWidth: seed?.isWinner ? 2 : 1,
+            backgroundColor: seed?.isWinner
+              ? teamColor + "44"
+              : theme.surfaceSecondary,
+            borderColor: theme.border,
           },
         ]}
       >
@@ -646,14 +816,11 @@ const PoolSeedCard = ({
         {seed?.isWinner && (
           <View
             style={[
-              sStyles.winnerBadge,
+              sStyles.bracketWinnerIcon,
               { backgroundColor: colors.primary + "22" },
             ]}
           >
-            <Ionicons name="trophy" size={12} color={colors.primary} />
-            <Text style={[sStyles.winnerText, { color: colors.primary }]}>
-              WINNER
-            </Text>
+            <Ionicons name="trophy" size={14} color={colors.primary} />
           </View>
         )}
       </View>
@@ -680,73 +847,97 @@ const BracketMatchupCard = ({
     const teamId = getTeamIdFromPlayer(player);
     const teamColor = getTeamColorForPlayer(player);
     const hrs = seed?.numHomeRuns ?? 0;
+    const topHit = seed?.topDerbyHitData;
+    const hasHitData =
+      topHit && (topHit.launchSpeed > 0 || topHit.totalDistance > 0);
     const totalPitches = seed?.hits?.length ?? 0;
     return (
       <TouchableOpacity
         onPress={side === "top" ? onPressTop : onPressBottom}
         activeOpacity={0.8}
       >
-        <View style={sStyles.bracketSide}>
-          <View style={sStyles.bracketSeedBadge}>
+        <View
+          style={[
+            sStyles.bracketSide,
+            {
+              backgroundColor: seed?.isWinner
+                ? teamColor + "44"
+                : theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <View
+            style={[
+              sStyles.bracketSeedBadge,
+              { backgroundColor: teamColor + "22", borderColor: teamColor },
+            ]}
+          >
             <Text style={[sStyles.bracketSeedText, { color: teamColor }]}>
               {seed?.seed || "?"}
             </Text>
           </View>
-          <Image
-            source={{ uri: playerHeadshotUrl(pid) }}
-            style={[
-              sStyles.bracketHeadshot,
-              {
-                borderColor: seed?.isWinner ? colors.primary : teamColor,
-                borderWidth: seed?.isWinner ? 3 : 2,
-              },
-            ]}
-            resizeMode="cover"
-          />
-          {teamId && (
+          <View style={{ width: 48, height: 48, position: "relative" }}>
             <Image
-              source={{ uri: WBCService.getTeamLogo(teamId, isDarkMode) }}
-              style={sStyles.bracketTeamLogo}
-              resizeMode="contain"
-            />
-          )}
-          <View style={sStyles.bracketInfo}>
-            <Text
+              source={{ uri: playerHeadshotUrl(pid) }}
               style={[
-                sStyles.bracketName,
+                sStyles.bracketHeadshot,
                 {
-                  color: seed?.isWinner ? colors.primary : theme.text,
-                  fontWeight: seed?.isWinner ? "800" : "600",
+                  borderColor: teamColor,
+                  borderWidth: 2,
                 },
               ]}
+              resizeMode="cover"
+            />
+            {teamId && (
+              <Image
+                source={{ uri: WBCService.getTeamLogo(teamId, isDarkMode) }}
+                style={sStyles.bracketTeamLogo}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+          <View style={sStyles.poolInfo}>
+            <Text
+              style={[sStyles.poolName, { color: theme.text }]}
               numberOfLines={1}
             >
               {player?.fullName || "TBD"}
             </Text>
             <Text
-              style={[sStyles.bracketTeam, { color: theme.textSecondary }]}
+              style={[sStyles.poolTeam, { color: theme.textSecondary }]}
               numberOfLines={1}
             >
-              {player?.currentTeam?.abbreviation || ""} · {totalPitches} pitches
+              {player?.currentTeam?.name || ""}
+            </Text>
+            <Text
+              style={{ fontSize: 10, color: theme.textTertiary, marginTop: 2 }}
+            >
+              {totalPitches} pitches
             </Text>
           </View>
-          <View style={sStyles.bracketHrBlock}>
-            <Text
-              style={[
-                sStyles.bracketHrCount,
-                {
-                  color: seed?.isWinner ? colors.primary : theme.text,
-                  fontWeight: seed?.isWinner ? "800" : "700",
-                },
-              ]}
-            >
-              {hrs}
-            </Text>
-            <Text
-              style={[sStyles.bracketHrLabel, { color: theme.textTertiary }]}
-            >
-              HR
-            </Text>
+          <View style={{ alignItems: "flex-end" }}>
+            {!isPreview && (
+              <View style={sStyles.poolHrBlock}>
+                <Text style={[sStyles.poolHrCount, { color: colors.primary }]}>
+                  {hrs}
+                </Text>
+                <Text
+                  style={[sStyles.poolHrLabel, { color: theme.textTertiary }]}
+                >
+                  HR
+                </Text>
+              </View>
+            )}
+            {hasHitData && (
+              <Text
+                style={{ fontSize: 9, color: theme.textTertiary, marginTop: 4 }}
+              >
+                {topHit.launchSpeed > 0 ? `${topHit.launchSpeed} mph` : ""}
+                {topHit.totalDistance > 0
+                  ? ` · ${topHit.totalDistance} ft`
+                  : ""}
+              </Text>
+            )}
           </View>
           {seed?.isWinner && (
             <View
@@ -780,6 +971,7 @@ const BracketMatchupCard = ({
 
 // ─── Derby Info Bubble ────────────────────────────────────────────────────────
 const DerbyInfoBubble = ({ status, rounds, theme, colors }) => {
+  const roundNum = status?.currentRound || rounds?.[0]?.roundNumber || 0;
   const roundTime = rounds?.[0]?.roundTime || 0;
   const pitchesPerRound =
     status?.pitchesInRound || rounds?.[0]?.numberOfPitches || 0;
@@ -800,6 +992,12 @@ const DerbyInfoBubble = ({ status, rounds, theme, colors }) => {
   };
 
   const items = [];
+  if (roundNum > 0)
+    items.push({
+      label: "Round",
+      value: String(roundNum),
+      icon: "git-branch-outline",
+    });
   if (roundTime > 0)
     items.push({
       label: "Round Time",
@@ -917,6 +1115,7 @@ const LiveAtBatView = ({
   const isHR = hit?.isHomeRun;
   const timeLeft = hit?.timeRemaining || "";
   const isBonusTime = hit?.isBonusTime || false;
+  const hitDistance = hit?.hitData?.totalDistance ?? null;
   const points = hit?.points ?? 0;
   const totalHRs = seed?.numHomeRuns ?? 0;
   const hits = seed?.hits || [];
@@ -972,7 +1171,6 @@ const LiveAtBatView = ({
                   bottom: -3,
                   width: 16,
                   height: 16,
-                  borderRadius: 8,
                 }}
                 resizeMode="contain"
               />
@@ -1015,6 +1213,7 @@ const LiveAtBatView = ({
           paddingVertical: 8,
         }}
       >
+        {timeLeft && timeLeft !== "-:--" && (
         <View style={{ alignItems: "center" }}>
           <Text
             style={{
@@ -1040,6 +1239,35 @@ const LiveAtBatView = ({
             {isBonusTime ? "Bonus Time" : "Time Left"}
           </Text>
         </View>
+        )}
+        {timeLeft && timeLeft !== "-:--" && (
+          <View
+            style={{ width: 1, height: 28, backgroundColor: theme.border }}
+          />
+        )}
+        {hitDistance != null && (
+          <View style={{ alignItems: "center" }}>
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "900",
+                color: theme.text,
+              }}
+            >
+              {hitDistance}
+            </Text>
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: "600",
+                color: theme.textTertiary,
+                textTransform: "uppercase",
+              }}
+            >
+              {"FEET"}
+            </Text>
+          </View>
+        )}
         <View style={{ width: 1, height: 28, backgroundColor: theme.border }} />
         <View style={{ alignItems: "center" }}>
           <Text
@@ -1092,10 +1320,10 @@ const LiveAtBatView = ({
           </Text>
         </View>
       </View>
-
+            <View style={{ marginBottom: 12 }}>
       {hits.length > 0 && (
         <DerbyDiamondView
-          hits={hits.map((h) => ({ isHomeRun: h.isHomeRun }))}
+          hits={hits}
           currentHitIdx={hitIdx}
           teamColor={teamColor}
           theme={theme}
@@ -1110,6 +1338,7 @@ const LiveAtBatView = ({
           colors={colors}
         />
       )}
+      </View>
 
       {isRIB && (
         <View
@@ -1179,6 +1408,7 @@ const DerbyShareCard = ({
   theme,
   colors,
   isDarkMode,
+  status,
 }) => {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
@@ -1201,16 +1431,107 @@ const DerbyShareCard = ({
     return {};
   })();
 
+  // Compute all round results and determine overall status
   const playerResults = [];
   (rounds || []).forEach((r) => {
     (r.matchups || []).forEach((mx) => {
       ["topSeed", "bottomSeed"].forEach((side) => {
         const seed = mx[side];
         if (seed?.player?.id === player?.id)
-          playerResults.push({ round: r.round, type: r.type, seed });
+          playerResults.push({
+            round: r.round,
+            type: r.type,
+            seed,
+            matchup: mx,
+          });
       });
     });
   });
+
+  // Determine per-round status badge (based on the specific round being shared)
+  let overallResult = "";
+  let overallColor = colors.primary;
+  let statusLabel = "";
+  let statusColor = colors.primary;
+  if (playerResults.length > 0) {
+    const lastResult = playerResults[playerResults.length - 1];
+    const isPool = lastResult.type === "Pool";
+    const isBracket = lastResult.type === "Bracket";
+    const isFinalRound = lastResult.round === (rounds?.length ?? 0);
+    const won = lastResult.seed?.isWinner;
+    const complete =
+      status?.currentRound &&
+      lastResult.round === 3 &&
+      lastResult.seed?.isComplete
+        ? true
+        : status?.currentRound !== lastResult.round || null;
+
+    if (isFinalRound && won) {
+      overallResult = "Won the Home Run Derby";
+      overallColor = colors.success || "#22C55E";
+    } else if (isPool && won) {
+      overallResult = "Advanced from Pool Play";
+      overallColor = colors.success || "#22C55E";
+    } else if (isPool && !won && complete) {
+      overallResult = "Eliminated in Pool Play";
+      overallColor = colors.error || "#EF4444";
+    } else if (isBracket && won && !isFinalRound) {
+      overallResult = "Advanced to Round " + (lastResult.round + 1);
+      overallColor = colors.success || "#22C55E";
+    } else if (isBracket && !won && complete) {
+      overallColor = colors.error || "#EF4444";
+      const mx = lastResult.matchup;
+      const opponentSeed =
+        mx?.topSeed?.player?.id === player?.id ? mx?.bottomSeed : mx?.topSeed;
+      const opponentName =
+        opponentSeed?.player?.fullName ||
+        opponentSeed?.player?.name ||
+        "opponent";
+      overallResult = `Lost in Round ${lastResult.round} to ${opponentName}`;
+    }
+  }
+
+  // Per-round badge based on the specific result being shared
+  if (result) {
+    const isPool = result.type === "Pool";
+    const isBracket = result.type === "Bracket";
+    const isFinalRound = result.round === (rounds?.length ?? 0);
+    const won = result.seed?.isWinner;
+    const complete =
+      status?.currentRound && result.round === 3 && result.seed?.isComplete
+        ? true
+        : status?.currentRound !== result.round || null;
+
+    if (isFinalRound && won) {
+      statusLabel = "WON";
+      statusColor = colors.success || "#22C55E";
+    } else if (isPool && won) {
+      statusLabel = "ADVANCED";
+      statusColor = colors.success || "#22C55E";
+    } else if (isPool && !won && complete) {
+      statusLabel = "ELIMINATED";
+      statusColor = colors.error || "#EF4444";
+    } else if (isBracket && won && !isFinalRound) {
+      statusLabel = "ADVANCED";
+      statusColor = colors.success || "#22C55E";
+    } else if (isBracket && !won && complete) {
+      statusLabel = "LOST";
+      statusColor = colors.error || "#EF4444";
+    }
+  }
+
+  // Round-specific stats (HR, max speed, max distance for the share result's round)
+  const roundHits = result?.seed?.hits || [];
+  const roundHRs = result?.seed?.numHomeRuns ?? 0;
+  const roundMaxSpeed = roundHits.reduce(
+    (max, h) => Math.max(max, h?.hitData?.launchSpeed || h?.launchSpeed || 0),
+    0,
+  );
+  const roundMaxDist = roundHits.reduce(
+    (max, h) =>
+      Math.max(max, h?.hitData?.totalDistance || h?.totalDistance || 0),
+    0,
+  );
 
   const handleShare = async () => {
     try {
@@ -1230,7 +1551,7 @@ const DerbyShareCard = ({
     { key: "ops", label: "OPS" },
     { key: "rbi", label: "RBI" },
     { key: "hits", label: "H" },
-    { key: "strikeOuts", label: "SO" },
+    { key: "slg", label: "SLG" },
   ];
 
   return (
@@ -1286,7 +1607,6 @@ const DerbyShareCard = ({
                         bottom: -4,
                         width: 20,
                         height: 20,
-                        borderRadius: 10,
                       }}
                       resizeMode="contain"
                     />
@@ -1306,21 +1626,144 @@ const DerbyShareCard = ({
                     {player?.primaryPosition?.name || ""} · {teamName}
                   </Text>
                   {result && (
-                    <Text
+                    <View
                       style={{
-                        fontSize: 12,
-                        color: colors.primary,
-                        fontWeight: "700",
-                        marginTop: 2,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 4,
                       }}
                     >
-                      Round {result.round} ({result.type}) ·{" "}
-                      {result.seed?.numHomeRuns ?? 0} HR
-                    </Text>
+                      {statusLabel && (
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 6,
+                            backgroundColor: statusColor + "22",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: statusColor,
+                              fontWeight: "800",
+                              letterSpacing: 0.5,
+                            }}
+                          >
+                            {statusLabel}
+                          </Text>
+                        </View>
+                      )}
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: theme.textSecondary,
+                          fontWeight: "600",
+                        }}
+                      >
+                        Round {result.round} ({result.type})
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
             </View>
+            {/* Round-specific stats */}
+            {result && roundHits.length > 0 && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  paddingVertical: 12,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                }}
+              >
+                <View
+                  style={{
+                    width:
+                      roundMaxSpeed > 0 && roundMaxDist > 0
+                        ? "33.333%"
+                        : roundMaxSpeed > 0 || roundMaxDist > 0
+                          ? "50%"
+                          : "100%",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "900",
+                      color: colors.primary,
+                    }}
+                  >
+                    {roundHRs}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: "600",
+                      color: theme.textSecondary,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    HR
+                  </Text>
+                </View>
+                {roundMaxSpeed > 0 && (
+                  <View
+                    style={{
+                      width: roundMaxDist > 0 ? "33.333%" : "50%",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        fontWeight: "900",
+                        color: theme.text,
+                      }}
+                    >
+                      {roundMaxSpeed}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "600",
+                        color: theme.textSecondary,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      MPH MAX
+                    </Text>
+                  </View>
+                )}
+                {roundMaxDist > 0 && (
+                  <View style={{ width: "33.333%", alignItems: "center" }}>
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        fontWeight: "900",
+                        color: theme.text,
+                      }}
+                    >
+                      {roundMaxDist}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "600",
+                        color: theme.textSecondary,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      FT MAX
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
               {CARD_STATS.map(({ key, label }, i) => (
                 <View
@@ -1380,10 +1823,38 @@ const DerbyShareCard = ({
                       paddingVertical: 4,
                     }}
                   >
-                    <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                      Round {pr.round} ({pr.type})
-                      {pr.seed?.isWinner ? " ✓" : ""}
-                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 3,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: theme.textSecondary,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Round {pr.round} ({pr.type})
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: theme.success,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {pr.seed?.isWinner
+                          ? pr.type === "Pool"
+                            ? "ADV"
+                            : pr.type === "Bracket"
+                              ? "WON"
+                              : ""
+                          : ""}
+                      </Text>
+                    </View>
                     <Text
                       style={{
                         fontSize: 13,
@@ -1397,6 +1868,360 @@ const DerbyShareCard = ({
                 ))}
               </View>
             )}
+            {/* Overall result summary */}
+            {overallResult ? (
+              <View
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  backgroundColor: overallColor + "12",
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: overallColor,
+                    textAlign: "center",
+                  }}
+                >
+                  {overallResult}
+                </Text>
+              </View>
+            ) : null}
+            <View
+              style={[sStyles.shareFooter, { borderTopColor: theme.border }]}
+            >
+              <Text
+                style={{ fontSize: 9, fontWeight: "800", color: theme.text }}
+              >
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[sStyles.shareBtn, { backgroundColor: colors.primary }]}
+          >
+            {sharing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="share-outline" size={16} color="#fff" />
+                <Text
+                  style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}
+                >
+                  Share
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[sStyles.shareBtn, { backgroundColor: theme.border }]}
+          >
+            <Text
+              style={{ color: theme.text, fontSize: 14, fontWeight: "700" }}
+            >
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ─── Hit Share Card ──────────────────────────────────────────────────────────
+const HitShareCard = ({
+  visible,
+  onClose,
+  hitData,
+  theme,
+  colors,
+  isDarkMode,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  if (!hitData) return null;
+
+  const {
+    hit,
+    hitIdx,
+    totalHits,
+    seedHits,
+    player,
+    round,
+    roundType,
+    teamColor,
+  } = hitData;
+  const teamId = getTeamIdFromPlayer(player);
+  const teamName = player?.currentTeam?.name || "";
+  const teamLogo = teamId ? WBCService.getTeamLogo(teamId, isDarkMode) : null;
+  const isHR = hit?.isHomeRun;
+  const isBonus = hit?.isBonusTime || false;
+  const time = hit?.timeRemaining || "";
+  const speed = hit?.hitData?.launchSpeed || hit?.launchSpeed || null;
+  const dist = hit?.hitData?.totalDistance || hit?.totalDistance || null;
+  const CARD_SIZE = Math.min(SCREEN_W - 48, 400);
+
+  const handleShare = async () => {
+    try {
+      setSharing(true);
+      const uri = await cardRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.log("Share error", e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={sStyles.shareOverlay}>
+        <ViewShot
+          ref={cardRef}
+          options={{ format: "png", quality: 1 }}
+          style={{ overflow: "hidden" }}
+        >
+          <View
+            style={[
+              sStyles.shareCard,
+              { width: CARD_SIZE, backgroundColor: theme.surface },
+            ]}
+          >
+            {/* Header */}
+            <View
+              style={[
+                sStyles.shareHeader,
+                {
+                  backgroundColor: teamColor + "22",
+                  borderBottomColor: teamColor,
+                },
+              ]}
+            >
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              >
+                <View style={{ width: 56, height: 56, position: "relative" }}>
+                  <Image
+                    source={{ uri: playerHeadshotUrl(player?.id) }}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      borderWidth: 2.5,
+                      borderColor: teamColor,
+                    }}
+                    resizeMode="cover"
+                  />
+                  {teamLogo && (
+                    <Image
+                      source={{ uri: teamLogo }}
+                      style={{
+                        position: "absolute",
+                        right: -4,
+                        bottom: -4,
+                        width: 20,
+                        height: 20,
+                      }}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 17,
+                      fontWeight: "900",
+                      color: theme.text,
+                    }}
+                  >
+                    {player?.fullName}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                    {player?.primaryPosition?.name || ""} · {teamName}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: theme.textTertiary,
+                      marginTop: 2,
+                    }}
+                  >
+                    Round {round} ({roundType}) · Pitch {hitIdx + 1} of{" "}
+                    {totalHits}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Body */}
+            <View
+              style={{
+                alignItems: "center",
+                paddingTop: -8,
+                paddingBottom: -8,
+              }}
+            >
+              <DerbyDiamondView
+                hits={seedHits || []}
+                currentHitIdx={hitIdx}
+                teamColor={teamColor}
+                theme={theme}
+                colors={colors}
+              />
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 20,
+                paddingVertical: 10,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: theme.border,
+              }}
+            >
+                {time && time !== "-:--" && (
+              <View style={{ alignItems: "center" }}>
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: "900",
+                    color: isBonus ? "#FF9800" : theme.text,
+                  }}
+                >
+                  {time && time !== "--" ? time : isBonus ? "BONUS" : "—"}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    fontWeight: "600",
+                    color: theme.textTertiary,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {isBonus ? "Bonus Time" : "Time Left"}
+                </Text>
+              </View>
+                )}
+                {time && time !== "-:--" && (
+                  <View
+                    style={{
+                      width: 1,
+                      height: 28,
+                      backgroundColor: theme.border,
+                    }}
+                  />
+              )}
+              {dist > 0 && (
+                <>
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "900",
+                        color: theme.text,
+                      }}
+                    >
+                      {dist}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "600",
+                        color: theme.textTertiary,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      FEET
+                    </Text>
+                  </View>
+                </>
+              )}
+              {speed > 0 && (
+                <>
+                  <View
+                    style={{
+                      width: 1,
+                      height: 28,
+                      backgroundColor: theme.border,
+                    }}
+                  />
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "900",
+                        color: theme.text,
+                      }}
+                    >
+                      {speed}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "600",
+                        color: theme.textTertiary,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      MPH
+                    </Text>
+                  </View>
+                </>
+              )}
+              <View
+                style={{ width: 1, height: 28, backgroundColor: theme.border }}
+              />
+              <View style={{ alignItems: "center" }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    borderWidth: 2,
+                    borderColor: isHR ? "#22C55E" : "#EF4444",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: isHR
+                      ? "rgba(34,197,94,0.15)"
+                      : "rgba(239,68,68,0.1)",
+                  }}
+                >
+                  <Text style={{ fontSize: 16 }}>{isHR ? "💣" : "❌"}</Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    fontWeight: "700",
+                    color: isHR ? "#22C55E" : theme.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
+                  {isHR ? "HR!" : "Out"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Footer */}
             <View
               style={[sStyles.shareFooter, { borderTopColor: theme.border }]}
             >
@@ -1449,6 +2274,7 @@ const DerbyShareCard = ({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 const HomeRunDerbyScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
+  const eventId = route?.params?.eventId;
 
   // ALL hooks declared at the top - before any early returns
   const [data, setData] = useState(null);
@@ -1459,11 +2285,16 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [shareDerbyPlayer, setShareDerbyPlayer] = useState(null);
   const [shareDerbyResult, setShareDerbyResult] = useState(null);
+  const [shareHitData, setShareHitData] = useState(null);
   const [expandedResultKey, setExpandedResultKey] = useState(null);
+  const [expandedHitIdx, setExpandedHitIdx] = useState(0);
+    const { viewerData, isJoined } = useGamePresence(eventId);
 
   // Reset expanded result when tab changes
   useEffect(() => {
     setExpandedResultKey(null);
+    setExpandedHitIdx(0);
+    setShareHitData(null);
   }, [activeTab]);
 
   // RIB state
@@ -1480,7 +2311,12 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [headerH, setHeaderH] = useState(0);
   const [showMini, setShowMini] = useState(false);
-  const eventId = route?.params?.eventId;
+
+  // Polling refs
+  const pollingRef = useRef(null);
+  const isFocusedRef = useRef(false);
+
+  const DERBY_POLL_MS = 5 * 1000; // 5 seconds
 
   const fetchData = useCallback(
     async (silent = false) => {
@@ -1503,21 +2339,39 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
           if (!derbyData?.rounds?.length)
             derbyData = await MLBService.getHomeRunDerby(year - 1);
         }
-        if (!derbyData?.rounds?.length)
-          setError("No Home Run Derby data available.");
-        else setData(derbyData);
+        if (!derbyData?.rounds?.length) {
+          if (!silent) setError("No Home Run Derby data available.");
+        } else setData(derbyData);
       } catch {
-        setError("Failed to load Home Run Derby data.");
+        if (!silent) setError("Failed to load Home Run Derby data.");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     },
     [eventId],
   );
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Start/stop polling on focus
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      // Initial fetch
+      fetchData();
+
+      // Start polling every 5s
+      pollingRef.current = setInterval(() => {
+        if (isFocusedRef.current) fetchData(true);
+      }, DERBY_POLL_MS);
+
+      return () => {
+        isFocusedRef.current = false;
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      };
+    }, [fetchData]),
+  );
 
   // All derived data via useMemo
   const info = data?.info || {};
@@ -1954,7 +2808,9 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                 </Text>
               )}
               {isLive && (
-                <Text style={{ fontSize: 11, color: "#22C55E", marginLeft: 6 }}>
+                <Text
+                  style={{ fontSize: 11, color: "#22C55E", marginLeft: -5 }}
+                >
                   · R{status?.currentRound || "?"}
                 </Text>
               )}
@@ -2028,6 +2884,26 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                   colors={colors}
                   isDarkMode={isDarkMode}
                   playersMap={playersMap}
+                />
+              )}
+
+              {/* RIB Playback — inline between tabs and format info */}
+              {ribActive && ribCurrentHit && (
+                <LiveAtBatView
+                  isRIB
+                  ribHitData={ribCurrentHit}
+                  ribCursor={ribCursor}
+                  ribTotal={ribTotalHits}
+                  ribPaused={ribPaused}
+                  theme={theme}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  playersMap={playersMap}
+                  onTogglePause={() => setRibPaused((v) => !v)}
+                  onPrev={() => setRibCursor((c) => Math.max(0, c - 1))}
+                  onNext={() =>
+                    setRibCursor((c) => Math.min(ribTotalHits - 1, c + 1))
+                  }
                 />
               )}
 
@@ -2201,7 +3077,6 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                             bottom: -2,
                             width: 18,
                             height: 18,
-                            borderRadius: 9,
                           }}
                           resizeMode="contain"
                         />
@@ -2262,9 +3137,9 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                     const result = {};
                     (group?.splits || []).forEach((s) => {
                       const m = s?.stat?.metric;
-                      if (m?.name && m?.averageValue != null)
+                      if (m?.name && m?.maxValue != null)
                         result[m.name] = {
-                          value: m.averageValue,
+                          value: m.maxValue,
                           unit: m.unit,
                         };
                     });
@@ -2322,7 +3197,6 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                             bottom: -4,
                             width: 22,
                             height: 22,
-                            borderRadius: 11,
                           }}
                           resizeMode="contain"
                         />
@@ -2386,9 +3260,15 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                         return (
                           <View key={i} style={{ marginBottom: 4 }}>
                             <TouchableOpacity
-                              onPress={() =>
-                                setExpandedResultKey(isExpanded ? null : i)
-                              }
+                              onPress={() => {
+                                if (isExpanded) {
+                                  setExpandedResultKey(null);
+                                  setExpandedHitIdx(0);
+                                } else {
+                                  setExpandedResultKey(i);
+                                  setExpandedHitIdx(seedHits.length - 1);
+                                }
+                              }}
                               activeOpacity={0.7}
                               style={{
                                 flexDirection: "row",
@@ -2418,18 +3298,40 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                                   size={14}
                                   color={theme.textTertiary}
                                 />
-                                <Text
+                                <View
                                   style={{
-                                    fontSize: 13,
-                                    color: isExpanded
-                                      ? colors.primary
-                                      : theme.textSecondary,
-                                    fontWeight: isExpanded ? "700" : "500",
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 3,
                                   }}
                                 >
-                                  Round {pr.round} ({pr.type})
-                                  {pr.seed?.isWinner ? " ✓" : ""}
-                                </Text>
+                                  <Text
+                                    style={{
+                                      fontSize: 13,
+                                      color: isExpanded
+                                        ? colors.primary
+                                        : theme.textSecondary,
+                                      fontWeight: isExpanded ? "700" : "500",
+                                    }}
+                                  >
+                                    Round {pr.round} ({pr.type})
+                                  </Text>
+                                  <Text
+                                    style={{
+                                      fontSize: 13,
+                                      color: theme.success,
+                                      fontWeight: "700",
+                                    }}
+                                  >
+                                    {pr.seed?.isWinner
+                                      ? pr.type === "Pool"
+                                        ? "ADV"
+                                        : pr.type === "Bracket"
+                                          ? "WON"
+                                          : ""
+                                      : ""}
+                                  </Text>
+                                </View>
                               </View>
                               <View
                                 style={{
@@ -2491,10 +3393,8 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                                 >
                                   <View style={{ flex: 1 }}>
                                     <DerbyDiamondView
-                                      hits={seedHits.map((h) => ({
-                                        isHomeRun: h.isHomeRun,
-                                      }))}
-                                      currentHitIdx={seedHits.length - 1}
+                                      hits={seedHits}
+                                      currentHitIdx={expandedHitIdx}
                                       teamColor={teamColor}
                                       theme={theme}
                                       colors={colors}
@@ -2578,30 +3478,16 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                                 {/* Hit timeline */}
                                 <HitTimeline
                                   hits={seedHits}
-                                  currentIdx={seedHits.length - 1}
+                                  currentIdx={expandedHitIdx}
                                   theme={theme}
                                   colors={colors}
+                                  onHitPress={(idx) => setExpandedHitIdx(idx)}
                                 />
 
-                                {/* Pitch-by-pitch list */}
-                                <View
-                                  style={{
-                                    paddingHorizontal: 12,
-                                    paddingTop: 10,
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: "800",
-                                      color: theme.textTertiary,
-                                      letterSpacing: 0.5,
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    PITCH LOG
-                                  </Text>
-                                  {seedHits.map((h, hi) => {
+                                {/* Selected hit detail */}
+                                {seedHits[expandedHitIdx] &&
+                                  (() => {
+                                    const h = seedHits[expandedHitIdx];
                                     const isHR = h.isHomeRun;
                                     const isBonus = h.isBonusTime || false;
                                     const time = h.timeRemaining || "";
@@ -2615,99 +3501,141 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                                       null;
                                     return (
                                       <View
-                                        key={hi}
                                         style={{
-                                          flexDirection: "row",
-                                          alignItems: "center",
-                                          paddingVertical: 5,
-                                          borderBottomWidth:
-                                            hi < seedHits.length - 1
-                                              ? StyleSheet.hairlineWidth
-                                              : 0,
-                                          borderBottomColor: theme.border,
+                                          paddingHorizontal: 12,
+                                          paddingTop: 10,
                                         }}
                                       >
-                                        <Text
-                                          style={{
-                                            width: 24,
-                                            fontSize: 11,
-                                            fontWeight: "700",
-                                            color: theme.textTertiary,
-                                            textAlign: "center",
-                                          }}
-                                        >
-                                          {hi + 1}
-                                        </Text>
                                         <View
                                           style={{
-                                            width: 20,
-                                            height: 20,
-                                            borderRadius: 10,
+                                            flexDirection: "row",
                                             alignItems: "center",
-                                            justifyContent: "center",
-                                            backgroundColor: isHR
-                                              ? "rgba(34,197,94,0.15)"
-                                              : "rgba(239,68,68,0.1)",
-                                            borderWidth: 1,
-                                            borderColor: isHR
-                                              ? "#22C55E"
-                                              : "#EF4444",
+                                            justifyContent: "space-between",
+                                            marginBottom: 6,
                                           }}
                                         >
-                                          <Text style={{ fontSize: 10 }}>
-                                            {isHR ? "💣" : "❌"}
+                                          <Text
+                                            style={{
+                                              fontSize: 10,
+                                              fontWeight: "800",
+                                              color: theme.textTertiary,
+                                              letterSpacing: 0.5,
+                                            }}
+                                          >
+                                            PITCH {expandedHitIdx + 1} OF{" "}
+                                            {seedHits.length}
                                           </Text>
+                                          <TouchableOpacity
+                                            onPress={() =>
+                                              setShareHitData({
+                                                hit: h,
+                                                hitIdx: expandedHitIdx,
+                                                totalHits: seedHits.length,
+                                                seedHits,
+                                                player,
+                                                round: pr.round,
+                                                roundType: pr.type,
+                                                teamColor,
+                                              })
+                                            }
+                                            hitSlop={{
+                                              top: 8,
+                                              bottom: 8,
+                                              left: 8,
+                                              right: 8,
+                                            }}
+                                          >
+                                            <Ionicons
+                                              name="copy-outline"
+                                              size={16}
+                                              color={theme.textSecondary}
+                                            />
+                                          </TouchableOpacity>
                                         </View>
-                                        <Text
+                                        <View
                                           style={{
-                                            flex: 1,
-                                            marginLeft: 8,
-                                            fontSize: 12,
-                                            fontWeight: "600",
-                                            color: isHR
-                                              ? "#22C55E"
-                                              : theme.textSecondary,
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            paddingVertical: 6,
+                                            gap: 10,
                                           }}
                                         >
-                                          {isHR ? "Home Run" : "Out"}
-                                          {isBonus ? " (Bonus)" : ""}
-                                        </Text>
-                                        {speed > 0 && (
-                                          <Text
+                                          <View
                                             style={{
-                                              fontSize: 11,
-                                              color: theme.textTertiary,
-                                              marginRight: 8,
+                                              width: 36,
+                                              height: 36,
+                                              borderRadius: 18,
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              backgroundColor: isHR
+                                                ? "rgba(34,197,94,0.15)"
+                                                : "rgba(239,68,68,0.1)",
+                                              borderWidth: 1,
+                                              borderColor: isHR
+                                                ? "#22C55E"
+                                                : "#EF4444",
                                             }}
                                           >
-                                            {speed} mph
-                                          </Text>
-                                        )}
-                                        {dist > 0 && (
-                                          <Text
-                                            style={{
-                                              fontSize: 11,
-                                              color: theme.textTertiary,
-                                              marginRight: 8,
-                                            }}
-                                          >
-                                            {dist} ft
-                                          </Text>
-                                        )}
-                                        {time && time !== "--" && (
-                                          <Text
-                                            style={{
-                                              fontSize: 11,
-                                              color: theme.textTertiary,
-                                            }}
-                                          >
-                                            {time}
-                                          </Text>
-                                        )}
+                                            <Text style={{ fontSize: 16 }}>
+                                              {isHR ? "💣" : "❌"}
+                                            </Text>
+                                          </View>
+                                          <View style={{ flex: 1 }}>
+                                            <Text
+                                              style={{
+                                                fontSize: 14,
+                                                fontWeight: "700",
+                                                color: isHR
+                                                  ? "#22C55E"
+                                                  : theme.textSecondary,
+                                              }}
+                                            >
+                                              {isHR ? "Home Run" : "Out"}
+                                              {isBonus ? " (Bonus)" : ""}
+                                            </Text>
+                                            <View
+                                              style={{
+                                                flexDirection: "row",
+                                                gap: 8,
+                                                marginTop: 2,
+                                              }}
+                                            >
+                                              {speed > 0 && (
+                                                <Text
+                                                  style={{
+                                                    fontSize: 11,
+                                                    color: theme.textTertiary,
+                                                  }}
+                                                >
+                                                  {speed} mph
+                                                </Text>
+                                              )}
+                                              {dist > 0 && (
+                                                <Text
+                                                  style={{
+                                                    fontSize: 11,
+                                                    color: theme.textTertiary,
+                                                  }}
+                                                >
+                                                  {dist} ft
+                                                </Text>
+                                              )}
+                                              {time && time !== "--" && (
+                                                <Text
+                                                  style={{
+                                                    fontSize: 11,
+                                                    color: theme.textTertiary,
+                                                  }}
+                                                >
+                                                  {time}
+                                                </Text>
+                                              )}
+                                            </View>
+                                          </View>
+                                        </View>
                                       </View>
                                     );
-                                  })}
-                                </View>
+                                  })()}
                               </View>
                             )}
                           </View>
@@ -2724,7 +3652,7 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                           { color: colors.primary },
                         ]}
                       >
-                        STATCAST
+                        STATCAST (MAX)
                       </Text>
                       <View
                         style={{
@@ -2763,7 +3691,7 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
                                 textTransform: "uppercase",
                               }}
                             >
-                              {m.unit || key}
+                              MAX {m.unit || key}
                             </Text>
                           </View>
                         ))}
@@ -2858,35 +3786,13 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={[
             sStyles.ribFab,
-            { backgroundColor: colors.primary, borderColor: theme.border },
+            { backgroundColor: colors.primary, borderColor: colors.primary },
           ]}
           onPress={openRIB}
           activeOpacity={0.85}
         >
-          <AnimBaseball
-            source={BASEBALL_SPRITE}
-            style={{ width: 22, height: 22, tintColor: "#fff" }}
-          />
-          <Text style={sStyles.ribFabText}>Run It Back</Text>
+          <Ionicons name="camera-reverse-outline" size={32} color={"#fff"} />
         </TouchableOpacity>
-      )}
-
-      {/* RIB Active: Inline At-Bat view */}
-      {ribActive && ribCurrentHit && (
-        <LiveAtBatView
-          isRIB
-          ribHitData={ribCurrentHit}
-          ribCursor={ribCursor}
-          ribTotal={ribTotalHits}
-          ribPaused={ribPaused}
-          theme={theme}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          playersMap={playersMap}
-          onTogglePause={() => setRibPaused((v) => !v)}
-          onPrev={() => setRibCursor((c) => Math.max(0, c - 1))}
-          onNext={() => setRibCursor((c) => Math.min(ribTotalHits - 1, c + 1))}
-        />
       )}
 
       {/* RIB Dock + Popups */}
@@ -3228,6 +4134,17 @@ const HomeRunDerbyScreen = ({ navigation, route }) => {
         theme={theme}
         colors={colors}
         isDarkMode={isDarkMode}
+        status={status}
+      />
+
+      {/* Hit Share Card */}
+      <HitShareCard
+        visible={!!shareHitData}
+        onClose={() => setShareHitData(null)}
+        hitData={shareHitData}
+        theme={theme}
+        colors={colors}
+        isDarkMode={isDarkMode}
       />
     </View>
   );
@@ -3317,7 +4234,8 @@ const sStyles = StyleSheet.create({
   tabBar: { borderBottomWidth: 1 },
   tabBarContent: { flexDirection: "row" },
   tabBtn: {
-    paddingHorizontal: 16,
+    width: width / 4,
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
@@ -3380,7 +4298,6 @@ const sStyles = StyleSheet.create({
     bottom: -4,
     width: 20,
     height: 20,
-    borderRadius: 10,
   },
   poolInfo: { flex: 1 },
   poolName: { fontSize: 14, fontWeight: "700" },
@@ -3414,24 +4331,24 @@ const sStyles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     gap: 10,
+    marginBottom: 0,
   },
   bracketSeedBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(128,128,128,0.1)",
   },
-  bracketSeedText: { fontSize: 12, fontWeight: "800" },
-  bracketHeadshot: { width: 44, height: 44, borderRadius: 22 },
+  bracketSeedText: { fontSize: 13, fontWeight: "800" },
+  bracketHeadshot: { width: 48, height: 48, borderRadius: 24, borderWidth: 2 },
   bracketTeamLogo: {
     position: "absolute",
-    left: 66,
-    top: 32,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    right: -4,
+    bottom: -4,
+    width: 20,
+    height: 20,
   },
   bracketInfo: { flex: 1 },
   bracketName: { fontSize: 14 },
@@ -3504,6 +4421,7 @@ const sStyles = StyleSheet.create({
     borderWidth: 2,
     overflow: "hidden",
     marginBottom: 16,
+    marginHorizontal: 2,
   },
   liveHeader: {
     flexDirection: "row",
@@ -3558,19 +4476,21 @@ const sStyles = StyleSheet.create({
     position: "absolute",
     right: 20,
     bottom: 30,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    width: 56,
+    height: 56,
     borderRadius: 28,
     borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 90,
     elevation: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
-    zIndex: 90,
   },
   ribFabText: {
     color: "#fff",

@@ -18,8 +18,7 @@ export class NBAService extends BaseCacheService {
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
   static TEAMS_API_URL =
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
-  static STANDINGS_API_URL =
-    "https://cdn.espn.com/core/nba/standings?xhr=1";
+  static STANDINGS_API_URL = "https://cdn.espn.com/core/nba/standings?xhr=1";
 
   // ---------- league helpers ----------
 
@@ -63,14 +62,14 @@ export class NBAService extends BaseCacheService {
       // Non-OK → fall through to fallback (unless already nba)
       if (league !== "nba") {
         console.warn(
-          `[NBAService] ${league} request returned ${resp.status}, falling back to nba`
+          `[NBAService] ${league} request returned ${resp.status}, falling back to nba`,
         );
       }
     } catch (err) {
       if (league !== "nba") {
         console.warn(
           `[NBAService] ${league} request failed, falling back to nba:`,
-          err.message
+          err.message,
         );
       } else {
         throw err; // nba itself failed — propagate
@@ -95,7 +94,7 @@ export class NBAService extends BaseCacheService {
     league = league || this.getDefaultLeague();
     const { data, leagueUsed } = await this.fetchWithLeagueFallback(
       urlFn,
-      league
+      league,
     );
 
     // If we got usable events, great
@@ -118,7 +117,7 @@ export class NBAService extends BaseCacheService {
             altData.events.length > 0
           ) {
             console.log(
-              `[NBAService] No ${leagueUsed} events found, using ${alternate} instead`
+              `[NBAService] No ${leagueUsed} events found, using ${alternate} instead`,
             );
             return { data: altData, leagueUsed: alternate };
           }
@@ -160,7 +159,7 @@ export class NBAService extends BaseCacheService {
         game.status &&
         (game.status.type?.state === "in" ||
           game.status.type?.completed === false ||
-          game.competitions?.[0]?.status?.type?.state === "in")
+          game.competitions?.[0]?.status?.type?.state === "in"),
     );
   }
 
@@ -174,7 +173,7 @@ export class NBAService extends BaseCacheService {
     const hasScheduled = data.events.some(
       (game) =>
         game.status?.type?.state === "pre" ||
-        game.competitions?.[0]?.status?.type?.state === "pre"
+        game.competitions?.[0]?.status?.type?.state === "pre",
     );
     if (hasScheduled) return "scheduled";
 
@@ -189,11 +188,7 @@ export class NBAService extends BaseCacheService {
 
   // Fetch scoreboard from ESPN with smart caching
   // @param {string} league - auto-detected by date, or pass explicitly
-  static async getScoreboard(
-    startDate = null,
-    endDate = null,
-    league = null
-  ) {
+  static async getScoreboard(startDate = null, endDate = null, league = null) {
     league = league || this.getDefaultLeague();
     const cacheKey = `${league}_scoreboard_${startDate || "today"}_${
       endDate || startDate || "today"
@@ -216,7 +211,7 @@ export class NBAService extends BaseCacheService {
         return data;
       },
       false,
-      "scheduled"
+      "scheduled",
     );
   }
 
@@ -231,12 +226,12 @@ export class NBAService extends BaseCacheService {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) =>
             `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/summary?event=${gameId}`,
-          league
+          league,
         );
         return data;
       },
       false,
-      "live"
+      "live",
     ); // Game details are often live data
   }
 
@@ -250,12 +245,12 @@ export class NBAService extends BaseCacheService {
       async () => {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) => this._url(this.STANDINGS_URL_TPL, lg),
-          league
+          league,
         );
         return data;
       },
       false,
-      "static"
+      "static",
     ); // Standings are static data
   }
 
@@ -269,12 +264,12 @@ export class NBAService extends BaseCacheService {
       async () => {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) => this._url(this.TEAMS_URL_TPL, lg),
-          league
+          league,
         );
         return data;
       },
       false,
-      "static"
+      "static",
     ); // Teams are static data
   }
 
@@ -289,12 +284,12 @@ export class NBAService extends BaseCacheService {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) =>
             `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/teams/${teamId}`,
-          league
+          league,
         );
         return data;
       },
       false,
-      "static"
+      "static",
     );
   }
 
@@ -309,12 +304,12 @@ export class NBAService extends BaseCacheService {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) =>
             `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/teams/${teamId}/roster`,
-          league
+          league,
         );
         return data;
       },
       false,
-      "static"
+      "static",
     );
   }
 
@@ -329,12 +324,12 @@ export class NBAService extends BaseCacheService {
         const { data } = await this.fetchWithLeagueFallback(
           (lg) =>
             `https://site.api.espn.com/apis/site/v2/sports/basketball/${lg}/athletes/${athleteId}`,
-          league
+          league,
         );
         return data;
       },
       false,
-      "static"
+      "static",
     );
   }
 
@@ -349,17 +344,17 @@ export class NBAService extends BaseCacheService {
         (competition.competitors || []).find((c) => c.homeAway === "away") ||
         {};
 
-      const homeRecord = home?.record ?? (
-        typeof away?.record === "string"
+      const homeRecord =
+        home?.record ??
+        (typeof away?.record === "string"
           ? away.record.split("-").reverse().join("-")
-          : ""
-      );
+          : "");
 
-      const awayRecord = away?.record ?? (
-        typeof home?.record === "string"
+      const awayRecord =
+        away?.record ??
+        (typeof home?.record === "string"
           ? home.record.split("-").reverse().join("-")
-          : ""
-      );
+          : "");
 
       return {
         id: game.id,
@@ -379,6 +374,8 @@ export class NBAService extends BaseCacheService {
           logo: combinerUrl(home.team?.logo),
           score: home.score,
           record: homeRecord || home.records?.[0]?.summary || "",
+          color: home.team?.color || null,
+          alternateColor: home.team?.alternateColor || null,
         },
         awayTeam: {
           id: away.id,
@@ -387,6 +384,8 @@ export class NBAService extends BaseCacheService {
           logo: combinerUrl(away.team?.logo),
           score: away.score,
           record: awayRecord || away.records?.[0]?.summary || "",
+          color: away.team?.color || null,
+          alternateColor: away.team?.alternateColor || null,
         },
         date: game.date,
         venue: competition.venue?.fullName || "",
@@ -413,7 +412,10 @@ export class NBAService extends BaseCacheService {
         summerLeague: (() => {
           try {
             const gamecastLink = (game.links || []).find(
-              (l) => Array.isArray(l.rel) && l.rel.includes("event") && l.text === "Gamecast"
+              (l) =>
+                Array.isArray(l.rel) &&
+                l.rel.includes("event") &&
+                l.text === "Gamecast",
             );
             if (gamecastLink?.href) {
               const match = gamecastLink.href.match(/\/league\/([^/]+)/);
