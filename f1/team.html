@@ -25,6 +25,7 @@
 
       .race-game-card {
         margin: 0 auto;
+        min-width: 300px;
         max-width: 400px;
       }
 
@@ -134,7 +135,7 @@
           const logoName =
             nameMap[constructorName] ||
             constructorName.toLowerCase().replace(/\s+/g, "");
-          return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${logoColor}.webp`;
+          return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2026/${logoName}/2026${logoName}${logoColor}.webp`;
         }
 
         function getConstructorCar(constructorName) {
@@ -157,21 +158,23 @@
           const carName =
             nameMap[constructorName] ||
             constructorName.toLowerCase().replace(/\s+/g, "");
-          return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2025/${carName}/2025${carName}carright.webp`;
+          return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2026/${carName}/2026${carName}carright.webp`;
         }
 
         function getTeamColor(constructorName) {
           const colorMap = {
-            Mercedes: "27F4D2",
-            "Red Bull": "3671C6",
-            Ferrari: "E8002D",
-            McLaren: "FF8000",
-            Alpine: "FF87BC",
-            "Racing Bulls": "6692FF",
-            "Aston Martin": "229971",
-            Williams: "64C4FF",
-            Sauber: "52E252",
-            Haas: "B6BABD",
+      Mercedes: "00D7B6",
+      "Red Bull": "4781D7",
+      Ferrari: "ED1131",
+      McLaren: "F47600",
+      Alpine: "00A1E8",
+      "Racing Bulls": "6C98FF",
+      "Aston Martin": "229971",
+      Williams: "1878D8",
+      Sauber: "52E252",
+      Haas: "9C9FA2",
+      Audi: "F50537",
+      Cadillac: "909090",
           };
 
           return colorMap[constructorName] || "000000";
@@ -194,7 +197,7 @@
         async function getCurrentRaceEvent() {
           try {
             const response = await fetch(
-              "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0",
+              "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2026/types/2/standings/0",
             );
             const data = await response.json();
 
@@ -624,7 +627,7 @@
         <div class="race-game-card">
           <div class="race-event-header">
             <div class="event-name">Championship Standings</div>
-            <div class="competition-name">2025 Season</div>
+            <div class="competition-name">2026 Season</div>
           </div>
           
           <div class="team-championship-container">
