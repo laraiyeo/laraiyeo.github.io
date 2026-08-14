@@ -276,7 +276,7 @@ async function fetchAndDisplayTeams() {
       }
     }
 
-    const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
+    const TEAMS_API_URL = `https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
     const tuesdayRange = getTuesdayRange();
 
     // Start both API calls in parallel for better performance
@@ -286,7 +286,9 @@ async function fetchAndDisplayTeams() {
       fetchGamesFromAllCompetitions(tuesdayRange)
     ]);
 
-    const teamsData = await teamsResponse.json();
+    const teamsRawText = await teamsResponse.text();
+    const teamsJsonStart = teamsRawText.indexOf('{');
+    const teamsData = JSON.parse(teamsRawText.slice(teamsJsonStart));
     const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
     console.log(`Fetched ${teams.length} teams and ${games.length} games`);

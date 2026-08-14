@@ -5930,7 +5930,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         console.error("Failed to refresh NBA game details", e);
         // Don't show loading or reset details on refresh errors - keep current data
       }
-    }, 4000);
+    }, 5000);
 
     return () => clearInterval(intervalId);
   }, [gameId, details, streamModalVisible]);

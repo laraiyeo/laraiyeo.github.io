@@ -262,7 +262,7 @@ const StandingsScreen = ({ route }) => {
       // reuse existing F1 cache + mapping logic
       const STANDINGS_URL =
         "https://sportsheart-motorsports.up.railway.app/f1/standings";
-      const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
+      const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY:v1";
       const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
 
       const fetchSharedStandings = async () => {
@@ -335,7 +335,6 @@ const StandingsScreen = ({ route }) => {
             name:
               map.name ||
               (membersForTeam ? membersForTeam[num] : null) ||
-              map ||
               `#${num}`,
             firstName: "",
             lastName: "",

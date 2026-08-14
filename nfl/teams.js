@@ -1,4 +1,4 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
+const TEAMS_API_URL = "https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
 
 
 // Convert hex color to rgba with opacity
@@ -239,7 +239,9 @@ async function fetchAndDisplayTeams() {
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
 
     const response = await fetch(TEAMS_API_URL);
-    const data = await response.json();
+    const rawText = await response.text();
+    const jsonStart = rawText.indexOf('{');
+    const data = JSON.parse(rawText.slice(jsonStart));
 
     const teams = data.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
@@ -321,7 +323,7 @@ async function fetchAndDisplayTeams() {
 }
 
 fetchAndDisplayTeams();
-setInterval(fetchAndDisplayTeams, 2000);
+setInterval(fetchAndDisplayTeams, 5000);
 
 // Game Card Customization functionality
 const defaultStyles = {

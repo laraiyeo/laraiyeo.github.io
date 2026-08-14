@@ -127,7 +127,7 @@ const getPregamePollingInterval = (msUntilStart) => {
 };
 
 // ── Color utilities ─────────────────────────────────────────────────
-const parseHexColor = (hex) => {
+function parseHexColor(hex) {
   if (!hex || typeof hex !== "string") return null;
   const raw = hex.trim().replace("#", "");
   if (raw.length !== 3 && raw.length !== 6) return null;
@@ -144,31 +144,34 @@ const parseHexColor = (hex) => {
     g: parseInt(expanded.slice(2, 4), 16),
     b: parseInt(expanded.slice(4, 6), 16),
   };
-};
+}
 
-const areColorsSimilar = (colorA, colorB) => {
+function areColorsSimilar(colorA, colorB) {
   const a = parseHexColor(colorA);
   const b = parseHexColor(colorB);
   if (!a || !b) return false;
   const dr = a.r - b.r;
   const dg = a.g - b.g;
   const db = a.b - b.b;
-  return Math.sqrt(dr * dr + dg * dg + db * db) <= 70;
-};
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+}
 
-const resolveMatchColors = ({
+function resolveMatchColors({
   homePrimary,
   homeSecondary,
   awayPrimary,
   awaySecondary,
   homeFallback,
   awayFallback,
-}) => {
+}) {
   const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
   const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
   if (!areColorsSimilar(homePrimary, awayPrimary)) {
     return { homeColor, awayColor };
   }
+
   const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
   if (awaySecondarySimilar) {
     return {
@@ -176,11 +179,12 @@ const resolveMatchColors = ({
       awayColor: awayPrimary ?? awayColor,
     };
   }
+
   return {
-    homeColor: homeSecondary ?? homeColor,
+    homeColor,
     awayColor: awaySecondary ?? awayColor,
   };
-};
+}
 
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
   return resolveMatchColors({

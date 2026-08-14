@@ -152,7 +152,7 @@ const VehiclesScreen = () => {
     "https://sportsheart-motorsports.up.railway.app/f1/standings";
   const NASCAR_STANDINGS_URL =
     "https://sportsheart-motorsports.up.railway.app/nascar/standings";
-  const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY";
+  const F1_STANDINGS_CACHE_KEY = "F1_STANDINGS_CACHE_KEY:v1";
   const NASCAR_STANDINGS_CACHE_KEY = "NASCAR_STANDINGS_CACHE_KEY";
   const F1_STANDINGS_TTL = 1000 * 60 * 60; // 1 hour
   const NASCAR_STANDINGS_TTL = 1000 * 60 * 30; // 30 min
@@ -198,17 +198,30 @@ const VehiclesScreen = () => {
 
   const buildF1ConstructorList = (payload) => {
     const teamsArr = payload.teams || payload.data?.teams || [];
-    return teamsArr.map((t, idx) => {
-      const rawName = t.team_name || t.team || `Team ${idx + 1}`;
-      const lookup = normalizeF1TeamName(rawName);
-      return {
-        id: lookup || `team-${idx}`,
-        name: lookup,
-        displayName: rawName,
-        rank: t.position_current ?? t.position ?? idx + 1,
-        points: parseInt(t.points_current ?? t.points ?? 0) || 0,
-      };
-    });
+    const driversByTeam =
+      payload.drivers_by_team || payload.data?.drivers_by_team || {};
+
+    return teamsArr
+      .filter((t) => {
+        const rawName = t.team_name || t.team || "";
+        return rawName in driversByTeam;
+      })
+      .sort(
+        (a, b) =>
+          (a.position_current ?? a.position ?? 999) -
+          (b.position_current ?? b.position ?? 999),
+      )
+      .map((t, idx) => {
+        const rawName = t.team_name || t.team || `Team ${idx + 1}`;
+        const lookup = normalizeF1TeamName(rawName);
+        return {
+          id: lookup || `team-${idx}`,
+          name: lookup,
+          displayName: rawName,
+          rank: t.position_current ?? t.position ?? idx + 1,
+          points: parseInt(t.points_current ?? t.points ?? 0) || 0,
+        };
+      });
   };
 
   const buildNascarConstructorList = (payload) => {

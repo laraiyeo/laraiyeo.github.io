@@ -640,10 +640,24 @@ const RacerDetailsScreen = ({ route }) => {
   const selectedMeeting = useMemo(() => {
     const key = selectedPoint?.meeting_key;
     if (!key) return null;
-    return meetingsCache.find(
+    const found = meetingsCache.find(
       (m) => String(m.meeting_key ?? m.meetingKey ?? m.id) === String(key),
     );
-  }, [meetingsCache, selectedPoint]);
+    if (found) return found;
+
+    // Fallback: build a minimal meeting object from driver data maps
+    const mapsMeeting =
+      driverData?.maps?.meetings?.[key] ||
+      driverData?.maps?.meetings?.[String(key)];
+    if (mapsMeeting) {
+      const name =
+        typeof mapsMeeting === "string"
+          ? mapsMeeting
+          : mapsMeeting.name || mapsMeeting.meeting_name || "";
+      return { meeting_key: Number(key), name };
+    }
+    return null;
+  }, [meetingsCache, selectedPoint, driverData]);
 
   const selectedCountryColor =
     getCountryColor(

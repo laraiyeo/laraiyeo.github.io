@@ -15,7 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { FontAwesome6 } from "@expo/vector-icons";
 import { Share, Alert } from "react-native";
-import { captureRef } from "react-native-view-shot";
+import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { useTheme } from "../../../context/ThemeContext";
 import {
@@ -127,12 +127,12 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                 setSeries(existing);
                 console.log(
                   "Series data set from ongoingLoadSeries:",
-                  existing
+                  existing,
                 );
               } catch (err) {
                 console.warn(
                   "Existing load promise failed, falling back to fresh fetch",
-                  err
+                  err,
                 );
               }
             } else {
@@ -150,7 +150,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     team1Slug,
                     team2Slug,
                     matchStartDate,
-                    matchSlug
+                    matchSlug,
                   );
                   deferred.resolve(detailedData);
                 } catch (e) {
@@ -171,7 +171,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                 setSeries(formattedData);
                 console.log(
                   "Series data set to fallback formatted data due to error:",
-                  formattedData
+                  formattedData,
                 );
               } finally {
                 ongoingLoadSeries.delete(loadKey);
@@ -207,7 +207,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         setLoading(false);
       }
     },
-    [matchId, matchData]
+    [matchId, matchData],
   );
 
   useEffect(() => {
@@ -248,10 +248,10 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
     // Filter only active players (status === 1)
     const activeTeam1Players = team1Players.filter(
-      (player) => player && player.status === 1
+      (player) => player && player.status === 1,
     );
     const activeTeam2Players = team2Players.filter(
-      (player) => player && player.status === 1
+      (player) => player && player.status === 1,
     );
 
     // Format for team 1
@@ -376,7 +376,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
       // Prevent concurrent header fetches
       if (loadingRef.current) {
         console.log(
-          "Header long-press fetch already in progress, opening modal if data exists"
+          "Header long-press fetch already in progress, opening modal if data exists",
         );
         setShowCopyModal(true);
         return;
@@ -387,7 +387,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
       if (preferShortPlayers) {
         console.log(
-          "Attempting to fetch short_players_stats because match slug is available"
+          "Attempting to fetch short_players_stats because match slug is available",
         );
         const fetched = await fetchCopySeriesData();
         if (fetched) {
@@ -395,13 +395,13 @@ const CS2ResultsScreen = ({ navigation, route }) => {
           setShowCopyModal(true);
           console.log(
             "Header long press: prepared copy series data (short_players_stats)",
-            fetched
+            fetched,
           );
           loadingRef.current = false;
           return;
         }
         console.log(
-          "short_players_stats fetch returned no data, falling back to series data"
+          "short_players_stats fetch returned no data, falling back to series data",
         );
       }
 
@@ -423,7 +423,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         setCopySeriesData(series);
         setShowCopyModal(true);
         console.log(
-          "Header long press: prepared copy series data from series.teamPlayers"
+          "Header long press: prepared copy series data from series.teamPlayers",
         );
         loadingRef.current = false;
         return;
@@ -431,14 +431,14 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
       // As a last resort, try fetching short players stats even if we didn't prefer it earlier
       console.log(
-        "No team player stats present, attempting fallback fetch for short_players_stats"
+        "No team player stats present, attempting fallback fetch for short_players_stats",
       );
       const fetchedFallback = await fetchCopySeriesData();
       if (fetchedFallback) setCopySeriesData(fetchedFallback);
       setShowCopyModal(true);
       console.log(
         "Header long press: prepared copy series data (fallback)",
-        fetchedFallback || series
+        fetchedFallback || series,
       );
     } catch (e) {
       console.error("Error handling header long press", e);
@@ -455,7 +455,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         console.warn("shareCopyCard: copyCardRef not available");
         Alert.alert(
           "Unavailable",
-          "The summary card is not ready to share yet."
+          "The summary card is not ready to share yet.",
         );
         return;
       }
@@ -490,7 +490,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         } catch (shareErr) {
           console.warn(
             "Primary sharing failed, falling back to native Share",
-            shareErr
+            shareErr,
           );
           await Share.share({ message: "Match summary", url: uri });
         }
@@ -1059,10 +1059,10 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
     // Get maps with map_count values and combine team data
     const team1Maps = series.team1MapPool.filter(
-      (map) => map.maps_count && map.maps_count > 0
+      (map) => map.maps_count && map.maps_count > 0,
     );
     const team2Maps = series.team2MapPool.filter(
-      (map) => map.maps_count && map.maps_count > 0
+      (map) => map.maps_count && map.maps_count > 0,
     );
 
     // Create a set of all unique maps played by both teams
@@ -1121,7 +1121,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               source={{
                 uri: getCS2MapImageUrl(
                   mapData.mapName?.replace("de_", "") ||
-                    mapData.mapName?.toLowerCase()
+                    mapData.mapName?.toLowerCase(),
                 ),
               }}
               style={styles.mapStatBackground}
@@ -1189,7 +1189,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
     console.log("Series.matchDetails exists:", !!series.matchDetails);
     console.log(
       "Series.matchDetails.live_updates:",
-      series.matchDetails?.live_updates
+      series.matchDetails?.live_updates,
     );
     console.log("MatchData.live_updates:", matchData?.live_updates);
 
@@ -1211,7 +1211,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         hasName: !!m?.name,
         full: m,
         winner: m.winner,
-      }))
+      })),
     );
     console.log(
       "Normalized maps:",
@@ -1219,7 +1219,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         name: m.name,
         originalIndex: m.originalIndex,
         hasName: !!m.name,
-      }))
+      })),
     );
 
     // Check multiple possible sources for live_updates
@@ -1243,7 +1243,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
     console.log("Live updates found:", !!liveUpdates);
     console.log(
       "Live updates type:",
-      Array.isArray(liveUpdates) ? "array" : typeof liveUpdates
+      Array.isArray(liveUpdates) ? "array" : typeof liveUpdates,
     );
     console.log("Live updates content:", liveUpdates);
 
@@ -1259,12 +1259,12 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         const mapName = update?.map_name || update?.map || null;
 
         console.log(
-          `Update ${updateIndex}: gameNumber=${gameNumber}, mapName=${mapName}`
+          `Update ${updateIndex}: gameNumber=${gameNumber}, mapName=${mapName}`,
         );
 
         if (!gameNumber || !mapName) {
           console.log(
-            `Skipping update ${updateIndex}: missing gameNumber or mapName`
+            `Skipping update ${updateIndex}: missing gameNumber or mapName`,
           );
           return;
         }
@@ -1273,7 +1273,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
         // Check if a complete map already exists at this index or with this name
         const existingMaps = normalized.filter(
-          (m) => m.originalIndex === desiredIndex
+          (m) => m.originalIndex === desiredIndex,
         );
         const realMapExists = normalized.some((m) => {
           const sameIndexWithName = m.originalIndex === desiredIndex && m.name; // Must have a name to count as existing
@@ -1289,7 +1289,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         });
 
         console.log(
-          `Update ${updateIndex}: desiredIndex=${desiredIndex}, realMapExists=${realMapExists}`
+          `Update ${updateIndex}: desiredIndex=${desiredIndex}, realMapExists=${realMapExists}`,
         );
         console.log(
           `Existing maps at index ${desiredIndex}:`,
@@ -1305,12 +1305,12 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               (m.winner_clan_score !== null || m.loser_clan_score !== null)
             ),
             isFinished: m.completed === true,
-          }))
+          })),
         );
 
         if (realMapExists) {
           console.log(
-            `Skipping update ${updateIndex}: complete real map already exists`
+            `Skipping update ${updateIndex}: complete real map already exists`,
           );
           return;
         }
@@ -1327,7 +1327,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
           // Remove the incomplete map from normalized array
           const indexToRemove = normalized.findIndex(
-            (m) => m.originalIndex === desiredIndex
+            (m) => m.originalIndex === desiredIndex,
           );
           if (indexToRemove !== -1) {
             normalized.splice(indexToRemove, 1);
@@ -1342,7 +1342,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
             m.number === gameNumber ||
             (m.name &&
               mapName &&
-              m.name.toLowerCase().includes(mapName.toLowerCase()))
+              m.name.toLowerCase().includes(mapName.toLowerCase())),
         );
         const mapActuallyFinished = correspondingMap?.completed === true;
 
@@ -1357,7 +1357,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         // If the game is actually finished, don't create a synthetic live map
         if (gameEnded || mapActuallyFinished) {
           console.log(
-            `Skipping synthetic map for game ${gameNumber}: game is finished`
+            `Skipping synthetic map for game ${gameNumber}: game is finished`,
           );
           return;
         }
@@ -1383,12 +1383,12 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
         console.log(
           `Creating synthetic map for update ${updateIndex}:`,
-          synthetic
+          synthetic,
         );
 
         // If there's a placeholder map at this index (no name), replace it
         const placeholderIndex = normalized.findIndex(
-          (m) => m.originalIndex === desiredIndex && !m.name
+          (m) => m.originalIndex === desiredIndex && !m.name,
         );
         if (placeholderIndex !== -1) {
           console.log(`Replacing placeholder at index ${placeholderIndex}`);
@@ -1413,7 +1413,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         liveBadge: m.liveBadge,
         team1Score: m.team1Score,
         team2Score: m.team2Score,
-      }))
+      })),
     );
 
     return normalized;
@@ -1556,22 +1556,22 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   )}
                 </TouchableOpacity>
                 {!series.completed && !series.live ? null : (
-                <Text
-                  style={[
-                    styles.scoreText,
-                    {
-                      color: theme.text,
-                      opacity:
-                        series.completed &&
-                        !series.live &&
-                        series.team1Score < series.team2Score
-                          ? 0.6
-                          : 1,
-                    },
-                  ]}
-                >
-                  {series.team1Score || 0}
-                </Text>
+                  <Text
+                    style={[
+                      styles.scoreText,
+                      {
+                        color: theme.text,
+                        opacity:
+                          series.completed &&
+                          !series.live &&
+                          series.team1Score < series.team2Score
+                            ? 0.6
+                            : 1,
+                      },
+                    ]}
+                  >
+                    {series.team1Score || 0}
+                  </Text>
                 )}
               </View>
               {/* Team Name Below */}
@@ -1605,22 +1605,22 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               {/* Score and Logo Row */}
               <View style={styles.logoScoreRow}>
                 {!series.completed && !series.live ? null : (
-                <Text
-                  style={[
-                    styles.scoreText,
-                    {
-                      color: theme.text,
-                      opacity:
-                        series.completed &&
-                        !series.live &&
-                        series.team2Score < series.team1Score
-                          ? 0.6
-                          : 1,
-                    },
-                  ]}
-                >
-                  {series.team2Score || 0}
-                </Text>
+                  <Text
+                    style={[
+                      styles.scoreText,
+                      {
+                        color: theme.text,
+                        opacity:
+                          series.completed &&
+                          !series.live &&
+                          series.team2Score < series.team1Score
+                            ? 0.6
+                            : 1,
+                      },
+                    ]}
+                  >
+                    {series.team2Score || 0}
+                  </Text>
                 )}
                 <TouchableOpacity
                   onPress={() => {
@@ -1827,7 +1827,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                       const players = getPlayersForGame(
                         typeof map.originalIndex === "number"
                           ? map.originalIndex
-                          : index
+                          : index,
                       );
                       const hasRounds =
                         map.results &&
@@ -1920,7 +1920,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                               source={{
                                 uri: getCS2MapImageUrl(
                                   map.name?.replace("de_", "") ||
-                                    map.displayName?.toLowerCase()
+                                    map.displayName?.toLowerCase(),
                                 ),
                               }}
                               style={styles.mapBackground}
@@ -2082,7 +2082,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                     <View style={styles.leftPlayersColumn}>
                                       {players
                                         .filter(
-                                          (player) => player.teamNumber === 1
+                                          (player) => player.teamNumber === 1,
                                         )
                                         .slice(0, 5)
                                         .map((player, pIndex) => {
@@ -2129,7 +2129,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                     <View style={styles.rightPlayersColumn}>
                                       {players
                                         .filter(
-                                          (player) => player.teamNumber === 2
+                                          (player) => player.teamNumber === 2,
                                         )
                                         .slice(0, 5)
                                         .map((player, pIndex) => {
@@ -2179,7 +2179,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       ]}
                                       onPress={() =>
                                         openRoundsModal(
-                                          map.originalIndex ?? index
+                                          map.originalIndex ?? index,
                                         )
                                       }
                                     >
@@ -2277,8 +2277,8 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                 backgroundColor: isLeftover
                                   ? theme.warning
                                   : isPick
-                                  ? theme.success
-                                  : theme.error,
+                                    ? theme.success
+                                    : theme.error,
                               },
                             ]}
                           >
@@ -2349,10 +2349,10 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           const opponent = isTeam1 ? match.team2 : match.team1;
                           const result = calculateMatchResult(
                             match.games,
-                            series.team1?.id
+                            series.team1?.id,
                           );
                           const tournamentAbbr = createTournamentAbbreviation(
-                            match.tournament?.name
+                            match.tournament?.name,
                           );
 
                           return (
@@ -2487,7 +2487,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   ]}
                                 >
                                   {new Date(
-                                    match.start_date
+                                    match.start_date,
                                   ).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -2522,10 +2522,10 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           const opponent = isTeam1 ? match.team2 : match.team1;
                           const result = calculateMatchResult(
                             match.games,
-                            series.team2?.id
+                            series.team2?.id,
                           );
                           const tournamentAbbr = createTournamentAbbreviation(
-                            match.tournament?.name
+                            match.tournament?.name,
                           );
 
                           return (
@@ -2660,7 +2660,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   ]}
                                 >
                                   {new Date(
-                                    match.start_date
+                                    match.start_date,
                                   ).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -2715,7 +2715,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                         source={{
                           uri: getCS2MapImageUrl(
                             game.name?.replace("de_", "") ||
-                              game.displayName?.toLowerCase()
+                              game.displayName?.toLowerCase(),
                           ),
                         }}
                         style={styles.roundsMapBackground}
@@ -3000,7 +3000,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3028,7 +3028,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3175,7 +3175,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3202,7 +3202,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3354,7 +3354,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3381,7 +3381,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                       <View style={styles.roundWinIcons}>
                                         <FontAwesome6
                                           name={getCS2EndReasonIcon(
-                                            round.winCondition
+                                            round.winCondition,
                                           )}
                                           size={13}
                                           color="white"
@@ -3420,1022 +3420,487 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      {/* Copy Modal - centered share card like VAL play card */}
+      {/* Copy Modal - MLB ShareCardModal style */}
       <Modal
         visible={showCopyModal}
         animationType="fade"
         transparent
         onRequestClose={() => setShowCopyModal(false)}
+        statusBarTranslucent
       >
-        <View
-          style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}
-        >
-          <View
-            style={{ alignItems: "center", justifyContent: "center", flex: 1 }}
+        <View style={cs2ScStyles.overlay}>
+          <ViewShot
+            ref={copyCardRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
           >
             <View
-              ref={copyCardRef}
-              collapsable={false}
               style={[
-                styles.valShareCard || styles.copyShareCard,
-                { backgroundColor: theme.surface },
-                isCapturing
-                  ? { height: contentHeight + 20 } // auto-expanding
-                  : { height: 400 }, // normal mode
+                cs2ScStyles.card,
+                {
+                  width: Math.min(screenWidth - 48, 540),
+                  backgroundColor: theme.surface,
+                },
               ]}
             >
-              <Container
+              {/* ── Header: game name + scores + event + maps ── */}
+              <View
                 style={[
-                  styles.modalScrollContent,
-                  { backgroundColor: theme.surface },
+                  cs2ScStyles.cardTop,
+                  {
+                    backgroundColor: colors.primary + "22",
+                    borderBottomColor: colors.primary,
+                  },
                 ]}
-                contentContainerStyle={
-                  !isCapturing ? { paddingBottom: 16 } : undefined
-                }
-                showsVerticalScrollIndicator={!isCapturing}
-                scrollEnabled={!isCapturing}
               >
-                <View onLayout={handleInnerLayout}>
-                  <View
+                <View style={cs2ScStyles.cardTopRow}>
+                  <Text
                     style={[
-                      styles.copyHeaderSection,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        borderRadius: 12,
-                        padding: 16,
-                        marginBottom: 16,
-                      },
+                      cs2ScStyles.cardInning,
+                      { color: theme.textSecondary },
                     ]}
                   >
+                    COUNTER STRIKE 2
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {series.team1?.logoUrl && (
+                      <Image
+                        source={{ uri: series.team1.logoUrl }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
+                    )}
                     <Text
-                      style={[
-                        styles.copyEventName,
-                        {
-                          color: theme.text,
-                          fontSize: 14,
-                          fontWeight: "600",
-                          textAlign: "center",
-                          marginBottom: 16,
-                        },
-                      ]}
+                      style={[cs2ScStyles.cardScore, { color: theme.text }]}
                     >
-                      {series.eventName || "Match Details"}
-                    </Text>
-                    <View
-                      style={[
-                        styles.copyMatchupRow,
-                        {
-                          flexDirection: "row",
-                          alignItems: "center",
-                          marginBottom: 16,
-                        },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.copyTeamSection,
-                          { alignItems: "flex-end", flex: 1 },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.copyLogoScoreRow,
-                            {
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{
-                              uri:
-                                series.team1?.logoUrl ||
-                                "https://i.imgur.com/BIC4pnO.webp",
-                            }}
-                            style={[
-                              styles.copyTeamLogo,
-                              {
-                                width: 56,
-                                height: 56,
-                                marginRight: 12,
-                                opacity:
-                                  series.completed &&
-                                  !series.live &&
-                                  series.team1Score < series.team2Score
-                                    ? 0.6
-                                    : 1,
-                              },
-                            ]}
-                            resizeMode="contain"
-                          />
-                          <Text
-                            style={[
-                              styles.copyScoreText,
-                              {
-                                fontSize: 40,
-                                fontWeight: "800",
-                                color: theme.text,
-                                opacity:
-                                  series.completed &&
-                                  !series.live &&
-                                  series.team1Score < series.team2Score
-                                    ? 0.6
-                                    : 1,
-                              },
-                            ]}
-                          >
-                            {series.team1Score || 0}
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.copyTeamName,
-                            {
-                              fontSize: 14,
-                              fontWeight: "bold",
-                              color: theme.text,
-                              textAlign: "center",
-                              transform: [{ translateX: -20 }],
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team1Score < series.team2Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                        >
-                          {series.team1?.shortName || "T1"}
-                        </Text>
-                      </View>
-
-                      <View
+                      <Text
                         style={{
-                          width: 48,
-                          alignItems: "center",
-                          justifyContent: "center",
+                          fontWeight:
+                            (series.team1Score || 0) > (series.team2Score || 0)
+                              ? "800"
+                              : "400",
                         }}
                       >
-                        <Text
-                          style={[
-                            styles.copyScoreSeparator,
-                            { fontSize: 22, color: theme.textSecondary },
-                          ]}
-                        >
-                          -
-                        </Text>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.copyTeamSection,
-                          { alignItems: "flex-start", flex: 1 },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.copyLogoScoreRow,
-                            {
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.copyScoreText,
-                              {
-                                fontSize: 40,
-                                fontWeight: "800",
-                                color: theme.text,
-                                opacity:
-                                  series.completed &&
-                                  !series.live &&
-                                  series.team2Score < series.team1Score
-                                    ? 0.6
-                                    : 1,
-                              },
-                            ]}
-                          >
-                            {series.team2Score || 0}
-                          </Text>
-                          <Image
-                            source={{
-                              uri:
-                                series.team2?.logoUrl ||
-                                "https://i.imgur.com/BIC4pnO.webp",
-                            }}
-                            style={[
-                              styles.copyTeamLogo,
-                              {
-                                width: 56,
-                                height: 56,
-                                marginLeft: 12,
-                                opacity:
-                                  series.completed &&
-                                  !series.live &&
-                                  series.team2Score < series.team1Score
-                                    ? 0.6
-                                    : 1,
-                              },
-                            ]}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            styles.copyTeamName,
-                            {
-                              fontSize: 14,
-                              fontWeight: "bold",
-                              color: theme.text,
-                              textAlign: "center",
-                              transform: [{ translateX: 20 }],
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team2Score < series.team1Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                        >
-                          {series.team2?.shortName || "T2"}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {series.startDate && (
-                      <Text
-                        style={[
-                          styles.copyDateText,
-                          {
-                            color: theme.textSecondary,
-                            fontSize: 12,
-                            textAlign: "center",
-                          },
-                        ]}
-                      >
-                        {new Date(series.startDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                        {" • "}
-                        {new Date(series.startDate).toLocaleTimeString(
-                          "en-US",
-                          {
-                            hour: "numeric",
-                            minute: "numeric",
-                            hour12: true,
-                          }
-                        )}
+                        {series.team1Score || 0}
                       </Text>
+                      {" \u2013 "}
+                      <Text
+                        style={{
+                          fontWeight:
+                            (series.team2Score || 0) > (series.team1Score || 0)
+                              ? "800"
+                              : "400",
+                        }}
+                      >
+                        {series.team2Score || 0}
+                      </Text>
+                    </Text>
+                    {series.team2?.logoUrl && (
+                      <Image
+                        source={{ uri: series.team2.logoUrl }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
                     )}
                   </View>
-
-                  {/* Maps */}
-                  {series.maps && series.maps.length > 0 && (
-                    <View
-                      style={[styles.copyMapsSection, { marginBottom: 16 }]}
-                    >
-                      <View
-                        style={[
-                          styles.copyMapsList,
-                          {
-                            backgroundColor: theme.surfaceSecondary,
-                            borderRadius: 8,
-                            padding: 12,
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            justifyContent: "center",
-                          },
-                        ]}
-                      >
-                        {series.maps.map((m, idx) => {
-                          if (!m) return null;
-                          const mapName = getMapDisplayName(
-                            m.name || m.displayName
-                          );
-                          const team1Score =
-                            m.team1Score ||
-                            m.team1Rounds ||
-                            m.team1RoundsWon ||
-                            0;
-                          const team2Score =
-                            m.team2Score ||
-                            m.team2Rounds ||
-                            m.team2RoundsWon ||
-                            0;
-                          const winnerTeam =
-                            team1Score > team2Score
-                              ? series.team1
-                              : team2Score > team1Score
-                              ? series.team2
-                              : null;
-                          return (
-                            <View
-                              key={idx}
-                              style={[
-                                styles.copyMapChip,
-                                {
-                                  backgroundColor: theme.surface,
-                                  margin: 6,
-                                  paddingHorizontal: 12,
-                                  paddingVertical: 8,
-                                  borderRadius: 8,
-                                  alignItems: "center",
-                                  flexDirection: "row",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.copyMapChipText,
-                                  { color: theme.text, fontSize: 13 },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                M{idx + 1}: {mapName} ({team1Score}-{team2Score}
-                                )
-                              </Text>
-                              {winnerTeam && (
-                                <Image
-                                  source={{
-                                    uri:
-                                      winnerTeam?.logoUrl ||
-                                      "https://i.imgur.com/BIC4pnO.webp",
-                                  }}
-                                  style={[
-                                    styles.copyWinnerLogo,
-                                    { width: 18, height: 18, marginLeft: 8 },
-                                  ]}
-                                  resizeMode="contain"
-                                />
-                              )}
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Player Stats */}
-                  {(() => {
-                    const { team1Players, team2Players } =
-                      getAggregatedPlayerStats(copySeriesData);
-                    if (
-                      (team1Players.length === 0 &&
-                        team2Players.length === 0) ||
-                      (!team1Players && !team2Players)
-                    ) {
-                      return (
-                        <View
-                          style={[
-                            styles.copyPlayersSection,
-                            { marginBottom: 16 },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.noDataText,
-                              {
-                                color: theme.textSecondary,
-                                textAlign: "center",
-                              },
-                            ]}
-                          >
-                            No player data available
-                          </Text>
-                        </View>
-                      );
-                    }
-
-                    return (
-                      <View
-                        style={[
-                          styles.copyPlayersSection,
-                          { marginBottom: 16 },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.copyTeamPlayersSection,
-                            {
-                              backgroundColor: theme.surfaceSecondary,
-                              borderRadius: 8,
-                              padding: 12,
-                              marginBottom: 12,
-                            },
-                          ]}
-                        >
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <Image
-                              source={{ uri: series.team1.logoUrl }}
-                              style={{
-                                width: 18,
-                                height: 18,
-                                marginRight: 6,
-                                borderRadius: 3,
-                              }}
-                              resizeMode="contain"
-                            />
-                            <Text
-                              style={[
-                                styles.copyTeamStatsTitle,
-                                {
-                                  color: theme.text,
-                                  fontSize: 14,
-                                  fontWeight: "bold",
-                                },
-                              ]}
-                            >
-                              {series.team1?.shortName || "Team 1"}
-                            </Text>
-                          </View>
-                          {team1Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
-                            <View
-                              key={player.playerId}
-                              style={[
-                                styles.copyPlayerRow,
-                                {
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  marginBottom: 8,
-                                  paddingVertical: 4,
-                                },
-                              ]}
-                            >
-                              <View
-                                style={[
-                                  styles.copyPlayerInfo,
-                                  {
-                                    flex: 1,
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                  },
-                                ]}
-                              >
-                                <Image
-                                  source={{ uri: player.image_url }}
-                                  style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: 12,
-                                    marginRight: 8,
-                                    aspectRatio: 1,
-                                  }}
-                                  resizeMode="contain"
-                                />
-                                <Text
-                                  style={[
-                                    styles.copyPlayerName,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 13,
-                                      fontWeight: "600",
-                                      marginRight: 8,
-                                    },
-                                  ]}
-                                >
-                                  {player.displayName}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyPlayerStats,
-                                  {
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                  },
-                                ]}
-                              >
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.kills}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    K
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.deaths}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    D
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.assists}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    A
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color:
-                                          player.kills - player.deaths === 0
-                                            ? theme.text
-                                            : player.kills - player.deaths > 0
-                                            ? theme.success
-                                            : theme.error,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.kills - player.deaths <= 0
-                                      ? player.kills - player.deaths
-                                      : `+${player.kills - player.deaths}`}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    +/-
-                                  </Text>
-                                </View>
-                                {player.adr !== null &&
-                                  player.adr !== undefined && (
-                                    <View
-                                      style={[
-                                        styles.copyStatItem,
-                                        {
-                                          alignItems: "center",
-                                          marginHorizontal: 6,
-                                        },
-                                      ]}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.copyStatValue,
-                                          {
-                                            color: theme.text,
-                                            fontSize: 12,
-                                            fontWeight: "bold",
-                                          },
-                                        ]}
-                                      >
-                                        {Math.round(player.adr)}
-                                      </Text>
-                                      <Text
-                                        style={[
-                                          styles.copyStatLabel,
-                                          {
-                                            color: theme.textSecondary,
-                                            fontSize: 9,
-                                          },
-                                        ]}
-                                      >
-                                        ADR
-                                      </Text>
-                                    </View>
-                                  )}
-                              </View>
-                            </View>
-                          ))}
-                        </View>
-
-                        <View
-                          style={[
-                            styles.copyTeamPlayersSection,
-                            {
-                              backgroundColor: theme.surfaceSecondary,
-                              borderRadius: 8,
-                              padding: 12,
-                              marginBottom: 15,
-                            },
-                          ]}
-                        >
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <Image
-                              source={{ uri: series.team2.logoUrl }}
-                              style={{
-                                width: 18,
-                                height: 18,
-                                marginRight: 6,
-                                borderRadius: 3,
-                              }}
-                              resizeMode="contain"
-                            />
-                            <Text
-                              style={[
-                                styles.copyTeamStatsTitle,
-                                {
-                                  color: theme.text,
-                                  fontSize: 14,
-                                  fontWeight: "bold",
-                                },
-                              ]}
-                            >
-                              {series.team2?.shortName || "Team 2"}
-                            </Text>
-                          </View>
-                          {team2Players.sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths)).map((player) => (
-                            <View
-                              key={player.playerId}
-                              style={[
-                                styles.copyPlayerRow,
-                                {
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  marginBottom: 8,
-                                  paddingVertical: 4,
-                                },
-                              ]}
-                            >
-                              <View
-                                style={[
-                                  styles.copyPlayerInfo,
-                                  {
-                                    flex: 1,
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                  },
-                                ]}
-                              >
-                                <Image
-                                  source={{ uri: player.image_url }}
-                                  style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: 12,
-                                    marginRight: 8,
-                                    aspectRatio: 1,
-                                  }}
-                                  resizeMode="contain"
-                                />
-                                <Text
-                                  style={[
-                                    styles.copyPlayerName,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 13,
-                                      fontWeight: "600",
-                                      marginRight: 8,
-                                    },
-                                  ]}
-                                >
-                                  {player.displayName}
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyPlayerStats,
-                                  {
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                  },
-                                ]}
-                              >
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.kills}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    K
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.deaths}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    D
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color: theme.text,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.assists}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    A
-                                  </Text>
-                                </View>
-                                <View
-                                  style={[
-                                    styles.copyStatItem,
-                                    {
-                                      alignItems: "center",
-                                      marginHorizontal: 6,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.copyStatValue,
-                                      {
-                                        color:
-                                          player.kills - player.deaths === 0
-                                            ? theme.text
-                                            : player.kills - player.deaths > 0
-                                            ? theme.success
-                                            : theme.error,
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                      },
-                                    ]}
-                                  >
-                                    {player.kills - player.deaths <= 0
-                                      ? player.kills - player.deaths
-                                      : `+${player.kills - player.deaths}`}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.copyStatLabel,
-                                      {
-                                        color: theme.textSecondary,
-                                        fontSize: 9,
-                                      },
-                                    ]}
-                                  >
-                                    +/-
-                                  </Text>
-                                </View>
-                                {player.adr !== null &&
-                                  player.adr !== undefined && (
-                                    <View
-                                      style={[
-                                        styles.copyStatItem,
-                                        {
-                                          alignItems: "center",
-                                          marginHorizontal: 6,
-                                        },
-                                      ]}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.copyStatValue,
-                                          {
-                                            color: theme.text,
-                                            fontSize: 12,
-                                            fontWeight: "bold",
-                                          },
-                                        ]}
-                                      >
-                                        {Math.round(player.adr)}
-                                      </Text>
-                                      <Text
-                                        style={[
-                                          styles.copyStatLabel,
-                                          {
-                                            color: theme.textSecondary,
-                                            fontSize: 9,
-                                          },
-                                        ]}
-                                      >
-                                        ADR
-                                      </Text>
-                                    </View>
-                                  )}
-                              </View>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    );
-                  })()}
-                  {/* Footer inside the card */}
-                  <View style={styles.shareCardFooter}>
-                    <Text
-                      style={[
-                        styles.shareCardFooterText,
-                        {
-                          color: theme.text,
-                          textShadowColor: "rgba(0, 0, 0, 0.8)",
-                          textShadowOffset: { width: 1, height: 1 },
-                          textShadowRadius: 5,
-                        },
-                      ]}
-                    >
-                      SportsHeart{" "}
-                      <Ionicons name="heart" size={18} color={colors.primary} />
-                    </Text>
-                  </View>
                 </View>
-              </Container>
-            </View>
-            <View style={styles.valShareCardActions}>
-              <View style={styles.valShareCardTopButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.valShareCardButton,
-                    { backgroundColor: colors.secondary },
-                  ]}
-                  onPress={() => shareCopyCard()}
-                >
-                  <Ionicons name="share-outline" size={24} color="white" />
-                  <Text
-                    style={[styles.valShareCardButtonText, { color: "white" }]}
-                  >
-                    Share
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.valShareCardCancelButton,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                  onPress={() => setShowCopyModal(false)}
-                >
-                  <Ionicons name="close" size={24} color={theme.text} />
+                <Text style={[cs2ScStyles.cardEvent, { color: theme.text }]}>
+                  {series.eventName || "Match Details"}
+                </Text>
+                {series.maps && series.maps.length > 0 && (
                   <Text
                     style={[
-                      styles.valShareCardButtonText,
-                      { color: theme.text },
+                      cs2ScStyles.cardDesc,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {series.maps
+                      .map((m, idx) => {
+                        if (!m) return null;
+                        const mapName = getMapDisplayName(
+                          m.name || m.displayName,
+                        );
+                        const t1 =
+                          m.team1Score ||
+                          m.team1Rounds ||
+                          m.team1RoundsWon ||
+                          0;
+                        const t2 =
+                          m.team2Score ||
+                          m.team2Rounds ||
+                          m.team2RoundsWon ||
+                          0;
+                        const winner =
+                          t1 > t2
+                            ? series.team1?.shortName
+                            : t2 > t1
+                              ? series.team2?.shortName
+                              : null;
+                        return `Map ${idx + 1}: ${mapName} (${t1}-${t2})${winner ? ` - ${winner}` : ""}`;
+                      })
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                )}
+              </View>
+
+              {/* ── Body: Team 1 (left) | Team 2 (right) ── */}
+              <View style={cs2ScStyles.cardBottom}>
+                {/* Left team */}
+                <View
+                  style={[
+                    cs2ScStyles.cardLeft,
+                    { borderRightColor: theme.border },
+                  ]}
+                >
+                  <View style={cs2ScStyles.teamHeaderRow}>
+                    {series.team1?.logoUrl && (
+                      <Image
+                        source={{ uri: series.team1.logoUrl }}
+                        style={{ width: 16, height: 16 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text
+                      style={[
+                        cs2ScStyles.teamHeaderName,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {series.team1?.shortName || "Team 1"}
+                    </Text>
+                  </View>
+                  {(() => {
+                    const { team1Players } =
+                      getAggregatedPlayerStats(copySeriesData);
+                    const sorted = [...team1Players].sort(
+                      (a, b) => b.kills - b.deaths - (a.kills - a.deaths),
+                    );
+                    return sorted.map((player) => {
+                      const kd = player.kills - player.deaths;
+                      return (
+                        <View
+                          key={player.playerId}
+                          style={[
+                            cs2ScStyles.playerRow,
+                            { flexDirection: "row", alignItems: "center" },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: player.image_url }}
+                            style={[
+                              cs2ScStyles.miniHeadshot,
+                              { borderColor: colors.primary },
+                            ]}
+                            resizeMode="cover"
+                          />
+                          <View style={{ marginLeft: 6, flex: 1 }}>
+                            <Text
+                              style={[
+                                cs2ScStyles.miniName,
+                                { color: theme.text, textAlign: "left" },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {player.displayName}
+                            </Text>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                gap: 5,
+                                marginTop: 5,
+                              }}
+                            >
+                              {[
+                                { l: "K", v: player.kills },
+                                { l: "D", v: player.deaths },
+                                { l: "A", v: player.assists },
+                              ].map(({ l, v }) => (
+                                <View key={l} style={cs2ScStyles.miniStat}>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatVal,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {v ?? "\u2014"}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatLbl,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {l}
+                                  </Text>
+                                </View>
+                              ))}
+                              <View style={cs2ScStyles.miniStat}>
+                                <Text
+                                  style={[
+                                    cs2ScStyles.miniStatVal,
+                                    {
+                                      color:
+                                        kd > 0
+                                          ? theme.success
+                                          : kd < 0
+                                            ? theme.error
+                                            : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {kd <= 0 ? kd : `+${kd}`}
+                                </Text>
+                                <Text
+                                  style={[
+                                    cs2ScStyles.miniStatLbl,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  +/-
+                                </Text>
+                              </View>
+                              {player.adr != null && (
+                                <View style={cs2ScStyles.miniStat}>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatVal,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {Math.round(player.adr)}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatLbl,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    ADR
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    });
+                  })()}
+                </View>
+
+                {/* Right team */}
+                <View style={[cs2ScStyles.cardRight]}>
+                  <View style={cs2ScStyles.teamHeaderRow}>
+                    {series.team2?.logoUrl && (
+                      <Image
+                        source={{ uri: series.team2.logoUrl }}
+                        style={{ width: 16, height: 16 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text
+                      style={[
+                        cs2ScStyles.teamHeaderName,
+                        { color: colors.secondary },
+                      ]}
+                    >
+                      {series.team2?.shortName || "Team 2"}
+                    </Text>
+                  </View>
+                  {(() => {
+                    const { team2Players } =
+                      getAggregatedPlayerStats(copySeriesData);
+                    const sorted = [...team2Players].sort(
+                      (a, b) => b.kills - b.deaths - (a.kills - a.deaths),
+                    );
+                    return sorted.map((player) => {
+                      const kd = player.kills - player.deaths;
+                      return (
+                        <View
+                          key={player.playerId}
+                          style={[
+                            cs2ScStyles.playerRow,
+                            {
+                              flexDirection: "row-reverse",
+                              alignItems: "center",
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: player.image_url }}
+                            style={[
+                              cs2ScStyles.miniHeadshot,
+                              { borderColor: colors.secondary },
+                            ]}
+                            resizeMode="cover"
+                          />
+                          <View
+                            style={{
+                              marginRight: 6,
+                              flex: 1,
+                              alignItems: "flex-end",
+                            }}
+                          >
+                            <Text
+                              style={[
+                                cs2ScStyles.miniName,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {player.displayName}
+                            </Text>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                gap: 5,
+                                marginTop: 5,
+                              }}
+                            >
+                              {[
+                                { l: "K", v: player.kills },
+                                { l: "D", v: player.deaths },
+                                { l: "A", v: player.assists },
+                              ].map(({ l, v }) => (
+                                <View key={l} style={cs2ScStyles.miniStat}>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatVal,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {v ?? "\u2014"}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatLbl,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {l}
+                                  </Text>
+                                </View>
+                              ))}
+                              <View style={cs2ScStyles.miniStat}>
+                                <Text
+                                  style={[
+                                    cs2ScStyles.miniStatVal,
+                                    {
+                                      color:
+                                        kd > 0
+                                          ? theme.success
+                                          : kd < 0
+                                            ? theme.error
+                                            : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {kd <= 0 ? kd : `+${kd}`}
+                                </Text>
+                                <Text
+                                  style={[
+                                    cs2ScStyles.miniStatLbl,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  +/-
+                                </Text>
+                              </View>
+                              {player.adr != null && (
+                                <View style={cs2ScStyles.miniStat}>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatVal,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {Math.round(player.adr)}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      cs2ScStyles.miniStatLbl,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    ADR
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    });
+                  })()}
+                </View>
+              </View>
+
+              {/* ── Footer: date/time + branding ── */}
+              <View
+                style={[
+                  cs2ScStyles.cardFooter,
+                  { borderTopColor: theme.border },
+                ]}
+              >
+                {series.startDate && (
+                  <Text
+                    style={[
+                      cs2ScStyles.cardDate,
+                      { color: theme.textSecondary },
                     ]}
                   >
-                    Close
+                    {new Date(series.startDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    {" · "}
+                    {new Date(series.startDate).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "numeric",
+                      hour12: true,
+                    })}
                   </Text>
-                </TouchableOpacity>
+                )}
+                <Text style={[cs2ScStyles.cardBrand, { color: theme.text }]}>
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
               </View>
             </View>
+          </ViewShot>
+
+          {/* Action buttons */}
+          <View style={cs2ScStyles.actions}>
+            <TouchableOpacity
+              onPress={() => shareCopyCard()}
+              style={[
+                cs2ScStyles.actionBtn,
+                { backgroundColor: colors.secondary },
+              ]}
+            >
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={cs2ScStyles.actionBtnTxt}>Share</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowCopyModal(false)}
+              style={[cs2ScStyles.actionBtn, { backgroundColor: theme.border }]}
+            >
+              <Text style={[cs2ScStyles.actionBtnTxt, { color: theme.text }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -5261,128 +4726,156 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
   },
-  /* Copy/share modal styles (VAL-like) */
-  modalOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  valShareCard: {
-    width: Math.min(screenWidth * 0.94, 720),
-    overflow: "hidden",
-    padding: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  modalScrollContent: {
+  /* CS2 share card styles (MLB scStyles pattern) */
+});
+
+const cs2ScStyles = StyleSheet.create({
+  overlay: {
     flex: 1,
-    padding: 16,
-  },
-  valShareCardActions: {
-    marginTop: 12,
-    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.88)",
     justifyContent: "center",
-  },
-  shareCardFooter: {
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: -12,
-    paddingBottom: 16,
+    gap: 20,
+    padding: 24,
   },
-  shareCardFooterText: {
-    fontSize: 15,
+  card: {
+    overflow: "hidden",
+  },
+  cardTop: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  cardInning: {
+    fontSize: 11,
     fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
-  valShareCardTopButtons: {
+  cardScore: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  cardEvent: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  cardDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  cardBottom: {
+    flexDirection: "row",
+  },
+  cardLeft: {
+    flex: 1,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    gap: 6,
+  },
+  cardRight: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    gap: 6,
+  },
+  teamHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 5,
+    marginBottom: 6,
+  },
+  teamHeaderName: {
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  cardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardDate: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  cardBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  actions: {
+    flexDirection: "row",
     gap: 12,
   },
-  valShareCardButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    marginHorizontal: 6,
-  },
-  valShareCardCancelButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    marginHorizontal: 6,
-  },
-  valShareCardButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  copyMapChip: {
+  actionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
     minWidth: 120,
-    maxWidth: 260,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    margin: 6,
+    alignItems: "center",
   },
-  copyMapChipText: {
-    fontSize: 13,
+  actionBtnTxt: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
-  copyWinnerLogo: {
-    width: 18,
-    height: 18,
-    marginLeft: 8,
+  // Player row (horizontal: image outside, name+stats toward center)
+  playerRow: {
+    marginBottom: 6,
+    paddingHorizontal: 4,
   },
-  copyHeaderSection: {
-    marginBottom: 12,
+  // Player mini card (MLB pattern: headshot, name, stats value-over-label)
+  miniPlayer: {
+    alignItems: "center",
+    gap: 1,
+    marginBottom: 4,
   },
-  copyEventName: {
-    fontSize: 14,
+  miniHeadshot: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  miniName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  miniStats: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  miniStat: {
+    alignItems: "center",
+  },
+  miniStatVal: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  miniStatLbl: {
+    fontSize: 8,
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginTop: 1,
   },
-  copyMatchupRow: {},
-  copyTeamSection: {},
-  copyLogoScoreRow: {},
-  copyTeamLogo: {
-    width: 56,
-    height: 56,
-  },
-  copyScoreText: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  copyScoreSeparator: {
-    fontSize: 24,
-    marginHorizontal: 16,
-    transform: [{ translateY: -12 }],
-  },
-  copyTeamName: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  copyDateText: {
-    fontSize: 12,
-  },
-  copyPlayersSection: {},
-  copyTeamPlayersSection: {},
-  copyTeamStatsTitle: {},
-  copyPlayerRow: {},
-  copyPlayerInfo: {},
-  copyPlayerName: {},
-  copyPlayerStats: {},
-  copyStatItem: {},
-  copyStatValue: {},
-  copyStatLabel: {},
 });
 
 export default CS2ResultsScreen;

@@ -694,9 +694,9 @@ export const getTeamEarnings = async () => {
 
         // Define the three API calls with different offsets
         const apiCalls = [
-          `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=0&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
-          `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=100&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
-          `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=200&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
+          `https://api.bo3.gg/api/v1/teams/earnings?page[offset]=0&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
+          `https://api.bo3.gg/api/v1/teams/earnings?page[offset]=100&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
+          `https://api.bo3.gg/api/v1/teams/earnings?page[offset]=200&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
         ];
 
         // Fetch all three endpoints concurrently

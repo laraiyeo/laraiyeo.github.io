@@ -756,10 +756,6 @@ const NFLGridCard = ({
             </View>
           )}
           <View style={nflGridStyles.teamNameRow}>
-            {/* Possession indicator: football on left or right of team name in grid */}
-            {awayHasPossession && (
-              <Text style={nflGridStyles.possessionLeft}>🏈</Text>
-            )}
             <Text
               style={[
                 nflGridStyles.teamAbbr,
@@ -871,9 +867,6 @@ const NFLGridCard = ({
               {homeFav ? "★ " : ""}
               {homeAbbr}
             </Text>
-            {homeHasPossession && (
-              <Text style={nflGridStyles.possessionRight}>🏈</Text>
-            )}
           </View>
           {!!homeRecord && (
             <Text
