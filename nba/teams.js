@@ -13,7 +13,19 @@ function getLeagueIdentifier() {
   return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
 }
 
-const TEAMS_API_URL = `https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
+function getTeamsApiUrl() { return `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`; }
+
+async function fetchTeamsJson() {
+  const url = getTeamsApiUrl();
+  try {
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e) {
+    const res = await fetch("https://r.jina.ai/" + url);
+    const text = await res.text();
+    return JSON.parse(text.slice(text.indexOf("{")));
+  }
+}
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -315,10 +327,7 @@ async function fetchAndDisplayTeams() {
     const leagueId = getLeagueIdentifier();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueId}/scoreboard?dates=${adjustedDate}`;
 
-    const response = await fetch(TEAMS_API_URL);
-    const rawText = await response.text();
-    const jsonStart = rawText.indexOf("{");
-    const data = JSON.parse(rawText.slice(jsonStart));
+    const data = await fetchTeamsJson();
 
     const teams = data.sports[0].leagues[0].teams.map(
       (teamData) => teamData.team,

@@ -1,5 +1,15 @@
-const TEAMS_API_URL =
-  "https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+const ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+
+async function fetchTeamsJson() {
+  try {
+    const res = await fetch(ESPN_TEAMS_URL);
+    return await res.json();
+  } catch (e) {
+    const res = await fetch("https://r.jina.ai/" + ESPN_TEAMS_URL);
+    const text = await res.text();
+    return JSON.parse(text.slice(text.indexOf("{")));
+  }
+}
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -299,10 +309,7 @@ async function fetchAndDisplayTeams() {
     const adjustedDate = getAdjustedDateForNBA();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
 
-    const response = await fetch(TEAMS_API_URL);
-    const rawText = await response.text();
-    const jsonStart = rawText.indexOf("{");
-    const data = JSON.parse(rawText.slice(jsonStart));
+    const data = await fetchTeamsJson();
 
     const teams = data.sports[0].leagues[0].teams.map(
       (teamData) => teamData.team,

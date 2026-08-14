@@ -58,9 +58,6 @@
     <script src="../assets/analytics.js"></script>
   </head>
   <body>
-    <div id="appPromoOverlay" class="app-promo-overlay">
-      Download The SportsHeart<br />App Now!
-    </div>
     <div id="scaleWrapper">
       <div id="gameBlockContainer"></div>
       <script>
@@ -158,10 +155,15 @@
             );
 
             if (!game) {
-              const TEAMS_API_URL =
-                "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
-              const teamsRes = await fetch(TEAMS_API_URL);
-              const teamsData = await teamsRes.json();
+              let teamsData;
+              try {
+                const teamsRes = await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams");
+                teamsData = await teamsRes.json();
+              } catch (e) {
+                const teamsRes = await fetch("https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams");
+                const teamsRawText = await teamsRes.text();
+                teamsData = JSON.parse(teamsRawText.slice(teamsRawText.indexOf('{')));
+              }
               const team = teamsData.sports[0].leagues[0].teams
                 .map((teamData) => teamData.team)
                 .find((t) => t.abbreviation === teamAbbreviation);

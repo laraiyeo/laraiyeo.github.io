@@ -309,19 +309,26 @@ async function fetchAndDisplayTeams() {
       }
     }
 
-    const TEAMS_API_URL = `https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
     const tuesdayRange = getTuesdayRange();
+    const teamsUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
+
+    async function fetchSoccerTeamsJson() {
+      try {
+        const res = await fetch(teamsUrl);
+        return await res.json();
+      } catch (e) {
+        const res = await fetch("https://r.jina.ai/" + teamsUrl);
+        const text = await res.text();
+        return JSON.parse(text.slice(text.indexOf("{")));
+      }
+    }
 
     // Start both API calls in parallel for better performance
     console.log("Starting parallel fetch of teams and games data...");
-    const [teamsResponse, games] = await Promise.all([
-      fetch(TEAMS_API_URL),
+    const [teamsData, games] = await Promise.all([
+      fetchSoccerTeamsJson(),
       fetchGamesFromAllCompetitions(tuesdayRange),
     ]);
-
-    const teamsRawText = await teamsResponse.text();
-    const teamsJsonStart = teamsRawText.indexOf("{");
-    const teamsData = JSON.parse(teamsRawText.slice(teamsJsonStart));
     const teams = teamsData.sports[0].leagues[0].teams.map(
       (teamData) => teamData.team,
     );
@@ -480,6 +487,7 @@ async function displayTeamsData(teams, games) {
         const currentStyles = loadSavedStyles();
         const params = new URLSearchParams();
         params.set("team", team.id);
+        params.set("league", currentLeague);
         params.set("bgColor", currentStyles.backgroundColor);
         params.set("bgOpacity", currentStyles.backgroundOpacity);
         params.set("textColor", currentStyles.textColor);

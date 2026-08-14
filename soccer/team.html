@@ -50,9 +50,6 @@
     <script src="../assets/analytics.js"></script>
   </head>
   <body>
-    <div id="appPromoOverlay" class="app-promo-overlay">
-      Download The SportsHeart<br />App Now!
-    </div>
     <div id="scaleWrapper">
       <div id="gameBlockContainer"></div>
       <script>
@@ -141,9 +138,15 @@
             const game = selectBestGameForTeam(teamGames);
 
             if (!game) {
-              const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
-              const teamsRes = await fetch(TEAMS_API_URL);
-              const teamsData = await teamsRes.json();
+              let teamsData;
+              try {
+                const teamsRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`);
+                teamsData = await teamsRes.json();
+              } catch (e) {
+                const teamsRes = await fetch(`https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`);
+                const teamsRawText = await teamsRes.text();
+                teamsData = JSON.parse(teamsRawText.slice(teamsRawText.indexOf("{")));
+              }
               const team = teamsData.sports[0].leagues[0].teams
                 .map((teamData) => teamData.team)
                 .find((t) => t.id === teamId);
@@ -152,7 +155,7 @@
                 ? team.logos?.find((logo) => logo.rel.includes("default"))
                     ?.href || ""
                 : team.logos?.find((logo) => logo.rel.includes("dark"))?.href ||
-                  "";
+                  `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
               const noGameCard = document.createElement("div");
               noGameCard.className = "game-card no-game-card";
               noGameCard.style.display = "flex";
@@ -207,6 +210,12 @@
         document.body.appendChild(script);
 
         script.onload = () => {
+          // Override currentLeague from URL parameter if provided
+          const leagueParam = params.get("league");
+          if (leagueParam) {
+            currentLeague = leagueParam;
+          }
+
           if (teamId) {
             // Show the game card immediately on load
             fetchAndRenderTeamGame(teamId);
