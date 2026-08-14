@@ -1,4 +1,4 @@
-const CONSTRUCTORS_API_URL = "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/1";
+const CONSTRUCTORS_API_URL = "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2026/types/2/standings/1";
 
 let allConstructors = [];
 let lastConstructorsHash = null;
@@ -44,7 +44,7 @@ async function getConstructorDrivers(constructorName) {
     }
     
     // Step 1: Get all drivers from standings once
-    const driversResponse = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
+    const driversResponse = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2026/types/2/standings/0');
     const driversData = await driversResponse.json();
     
     // Initialize cache object
@@ -185,7 +185,7 @@ function getConstructorLogo(constructorName, forceWhite = false) {
   const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
   
   const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-  return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${logoColor}.webp`;
+  return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2026/${logoName}/2026${logoName}${logoColor}.webp`;
 }
 
 function getConstructorCar(constructorName) {
@@ -210,7 +210,7 @@ function getConstructorCar(constructorName) {
   };
   
   const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-  return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2025/${carName}/2025${carName}carright.webp`;
+  return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2026/${carName}/2026${carName}carright.webp`;
 }
 
 function calculatePointsBehind(rank, points, leaderPoints) {
@@ -219,16 +219,18 @@ function calculatePointsBehind(rank, points, leaderPoints) {
 
 function getTeamColor(constructorName) {
   const colorMap = {
-    'Mercedes': '27F4D2',
-    'Red Bull': '3671C6',
-    'Ferrari': 'E8002D',
-    'McLaren': 'FF8000',
-    'Alpine': 'FF87BC',
-    'Racing Bulls': '6692FF',
-    'Aston Martin': '229971',
-    'Williams': '64C4FF',
-    'Sauber': '52E252',
-    'Haas': 'B6BABD'
+      'Mercedes': "00D7B6",
+      'Red Bull': "4781D7",
+      'Ferrari': "ED1131",
+      'McLaren': "F47600",
+      'Alpine': "00A1E8",
+      'Racing Bulls': "6C98FF",
+      'Aston Martin': "229971",
+      'Williams': "1878D8",
+      'Sauber': "52E252",
+      'Haas': "9C9FA2",
+      'Audi': "F50537",
+      'Cadillac': "909090",
   };
   
   return colorMap[constructorName] || '000000';
@@ -244,7 +246,7 @@ async function getCurrentRaceEvent() {
   
   try {
     // Get driver standings to access event log
-    const response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
+    const response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2026/types/2/standings/0');
     const data = await response.json();
     
     if (!data.standings || data.standings.length === 0) {
@@ -435,7 +437,7 @@ async function buildRaceCard(constructor, raceEvent) {
       <div class="race-game-card">
         <div class="race-event-header">
           <div class="event-name">Championship Standings</div>
-          <div class="competition-name">2025 Season</div>
+          <div class="competition-name">2026 Season</div>
         </div>
         
         <div class="team-championship-container">
@@ -770,7 +772,7 @@ async function fetchAndDisplayConstructors() {
       return;
     }
     
-    container.innerHTML = '<div style="text-align: center; padding: 40px; color: white;">Loading teams...</div>';
+    container.innerHTML = '<div style="text-align: center; padding: 40px; color: black;">Loading teams...</div>';
 
     // Check for current race event
     const raceEvent = await getCurrentRaceEvent();
