@@ -1,14 +1,18 @@
-const TEAMS_API_URL = "https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+const TEAMS_API_URL =
+  "https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
 
 function getAdjustedDateForNBA() {
   const now = new Date();
-  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const estNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  const adjustedDate = estNow.getFullYear() +
-                       String(estNow.getMonth() + 1).padStart(2, "0") +
-                       String(estNow.getDate()).padStart(2, "0");
+  const adjustedDate =
+    estNow.getFullYear() +
+    String(estNow.getMonth() + 1).padStart(2, "0") +
+    String(estNow.getDate()).padStart(2, "0");
   return adjustedDate;
 }
 
@@ -22,7 +26,7 @@ function hashString(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const chr = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + chr;
+    hash = (hash << 5) - hash + chr;
     hash |= 0;
   }
   return hash;
@@ -38,15 +42,23 @@ function hexToRgba(hex, opacity) {
 }
 
 async function buildGameCard(game, team) {
-  const logoUrl = team?.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
+  const logoUrl =
+    team?.logos?.find((logo) =>
+      logo.rel.includes("primary_logo_on_black_color"),
+    )?.href ||
+    `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
     switch (num % 10) {
-      case 1: return `${num}st`;
-      case 2: return `${num}nd`;
-      case 3: return `${num}rd`;
-      default: return `${num}th`;
+      case 1:
+        return `${num}st`;
+      case 2:
+        return `${num}nd`;
+      case 3:
+        return `${num}rd`;
+      default:
+        return `${num}th`;
     }
   }
 
@@ -61,22 +73,40 @@ async function buildGameCard(game, team) {
       hour12: true,
     });
 
-    const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+    const headline =
+      game.competitions[0].notes?.find((note) => note.type === "event")
+        ?.headline || "";
 
-    const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team || {};
-    const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team || {};
+    const homeTeam =
+      game.competitions[0].competitors.find((c) => c.homeAway === "home")
+        ?.team || {};
+    const awayTeam =
+      game.competitions[0].competitors.find((c) => c.homeAway === "away")
+        ?.team || {};
     const slug = game.season?.slug || "regular-season";
 
-    const homeTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const homeTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "home")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "home")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const awayTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "away")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "away")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamShortName = adjustTeamShortName(awayTeam.shortDisplayName || "Unknown");
-    const homeTeamShortName = adjustTeamShortName(homeTeam.shortDisplayName || "Unknown");
+    const awayTeamShortName = adjustTeamShortName(
+      awayTeam.shortDisplayName || "Unknown",
+    );
+    const homeTeamShortName = adjustTeamShortName(
+      homeTeam.shortDisplayName || "Unknown",
+    );
 
     return `
       <div class="game-card scheduled-game-card">
@@ -100,24 +130,46 @@ async function buildGameCard(game, team) {
       </div>
     `;
   } else if (game && game.status.type.description === "Final") {
-    const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+    const headline =
+      game.competitions[0].notes?.find((note) => note.type === "event")
+        ?.headline || "";
 
-    const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-    const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-    const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-    const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
+    const homeTeam = game.competitions[0].competitors.find(
+      (c) => c.homeAway === "home",
+    )?.team;
+    const awayTeam = game.competitions[0].competitors.find(
+      (c) => c.homeAway === "away",
+    )?.team;
+    const homeTeamScore =
+      game.competitions[0].competitors.find((c) => c.homeAway === "home")
+        ?.score || "0";
+    const awayTeamScore =
+      game.competitions[0].competitors.find((c) => c.homeAway === "away")
+        ?.score || "0";
     const slug = game.season?.slug || "regular-season";
 
-    const homeTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const homeTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "home")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "home")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const awayTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "away")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "away")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
-    const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
+    const awayTeamShortName = adjustTeamShortName(
+      awayTeam?.shortDisplayName || "Unknown",
+    );
+    const homeTeamShortName = adjustTeamShortName(
+      homeTeam?.shortDisplayName || "Unknown",
+    );
 
     return `
       <div class="game-card final-game-card">
@@ -146,34 +198,63 @@ async function buildGameCard(game, team) {
         </div>
       </div>
     `;
-  } else if (game && (game.status.type.description === "In Progress" || game.status.type.description === "Halftime" || game.status.type.description === "End of Period")) {
-    const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
+  } else if (
+    game &&
+    (game.status.type.description === "In Progress" ||
+      game.status.type.description === "Halftime" ||
+      game.status.type.description === "End of Period")
+  ) {
+    const headline =
+      game.competitions[0].notes?.find((note) => note.type === "event")
+        ?.headline || "";
 
-    const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-    const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-    const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-    const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
+    const homeTeam = game.competitions[0].competitors.find(
+      (c) => c.homeAway === "home",
+    )?.team;
+    const awayTeam = game.competitions[0].competitors.find(
+      (c) => c.homeAway === "away",
+    )?.team;
+    const homeTeamScore =
+      game.competitions[0].competitors.find((c) => c.homeAway === "home")
+        ?.score || "0";
+    const awayTeamScore =
+      game.competitions[0].competitors.find((c) => c.homeAway === "away")
+        ?.score || "0";
     const slug = game.season?.slug || "regular-season";
 
-    const homeTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const homeTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "home")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "home")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamRecord = slug === "post-season"
-      ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-      : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
+    const awayTeamRecord =
+      slug === "post-season"
+        ? game.competitions[0].competitors.find((c) => c.homeAway === "away")
+            ?.record || "0-0"
+        : game.competitions[0].competitors
+            .find((c) => c.homeAway === "away")
+            ?.records?.find((r) => r.type === "total")?.summary || "0-0";
 
-    const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
-    const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
+    const awayTeamShortName = adjustTeamShortName(
+      awayTeam?.shortDisplayName || "Unknown",
+    );
+    const homeTeamShortName = adjustTeamShortName(
+      homeTeam?.shortDisplayName || "Unknown",
+    );
 
     const clockTime = game?.competitions[0]?.status?.displayClock;
-    const isHalftime = game?.competitions[0]?.status?.type?.description === "Halftime";
-    const isEndOfPeriod = game?.competitions[0]?.status?.type?.description === "End of Period";
+    const isHalftime =
+      game?.competitions[0]?.status?.type?.description === "Halftime";
+    const isEndOfPeriod =
+      game?.competitions[0]?.status?.type?.description === "End of Period";
     const periodDescription = isHalftime
       ? "Halftime"
       : isEndOfPeriod
-      ? `End of ${currentPeriod}`
-      : currentPeriod;
+        ? `End of ${currentPeriod}`
+        : currentPeriod;
 
     return `
       <div class="game-card in-progress-game-card">
@@ -220,10 +301,12 @@ async function fetchAndDisplayTeams() {
 
     const response = await fetch(TEAMS_API_URL);
     const rawText = await response.text();
-    const jsonStart = rawText.indexOf('{');
+    const jsonStart = rawText.indexOf("{");
     const data = JSON.parse(rawText.slice(jsonStart));
 
-    const teams = data.sports[0].leagues[0].teams.map(teamData => teamData.team);
+    const teams = data.sports[0].leagues[0].teams.map(
+      (teamData) => teamData.team,
+    );
 
     const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
     const scoreboardText = await scoreboardResponse.text();
@@ -248,27 +331,34 @@ async function fetchAndDisplayTeams() {
 
     for (const team of teams) {
       if (team.abbreviation === "TOY") {
-        ""
+        ("");
       } else {
-      const logoUrl = team.logos?.find(logo =>
-        logo.rel.includes(
-          ["26"].includes(team.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
-        )
-      )?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
+        const logoUrl =
+          team.logos?.find((logo) =>
+            logo.rel.includes(
+              ["26"].includes(team.id)
+                ? "secondary_logo_on_secondary_color"
+                : "primary_logo_on_primary_color",
+            ),
+          )?.href ||
+          `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
 
-      const teamCard = document.createElement("div");
-      teamCard.className = "team-card";
-      teamCard.style.backgroundColor = `#${team.color}`;
+        const teamCard = document.createElement("div");
+        teamCard.className = "team-card";
+        teamCard.style.backgroundColor = `#${team.color}`;
 
-      const teamGames = games.filter(game =>
-        game.competitions[0].competitors.some(competitor => competitor.team.id === team.id)
-      );
+        const teamGames = games.filter((game) =>
+          game.competitions[0].competitors.some(
+            (competitor) => competitor.team.id === team.id,
+          ),
+        );
 
-      const gameCardHtml = teamGames.length > 0
-        ? await buildGameCard(teamGames[0], team)
-        : await buildGameCard(null, team);
+        const gameCardHtml =
+          teamGames.length > 0
+            ? await buildGameCard(teamGames[0], team)
+            : await buildGameCard(null, team);
 
-      teamCard.innerHTML = `
+        teamCard.innerHTML = `
         <div class="team-header">
           <img src="${logoUrl}" alt="${team.displayName}" class="team-logo">
           <h2 class="team-name">${team.displayName}</h2>
@@ -276,27 +366,27 @@ async function fetchAndDisplayTeams() {
         <div class="team-games">${gameCardHtml}</div>
       `;
 
-      // Add OBS link copying functionality
-      teamCard.addEventListener("click", async () => {
-        const currentStyles = loadSavedStyles();
-        const styleParams = new URLSearchParams({
-          team: team.abbreviation,
-          bgColor: currentStyles.backgroundColor,
-          bgOpacity: currentStyles.backgroundOpacity,
-          textColor: currentStyles.textColor
+        // Add OBS link copying functionality
+        teamCard.addEventListener("click", async () => {
+          const currentStyles = loadSavedStyles();
+          const styleParams = new URLSearchParams({
+            team: team.abbreviation,
+            bgColor: currentStyles.backgroundColor,
+            bgOpacity: currentStyles.backgroundOpacity,
+            textColor: currentStyles.textColor,
+          });
+          const url = `https://laraiyeo.github.io/wnba/team.html?${styleParams.toString()}`;
+          try {
+            await navigator.clipboard.writeText(url);
+            alert(`OBS link copied for ${team.displayName}: ${url}`);
+          } catch (err) {
+            console.error("Failed to copy OBS link:", err);
+          }
         });
-        const url = `https://laraiyeo.github.io/wnba/team.html?${styleParams.toString()}`;
-        try {
-          await navigator.clipboard.writeText(url);
-          alert(`OBS link copied for ${team.displayName}: ${url}`);
-        } catch (err) {
-          console.error("Failed to copy OBS link:", err);
-        }
-      });
 
-      container.appendChild(teamCard);
+        container.appendChild(teamCard);
+      }
     }
-  }
   } catch (error) {
     console.error("Error fetching WNBA teams or games:", error);
   }
@@ -307,37 +397,50 @@ setInterval(fetchAndDisplayTeams, 5000);
 
 // Game Card Customization functionality
 const defaultStyles = {
-  backgroundColor: '#1a1a1a',
+  backgroundColor: "#1a1a1a",
   backgroundOpacity: 100,
-  textColor: '#ffffff'
+  textColor: "#ffffff",
 };
 
 // Load saved styles or use defaults, with URL parameters taking priority
 function loadSavedStyles() {
   // Check for URL parameters first (these override localStorage)
   const urlParams = new URLSearchParams(window.location.search);
-  const bgColor = urlParams.get('bgColor');
-  const bgOpacity = urlParams.get('bgOpacity');
-  const textColor = urlParams.get('textColor');
-  
+  const bgColor = urlParams.get("bgColor");
+  const bgOpacity = urlParams.get("bgOpacity");
+  const textColor = urlParams.get("textColor");
+
   // If we have URL parameters, use them
   if (bgColor || bgOpacity || textColor) {
     return {
-      backgroundColor: bgColor && isValidHex(bgColor) ? bgColor : defaultStyles.backgroundColor,
-      backgroundOpacity: bgOpacity !== null ? Math.max(0, Math.min(100, parseInt(bgOpacity))) : defaultStyles.backgroundOpacity,
-      textColor: textColor && isValidHex(textColor) ? textColor : defaultStyles.textColor
+      backgroundColor:
+        bgColor && isValidHex(bgColor)
+          ? bgColor
+          : defaultStyles.backgroundColor,
+      backgroundOpacity:
+        bgOpacity !== null
+          ? Math.max(0, Math.min(100, parseInt(bgOpacity)))
+          : defaultStyles.backgroundOpacity,
+      textColor:
+        textColor && isValidHex(textColor)
+          ? textColor
+          : defaultStyles.textColor,
     };
   }
-  
+
   // Otherwise use localStorage or defaults
-  const saved = localStorage.getItem('wnba-game-card-styles');
+  const saved = localStorage.getItem("wnba-game-card-styles");
   return saved ? JSON.parse(saved) : defaultStyles;
 }
 
 // Check if we're in URL parameter mode (styles are locked)
 function isUrlParameterMode() {
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor');
+  return (
+    urlParams.has("bgColor") ||
+    urlParams.has("bgOpacity") ||
+    urlParams.has("textColor")
+  );
 }
 
 // Save styles to localStorage (only if not in URL parameter mode)
@@ -345,22 +448,24 @@ function saveStyles(styles) {
   if (isUrlParameterMode()) {
     return; // Don't save to localStorage when URL parameters are present
   }
-  localStorage.setItem('wnba-game-card-styles', JSON.stringify(styles));
+  localStorage.setItem("wnba-game-card-styles", JSON.stringify(styles));
 }
 
 // Apply styles to all game cards
 function applyStylesToCards(styles) {
-  const gameCards = document.querySelectorAll('.game-card');
-  gameCards.forEach(card => {
+  const gameCards = document.querySelectorAll(".game-card");
+  gameCards.forEach((card) => {
     const opacity = styles.backgroundOpacity / 100;
     const bgColor = hexToRgba(styles.backgroundColor, opacity);
-    card.style.setProperty('background-color', bgColor, 'important');
-    card.style.setProperty('color', styles.textColor, 'important');
-    
+    card.style.setProperty("background-color", bgColor, "important");
+    card.style.setProperty("color", styles.textColor, "important");
+
     // Apply text color to all text elements within the card
-    const textElements = card.querySelectorAll('.card-team-name, .card-team-record, .game-status, .game-time, .game-headline, .game-info, .period-info, .team-score, .no-game-text');
-    textElements.forEach(element => {
-      element.style.setProperty('color', styles.textColor, 'important');
+    const textElements = card.querySelectorAll(
+      ".card-team-name, .card-team-record, .game-status, .game-time, .game-headline, .game-info, .period-info, .team-score, .no-game-text",
+    );
+    textElements.forEach((element) => {
+      element.style.setProperty("color", styles.textColor, "important");
     });
   });
 }
@@ -372,30 +477,32 @@ function isValidHex(hex) {
 
 // Update preview colors
 function updatePreviews(styles) {
-  document.getElementById('bg-preview').style.backgroundColor = styles.backgroundColor;
-  document.getElementById('text-preview').style.backgroundColor = styles.textColor;
+  document.getElementById("bg-preview").style.backgroundColor =
+    styles.backgroundColor;
+  document.getElementById("text-preview").style.backgroundColor =
+    styles.textColor;
 }
 
 // Set up customization controls
 function initializeCustomization() {
   const currentStyles = loadSavedStyles();
   const urlMode = isUrlParameterMode();
-  
+
   // Get control elements
-  const bgColorPicker = document.getElementById('bg-color-picker');
-  const bgColorHex = document.getElementById('bg-color-hex');
-  const bgOpacitySlider = document.getElementById('bg-opacity-slider');
-  const bgOpacityInput = document.getElementById('bg-opacity-input');
-  const textColorPicker = document.getElementById('text-color-picker');
-  const textColorHex = document.getElementById('text-color-hex');
-  const resetButton = document.getElementById('reset-styles');
-  const panel = document.querySelector('.customization-panel');
+  const bgColorPicker = document.getElementById("bg-color-picker");
+  const bgColorHex = document.getElementById("bg-color-hex");
+  const bgOpacitySlider = document.getElementById("bg-opacity-slider");
+  const bgOpacityInput = document.getElementById("bg-opacity-input");
+  const textColorPicker = document.getElementById("text-color-picker");
+  const textColorHex = document.getElementById("text-color-hex");
+  const resetButton = document.getElementById("reset-styles");
+  const panel = document.querySelector(".customization-panel");
 
   // If in URL parameter mode, disable the panel
   if (urlMode && panel) {
-    panel.style.opacity = '0.5';
-    panel.style.pointerEvents = 'none';
-    panel.title = 'Customization is locked when using URL parameters';
+    panel.style.opacity = "0.5";
+    panel.style.pointerEvents = "none";
+    panel.title = "Customization is locked when using URL parameters";
   }
 
   // Set initial values
@@ -410,7 +517,7 @@ function initializeCustomization() {
   applyStylesToCards(currentStyles);
 
   // Background color picker change
-  bgColorPicker.addEventListener('change', (e) => {
+  bgColorPicker.addEventListener("change", (e) => {
     if (urlMode) return;
     const color = e.target.value;
     bgColorHex.value = color;
@@ -421,7 +528,7 @@ function initializeCustomization() {
   });
 
   // Background color hex input change
-  bgColorHex.addEventListener('input', (e) => {
+  bgColorHex.addEventListener("input", (e) => {
     if (urlMode) return;
     const color = e.target.value;
     if (isValidHex(color)) {
@@ -434,7 +541,7 @@ function initializeCustomization() {
   });
 
   // Background opacity slider change
-  bgOpacitySlider.addEventListener('input', (e) => {
+  bgOpacitySlider.addEventListener("input", (e) => {
     if (urlMode) return;
     const opacity = parseInt(e.target.value);
     bgOpacityInput.value = opacity;
@@ -444,7 +551,7 @@ function initializeCustomization() {
   });
 
   // Background opacity input change
-  bgOpacityInput.addEventListener('input', (e) => {
+  bgOpacityInput.addEventListener("input", (e) => {
     if (urlMode) return;
     const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
     bgOpacitySlider.value = opacity;
@@ -455,7 +562,7 @@ function initializeCustomization() {
   });
 
   // Text color picker change
-  textColorPicker.addEventListener('change', (e) => {
+  textColorPicker.addEventListener("change", (e) => {
     if (urlMode) return;
     const color = e.target.value;
     textColorHex.value = color;
@@ -466,7 +573,7 @@ function initializeCustomization() {
   });
 
   // Text color hex input change
-  textColorHex.addEventListener('input', (e) => {
+  textColorHex.addEventListener("input", (e) => {
     if (urlMode) return;
     const color = e.target.value;
     if (isValidHex(color)) {
@@ -479,7 +586,7 @@ function initializeCustomization() {
   });
 
   // Reset button
-  resetButton.addEventListener('click', () => {
+  resetButton.addEventListener("click", () => {
     if (urlMode) return;
     // Reset to defaults
     bgColorPicker.value = defaultStyles.backgroundColor;
@@ -493,7 +600,7 @@ function initializeCustomization() {
     currentStyles.backgroundColor = defaultStyles.backgroundColor;
     currentStyles.backgroundOpacity = defaultStyles.backgroundOpacity;
     currentStyles.textColor = defaultStyles.textColor;
-    
+
     updatePreviews(currentStyles);
     applyStylesToCards(currentStyles);
     saveStyles(currentStyles);
@@ -507,8 +614,8 @@ function initializeCustomization() {
 }
 
 // Initialize customization after DOM is loaded
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeCustomization);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeCustomization);
 } else {
   initializeCustomization();
 }
