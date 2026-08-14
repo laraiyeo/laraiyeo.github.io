@@ -47,7 +47,7 @@ async function buildGameCard(game, team) {
     team.logos?.find((logo) =>
       logo.rel.includes(["19", "20"].includes(team.id) ? "dark" : "default"),
     )?.href ||
-    `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation}.png`;
+    `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`;
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -116,7 +116,7 @@ async function buildGameCard(game, team) {
         ${noHeadline ? "" : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
-            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam.displayName || "Unknown"}" class="card-team-logo">
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
           </div>
@@ -125,7 +125,7 @@ async function buildGameCard(game, team) {
             <div class="game-time">${startTime}</div>
           </div>
           <div class="team home-team">
-            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam.displayName || "Unknown"}" class="card-team-logo">
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
           </div>
@@ -182,7 +182,7 @@ async function buildGameCard(game, team) {
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
               <span class="card-team-score">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
@@ -195,7 +195,7 @@ async function buildGameCard(game, team) {
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
@@ -279,7 +279,7 @@ async function buildGameCard(game, team) {
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
               <span class="card-team-score">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
@@ -295,7 +295,7 @@ async function buildGameCard(game, team) {
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
@@ -358,7 +358,7 @@ async function fetchAndDisplayTeams() {
               ["19", "20"].includes(team.id) ? "dark" : "default",
             ),
           )?.href ||
-          `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation}.png`;
+          `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`;
 
         const teamCard = document.createElement("div");
         teamCard.className = "team-card";
