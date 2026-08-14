@@ -13,7 +13,9 @@ function getLeagueIdentifier() {
   return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
 }
 
-function getTeamsApiUrl() { return `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`; }
+function getTeamsApiUrl() {
+  return `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
+}
 
 async function fetchTeamsJson() {
   const url = getTeamsApiUrl();

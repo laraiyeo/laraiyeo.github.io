@@ -140,12 +140,18 @@
             if (!game) {
               let teamsData;
               try {
-                const teamsRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`);
+                const teamsRes = await fetch(
+                  `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`,
+                );
                 teamsData = await teamsRes.json();
               } catch (e) {
-                const teamsRes = await fetch(`https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`);
+                const teamsRes = await fetch(
+                  `https://r.jina.ai/https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`,
+                );
                 const teamsRawText = await teamsRes.text();
-                teamsData = JSON.parse(teamsRawText.slice(teamsRawText.indexOf("{")));
+                teamsData = JSON.parse(
+                  teamsRawText.slice(teamsRawText.indexOf("{")),
+                );
               }
               const team = teamsData.sports[0].leagues[0].teams
                 .map((teamData) => teamData.team)

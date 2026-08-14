@@ -1,4 +1,5 @@
-const ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
+const ESPN_TEAMS_URL =
+  "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
 
 async function fetchTeamsJson() {
   try {

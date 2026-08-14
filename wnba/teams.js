@@ -1,4 +1,5 @@
-const ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+const ESPN_TEAMS_URL =
+  "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
 
 async function fetchTeamsJson() {
   try {
