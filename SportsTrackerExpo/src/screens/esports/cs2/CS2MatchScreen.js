@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,14 @@ import {
   Image
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome6 } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useTheme } from '../../../context/ThemeContext';
-import { getSpecificMatchDetails, getCS2MapImageUrl, getRoundData, getWeaponStats, getHitGroupStats, getMapDisplayName } from '../../../services/cs2MatchService';
+import { getSpecificMatchDetails, getCS2MapImageUrl, getRoundData, getWeaponStats, getHitGroupStats, getMapDisplayName, getMatchStreams } from '../../../services/cs2MatchService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const CS2MatchScreen = ({ navigation, route }) => {
-  const { gameId, seriesSlug, mapName } = route.params;
+  const { gameId, seriesSlug, mapName, team1Data: seriesTeam1, team2Data: seriesTeam2, eventName: seriesEventName, seriesTeam1Score, seriesTeam2Score } = route.params;
   const { colors, theme } = useTheme();
   const [matchData, setMatchData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,9 @@ const CS2MatchScreen = ({ navigation, route }) => {
   const [hitGroupStats, setHitGroupStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [expandedWeapons, setExpandedWeapons] = useState({});
+  const [streams, setStreams] = useState([]);
+  const [selectedStreamIndex, setSelectedStreamIndex] = useState(0);
+  const streamInitialized = useRef(false);
 
   useEffect(() => {
     loadMatchData();
@@ -47,12 +51,12 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }
   }, [activeTab, selectedRound, matchData]);
 
-  // Reset active tab to overview if using short stats and user is on an unavailable tab
+  // Reset active tab to overview if using short stats or no round data and user is on an unavailable tab
   useEffect(() => {
-    if (matchData?.useShortStats && (activeTab === 'economy' || activeTab === 'stats')) {
+    if ((matchData?.useShortStats || !hasRoundData) && (activeTab === 'economy' || activeTab === 'stats')) {
       setActiveTab('overview');
     }
-  }, [matchData?.useShortStats, activeTab]);
+  }, [matchData?.useShortStats, hasRoundData, activeTab]);
 
   // Load stats data when stats tab is active
   useEffect(() => {
@@ -69,6 +73,21 @@ const CS2MatchScreen = ({ navigation, route }) => {
       console.log('🔍 Does data have gameData?', !!data?.gameData);
       console.log('🔍 Data keys:', Object.keys(data || {}));
       setMatchData(data);
+
+      // If game_rounds is empty, fetch streams from the series-level endpoint
+      const rounds = data?.rounds || data?.gameData?.game_rounds || [];
+      if (rounds.length === 0 && seriesSlug) {
+        try {
+          const streamsData = await getMatchStreams(seriesSlug);
+          setStreams(streamsData);
+          if (streamsData.length > 0 && !streamInitialized.current) {
+            setSelectedStreamIndex(0);
+            streamInitialized.current = true;
+          }
+        } catch (streamError) {
+          console.error('Error loading streams:', streamError);
+        }
+      }
     } catch (error) {
       console.error('Error loading match data:', error);
     } finally {
@@ -154,9 +173,95 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }));
   };
 
+  // Determine if we have round data available
+  const hasRoundData = (() => {
+    const rounds = matchData?.rounds || matchData?.gameData?.game_rounds || [];
+    return rounds.length > 0;
+  })();
+
+  // CS2 stream URL helpers (same logic as CS2MatchDetailsScreen)
+  const isTwitchStream = (url) => {
+    if (!url) return false;
+    return url.toLowerCase().includes('twitch.tv');
+  };
+
+  const createTwitchEmbedUrl = (stream) => {
+    if (!stream) return null;
+    let channelName = null;
+    if (stream.embed_url) {
+      const embedUrl = stream.embed_url;
+      if (embedUrl.includes('player.twitch.tv')) {
+        const channelMatch = embedUrl.match(/[?&]channel=([^&]+)/);
+        if (channelMatch) channelName = channelMatch[1];
+      } else if (embedUrl.includes('twitch.tv/')) {
+        const urlMatch = embedUrl.match(/twitch\.tv\/([^/?]+)/);
+        if (urlMatch) channelName = urlMatch[1];
+      }
+    }
+    if (!channelName && stream.name) {
+      channelName = stream.name.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    }
+    if (!channelName && stream.channel) {
+      channelName = stream.channel;
+    }
+    if (!channelName) channelName = 'twitchdev';
+
+    let parentDomain = 'localhost';
+    if (typeof window !== 'undefined' && window.location) {
+      parentDomain = window.location.hostname;
+    }
+    const parentDomains = [parentDomain, 'localhost', '127.0.0.1', 'exp.host', 'snack.expo.dev'].filter(Boolean).join('&parent=');
+    return `https://player.twitch.tv/?channel=${encodeURIComponent(channelName)}&parent=${parentDomains}&muted=false&autoplay=true`;
+  };
+
+  const isYouTubeStream = (url) => {
+    if (!url) return false;
+    return url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
+  };
+
+  const createYouTubeEmbedUrl = (stream) => {
+    if (!stream || !stream.embed_url) return null;
+    const embedUrl = stream.embed_url;
+    let videoId = null;
+    let existingParams = '';
+    if (embedUrl.includes('/embed/')) {
+      const match = embedUrl.match(/\/embed\/([^?&]+)/);
+      if (match) videoId = match[1];
+      const paramMatch = embedUrl.match(/\?(.+)$/);
+      if (paramMatch) existingParams = paramMatch[1];
+    } else if (embedUrl.includes('watch?v=')) {
+      const match = embedUrl.match(/[?&]v=([^&]+)/);
+      if (match) videoId = match[1];
+    } else if (embedUrl.includes('youtu.be/')) {
+      const match = embedUrl.match(/youtu\.be\/([^?&]+)/);
+      if (match) videoId = match[1];
+    }
+    if (!videoId) return embedUrl;
+    const params = new URLSearchParams(existingParams);
+    if (!params.has('autoplay')) params.set('autoplay', '1');
+    if (!params.has('controls')) params.set('controls', '1');
+    if (!params.has('rel')) params.set('rel', '0');
+    if (!params.has('modestbranding')) params.set('modestbranding', '1');
+    if (!params.has('playsinline')) params.set('playsinline', '1');
+    if (!params.has('origin')) {
+      let origin = 'localhost';
+      if (typeof window !== 'undefined' && window.location) origin = window.location.hostname;
+      if (origin === 'localhost' || !origin) origin = 'localhost';
+      params.set('origin', `https://${origin}`);
+    }
+    return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+  };
+
+  const getStreamEmbedUrl = (stream) => {
+    if (!stream) return null;
+    if (stream.embed_url && isYouTubeStream(stream.embed_url)) return createYouTubeEmbedUrl(stream);
+    if (stream.embed_url && !isTwitchStream(stream.embed_url)) return stream.embed_url;
+    return createTwitchEmbedUrl(stream);
+  };
+
   const renderTabNavigation = () => {
-    // If using short stats, only show overview tab
-    const availableTabs = matchData?.useShortStats 
+    // If using short stats or no round data, only show overview tab
+    const availableTabs = (matchData?.useShortStats || !hasRoundData)
       ? [{ key: 'overview', label: 'Overview', icon: 'analytics' }]
       : [
           { key: 'overview', label: 'Overview', icon: 'analytics' },
@@ -197,11 +302,15 @@ const CS2MatchScreen = ({ navigation, route }) => {
       return null;
     }
 
-    // Extract team and match data
-    const team1 = matchData.team1;
-    const team2 = matchData.team2;
-    const team1Score = matchData.team1Score || 0;
-    const team2Score = matchData.team2Score || 0;
+    // Extract team and match data, with series-level fallbacks
+    const team1 = matchData.team1?.name && matchData.team1.name !== 'Team 1'
+      ? matchData.team1
+      : seriesTeam1 || matchData.team1;
+    const team2 = matchData.team2?.name && matchData.team2.name !== 'Team 2'
+      ? matchData.team2
+      : seriesTeam2 || matchData.team2;
+    const team1Score = matchData.team1Score || seriesTeam1Score || 0;
+    const team2Score = matchData.team2Score || seriesTeam2Score || 0;
     const mapDisplayName = matchData.displayName || 'Unknown';
     const status = matchData.completed ? 'COMPLETED' : 'SCHEDULED';
 
@@ -286,8 +395,8 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }
 
     const rounds = matchData.rounds;
-    const team1Name = matchData.team1?.name || 'Team 1';
-    const team2Name = matchData.team2?.name || 'Team 2';
+    const team1Name = getResolvedTeam(1).name;
+    const team2Name = getResolvedTeam(2).name;
     
     let firstHalfTeam1 = 0;
     let firstHalfTeam2 = 0;
@@ -674,6 +783,17 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }
   };
 
+  // Helper to get resolved team data with series-level fallbacks
+  const getResolvedTeam = (teamNumber) => {
+    const apiTeam = teamNumber === 1 ? matchData?.team1 : matchData?.team2;
+    const seriesTeam = teamNumber === 1 ? seriesTeam1 : seriesTeam2;
+    // Use API team if it has a real name, otherwise fall back to series team
+    if (apiTeam?.name && apiTeam.name !== `Team ${teamNumber}`) {
+      return { ...seriesTeam, ...apiTeam }; // Merge series data (logo) with API data
+    }
+    return seriesTeam || apiTeam || { name: `Team ${teamNumber}` };
+  };
+
   const renderOverviewTab = () => (
     <View>
       {/* Roster */}
@@ -684,13 +804,14 @@ const CS2MatchScreen = ({ navigation, route }) => {
             {/* Team 1 */}
             <View style={styles.leftTeamContainer}>
               <Text style={[styles.teamLabel, { color: theme.text }]}>
-                {matchData.team1?.name || 'Team 1'}
+                {getResolvedTeam(1).name}
               </Text>
               <View style={styles.leftPlayersColumn}>
                 {(matchData.playerStats || [])
                   .filter(player => {
                     const playerData = getFormattedPlayerData(player);
-                    return playerData.teamId === matchData.team1?.id;
+                    const resolvedId = getResolvedTeam(1).id;
+                    return playerData.teamId === resolvedId || playerData.teamName === getResolvedTeam(1).name;
                   })
                   .slice(0, 5)
                   .map((player, index) => {
@@ -719,13 +840,14 @@ const CS2MatchScreen = ({ navigation, route }) => {
             {/* Team 2 */}
             <View style={styles.rightTeamContainer}>
               <Text style={[styles.teamLabel, { color: theme.text }]}>
-                {matchData.team2?.name || 'Team 2'}
+                {getResolvedTeam(2).name}
               </Text>
               <View style={styles.rightPlayersColumn}>
                 {(matchData.playerStats || [])
                   .filter(player => {
                     const playerData = getFormattedPlayerData(player);
-                    return playerData.teamId === matchData.team2?.id;
+                    const resolvedId = getResolvedTeam(2).id;
+                    return playerData.teamId === resolvedId || playerData.teamName === getResolvedTeam(2).name;
                   })
                   .slice(0, 5)
                   .map((player, index) => {
@@ -808,9 +930,9 @@ const CS2MatchScreen = ({ navigation, route }) => {
           // Determine winning team based on winner_clan_name
           // Compare with team names to determine which team won this round
           let winningTeamNumber = 1;
-          if (round.winner_clan_name === matchData.team2?.name) {
+          if (round.winner_clan_name === getResolvedTeam(2).name) {
             winningTeamNumber = 2;
-          } else if (round.winner_clan_name === matchData.team1?.name) {
+          } else if (round.winner_clan_name === getResolvedTeam(1).name) {
             winningTeamNumber = 1;
           }
           
@@ -835,30 +957,30 @@ const CS2MatchScreen = ({ navigation, route }) => {
               </Text>
               <View style={styles.roundWinnerSection}>
                 {winningTeamNumber === 1 ? (
-                  matchData.team1?.logoUrl ? (
+                  getResolvedTeam(1).logoUrl ? (
                     <Image
-                      source={{ uri: matchData.team1.logoUrl }}
+                      source={{ uri: getResolvedTeam(1).logoUrl }}
                       style={styles.roundWinnerLogo}
                       resizeMode="contain"
                     />
                   ) : (
                     <View style={[styles.roundWinnerLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
                       <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
-                        {(matchData.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                        {getResolvedTeam(1).name.substring(0, 1).toUpperCase()}
                       </Text>
                     </View>
                   )
                 ) : (
-                  matchData.team2?.logoUrl ? (
+                  getResolvedTeam(2).logoUrl ? (
                     <Image
-                      source={{ uri: matchData.team2.logoUrl }}
+                      source={{ uri: getResolvedTeam(2).logoUrl }}
                       style={styles.roundWinnerLogo}
                       resizeMode="contain"
                     />
                   ) : (
                     <View style={[styles.roundWinnerLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
                       <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
-                        {(matchData.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                        {getResolvedTeam(2).name.substring(0, 1).toUpperCase()}
                       </Text>
                     </View>
                   )
@@ -919,7 +1041,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
   };
 
   const renderCS2TeamTable = (teamNumber) => {
-    const team = teamNumber === 1 ? matchData.team1 : matchData.team2;
+    const team = getResolvedTeam(teamNumber);
     const rounds = matchData?.rounds || matchData?.gameData?.game_rounds || [];
     const selectedRoundData = rounds.find(round => round.round_number === selectedRound);
     
@@ -948,10 +1070,11 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }
 
     // Get team players from playerStats
+    const resolvedTeam = getResolvedTeam(teamNumber);
     const teamPlayers = (matchData.playerStats || []).filter(player => 
-      player.clan_name === team.name || 
-      player.team_clan?.team_id === team.id ||
-      player.steam_profile?.player?.team_id === team.id
+      player.clan_name === resolvedTeam.name || 
+      player.team_clan?.team_id === resolvedTeam.id ||
+      player.steam_profile?.player?.team_id === resolvedTeam.id
     ).slice(0, 5);
 
     // Get round clan data for this team
@@ -1486,6 +1609,86 @@ const CS2MatchScreen = ({ navigation, route }) => {
     );
   };
 
+  const renderStreamSection = () => {
+    const selectedStream = streams[selectedStreamIndex];
+
+    return (
+      <View style={[styles.section, { backgroundColor: theme.surfaceSecondary, marginHorizontal: 16, padding: 12 }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Live Stream</Text>
+
+        {/* Stream Player */}
+        <View style={styles.streamContainer}>
+          {selectedStream ? (
+            <WebView
+              source={{
+                uri: getStreamEmbedUrl(selectedStream),
+                headers: {
+                  Referer: 'https://localhost/',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                },
+              }}
+              style={styles.streamPlayer}
+              allowsFullscreenVideo={true}
+              allowsInlineMediaPlayback={true}
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              scalesPageToFit={false}
+              mixedContentMode="compatibility"
+              thirdPartyCookiesEnabled={true}
+              sharedCookiesEnabled={true}
+              allowsBackForwardNavigationGestures={false}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error: ', nativeEvent);
+              }}
+              onHttpError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView HTTP error: ', nativeEvent);
+              }}
+            />
+          ) : (
+            <View style={[styles.streamPlayer, { backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' }]}>
+              <Text style={[{ color: theme.textSecondary }]}>No stream available</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stream Selection Buttons */}
+        <View style={[styles.streamButtons, screenWidth < 400 && styles.streamButtonsSmall]}>
+          {streams.slice(0, 3).map((stream, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.streamButton, screenWidth < 400 && styles.streamButtonSmall, {
+                borderColor: selectedStreamIndex === index ? colors.primary : 'transparent',
+                backgroundColor: theme.surface,
+              }]}
+              onPress={() => setSelectedStreamIndex(index)}
+            >
+              <View style={styles.streamButtonContent}>
+                {stream.channel_image_url && screenWidth >= 360 && (
+                  <Image
+                    source={{ uri: stream.channel_image_url }}
+                    style={[styles.streamChannelImage, screenWidth < 400 && styles.streamChannelImageSmall]}
+                    resizeMode="cover"
+                  />
+                )}
+                <Text
+                  style={[styles.streamName, screenWidth < 400 && styles.streamNameSmall, { color: theme.text }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {stream.name}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   const renderStatsTab = () => {
     if (loadingStats) {
       return (
@@ -1613,6 +1816,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {renderMatchHeader()}
+        {streams.length > 0 && renderStreamSection()}
         {renderTabNavigation()}
         {renderContent()}
         <View style={styles.bottomPadding} />
@@ -2000,6 +2204,71 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 32,
+  },
+  // Stream styles
+  streamContainer: {
+    aspectRatio: 16 / 12,
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  streamPlayer: {
+    flex: 1,
+  },
+  streamButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  streamButtonsSmall: {
+    gap: 2,
+  },
+  streamButton: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+    maxWidth: '32%',
+  },
+  streamButtonSmall: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    minHeight: 36,
+  },
+  streamButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    width: '100%',
+    maxWidth: '100%',
+    justifyContent: 'center',
+  },
+  streamChannelImage: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    flexShrink: 0,
+  },
+  streamChannelImageSmall: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  streamName: {
+    fontSize: 9,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
+    minWidth: 0,
+  },
+  streamNameSmall: {
+    fontSize: 8,
   },
   // Header Bar Styles
   headerBar: {

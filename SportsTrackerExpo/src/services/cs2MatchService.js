@@ -1072,6 +1072,29 @@ const formatSpecificMatchData = (combinedData) => {
 };
 
 /**
+ * Get match streams from the series-level endpoint
+ * @param {string} seriesSlug - The series slug (e.g., "faze-vs-vitality-20-08-2026")
+ * @returns {Promise<Array>} - Array of stream objects
+ */
+export const getMatchStreams = async (seriesSlug) => {
+  try {
+    if (!seriesSlug) {
+      return [];
+    }
+
+    const response = await fetch(
+      `${CS2_API_BASE}/api/v1/matches/${seriesSlug}?scope=show-match&stream_language=en&with=teams,tournament_deep,stage`
+    );
+    const data = await response.json();
+
+    return data?.streams || [];
+  } catch (error) {
+    console.error("Error fetching match streams:", error);
+    return [];
+  }
+};
+
+/**
  * Get round-specific data (hit group stats and kills matrix)
  * @param {number} gameId - The game ID
  * @param {number} roundNumber - The round number

@@ -153,7 +153,7 @@ const areColorsSimilar = (colorA, colorB) => {
   const dr = a.r - b.r;
   const dg = a.g - b.g;
   const db = a.b - b.b;
-  return Math.sqrt(dr * dr + dg * dg + db * db) <= 70;
+  return Math.sqrt(dr * dr + dg * dg + db * db) <= 60;
 };
 
 const resolveMatchColors = ({
@@ -164,21 +164,35 @@ const resolveMatchColors = ({
   homeFallback,
   awayFallback,
 }) => {
-  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
-  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
-  if (!areColorsSimilar(homePrimary, awayPrimary)) {
-    return { homeColor, awayColor };
+  const homeColors = [
+    homePrimary,
+    homeSecondary,
+    homeFallback,
+  ].filter(Boolean);
+
+  const awayColors = [
+    awayPrimary,
+    awaySecondary,
+    awayFallback,
+  ].filter(Boolean);
+
+  // Try every combination, in priority order.
+  for (const homeColor of homeColors) {
+    for (const awayColor of awayColors) {
+      if (!areColorsSimilar(homeColor, awayColor)) {
+        return {
+          homeColor,
+          awayColor,
+        };
+      }
+    }
   }
-  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
-  if (awaySecondarySimilar) {
-    return {
-      homeColor: homeSecondary ?? homeColor,
-      awayColor: awayPrimary ?? awayColor,
-    };
-  }
+
+  // If every possible combination is similar,
+  // fall back to the highest-priority colors.
   return {
-    homeColor: homeSecondary ?? homeColor,
-    awayColor: awaySecondary ?? awayColor,
+    homeColor: homeColors[0],
+    awayColor: awayColors[0],
   };
 };
 

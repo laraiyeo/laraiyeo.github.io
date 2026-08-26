@@ -260,9 +260,20 @@
     );
   });
 
+    document.getElementById("googleBtn").addEventListener("click", function (e) {
+    e.preventDefault();
+
+    sendGAEvent("google_click", "google_button");
+
+    window.open(
+      "https://play.google.com/store/apps/details?id=com.sportsheart.app",
+      "_blank"
+    );
+  });
+
   // Google button
+  /* 
   const googleBtn = document.getElementById("googleBtn");
-  const googleForm = document.getElementById("googleForm");
 
   googleBtn.addEventListener("click", function () {
     sendGAEvent("google_click", "google_button");
@@ -271,6 +282,9 @@
 
     document.getElementById("inviteEmail").focus();
   });
+  */
+  
+  const googleForm = document.getElementById("googleForm");
 
   async function handleInviteSubmit(e) {
     e.preventDefault();

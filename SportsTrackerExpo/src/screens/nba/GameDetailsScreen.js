@@ -102,7 +102,9 @@ const SimpleTeamDisplay = ({
   colors, // Add this prop
 }) => {
   const [logoError, setLogoError] = useState(false);
-  React.useEffect(() => { setLogoError(false); }, [logo]);
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [logo]);
 
   const teamAbbr = team?.abbreviation || "";
   const logoOpacity = isFinished ? (isWinner ? 1 : 0.55) : 1;
@@ -301,7 +303,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -312,26 +314,37 @@ function resolveMatchColors({
   homeFallback,
   awayFallback,
 }) {
-  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
-  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+  const homeColors = [
+    homePrimary,
+    homeSecondary,
+    homeFallback,
+  ].filter(Boolean);
 
-  if (!areColorsSimilar(homePrimary, awayPrimary)) {
-    return { homeColor, awayColor };
+  const awayColors = [
+    awayPrimary,
+    awaySecondary,
+    awayFallback,
+  ].filter(Boolean);
+
+  // Try every combination, in priority order.
+  for (const homeColor of homeColors) {
+    for (const awayColor of awayColors) {
+      if (!areColorsSimilar(homeColor, awayColor)) {
+        return {
+          homeColor,
+          awayColor,
+        };
+      }
+    }
   }
 
-  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
-  if (awaySecondarySimilar) {
-    return {
-      homeColor: homeSecondary ?? homeColor,
-      awayColor: awayPrimary ?? awayColor,
-    };
-  }
-
+  // If every possible combination is similar,
+  // fall back to the highest-priority colors.
   return {
-    homeColor,
-    awayColor: awaySecondary ?? awayColor,
+    homeColor: homeColors[0],
+    awayColor: awayColors[0],
   };
-}
+};
 
 // Smart color selection utility - returns appropriate colors for teams
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {

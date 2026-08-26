@@ -154,7 +154,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -165,26 +165,37 @@ function resolveMatchColors({
   homeFallback,
   awayFallback,
 }) {
-  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
-  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+  const homeColors = [
+    homePrimary,
+    homeSecondary,
+    homeFallback,
+  ].filter(Boolean);
 
-  if (!areColorsSimilar(homePrimary, awayPrimary)) {
-    return { homeColor, awayColor };
+  const awayColors = [
+    awayPrimary,
+    awaySecondary,
+    awayFallback,
+  ].filter(Boolean);
+
+  // Try every combination, in priority order.
+  for (const homeColor of homeColors) {
+    for (const awayColor of awayColors) {
+      if (!areColorsSimilar(homeColor, awayColor)) {
+        return {
+          homeColor,
+          awayColor,
+        };
+      }
+    }
   }
 
-  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
-  if (awaySecondarySimilar) {
-    return {
-      homeColor: homeSecondary ?? homeColor,
-      awayColor: awayPrimary ?? awayColor,
-    };
-  }
-
+  // If every possible combination is similar,
+  // fall back to the highest-priority colors.
   return {
-    homeColor,
-    awayColor: awaySecondary ?? awayColor,
+    homeColor: homeColors[0],
+    awayColor: awayColors[0],
   };
-}
+};
 
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
   return resolveMatchColors({
@@ -599,11 +610,19 @@ const WNBAGridCard = ({
 
   const { awayColor, homeColor } = getSmartTeamColors(home, away, colors);
 
-  const awayLogo = getTeamLogoUrl("wnba", away?.abbreviation) || getWnbaLogoUrl(away, isDarkMode);
-  const homeLogo = getTeamLogoUrl("wnba", home?.abbreviation) || getWnbaLogoUrl(home, isDarkMode);
+  const awayLogo =
+    getTeamLogoUrl("wnba", away?.abbreviation) ||
+    getWnbaLogoUrl(away, isDarkMode);
+  const homeLogo =
+    getTeamLogoUrl("wnba", home?.abbreviation) ||
+    getWnbaLogoUrl(home, isDarkMode);
 
-  React.useEffect(() => { setAwayLogoError(false); }, [awayLogo]);
-  React.useEffect(() => { setHomeLogoError(false); }, [homeLogo]);
+  React.useEffect(() => {
+    setAwayLogoError(false);
+  }, [awayLogo]);
+  React.useEffect(() => {
+    setHomeLogoError(false);
+  }, [homeLogo]);
 
   const awayAbbr = (away.abbreviation || "AWY").toUpperCase();
   const homeAbbr = (home.abbreviation || "HME").toUpperCase();
@@ -723,7 +742,12 @@ const WNBAGridCard = ({
                   { backgroundColor: awayColor || colors.primary },
                 ]}
               >
-                <Text style={[wnbaGridStyles.teamLogoPlaceholderText, { fontSize: 11 }]}>
+                <Text
+                  style={[
+                    wnbaGridStyles.teamLogoPlaceholderText,
+                    { fontSize: 11 },
+                  ]}
+                >
                   {awayAbbr || "A"}
                 </Text>
               </View>
@@ -808,7 +832,12 @@ const WNBAGridCard = ({
                   { backgroundColor: homeColor || colors.secondary },
                 ]}
               >
-                <Text style={[wnbaGridStyles.teamLogoPlaceholderText, { fontSize: 11 }]}>
+                <Text
+                  style={[
+                    wnbaGridStyles.teamLogoPlaceholderText,
+                    { fontSize: 11 },
+                  ]}
+                >
                   {homeAbbr || "H"}
                 </Text>
               </View>
@@ -906,12 +935,12 @@ const WNBAGridSection = ({
               { backgroundColor: theme.surfaceSecondary },
             ]}
           >
-                          <Image
-                            cachePolicy="memory-disk"
-                            source={require("../../../assets/wnba.png")}
-                            style={{ width: 50, height: 30, marginHorizontal: -12 }}
-                            resizeMode="contain"
-                          />
+            <Image
+              cachePolicy="memory-disk"
+              source={require("../../../assets/wnba.png")}
+              style={{ width: 50, height: 30, marginHorizontal: -12 }}
+              resizeMode="contain"
+            />
             <Text
               style={[wnbaGridStyles.groupBubbleName, { color: theme.text }]}
               numberOfLines={1}
@@ -1035,434 +1064,442 @@ const ScoreboardSection = ({
   const hasLogoError = (gameId, side) => !!logoErrorMap[`${gameId}_${side}`];
 
   return (
-  <View style={styles.scoreboardContainer}>
-    {groups.map((group, gIdx) => (
-      <View
-        key={group.dateKey}
-        style={[styles.eventContainer, { backgroundColor: theme.background }]}
-      >
+    <View style={styles.scoreboardContainer}>
+      {groups.map((group, gIdx) => (
         <View
-          style={[
-            styles.eventHeaderContainer,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
+          key={group.dateKey}
+          style={[styles.eventContainer, { backgroundColor: theme.background }]}
         >
-          <View style={styles.eventHeaderMainTap}>
-            <View style={styles.eventLogoContainer}>
-              <Image
-                            cachePolicy="memory-disk"
-                            source={require("../../../assets/wnba.png")}
-                            style={{ width: 80, height: 40, marginRight: 6 }}
-                            resizeMode="contain"
-                          />
-            </View>
-            <View style={styles.eventInfo}>
-              <Text
-                style={[styles.eventName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {group.label}
-              </Text>
-              <Text
-                style={[styles.eventSubLabel, { color: theme.textTertiary }]}
-              >
-                WNBA
-              </Text>
-            </View>
-          </View>
-          <View style={styles.eventHeaderRight}>
-            <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
-              {" "}
-              {group.games.length}{" "}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.matchesList}>
-          {group.games.map((game, idx) => {
-            const away = game.awayTeam || {};
-            const home = game.homeTeam || {};
-
-            const awayAbbr = (away.abbreviation || "").toUpperCase();
-            const homeAbbr = (home.abbreviation || "").toUpperCase();
-
-            const { awayColor, homeColor } = getSmartTeamColors(
-              home,
-              away,
-              colors,
-            );
-
-            const awayLogo = getTeamLogoUrl("wnba", away?.abbreviation) || getWnbaLogoUrl(away, isDarkMode);
-            const homeLogo = getTeamLogoUrl("wnba", home?.abbreviation) || getWnbaLogoUrl(home, isDarkMode);
-
-            const isLive = isWnbaGameLive(game);
-            const isFinished = isWnbaGameFinished(game);
-            const awayScore = away.score;
-            const homeScore = home.score;
-
-            const awayWins =
-              isFinished &&
-              awayScore != null &&
-              homeScore != null &&
-              parseInt(awayScore, 10) > parseInt(homeScore, 10);
-            const homeWins =
-              isFinished &&
-              awayScore != null &&
-              homeScore != null &&
-              parseInt(homeScore, 10) > parseInt(awayScore, 10);
-
-            let statusLine1 = "";
-            let statusLine2 = "";
-            if (isFinished) {
-              statusLine1 = "Final";
-              const { time, ampm } = formatLocalTime(game.date);
-              statusLine2 = `${time} ${ampm}`.trim();
-            } else if (isLive) {
-              statusLine1 = getLiveStatusLine(game).split(" - ")[0] || "";
-              statusLine2 = getLiveStatusLine(game).split(" - ")[1] || "";
-            } else {
-              const { time, ampm } = formatLocalTime(game.date);
-              statusLine1 = time;
-              statusLine2 = ampm;
-            }
-
-            const awayFav = isFavorite(String(away.id || ""), "wnba");
-            const homeFav = isFavorite(String(home.id || ""), "wnba");
-
-            const awayRecord =
-              typeof away.record === "object" && away.record !== null
-                ? away.record.displayValue || away.record.summary || ""
-                : away.record || "";
-            const homeRecord =
-              typeof home.record === "object" && home.record !== null
-                ? home.record.displayValue || home.record.summary || ""
-                : home.record || "";
-            const awayHasRecord = !!awayRecord;
-            const homeHasRecord = !!homeRecord;
-
-            return (
-              <TouchableOpacity
-                key={game.id || idx}
-                style={[
-                  styles.gameRow,
-                  { backgroundColor: theme.surfaceSecondary },
-                ]}
-                onPress={() =>
-                  navigation.navigate("GameDetails", {
-                    gameId: String(game.id),
-                    sport: "wnba",
-                    homeTeam: game.homeTeam,
-                    awayTeam: game.awayTeam,
-                    summerLeague: game.summerLeague || null,
-                  })
-                }
-              >
-                <CardGradient
-                  gradId={`${gIdx}_${idx}`}
-                  awayColor={awayColor}
-                  homeColor={homeColor}
-                  fallbackColor={colors.primary}
-                  theme={theme}
+          <View
+            style={[
+              styles.eventHeaderContainer,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <View style={styles.eventHeaderMainTap}>
+              <View style={styles.eventLogoContainer}>
+                <Image
+                  cachePolicy="memory-disk"
+                  source={require("../../../assets/wnba.png")}
+                  style={{ width: 80, height: 40, marginRight: 6 }}
+                  resizeMode="contain"
                 />
+              </View>
+              <View style={styles.eventInfo}>
+                <Text
+                  style={[styles.eventName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {group.label}
+                </Text>
+                <Text
+                  style={[styles.eventSubLabel, { color: theme.textTertiary }]}
+                >
+                  WNBA
+                </Text>
+              </View>
+            </View>
+            <View style={styles.eventHeaderRight}>
+              <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
+                {" "}
+                {group.games.length}{" "}
+              </Text>
+            </View>
+          </View>
 
-                <View style={styles.matchRow}>
-                  <View style={styles.statusContainer}>
-                    <Text
-                      style={[
-                        styles.statusLine1,
-                        {
-                          color: isLive
-                            ? colors.primary
-                            : isFinished
-                              ? theme.textSecondary
-                              : theme.text,
-                          fontWeight: "800",
-                          fontSize: 13,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {statusLine1}
-                    </Text>
-                    {!!statusLine2 && (
+          <View style={styles.matchesList}>
+            {group.games.map((game, idx) => {
+              const away = game.awayTeam || {};
+              const home = game.homeTeam || {};
+
+              const awayAbbr = (away.abbreviation || "").toUpperCase();
+              const homeAbbr = (home.abbreviation || "").toUpperCase();
+
+              const { awayColor, homeColor } = getSmartTeamColors(
+                home,
+                away,
+                colors,
+              );
+
+              const awayLogo =
+                getTeamLogoUrl("wnba", away?.abbreviation) ||
+                getWnbaLogoUrl(away, isDarkMode);
+              const homeLogo =
+                getTeamLogoUrl("wnba", home?.abbreviation) ||
+                getWnbaLogoUrl(home, isDarkMode);
+
+              const isLive = isWnbaGameLive(game);
+              const isFinished = isWnbaGameFinished(game);
+              const awayScore = away.score;
+              const homeScore = home.score;
+
+              const awayWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(awayScore, 10) > parseInt(homeScore, 10);
+              const homeWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(homeScore, 10) > parseInt(awayScore, 10);
+
+              let statusLine1 = "";
+              let statusLine2 = "";
+              if (isFinished) {
+                statusLine1 = "Final";
+                const { time, ampm } = formatLocalTime(game.date);
+                statusLine2 = `${time} ${ampm}`.trim();
+              } else if (isLive) {
+                statusLine1 = getLiveStatusLine(game).split(" - ")[0] || "";
+                statusLine2 = getLiveStatusLine(game).split(" - ")[1] || "";
+              } else {
+                const { time, ampm } = formatLocalTime(game.date);
+                statusLine1 = time;
+                statusLine2 = ampm;
+              }
+
+              const awayFav = isFavorite(String(away.id || ""), "wnba");
+              const homeFav = isFavorite(String(home.id || ""), "wnba");
+
+              const awayRecord =
+                typeof away.record === "object" && away.record !== null
+                  ? away.record.displayValue || away.record.summary || ""
+                  : away.record || "";
+              const homeRecord =
+                typeof home.record === "object" && home.record !== null
+                  ? home.record.displayValue || home.record.summary || ""
+                  : home.record || "";
+              const awayHasRecord = !!awayRecord;
+              const homeHasRecord = !!homeRecord;
+
+              return (
+                <TouchableOpacity
+                  key={game.id || idx}
+                  style={[
+                    styles.gameRow,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate("GameDetails", {
+                      gameId: String(game.id),
+                      sport: "wnba",
+                      homeTeam: game.homeTeam,
+                      awayTeam: game.awayTeam,
+                      summerLeague: game.summerLeague || null,
+                    })
+                  }
+                >
+                  <CardGradient
+                    gradId={`${gIdx}_${idx}`}
+                    awayColor={awayColor}
+                    homeColor={homeColor}
+                    fallbackColor={colors.primary}
+                    theme={theme}
+                  />
+
+                  <View style={styles.matchRow}>
+                    <View style={styles.statusContainer}>
                       <Text
                         style={[
-                          styles.statusLine2,
-                          { color: theme.textTertiary },
+                          styles.statusLine1,
+                          {
+                            color: isLive
+                              ? colors.primary
+                              : isFinished
+                                ? theme.textSecondary
+                                : theme.text,
+                            fontWeight: "800",
+                            fontSize: 13,
+                          },
                         ]}
                         numberOfLines={1}
                       >
-                        {statusLine2}
+                        {statusLine1}
                       </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.stackedTeams}>
-                    {/* Away */}
-                    <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
-                        {awayLogo && !hasLogoError(game.id, "away") ? (
-                          <Image
-                            cachePolicy="memory-disk"
-                            source={{ uri: awayLogo }}
-                            style={[
-                              styles.teamLogoSmallImg,
-                              {
-                                opacity: isFinished && !awayWins ? 0.55 : 1,
-                              },
-                            ]}
-                            contentFit="contain"
-                            onError={() => markLogoError(game.id, "away")}
-                          />
-                        ) : (
-                          <View
-                            style={[
-                              styles.teamLogoSmallImg,
-                              {
-                                borderRadius: 17.5,
-                                backgroundColor: awayColor || colors.primary,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                opacity: isFinished && !awayWins ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={{
-                                color: "#fff",
-                                fontSize: 10,
-                                fontWeight: "800",
-                              }}
-                              numberOfLines={1}
-                            >
-                              {awayAbbr}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View
-                        style={[
-                          styles.teamTextStack,
-                          awayHasRecord
-                            ? styles.teamTextStackWithRecord
-                            : styles.teamTextStackNoRecord,
-                        ]}
-                      >
+                      {!!statusLine2 && (
                         <Text
                           style={[
-                            styles.teamName,
-                            !awayHasRecord && styles.teamNameNoRecord,
-                            {
-                              color: awayFav ? colors.primary : theme.text,
-                              fontWeight: awayWins ? "700" : "400",
-                              opacity: awayWins ? 1 : isFinished ? 0.55 : 1,
-                            },
+                            styles.statusLine2,
+                            { color: theme.textTertiary },
                           ]}
                           numberOfLines={1}
                         >
-                          {awayFav ? "★ " : ""}
-                          {away.displayName || "Away"}
-                        </Text>
-                        {awayHasRecord ? (
-                          <Text
-                            style={[
-                              styles.teamRecord,
-                              {
-                                color: theme.textSecondary,
-                                opacity: isFinished && !awayWins ? 0.55 : 1,
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {awayRecord}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {(isLive || isFinished) && awayScore != null && (
-                        <Text
-                          style={[
-                            styles.scoreText,
-                            {
-                              color: awayWins ? colors.primary : theme.text,
-                              fontWeight: awayWins ? "700" : "400",
-                              opacity: !awayWins && isFinished ? 0.55 : 1,
-                            },
-                          ]}
-                        >
-                          {awayScore}
+                          {statusLine2}
                         </Text>
                       )}
                     </View>
 
-                    {/* Home */}
-                    <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
-                        {homeLogo && !hasLogoError(game.id, "home") ? (
-                          <Image
-                            cachePolicy="memory-disk"
-                            source={{ uri: homeLogo }}
-                            style={[
-                              styles.teamLogoSmallImg,
-                              {
-                                opacity: isFinished && !homeWins ? 0.55 : 1,
-                              },
-                            ]}
-                            contentFit="contain"
-                            onError={() => markLogoError(game.id, "home")}
-                          />
-                        ) : (
-                          <View
-                            style={[
-                              styles.teamLogoSmallImg,
-                              {
-                                borderRadius: 17.5,
-                                backgroundColor: homeColor || colors.secondary,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                opacity: isFinished && !homeWins ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={{
-                                color: "#fff",
-                                fontSize: 10,
-                                fontWeight: "800",
-                              }}
-                              numberOfLines={1}
+                    <View style={styles.stackedTeams}>
+                      {/* Away */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {awayLogo && !hasLogoError(game.id, "away") ? (
+                            <Image
+                              cachePolicy="memory-disk"
+                              source={{ uri: awayLogo }}
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
+                              contentFit="contain"
+                              onError={() => markLogoError(game.id, "away")}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  borderRadius: 17.5,
+                                  backgroundColor: awayColor || colors.primary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
                             >
-                              {homeAbbr}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View
-                        style={[
-                          styles.teamTextStack,
-                          homeHasRecord
-                            ? styles.teamTextStackWithRecord
-                            : styles.teamTextStackNoRecord,
-                        ]}
-                      >
-                        <Text
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 10,
+                                  fontWeight: "800",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {awayAbbr}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View
                           style={[
-                            styles.teamName,
-                            !homeHasRecord && styles.teamNameNoRecord,
-                            {
-                              color: homeFav ? colors.primary : theme.text,
-                              fontWeight: homeWins ? "700" : "400",
-                              opacity: homeWins ? 1 : isFinished ? 0.55 : 1,
-                            },
+                            styles.teamTextStack,
+                            awayHasRecord
+                              ? styles.teamTextStackWithRecord
+                              : styles.teamTextStackNoRecord,
                           ]}
-                          numberOfLines={1}
                         >
-                          {homeFav ? "★ " : ""}
-                          {home.displayName || "Home"}
-                        </Text>
-                        {homeHasRecord ? (
                           <Text
                             style={[
-                              styles.teamRecord,
+                              styles.teamName,
+                              !awayHasRecord && styles.teamNameNoRecord,
                               {
-                                color: theme.textSecondary,
-                                opacity: isFinished && !homeWins ? 0.55 : 1,
+                                color: awayFav ? colors.primary : theme.text,
+                                fontWeight: awayWins ? "700" : "400",
+                                opacity: awayWins ? 1 : isFinished ? 0.55 : 1,
                               },
                             ]}
                             numberOfLines={1}
                           >
-                            {homeRecord}
+                            {awayFav ? "★ " : ""}
+                            {away.displayName || "Away"}
                           </Text>
-                        ) : null}
+                          {awayHasRecord ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                {
+                                  color: theme.textSecondary,
+                                  opacity: isFinished && !awayWins ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {awayRecord}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && awayScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: awayWins ? colors.primary : theme.text,
+                                fontWeight: awayWins ? "700" : "400",
+                                opacity: !awayWins && isFinished ? 0.55 : 1,
+                              },
+                            ]}
+                          >
+                            {awayScore}
+                          </Text>
+                        )}
                       </View>
-                      {(isLive || isFinished) && homeScore != null && (
-                        <Text
+
+                      {/* Home */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {homeLogo && !hasLogoError(game.id, "home") ? (
+                            <Image
+                              cachePolicy="memory-disk"
+                              source={{ uri: homeLogo }}
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                              contentFit="contain"
+                              onError={() => markLogoError(game.id, "home")}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  borderRadius: 17.5,
+                                  backgroundColor:
+                                    homeColor || colors.secondary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 10,
+                                  fontWeight: "800",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {homeAbbr}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View
                           style={[
-                            styles.scoreText,
-                            {
-                              color: homeWins ? colors.primary : theme.text,
-                              fontWeight: homeWins ? "700" : "400",
-                              opacity: !homeWins && isFinished ? 0.55 : 1,
-                            },
+                            styles.teamTextStack,
+                            homeHasRecord
+                              ? styles.teamTextStackWithRecord
+                              : styles.teamTextStackNoRecord,
                           ]}
                         >
-                          {homeScore}
-                        </Text>
-                      )}
+                          <Text
+                            style={[
+                              styles.teamName,
+                              !homeHasRecord && styles.teamNameNoRecord,
+                              {
+                                color: homeFav ? colors.primary : theme.text,
+                                fontWeight: homeWins ? "700" : "400",
+                                opacity: homeWins ? 1 : isFinished ? 0.55 : 1,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {homeFav ? "★ " : ""}
+                            {home.displayName || "Home"}
+                          </Text>
+                          {homeHasRecord ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                {
+                                  color: theme.textSecondary,
+                                  opacity: isFinished && !homeWins ? 0.55 : 1,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {homeRecord}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && homeScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: homeWins ? colors.primary : theme.text,
+                                fontWeight: homeWins ? "700" : "400",
+                                opacity: !homeWins && isFinished ? 0.55 : 1,
+                              },
+                            ]}
+                          >
+                            {homeScore}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <View
-                  style={[styles.gameFooter, { borderTopColor: theme.border }]}
-                >
-                  <View style={styles.gameFooterLeft}>
-                    {game.venue ? (
-                      <Text
-                        style={[styles.venue, { color: theme.textSecondary }]}
-                      >
-                        {game.venue}
-                      </Text>
-                    ) : null}
-                    {(game.season?.type === 3 ||
-                      game.season?.type === 4 ||
-                      game.season?.type === 5) &&
-                    game.notes ? (
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Ionicons
-                          name="trophy"
-                          size={14}
-                          color={colors.primary}
-                          style={{ marginRight: 6 }}
-                        />
+                  <View
+                    style={[
+                      styles.gameFooter,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
+                    <View style={styles.gameFooterLeft}>
+                      {game.venue ? (
+                        <Text
+                          style={[styles.venue, { color: theme.textSecondary }]}
+                        >
+                          {game.venue}
+                        </Text>
+                      ) : null}
+                      {(game.season?.type === 3 ||
+                        game.season?.type === 4 ||
+                        game.season?.type === 5) &&
+                      game.notes ? (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Ionicons
+                            name="trophy"
+                            size={14}
+                            color={colors.primary}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            style={[
+                              styles.broadcast,
+                              {
+                                color: colors.primary,
+                                fontWeight: "700",
+                                fontStyle: "normal",
+                              },
+                            ]}
+                          >
+                            {game.notes}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {game.broadcast ? (
                         <Text
                           style={[
                             styles.broadcast,
-                            {
-                              color: colors.primary,
-                              fontWeight: "700",
-                              fontStyle: "normal",
-                            },
+                            { color: theme.textTertiary },
                           ]}
                         >
-                          {game.notes}
+                          {game.broadcast}
                         </Text>
-                      </View>
-                    ) : null}
-                    {game.broadcast ? (
-                      <Text
-                        style={[
-                          styles.broadcast,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        {game.broadcast}
-                      </Text>
-                    ) : null}
+                      ) : null}
+                    </View>
+                    <View style={styles.gameFooterRight}>
+                      <LiveViewerBadge
+                        gameId={game.id}
+                        status={{
+                          isCompleted: game.isCompleted,
+                          status: game.gameStatus,
+                        }}
+                        style={styles.viewerBadge}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.gameFooterRight}>
-                    <LiveViewerBadge
-                      gameId={game.id}
-                      status={{
-                        isCompleted: game.isCompleted,
-                        status: game.gameStatus,
-                      }}
-                      style={styles.viewerBadge}
-                    />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
-    ))}
-  </View>
-);
+      ))}
+    </View>
+  );
 };
 
 // ── Main screen ─────────────────────────────────────────────────────

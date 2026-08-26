@@ -86,7 +86,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -1587,7 +1587,9 @@ const UEFA_LOGO = require("../../../../assets/UEFA_1.png");
 const FIFA_LOGO = require("../../../../assets/FIFA_1.png");
 
 function UEFARanking({ teamInfo, theme, colors }) {
-  const uefaRanking = teamInfo?.rankings?.find((r) => r.type === "UEFA" || r.type === "FIFA");
+  const uefaRanking = teamInfo?.rankings?.find(
+    (r) => r.type === "UEFA" || r.type === "FIFA",
+  );
   if (!uefaRanking) return null;
 
   return (
@@ -1598,9 +1600,15 @@ function UEFARanking({ teamInfo, theme, colors }) {
       ]}
     >
       <View style={urStyles.row}>
-        <Image source={uefaRanking.type === "UEFA" ? UEFA_LOGO : FIFA_LOGO} style={urStyles.logo} resizeMode="contain" />
+        <Image
+          source={uefaRanking.type === "UEFA" ? UEFA_LOGO : FIFA_LOGO}
+          style={urStyles.logo}
+          resizeMode="contain"
+        />
         <View style={urStyles.labelBlock}>
-          <Text style={[urStyles.labelLine, { color: theme.text }]}>{uefaRanking.type === "UEFA" ? "UEFA" : "FIFA"}</Text>
+          <Text style={[urStyles.labelLine, { color: theme.text }]}>
+            {uefaRanking.type === "UEFA" ? "UEFA" : "FIFA"}
+          </Text>
           <Text style={[urStyles.labelLine, { color: theme.text }]}>
             Ranking
           </Text>
@@ -4806,7 +4814,8 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
   }, [teamData]);
 
   // Team color from first match participant matching teamId
-  const teamColor = teamInfo?.colorPrimary || teamInfo?.colorSecondary || colors.primary;
+  const teamColor =
+    teamInfo?.colorPrimary || teamInfo?.colorSecondary || colors.primary;
 
   const resolvedColor = teamColor ?? colors.primary;
 

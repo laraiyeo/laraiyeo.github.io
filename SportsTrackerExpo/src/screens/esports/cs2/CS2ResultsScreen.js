@@ -1863,6 +1863,12 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   `match-${series.id}`,
                                 mapName:
                                   map.name || map.displayName?.toLowerCase(),
+                                // Pass series-level team data as fallback
+                                team1Data: series.team1,
+                                team2Data: series.team2,
+                                eventName: series.eventName,
+                                seriesTeam1Score: series.team1Score,
+                                seriesTeam2Score: series.team2Score,
                               });
                             }
                           }}
@@ -3522,11 +3528,13 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     numberOfLines={2}
                   >
                     {series.maps
-                      .map((m, idx) => {
-                        if (!m) return null;
+                      .filter((m) => {
+                        if (!m) return false;
+
                         const mapName = getMapDisplayName(
                           m.name || m.displayName,
                         );
+
                         const t1 =
                           m.team1Score ||
                           m.team1Rounds ||
@@ -3537,15 +3545,37 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           m.team2Rounds ||
                           m.team2RoundsWon ||
                           0;
+
+                        return (
+                          mapName?.toLowerCase() !== "tbd" &&
+                          (t1 !== 0 || t2 !== 0)
+                        );
+                      })
+                      .map((m, idx) => {
+                        const mapName = getMapDisplayName(
+                          m.name || m.displayName,
+                        );
+
+                        const t1 =
+                          m.team1Score ||
+                          m.team1Rounds ||
+                          m.team1RoundsWon ||
+                          0;
+                        const t2 =
+                          m.team2Score ||
+                          m.team2Rounds ||
+                          m.team2RoundsWon ||
+                          0;
+
                         const winner =
                           t1 > t2
                             ? series.team1?.shortName
                             : t2 > t1
                               ? series.team2?.shortName
                               : null;
+
                         return `Map ${idx + 1}: ${mapName} (${t1}-${t2})${winner ? ` - ${winner}` : ""}`;
                       })
-                      .filter(Boolean)
                       .join(" · ")}
                   </Text>
                 )}
@@ -3571,7 +3601,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     <Text
                       style={[
                         cs2ScStyles.teamHeaderName,
-                        { color: colors.primary },
+                        { color: theme.text },
                       ]}
                     >
                       {series.team1?.shortName || "Team 1"}
@@ -3708,7 +3738,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     <Text
                       style={[
                         cs2ScStyles.teamHeaderName,
-                        { color: colors.secondary },
+                        { color: theme.text },
                       ]}
                     >
                       {series.team2?.shortName || "Team 2"}

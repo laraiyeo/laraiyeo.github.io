@@ -470,6 +470,12 @@ export class NFLService extends BaseCacheService {
                 teamInfo = await this.getTeamData(drive.team.$ref);
               }
 
+              // Resolve endTeam if different from team (e.g., turnovers)
+              let endTeamInfo = null;
+              if (drive.endTeam && drive.endTeam.$ref) {
+                endTeamInfo = await this.getTeamData(drive.endTeam.$ref);
+              }
+
               // Use the inline plays data that's already included in the drives response
               // No need to make additional API calls - the plays.items array is already there!
               let playsData = [];
@@ -490,6 +496,25 @@ export class NFLService extends BaseCacheService {
                 );
               }
 
+              // Resolve play-level team $refs to full team data
+              const resolvedPlays = playsData.map((play) => {
+                if (play.team && play.team.$ref) {
+                  // Extract team ID from $ref URL
+                  const match = play.team.$ref.match(/\/teams\/(\d+)/);
+                  if (match) {
+                    const teamId = match[1];
+                    // Match against the drive's team or endTeam
+                    if (teamInfo && String(teamInfo.id) === teamId) {
+                      return { ...play, team: { ...teamInfo, logo: teamInfo.logos?.[1]?.href || teamInfo.logos?.[0]?.href } };
+                    }
+                    if (endTeamInfo && String(endTeamInfo.id) === teamId) {
+                      return { ...play, team: { ...endTeamInfo, logo: endTeamInfo.logos?.[1]?.href || endTeamInfo.logos?.[0]?.href } };
+                    }
+                  }
+                }
+                return play;
+              });
+
               return {
                 ...drive,
                 team: teamInfo
@@ -499,8 +524,15 @@ export class NFLService extends BaseCacheService {
                         teamInfo.logos?.[1]?.href || teamInfo.logos?.[0]?.href,
                     }
                   : null,
-                plays: playsData,
-                hasPlaysData: playsData.length > 0,
+                endTeam: endTeamInfo
+                  ? {
+                      ...endTeamInfo,
+                      logo:
+                        endTeamInfo.logos?.[1]?.href || endTeamInfo.logos?.[0]?.href,
+                    }
+                  : null,
+                plays: resolvedPlays,
+                hasPlaysData: resolvedPlays.length > 0,
               };
             } catch (error) {
               console.error("Error processing drive:", error);

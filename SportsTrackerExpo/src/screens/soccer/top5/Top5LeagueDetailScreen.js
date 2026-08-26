@@ -68,7 +68,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -5073,8 +5073,10 @@ const BracketsTab = ({ brackets, standings, theme, colors, navigation }) => {
                         // LOSER button
                         if (loserPaths.length > 0) {
                           const loserRef = loserPaths[0];
-                          const loserChildFixture = loserRef.childFixture || group.childFixture;
-                          const loserChildId = loserRef.childFixtureId || group.childFixtureId;
+                          const loserChildFixture =
+                            loserRef.childFixture || group.childFixture;
+                          const loserChildId =
+                            loserRef.childFixtureId || group.childFixtureId;
                           btns.push(
                             <TouchableOpacity
                               key="loser_btn"
@@ -5128,8 +5130,10 @@ const BracketsTab = ({ brackets, standings, theme, colors, navigation }) => {
                         // WINNER button
                         if (winnerPaths.length > 0) {
                           const winnerRef = winnerPaths[0];
-                          const winnerChildFixture = winnerRef.childFixture || group.childFixture;
-                          const winnerChildId = winnerRef.childFixtureId || group.childFixtureId;
+                          const winnerChildFixture =
+                            winnerRef.childFixture || group.childFixture;
+                          const winnerChildId =
+                            winnerRef.childFixtureId || group.childFixtureId;
                           btns.push(
                             <TouchableOpacity
                               key="winner_btn"
@@ -5188,8 +5192,11 @@ const BracketsTab = ({ brackets, standings, theme, colors, navigation }) => {
                               activeOpacity={0.75}
                               onPress={() => {
                                 const otherRef = otherPaths[0];
-                                const otherChildFixture = otherRef.childFixture || group.childFixture;
-                                const otherChildId = otherRef.childFixtureId || group.childFixtureId;
+                                const otherChildFixture =
+                                  otherRef.childFixture || group.childFixture;
+                                const otherChildId =
+                                  otherRef.childFixtureId ||
+                                  group.childFixtureId;
                                 const ts = otherChildFixture?.stage_id;
                                 if (ts && ts !== activeStageId) {
                                   setActiveStageId(ts);

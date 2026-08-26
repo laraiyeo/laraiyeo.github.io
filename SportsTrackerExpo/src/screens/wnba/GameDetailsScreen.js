@@ -102,7 +102,9 @@ const SimpleTeamDisplay = ({
   colors, // Add this prop
 }) => {
   const [logoError, setLogoError] = useState(false);
-  React.useEffect(() => { setLogoError(false); }, [logo]);
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [logo]);
 
   const teamAbbr = team?.abbreviation || "";
   const logoOpacity = isFinished ? (isWinner ? 1 : 0.55) : 1;
@@ -301,7 +303,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -1066,7 +1068,8 @@ const WNBAPlayerDetailModal = ({
   const teamName = playerTeam?.displayName || playerTeam?.name || "";
   const teamAbbrev = playerTeam?.abbreviation || "";
   const teamLogo =
-    playerTeam?.logo || (teamAbbrev ? getTeamLogoUrl("wnba", teamAbbrev) : null);
+    playerTeam?.logo ||
+    (teamAbbrev ? getTeamLogoUrl("wnba", teamAbbrev) : null);
 
   // Get stat metadata
   const meta = player?.meta || findPlayerStatsMeta?.(player) || {};
@@ -3704,7 +3707,10 @@ const WNBALinescoreTable = ({
 
   return (
     <View
-      style={[wnbaStatsStyles.linescoreCard, { backgroundColor: theme.surface }]}
+      style={[
+        wnbaStatsStyles.linescoreCard,
+        { backgroundColor: theme.surface },
+      ]}
     >
       <View style={{ flexDirection: "row" }}>
         <View style={{ width: LABEL_W }}>
@@ -3978,93 +3984,99 @@ const WNBAStatsSection = ({ details, theme, colors, isDarkMode }) => {
 
   return (
     <>
-    {rows.length !== 0 && (
-    <View
-      style={[
-        wnbaStatsStyles.card,
-        { backgroundColor: theme.surface, borderColor: theme.border },
-      ]}
-    >
-      <View
-        style={[wnbaStatsStyles.headerRow, { borderBottomColor: theme.border }]}
-      >
-        <Text style={[wnbaStatsStyles.headerTitle, { color: theme.text }]}>
-          Stats
-        </Text>
-      </View>
-      <View style={wnbaStatsStyles.body}>
-        {rows.length === 0 ? (
-          <Text
-            style={[wnbaStatsStyles.emptyText, { color: theme.textTertiary }]}
+      {rows.length !== 0 && (
+        <View
+          style={[
+            wnbaStatsStyles.card,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View
+            style={[
+              wnbaStatsStyles.headerRow,
+              { borderBottomColor: theme.border },
+            ]}
           >
-            No stats available
-          </Text>
-        ) : (
-          rows.map((row) => {
-            const total = row.awayNum + row.homeNum;
-            const awayShare = total > 0 ? row.awayNum / total : 0.5;
-            const homeShare = total > 0 ? row.homeNum / total : 0.5;
-            return (
-              <View key={row.key} style={wnbaStatsStyles.statRowWrap}>
-                <View style={wnbaStatsStyles.statValueRow}>
-                  <Text
-                    style={[
-                      wnbaStatsStyles.statValueText,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {row.awayVal}
-                  </Text>
-                  <Text
-                    style={[
-                      wnbaStatsStyles.statValueText,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {row.homeVal}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    wnbaStatsStyles.statBarTrack,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                >
-                  <View
-                    style={[
-                      wnbaStatsStyles.statBarFillLeft,
-                      {
-                        width: `${Math.max(0, Math.min(100, awayShare * 100))}%`,
-                        backgroundColor: awayColor,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      wnbaStatsStyles.statBarFillRight,
-                      {
-                        width: `${Math.max(0, Math.min(100, homeShare * 100))}%`,
-                        backgroundColor: homeColor,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text
-                  style={[
-                    wnbaStatsStyles.statCategoryLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {row.label.toUpperCase()}
-                </Text>
-              </View>
-            );
-          })
-        )}
-      </View>
-    </View>
-    )}
+            <Text style={[wnbaStatsStyles.headerTitle, { color: theme.text }]}>
+              Stats
+            </Text>
+          </View>
+          <View style={wnbaStatsStyles.body}>
+            {rows.length === 0 ? (
+              <Text
+                style={[
+                  wnbaStatsStyles.emptyText,
+                  { color: theme.textTertiary },
+                ]}
+              >
+                No stats available
+              </Text>
+            ) : (
+              rows.map((row) => {
+                const total = row.awayNum + row.homeNum;
+                const awayShare = total > 0 ? row.awayNum / total : 0.5;
+                const homeShare = total > 0 ? row.homeNum / total : 0.5;
+                return (
+                  <View key={row.key} style={wnbaStatsStyles.statRowWrap}>
+                    <View style={wnbaStatsStyles.statValueRow}>
+                      <Text
+                        style={[
+                          wnbaStatsStyles.statValueText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {row.awayVal}
+                      </Text>
+                      <Text
+                        style={[
+                          wnbaStatsStyles.statValueText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {row.homeVal}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        wnbaStatsStyles.statBarTrack,
+                        { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          wnbaStatsStyles.statBarFillLeft,
+                          {
+                            width: `${Math.max(0, Math.min(100, awayShare * 100))}%`,
+                            backgroundColor: awayColor,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          wnbaStatsStyles.statBarFillRight,
+                          {
+                            width: `${Math.max(0, Math.min(100, homeShare * 100))}%`,
+                            backgroundColor: homeColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        wnbaStatsStyles.statCategoryLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {row.label.toUpperCase()}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </View>
+      )}
     </>
   );
 };
@@ -4329,7 +4341,10 @@ const WNBASeriesSummarySection = ({
   return (
     <View style={[wnbaSeriesStyles.card, { backgroundColor: theme.surface }]}>
       <View
-        style={[wnbaSeriesStyles.headerRow, { borderBottomColor: theme.border }]}
+        style={[
+          wnbaSeriesStyles.headerRow,
+          { borderBottomColor: theme.border },
+        ]}
       >
         <Text style={[wnbaSeriesStyles.headerTitle, { color: theme.text }]}>
           SEASON SERIES
@@ -7745,7 +7760,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
   // Team navigation function with proper ID handling
   const navigateToTeam = (team) => {
     if (!team || (!team.id && !team.team?.id)) {
-      console.warn("WNBA GameDetails navigateToTeam: Invalid team object", team);
+      console.warn(
+        "WNBA GameDetails navigateToTeam: Invalid team object",
+        team,
+      );
       return;
     }
 

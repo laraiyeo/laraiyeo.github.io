@@ -84,7 +84,7 @@ function areColorsSimilar(colorA, colorB) {
   const dg = a.g - b.g;
   const db = a.b - b.b;
   const distance = Math.sqrt(dr * dr + dg * dg + db * db);
-  return distance <= 70;
+  return distance <= 60;
 }
 
 function resolveMatchColors({
@@ -1580,16 +1580,16 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
   const grouped = useMemo(() => {
     const teamTypeById = new Map();
     const countryTeamNames = new Set();
-    
+
     for (const stint of teams ?? []) {
       const teamId = stint?.team?.id;
       const teamType = stint?.team?.type ?? null;
       const teamName = stint?.team?.name ?? "";
-      
+
       if (teamId != null) {
         teamTypeById.set(teamId, teamType);
       }
-      
+
       // Track country team names for name-based matching
       if (teamType === "national") {
         countryTeamNames.add(teamName.toLowerCase().trim());
@@ -1599,12 +1599,12 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
     // Helper to check if a team name is a variant of a country team
     const isCountryTeamVariant = (teamName) => {
       if (!teamName) return false;
-      
+
       const normalizedName = teamName.toLowerCase().trim();
-      
+
       // Direct match
       if (countryTeamNames.has(normalizedName)) return true;
-      
+
       // Check for common national team variants
       for (const countryName of countryTeamNames) {
         // Check if this is a variant like "U23", "U21", etc.
@@ -1615,27 +1615,27 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
           normalizedName.endsWith(countryName)
         ) {
           // Additional check to avoid false positives
-          const isLikelyVariant = 
-            normalizedName.includes('u23') ||
-            normalizedName.includes('u21') ||
-            normalizedName.includes('u19') ||
-            normalizedName.includes('u17') ||
-            normalizedName.includes('olympic') ||
-            normalizedName.includes('women') ||
-            normalizedName.includes('women\'s') ||
-            normalizedName.includes('feminino') ||
-            normalizedName.includes('femina') ||
-            normalizedName.endsWith('u23') ||
-            normalizedName.endsWith('u21') ||
-            normalizedName.endsWith('u19') ||
-            normalizedName.endsWith('u17');
-            
+          const isLikelyVariant =
+            normalizedName.includes("u23") ||
+            normalizedName.includes("u21") ||
+            normalizedName.includes("u19") ||
+            normalizedName.includes("u17") ||
+            normalizedName.includes("olympic") ||
+            normalizedName.includes("women") ||
+            normalizedName.includes("women's") ||
+            normalizedName.includes("feminino") ||
+            normalizedName.includes("femina") ||
+            normalizedName.endsWith("u23") ||
+            normalizedName.endsWith("u21") ||
+            normalizedName.endsWith("u19") ||
+            normalizedName.endsWith("u17");
+
           if (isLikelyVariant || normalizedName.length > countryName.length) {
             return true;
           }
         }
       }
-      
+
       return false;
     };
 
@@ -1643,10 +1643,10 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
       // First check by ID (existing logic)
       const typeById = teamTypeById.get(teamId);
       if (typeById === "national") return "country";
-      
+
       // Then check by name for variants
       if (isCountryTeamVariant(teamName)) return "country";
-      
+
       return "club";
     };
 

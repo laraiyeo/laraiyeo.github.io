@@ -520,21 +520,7 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
   const streams = basicMatch?.streams || [];
   const selectedStream = streams[selectedStreamIndex];
 
-  // Debug logging for streams
-  if (streams.length > 0) {
-    console.log(
-      "Available streams:",
-      streams.map((s, i) => ({
-        index: i,
-        name: s.name,
-        original_url: s.embed_url,
-        is_twitch: isTwitchStream(s.embed_url),
-        is_youtube: isYouTubeStream(s.embed_url),
-        final_url: getStreamEmbedUrl(s),
-      }))
-    );
-    console.log("Selected stream index:", selectedStreamIndex);
-  }
+  console.log(basicMatch)
 
   return (
     <ScrollView
@@ -912,12 +898,6 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
                 onHttpError={(syntheticEvent) => {
                   const { nativeEvent } = syntheticEvent;
                   console.error("WebView HTTP error: ", nativeEvent);
-                }}
-                onLoadStart={() => {
-                  console.log(
-                    "Loading stream:",
-                    getStreamEmbedUrl(selectedStream)
-                  );
                 }}
               />
             ) : (

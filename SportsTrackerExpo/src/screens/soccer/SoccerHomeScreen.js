@@ -77,7 +77,7 @@ const SoccerHomeScreen = () => {
   const navigation = useNavigation();
   const { theme, colors, isDarkMode } = useTheme();
 
-  const show = true; // Set to true to show the top 5 leagues, false to hide them
+  const show = false; // Set to true to show the top 5 leagues, false to hide them
 
 const soccerLeagues = [
   ...(!show)

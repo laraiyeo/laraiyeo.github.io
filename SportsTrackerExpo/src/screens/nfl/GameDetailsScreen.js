@@ -67,7 +67,7 @@ const areColorsSimilar = (colorA, colorB) => {
   const dr = a.r - b.r;
   const dg = a.g - b.g;
   const db = a.b - b.b;
-  return Math.sqrt(dr * dr + dg * dg + db * db) <= 70;
+  return Math.sqrt(dr * dr + dg * dg + db * db) <= 60;
 };
 
 const resolveMatchColors = ({
@@ -78,23 +78,38 @@ const resolveMatchColors = ({
   homeFallback,
   awayFallback,
 }) => {
-  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
-  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
-  if (!areColorsSimilar(homePrimary, awayPrimary)) {
-    return { homeColor, awayColor };
+  const homeColors = [
+    homePrimary,
+    homeSecondary,
+    homeFallback,
+  ].filter(Boolean);
+
+  const awayColors = [
+    awayPrimary,
+    awaySecondary,
+    awayFallback,
+  ].filter(Boolean);
+
+  // Try every combination, in priority order.
+  for (const homeColor of homeColors) {
+    for (const awayColor of awayColors) {
+      if (!areColorsSimilar(homeColor, awayColor)) {
+        return {
+          homeColor,
+          awayColor,
+        };
+      }
+    }
   }
-  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
-  if (awaySecondarySimilar) {
-    return {
-      homeColor: homeSecondary ?? homeColor,
-      awayColor: awayPrimary ?? awayColor,
-    };
-  }
+
+  // If every possible combination is similar,
+  // fall back to the highest-priority colors.
   return {
-    homeColor: homeSecondary ?? homeColor,
-    awayColor: awaySecondary ?? awayColor,
+    homeColor: homeColors[0],
+    awayColor: awayColors[0],
   };
 };
+
 
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
   return resolveMatchColors({
@@ -126,6 +141,193 @@ const getTextOnColor = (hex) => {
 };
 
 const { width } = Dimensions.get("window");
+
+// ── Module-level caches to prevent duplicate network fetches ──────
+const _logoUriCache = new Map(); // abbr -> { uri }
+const _headshotUriCache = new Map(); // athleteId -> uri string
+
+const _getLogoSource = (abbr) => {
+  if (!abbr) return require("../../../assets/nfl.png");
+  const key = abbr.toUpperCase();
+  if (_logoUriCache.has(key)) return _logoUriCache.get(key);
+  const src = { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${key}.png&w=150&h=150` };
+  _logoUriCache.set(key, src);
+  return src;
+};
+
+const _getHeadshotUri = (athleteId) => {
+  if (!athleteId) return null;
+  const key = String(athleteId);
+  if (_headshotUriCache.has(key)) return _headshotUriCache.get(key);
+  const uri = `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${key}.png&w=150`;
+  _headshotUriCache.set(key, uri);
+  return uri;
+};
+
+// ── Module-level athlete name cache (populated from boxscore data) ──
+const _athleteNameCache = new Map(); // id -> { displayName, firstName, lastName }
+
+const _populateAthleteNameCache = (boxscorePlayers) => {
+  if (!boxscorePlayers) return;
+  for (const teamData of boxscorePlayers) {
+    if (!teamData?.statistics) continue;
+    for (const statCategory of teamData.statistics) {
+      if (!statCategory?.athletes) continue;
+      for (const entry of statCategory.athletes) {
+        const a = entry?.athlete;
+        if (a?.id && a.displayName && !_athleteNameCache.has(String(a.id))) {
+          _athleteNameCache.set(String(a.id), {
+            displayName: a.displayName,
+            firstName: a.firstName,
+            lastName: a.lastName,
+          });
+        }
+      }
+    }
+  }
+};
+
+// ── ESPN team ID → abbreviation mapping (module-level, never recreated) ──
+const NFL_TEAM_ID_TO_ABBR = {
+  2: "BUF", 15: "MIA", 17: "NE", 20: "NYJ", 33: "BAL", 4: "CIN",
+  5: "CLE", 23: "PIT", 34: "HOU", 11: "IND", 30: "JAX", 10: "TEN",
+  7: "DEN", 12: "KC", 13: "LV", 24: "LAC", 6: "DAL", 19: "NYG",
+  21: "PHI", 28: "WAS", 3: "CHI", 8: "DET", 9: "GB", 16: "MIN",
+  1: "ATL", 29: "CAR", 18: "NO", 27: "TB", 22: "ARI", 14: "LAR",
+  25: "SF", 26: "SEA",
+};
+
+const NFL_ABBR_TO_ID = Object.fromEntries(
+  Object.entries(NFL_TEAM_ID_TO_ABBR).map(([id, abbr]) => [abbr, id]),
+);
+
+const getNFLTeamAbbreviation = (espnTeam) => {
+  if (espnTeam?.abbreviation) return espnTeam.abbreviation;
+  const id = espnTeam?.id?.toString();
+  if (id && NFL_TEAM_ID_TO_ABBR[id]) return NFL_TEAM_ID_TO_ABBR[id];
+  return null;
+};
+
+const getPlayerInitials = (athleteOrId) => {
+  // Accept either a full athlete object or just an ID (number/string)
+  let athlete = athleteOrId;
+  if (athleteOrId != null && typeof athleteOrId !== 'object') {
+    // It's a raw ID — look up from cache
+    athlete = _athleteNameCache.get(String(athleteOrId)) || null;
+  } else if (athleteOrId?.id && !athleteOrId.displayName && !athleteOrId.firstName) {
+    // Object with only an id — look up from cache
+    athlete = _athleteNameCache.get(String(athleteOrId.id)) || athleteOrId;
+  }
+  const name =
+    athlete?.displayName ||
+    `${athlete?.firstName || ""} ${athlete?.lastName || ""}`.trim();
+  if (!name) return "?";
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+};
+
+// ── Cached TeamLogoImage (module-level, avoids duplicate fetches) ─
+// Custom comparator: only re-render when abbreviation or isLosingTeam changes
+const TeamLogoImage = React.memo(
+  ({ team, style, isLosingTeam = false }) => {
+  const abbr = getNFLTeamAbbreviation(team);
+  const [failed, setFailed] = useState(false);
+
+  const source = _getLogoSource(abbr);
+
+  if (failed) {
+    const initial = (abbr || team?.name || "?")[0]?.toUpperCase() || "?";
+    return (
+      <View
+        style={[
+          style,
+          {
+            backgroundColor: "rgba(128,128,128,0.15)",
+            borderRadius: (style?.width || style?.height || 24) / 2,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          isLosingTeam && { opacity: 0.5 },
+        ]}
+      >
+        <Text
+          style={{
+            fontSize: ((style?.width || style?.height || 24) * 0.45),
+            fontWeight: "800",
+            color: "#888",
+          }}
+        >
+          {initial}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      style={[style, isLosingTeam && { opacity: 0.5 }]}
+      source={source}
+      onError={() => setFailed(true)}
+      resizeMode="contain"
+    />
+  );
+  },
+  (prev, next) => {
+    // Only re-render when abbreviation or isLosingTeam actually changes
+    const prevAbbr = getNFLTeamAbbreviation(prev.team);
+    const nextAbbr = getNFLTeamAbbreviation(next.team);
+    return prevAbbr === nextAbbr && prev.isLosingTeam === next.isLosingTeam;
+  },
+);
+
+// ── Cached PlayerHeadshotImage (module-level, shows initials on failure) ──
+const PlayerHeadshotImage = React.memo(
+  ({ athleteId, style, borderColor }) => {
+  const [failed, setFailed] = useState(false);
+  const uri = _getHeadshotUri(athleteId);
+  const initials = getPlayerInitials(athleteId);
+
+  if (failed || !uri) {
+    return (
+      <View
+        style={[
+          style,
+          {
+            backgroundColor: borderColor + 33 || "rgba(128,128,128,0.2)",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Text
+          style={{
+            fontSize: ((style?.width || style?.height || 40) * 0.38),
+            fontWeight: "800",
+            color: getTextOnColor(borderColor || "#fff"),
+          }}
+        >
+          {initials}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+  },
+  (prev, next) => prev.athleteId === next.athleteId,
+);
 
 const NflHeaderGradient = ({ homeColor, awayColor, theme, height }) => (
   <View style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
@@ -515,7 +717,6 @@ const NflPlayFieldMini = ({ play, teamColor, startYard, endYard }) => {
 
 const NflTeamSide = ({
   team,
-  logo,
   score,
   record,
   side,
@@ -555,13 +756,12 @@ const NflTeamSide = ({
               <FontAwesome6 name="football" size={10} color={theme.text} />
             </View>
           ) : null}
-          <Image
-            source={{ uri: logo }}
+          <TeamLogoImage
+            team={team}
             style={[
               nflHeaderStyles.teamLogo,
               { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
             ]}
-            resizeMode="contain"
           />
           {showPossession && side === "away" ? (
             <View style={nflHeaderStyles.possessionBadgeAway}>
@@ -751,6 +951,9 @@ const GameDetailsScreen = ({ route }) => {
   const [isPlayerCardCapturing, setIsPlayerCardCapturing] = useState(false);
   const [playerCardContentHeight, setPlayerCardContentHeight] = useState(0);
   const [playerCopyModalVisible, setPlayerCopyModalVisible] = useState(false);
+  // Multi-category stats for player share card
+  const [playerShareCategories, setPlayerShareCategories] = useState([]); // all categories player appears in
+  const [playerShareExtraCategories, setPlayerShareExtraCategories] = useState([]); // selected extra categories
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1196,112 +1399,9 @@ const GameDetailsScreen = ({ route }) => {
     setAvailableStreams({});
   };
 
-  // Helper function to get NFL team abbreviation from ESPN team data
-  const getNFLTeamAbbreviation = (espnTeam) => {
-    // First try direct abbreviation if available
-    if (espnTeam?.abbreviation) {
-      return espnTeam.abbreviation;
-    }
+  // getNFLTeamAbbreviation and getNFLTeamId are now module-level (see top of file)
 
-    // ESPN team ID to abbreviation mapping
-    const teamMapping = {
-      2: "BUF",
-      15: "MIA",
-      17: "NE",
-      20: "NYJ",
-      33: "BAL",
-      4: "CIN",
-      5: "CLE",
-      23: "PIT",
-      34: "HOU",
-      11: "IND",
-      30: "JAX",
-      10: "TEN",
-      7: "DEN",
-      12: "KC",
-      13: "LV",
-      24: "LAC",
-      6: "DAL",
-      19: "NYG",
-      21: "PHI",
-      28: "WAS",
-      3: "CHI",
-      8: "DET",
-      9: "GB",
-      16: "MIN",
-      1: "ATL",
-      29: "CAR",
-      18: "NO",
-      27: "TB",
-      22: "ARI",
-      14: "LAR",
-      25: "SF",
-      26: "SEA",
-    };
-
-    const abbr = teamMapping[espnTeam?.id?.toString()];
-    if (abbr) {
-      return abbr;
-    }
-
-    console.warn("No NFL abbreviation mapping found for team:", espnTeam?.id);
-    return null;
-  };
-
-  // Helper function to get NFL team ID for favorites
-  const getNFLTeamId = (espnTeam) => {
-    // ESPN team abbreviations to NFL team IDs mapping
-    const teamMapping = {
-      BUF: "2",
-      MIA: "15",
-      NE: "17",
-      NYJ: "20",
-      BAL: "33",
-      CIN: "4",
-      CLE: "5",
-      PIT: "23",
-      HOU: "34",
-      IND: "11",
-      JAX: "30",
-      TEN: "10",
-      DEN: "7",
-      KC: "12",
-      LV: "13",
-      LAC: "24",
-      DAL: "6",
-      NYG: "19",
-      PHI: "21",
-      WAS: "28",
-      CHI: "3",
-      DET: "8",
-      GB: "9",
-      MIN: "16",
-      ATL: "1",
-      CAR: "29",
-      NO: "18",
-      TB: "27",
-      ARI: "22",
-      LAR: "14",
-      SF: "25",
-      SEA: "26",
-    };
-
-    let nflId = teamMapping[espnTeam.abbreviation];
-
-    if (!nflId) {
-      console.warn(
-        "No NFL ID mapping found for team:",
-        espnTeam.abbreviation,
-        "ESPN ID:",
-        espnTeam.id,
-        "Using ESPN ID as fallback",
-      );
-      return espnTeam.id;
-    }
-    return nflId;
-  };
-
-  // Helper to resolve NFL team color from game data (replaces static color map)
+  // Helper to resolve NFL team color from game data
   const getGameTeamColor = (
     abbreviation,
     fallback = colors?.primary || "#888888",
@@ -1319,55 +1419,15 @@ const GameDetailsScreen = ({ route }) => {
     return fallback;
   };
 
-  // TeamLogoImage component with fallback support
-  const TeamLogoImage = React.memo(({ team, style, isLosingTeam = false }) => {
-    const [logoSource, setLogoSource] = useState(() => {
-      const teamAbbr = getNFLTeamAbbreviation(team);
-      if (teamAbbr) {
-        return { uri: getTeamLogoUrl("nfl", teamAbbr) };
-      } else {
-        return require("../../../assets/nfl.png");
-      }
-    });
-    const [retryCount, setRetryCount] = useState(0);
+  // Resolve a team abbreviation to the smart (contrast-aware) color
+  const getSmartColor = (abbreviation) => {
+    const abbr = String(abbreviation || "").toUpperCase();
+    if (abbr === awayAbbr) return awayColor;
+    if (abbr === homeAbbr) return homeColor;
+    return getGameTeamColor(abbreviation);
+  };
 
-    useEffect(() => {
-      const teamAbbr = getNFLTeamAbbreviation(team);
-      if (teamAbbr) {
-        setLogoSource({ uri: getTeamLogoUrl("nfl", teamAbbr) });
-        setRetryCount(0);
-      } else {
-        setLogoSource(require("../../../assets/nfl.png"));
-      }
-    }, [team]);
-
-    const handleError = () => {
-      if (retryCount === 0) {
-        const teamAbbr = getNFLTeamAbbreviation(team);
-        if (teamAbbr) {
-          // Try alternative URL format
-          setLogoSource({
-            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr}.png&w=150&h=150`,
-          });
-          setRetryCount(1);
-        } else {
-          setLogoSource(require("../../../assets/nfl.png"));
-        }
-      } else {
-        // Final fallback
-        setLogoSource(require("../../../assets/nfl.png"));
-      }
-    };
-
-    return (
-      <Image
-        style={[style, isLosingTeam && { opacity: 0.5 }]}
-        source={logoSource}
-        onError={handleError}
-        resizeMode="contain"
-      />
-    );
-  });
+  // TeamLogoImage and PlayerHeadshotImage are now module-level (see top of file)
 
   useEffect(() => {
     loadGameDetails();
@@ -1548,6 +1608,27 @@ const GameDetailsScreen = ({ route }) => {
       }
       const details = await NFLService.getGameDetails(gameId);
 
+      // Populate athlete name cache from boxscore for PlayerHeadshotImage initials
+      _populateAthleteNameCache(details?.boxscore?.players);
+
+      // Also populate from leaders data
+      if (details?.leaders) {
+        for (const teamLeader of details.leaders) {
+          for (const cat of (teamLeader.leaders || [])) {
+            for (const entry of (cat.leaders || [])) {
+              const a = entry?.athlete;
+              if (a?.id && a.displayName && !_athleteNameCache.has(String(a.id))) {
+                _athleteNameCache.set(String(a.id), {
+                  displayName: a.displayName,
+                  firstName: a.firstName,
+                  lastName: a.lastName,
+                });
+              }
+            }
+          }
+        }
+      }
+
       // Get the competition data first for both formatting and hash calculation
       const competition =
         details.header?.competitions?.[0] || details.competitions?.[0];
@@ -1604,6 +1685,22 @@ const GameDetailsScreen = ({ route }) => {
         setLoadingDrives(true);
       }
       const drives = await NFLService.getDrivesComplete(gameId);
+
+      // Populate athlete name cache from resolved play participants
+      for (const drive of drives) {
+        for (const play of (drive.plays || [])) {
+          for (const p of (play.participants || [])) {
+            const a = p?.athlete;
+            if (a?.id && a.displayName && !_athleteNameCache.has(String(a.id))) {
+              _athleteNameCache.set(String(a.id), {
+                displayName: a.displayName,
+                firstName: a.firstName,
+                lastName: a.lastName,
+              });
+            }
+          }
+        }
+      }
 
       // For silent updates we previously tried to skip setting state when
       // only minor/uncaptured changes were present. That caused the UI to
@@ -1746,8 +1843,13 @@ const GameDetailsScreen = ({ route }) => {
 
       if (categories.length > 0) {
         setPlayerStats({ splits: { categories } });
+        // Store all available categories for multi-category selection
+        setPlayerShareCategories(categories.map((c) => c.name));
+        setPlayerShareExtraCategories([]);
       } else {
         setPlayerStats(null);
+        setPlayerShareCategories([]);
+        setPlayerShareExtraCategories([]);
       }
     } catch (error) {
       console.error("Error extracting player stats for copy modal:", error);
@@ -1808,7 +1910,7 @@ const GameDetailsScreen = ({ route }) => {
       // Get team information for the scoring team
       const driveTeam = overrideDrive?.team || selectedDrive?.team;
       const teamLogo = driveTeam?.logos?.[0]?.href || "";
-      const teamColor = driveTeam?.color ? `#${driveTeam.color}` : "#000000";
+      const teamColor = getSmartColor(driveTeam?.abbreviation) || (driveTeam?.color ? `#${driveTeam.color}` : "#000000");
       const teamAbbr = driveTeam?.abbreviation || "";
       const teamName = driveTeam?.displayName || driveTeam?.name || "";
 
@@ -3193,16 +3295,9 @@ const GameDetailsScreen = ({ route }) => {
                     {awayLeader.athlete?.jersey || "#"}
                   </Text>
                 </View>
-                <Image
-                  source={{
-                    uri:
-                      awayLeader.athlete?.headshot?.href ||
-                      "https://via.placeholder.com/40x40?text=P",
-                  }}
+                <PlayerHeadshotImage
+                  athleteId={awayLeader.athlete?.id}
                   style={styles.leaderHeadshot}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/40x40?text=P",
-                  }}
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
@@ -3255,16 +3350,9 @@ const GameDetailsScreen = ({ route }) => {
                     {homeLeader.athlete?.jersey || "#"}
                   </Text>
                 </View>
-                <Image
-                  source={{
-                    uri:
-                      homeLeader.athlete?.headshot?.href ||
-                      "https://via.placeholder.com/40x40?text=P",
-                  }}
+                <PlayerHeadshotImage
+                  athleteId={homeLeader.athlete?.id}
                   style={styles.leaderHeadshot}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/40x40?text=P",
-                  }}
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
@@ -3389,16 +3477,9 @@ const GameDetailsScreen = ({ route }) => {
               </Text>
 
               <View style={styles.individualLeaderPlayerRow}>
-                <Image
-                  source={{
-                    uri:
-                      leader.athlete?.headshot?.href ||
-                      "https://via.placeholder.com/40x40?text=P",
-                  }}
+                <PlayerHeadshotImage
+                  athleteId={leader.athlete?.id}
                   style={styles.individualLeaderHeadshot}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/40x40?text=P",
-                  }}
                 />
                 <View style={styles.individualLeaderPlayerInfo}>
                   <View style={styles.individualLeaderNameRow}>
@@ -3862,7 +3943,7 @@ const GameDetailsScreen = ({ route }) => {
   // Helper to render team injury report for scheduled games
   const renderTeamInjuries = (team) => {
     const teamId = team?.team?.id;
-    const teamColor = getGameTeamColor(team?.team?.abbreviation);
+    const teamColor = getSmartColor(team?.team?.abbreviation);
     const injuries = gameDetails?.injuries || [];
     const teamInjuryData = injuries.find(
       (entry) => String(entry?.team?.id) === String(teamId),
@@ -3897,7 +3978,10 @@ const GameDetailsScreen = ({ route }) => {
                 : theme.textSecondary;
           const injuryType = entry?.details?.type || "";
           const injuryLocation = entry?.details?.location || "";
-          const injuryDetail = entry?.details?.detail !== "Not Specified" ? entry?.details?.detail : null;
+          const injuryDetail =
+            entry?.details?.detail !== "Not Specified"
+              ? entry?.details?.detail
+              : null;
           const returnDate = entry?.details?.returnDate
             ? new Date(entry.details.returnDate).toLocaleDateString("en-US", {
                 month: "short",
@@ -3926,10 +4010,10 @@ const GameDetailsScreen = ({ route }) => {
                     },
                   ]}
                 >
-                  <Image
-                    source={{ uri: headshotUri }}
+                  <PlayerHeadshotImage
+                    athleteId={athlete?.id}
                     style={nflTeamStyles.playerCardHeadshot}
-                    resizeMode="cover"
+                    borderColor={teamColor}
                   />
                 </View>
                 <View style={nflTeamStyles.playerCardNameBlock}>
@@ -3996,8 +4080,9 @@ const GameDetailsScreen = ({ route }) => {
                   <Text
                     style={[styles.injuryDetailValue, { color: theme.text }]}
                   >
-                    {[injuryDetail, injuryLocation].filter(Boolean).join(" · ") ||
-                      "\u2014"}
+                    {[injuryDetail, injuryLocation]
+                      .filter(Boolean)
+                      .join(" · ") || "\u2014"}
                   </Text>
                   <Text
                     style={[
@@ -4147,7 +4232,7 @@ const GameDetailsScreen = ({ route }) => {
       });
     });
 
-    const teamColor = getGameTeamColor(team?.team?.abbreviation);
+    const teamColor = getSmartColor(team?.team?.abbreviation);
 
     return (
       <View style={{ paddingTop: 12, paddingBottom: 40 }}>
@@ -4239,10 +4324,10 @@ const GameDetailsScreen = ({ route }) => {
                         },
                       ]}
                     >
-                      <Image
-                        source={{ uri: headshotUri }}
+                      <PlayerHeadshotImage
+                        athleteId={athlete?.id}
                         style={nflTeamStyles.playerCardHeadshot}
-                        resizeMode="cover"
+                        borderColor={teamColor}
                       />
                     </View>
                     <View style={nflTeamStyles.playerCardNameBlock}>
@@ -4383,7 +4468,10 @@ const GameDetailsScreen = ({ route }) => {
     // Team info for the active drive
     const driveTeamId = activeDrive?.team?.id;
     const driveTeamAbbr = activeDrive?.team?.abbreviation || "";
-    const driveTeamColor = getGameTeamColor(driveTeamAbbr);
+    const driveEndTeamAbbr = activeDrive?.endTeam?.abbreviation || "";
+    const driveHasEndTeam = driveEndTeamAbbr && driveEndTeamAbbr !== driveTeamAbbr;
+    const driveTeamColor = getSmartColor(driveTeamAbbr);
+    const driveEndTeamColor = driveHasEndTeam ? getSmartColor(driveEndTeamAbbr) : driveTeamColor;
     const driveIsTD = activeDrive?.isScore;
 
     return (
@@ -4400,9 +4488,22 @@ const GameDetailsScreen = ({ route }) => {
             const isActive = revIdx === activeIdx;
             const team = drive.team;
             const abbr = team?.abbreviation || "";
-            const teamColor = getGameTeamColor(abbr);
+            const endTeam = drive.endTeam;
+            const endAbbr = endTeam?.abbreviation || "";
+            const hasEndTeam = endAbbr && endAbbr !== abbr;
             const isTD = drive.isScore;
-            const teamLogo = team?.logos?.[0]?.href || team?.logo || "";
+            // If endTeam differs and drive scored, use endTeam color
+            const chipColor = (hasEndTeam && isTD)
+              ? getSmartColor(endAbbr)
+              : getSmartColor(abbr);
+            const teamLogo = isDarkMode
+              ? team?.logos?.[1]?.href || team?.logo || ""
+              : team?.logos?.[0]?.href || team?.logo || "";
+            const endTeamLogo = hasEndTeam
+              ? (isDarkMode
+                ? endTeam?.logos?.[1]?.href || endTeam?.logo || ""
+                : endTeam?.logos?.[0]?.href || endTeam?.logo || "")
+              : "";
 
             return (
               <TouchableOpacity
@@ -4415,20 +4516,31 @@ const GameDetailsScreen = ({ route }) => {
                 style={[
                   nflDrivesStyles.driveChip,
                   {
-                    borderColor: isActive ? teamColor : theme.border,
+                    borderColor: isActive ? chipColor : theme.border,
                     backgroundColor: isTD
-                      ? teamColor + "33"
+                      ? chipColor + "33"
                       : isActive
                         ? theme.surfaceSecondary
                         : theme.surface,
                   },
-                ]}
-              >
-                {teamLogo ? (
-                  <Image
-                    source={{ uri: teamLogo }}
+                ]}>
+                {/* If endTeam differs, show both logos with divider */}
+                {hasEndTeam ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                    <TeamLogoImage
+                      team={team}
+                      style={nflDrivesStyles.driveChipLogo}
+                    />
+                    <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: "700" }}>|</Text>
+                    <TeamLogoImage
+                      team={endTeam}
+                      style={nflDrivesStyles.driveChipLogo}
+                    />
+                  </View>
+                ) : teamLogo ? (
+                  <TeamLogoImage
+                    team={team}
                     style={nflDrivesStyles.driveChipLogo}
-                    resizeMode="contain"
                   />
                 ) : null}
                 <Text
@@ -4454,9 +4566,9 @@ const GameDetailsScreen = ({ route }) => {
             {
               backgroundColor: theme.surfaceSecondary,
               flexDirection: "row",
-              borderColor: activeDrive?.team?.color
-                ? getGameTeamColor(activeDrive.team.abbreviation)
-                : theme.border,
+              borderColor: driveHasEndTeam
+                ? driveEndTeamColor
+                : driveTeamColor,
             },
           ]}
         >
@@ -4471,7 +4583,7 @@ const GameDetailsScreen = ({ route }) => {
             <Text
               style={[
                 nflDrivesStyles.driveBannerResult,
-                { color: driveIsTD ? driveTeamColor : theme.textSecondary },
+                { color: driveIsTD ? driveEndTeamColor : theme.textSecondary },
               ]}
             >
               {activeDrive?.displayResult ||
@@ -4490,11 +4602,38 @@ const GameDetailsScreen = ({ route }) => {
             )}
           </View>
           <View style={[{ alignItems: "center", justifyContent: "center" }]}>
-            {activeDrive?.team?.logo ? (
-              <Image
-                source={{ uri: activeDrive.team.logo }}
+            {/* If endTeam differs, show endTeam logo with team overlay */}
+            {driveHasEndTeam ? (
+              <View style={{ position: "relative", width: 40, height: 40 }}>
+                <TeamLogoImage
+                  team={activeDrive.endTeam}
+                  style={{ width: 40, height: 40 }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    right: -2,
+                    bottom: -2,
+                    width: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    backgroundColor: "rgba(255,255,255,0.9)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: driveTeamColor,
+                  }}
+                >
+                  <TeamLogoImage
+                    team={activeDrive.team}
+                    style={{ width: 16, height: 16 }}
+                  />
+                </View>
+              </View>
+            ) : activeDrive?.team?.logo ? (
+              <TeamLogoImage
+                team={activeDrive.team}
                 style={nflDrivesStyles.bubbleLogo}
-                resizeMode="contain"
               />
             ) : null}
           </View>
@@ -4552,8 +4691,17 @@ const GameDetailsScreen = ({ route }) => {
                 play.end?.yardLine !== undefined;
               const canExpand = hasYardLine || isScoring;
 
-              // Team color for card border
-              const cardBorderColor = isScoring ? driveTeamColor : theme.border;
+              // Team color for card border - use play's own team color
+              const playTeamAbbr = play.team?.abbreviation || driveTeamAbbr;
+              const playTeamColor = getSmartColor(playTeamAbbr);
+              const playTeamDiffersFromDrive = playTeamAbbr.toUpperCase() !== driveTeamAbbr.toUpperCase();
+              // Scoring: endTeam color if endTeam differs, otherwise play team color
+              // Non-scoring: play team border only if play team differs from drive team
+              const cardBorderColor = isScoring
+                ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor)
+                : playTeamDiffersFromDrive
+                  ? playTeamColor
+                  : theme.border;
 
               return (
                 <View key={playId} style={nflDrivesStyles.playRowWrap}>
@@ -4591,7 +4739,7 @@ const GameDetailsScreen = ({ route }) => {
                       {
                         borderColor: cardBorderColor,
                         backgroundColor: isScoring
-                          ? driveTeamColor + "18"
+                          ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) + "18"
                           : theme.surface,
                       },
                     ]}
@@ -4601,7 +4749,7 @@ const GameDetailsScreen = ({ route }) => {
                       <Text
                         style={[
                           nflDrivesStyles.playTypeLabel,
-                          { color: isScoring ? driveTeamColor : theme.text },
+                          { color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text },
                         ]}
                       >
                         {playType}
@@ -4613,7 +4761,7 @@ const GameDetailsScreen = ({ route }) => {
                           style={[
                             nflDrivesStyles.playScore,
                             {
-                              color: isScoring ? driveTeamColor : theme.text,
+                              color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text,
                               fontWeight:
                                 play.awayScore < play.homeScore ? "500" : "800",
                             },
@@ -4624,7 +4772,7 @@ const GameDetailsScreen = ({ route }) => {
                         <Text
                           style={[
                             nflDrivesStyles.playScore,
-                            { color: isScoring ? driveTeamColor : theme.text },
+                            { color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text },
                           ]}
                         >
                           &nbsp;-&nbsp;
@@ -4633,7 +4781,7 @@ const GameDetailsScreen = ({ route }) => {
                           style={[
                             nflDrivesStyles.playScore,
                             {
-                              color: isScoring ? driveTeamColor : theme.text,
+                              color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text,
                               fontWeight:
                                 play.awayScore > play.homeScore ? "500" : "800",
                             },
@@ -4691,23 +4839,15 @@ const GameDetailsScreen = ({ route }) => {
                     {/* Expanded: field display + share */}
                     {isExpanded && (
                       <View style={nflDrivesStyles.playExpandedWrap}>
-                        {/* Field visualization */}
+                        {/* Field visualization - always use play's own start/end and team color */}
                         {hasYardLine &&
                           (() => {
-                            // Scoring plays use the full drive span;
-                            // regular plays use the individual play's yard lines
-                            const fieldStartYard = isScoring
-                              ? (activeDrive?.start?.yardLine ??
-                                play.start?.yardLine)
-                              : play.start?.yardLine;
-                            const fieldEndYard = isScoring
-                              ? (activeDrive?.end?.yardLine ??
-                                play.end?.yardLine)
-                              : (play.end?.yardLine ?? play.start?.yardLine);
+                            const fieldStartYard = play.start?.yardLine;
+                            const fieldEndYard = play.end?.yardLine ?? play.start?.yardLine;
                             return (
                               <NflPlayFieldMini
                                 play={play}
-                                teamColor={driveTeamColor}
+                                teamColor={playTeamColor}
                                 startYard={fieldStartYard}
                                 endYard={fieldEndYard}
                               />
@@ -5056,9 +5196,6 @@ const GameDetailsScreen = ({ route }) => {
           day: "numeric",
         })}`;
 
-  const awayLogoUri = awayTeam?.team?.logo || getTeamLogoUrl("nfl", awayAbbr);
-  const homeLogoUri = homeTeam?.team?.logo || getTeamLogoUrl("nfl", homeAbbr);
-
   // Scroll-driven sticky mini header interpolation (matches NHL pattern)
   const stickyThreshold = headerH > 0 ? headerH - 40 : 120;
   const stickyOpacity = scrollY.interpolate({
@@ -5339,7 +5476,7 @@ const GameDetailsScreen = ({ route }) => {
                     }}
                   >
                     No plays available
-                  </Text>   
+                  </Text>
                 </View>
               );
             }
@@ -5356,10 +5493,13 @@ const GameDetailsScreen = ({ route }) => {
             const periodLabel =
               period <= 4 ? `Q${period}` : period > 4 ? `OT${period - 4}` : "";
 
-            // ── Team / field info (use drive team, same as drives tab) ──
+            // ── Team / field info (use play's own team, not drive team) ──
             const driveTeam = currentDrive?.team;
             const driveTeamAbbr = driveTeam?.abbreviation || "";
-            const driveTeamColor = getGameTeamColor(driveTeamAbbr);
+            const driveTeamColor = getSmartColor(driveTeamAbbr);
+            // Use play's own team for color when available
+            const playTeamAbbr = play.team?.abbreviation || driveTeamAbbr;
+            const playTeamColor = getSmartColor(playTeamAbbr);
             const awayTeamAbbr =
               getNFLTeamAbbreviation(awayTeam?.team) || "AWY";
             const homeTeamAbbr =
@@ -5368,12 +5508,9 @@ const GameDetailsScreen = ({ route }) => {
             const endYard = play.end?.yardLine;
 
             const isScoring = !!play.scoringPlay;
-            const fieldStartYard = isScoring
-              ? (currentDrive?.start?.yardLine ?? startYard)
-              : startYard;
-            const fieldEndYard = isScoring
-              ? (currentDrive?.end?.yardLine ?? endYard)
-              : (endYard ?? startYard);
+            // Always use play's own start/end for field visualization
+            const fieldStartYard = startYard;
+            const fieldEndYard = endYard ?? startYard;
 
             // ── Enrich participants (resolve $ref from drives API, same as handlePlayPress) ──
             const enrichedParticipants = [];
@@ -5557,7 +5694,7 @@ const GameDetailsScreen = ({ route }) => {
                   {/* NflPlayFieldMini (the detailed field from the copy card) */}
                   <NflPlayFieldMini
                     play={play}
-                    teamColor={driveTeamColor}
+                    teamColor={playTeamColor}
                     startYard={fieldStartYard}
                     endYard={fieldEndYard}
                   />
@@ -5584,7 +5721,7 @@ const GameDetailsScreen = ({ route }) => {
                           fontSize: 11,
                           fontWeight: "700",
                           color: isScoring
-                            ? driveTeamColor
+                            ? playTeamColor
                             : theme.textSecondary,
                           textTransform: "uppercase",
                           letterSpacing: 0.3,
@@ -5687,17 +5824,17 @@ const GameDetailsScreen = ({ route }) => {
                             >
                               <Stop
                                 offset="0%"
-                                stopColor={driveTeamColor}
+                                stopColor={playTeamColor}
                                 stopOpacity="0.22"
                               />
                               <Stop
                                 offset="70%"
-                                stopColor={driveTeamColor}
+                                stopColor={playTeamColor}
                                 stopOpacity="0"
                               />
                               <Stop
                                 offset="100%"
-                                stopColor={driveTeamColor}
+                                stopColor={playTeamColor}
                                 stopOpacity="0"
                               />
                             </LinearGradient>
@@ -5724,13 +5861,13 @@ const GameDetailsScreen = ({ route }) => {
                             fontSize: 11,
                             fontWeight: "900",
                             letterSpacing: 0.5,
-                            color: driveTeamColor,
+                            color: playTeamColor,
                           }}
                         >
                           {(
-                            driveTeam?.displayName ||
-                            driveTeam?.name ||
-                            driveTeamAbbr
+                            play.team?.displayName ||
+                            play.team?.name ||
+                            playTeamAbbr
                           ).toUpperCase()}
                         </Text>
                         <Text
@@ -5741,7 +5878,7 @@ const GameDetailsScreen = ({ route }) => {
                             color: theme.textSecondary,
                           }}
                         >
-                          {driveTeamAbbr === awayTeamAbbr ? "AWAY" : "HOME"}
+                          {playTeamAbbr === awayTeamAbbr ? "AWAY" : "HOME"}
                         </Text>
                       </View>
 
@@ -5770,7 +5907,7 @@ const GameDetailsScreen = ({ route }) => {
                               mainAthlete?.position?.abbreviation ||
                               "",
                           ).toUpperCase();
-                          const meta = [driveTeamAbbr, number, position]
+                          const meta = [playTeamAbbr, number, position]
                             .filter(Boolean)
                             .join(" \u00B7 ");
 
@@ -5879,8 +6016,8 @@ const GameDetailsScreen = ({ route }) => {
                                   borderWidth: 2,
                                   overflow: "visible",
                                   position: "relative",
-                                  borderColor: driveTeamColor,
-                                  backgroundColor: driveTeamColor + "66",
+                                  borderColor: playTeamColor,
+                                  backgroundColor: playTeamColor + "66",
                                 }}
                               >
                                 {mainHeadshot ? (
@@ -5933,11 +6070,11 @@ const GameDetailsScreen = ({ route }) => {
                                     alignItems: "center",
                                     justifyContent: "center",
                                     borderWidth: 1,
-                                    borderColor: driveTeamColor,
+                                    borderColor: playTeamColor,
                                   }}
                                 >
                                   <TeamLogoImage
-                                    team={driveTeam}
+                                    team={play.team || driveTeam}
                                     style={{ width: 20, height: 20 }}
                                   />
                                 </View>
@@ -6009,8 +6146,8 @@ const GameDetailsScreen = ({ route }) => {
           const homeTotal = Number(homeTeam?.score ?? 0);
           const awayAbbr = getNFLTeamAbbreviation(awayTeam?.team) || "AWY";
           const homeAbbr = getNFLTeamAbbreviation(homeTeam?.team) || "HME";
-          const awayTeamColor = getGameTeamColor(awayAbbr);
-          const homeTeamColor = getGameTeamColor(homeAbbr);
+          const awayTeamColor = awayColor;
+          const homeTeamColor = homeColor;
 
           const CELL_W = 32;
           const ROW_H = 34;
@@ -6472,7 +6609,7 @@ const GameDetailsScreen = ({ route }) => {
                 const events = teamEntry?.events || [];
                 if (!teamInfo || events.length === 0) return null;
                 const teamAbbr = teamInfo.abbreviation || "";
-                const teamColor = getGameTeamColor(teamAbbr);
+                const teamColor = getSmartColor(teamAbbr);
                 const isHomeTeam =
                   String(teamInfo.id) === String(homeTeam?.team?.id);
                 return (
@@ -6500,10 +6637,9 @@ const GameDetailsScreen = ({ route }) => {
                         }}
                       >
                         {teamInfo.logo && (
-                          <Image
-                            source={{ uri: teamInfo.logo }}
+                          <TeamLogoImage
+                            team={teamInfo}
                             style={{ width: 18, height: 18 }}
-                            resizeMode="contain"
                           />
                         )}
                         <Text
@@ -6525,79 +6661,88 @@ const GameDetailsScreen = ({ route }) => {
                       </Text>
                     </View>
                     <View style={nflMainStyles.last5Body}>
-                      {events.slice().reverse().map((evt, evtIdx) => {
-                        const isLastRow = evtIdx === events.length - 1;
-                        const isWin = evt.gameResult === "W";
-                        const isLoss = evt.gameResult === "L";
-                        const opponent = evt.opponent;
-                        const opponentAbbr = opponent?.abbreviation || "";
-                        const opponentLogo =
-                          opponent?.logo || evt.opponentLogo || "";
-                        const dateStr = evt.gameDate
-                          ? new Date(evt.gameDate).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "";
-                        return (
-                          <TouchableOpacity
-                            key={evtIdx}
-                            activeOpacity={0.7}
-                            onPress={() =>
-                              navigation.navigate("GameDetails", {
-                                gameId: String(evt.id),
-                                sport: "nfl",
-                              })
-                            }
-                            style={[
-                              nflMainStyles.last5Row,
-                              !isLastRow && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
-                            ]}
-                          >
-                            <View
-                              style={[
-                                nflMainStyles.last5ResultBadge,
+                      {events
+                        .slice()
+                        .reverse()
+                        .map((evt, evtIdx) => {
+                          const isLastRow = evtIdx === events.length - 1;
+                          const isWin = evt.gameResult === "W";
+                          const isLoss = evt.gameResult === "L";
+                          const opponent = evt.opponent;
+                          const opponentAbbr = opponent?.abbreviation || "";
+                          const opponentLogo =
+                            opponent?.logo || evt.opponentLogo || "";
+                          const dateStr = evt.gameDate
+                            ? new Date(evt.gameDate).toLocaleDateString(
+                                "en-US",
                                 {
-                                  backgroundColor: isWin
-                                    ? "#27ae60"
-                                    : isLoss
-                                      ? "#e74c3c"
-                                      : theme.textSecondary,
+                                  month: "short",
+                                  day: "numeric",
+                                },
+                              )
+                            : "";
+                          return (
+                            <TouchableOpacity
+                              key={evtIdx}
+                              activeOpacity={0.7}
+                              onPress={() =>
+                                navigation.navigate("GameDetails", {
+                                  gameId: String(evt.id),
+                                  sport: "nfl",
+                                })
+                              }
+                              style={[
+                                nflMainStyles.last5Row,
+                                !isLastRow && {
+                                  borderBottomWidth: StyleSheet.hairlineWidth,
+                                  borderBottomColor: theme.border,
                                 },
                               ]}
                             >
-                              <Text style={nflMainStyles.last5ResultText}>
-                                {evt.gameResult || "-"}
+                              <View
+                                style={[
+                                  nflMainStyles.last5ResultBadge,
+                                  {
+                                    backgroundColor: isWin
+                                      ? "#27ae60"
+                                      : isLoss
+                                        ? "#e74c3c"
+                                        : theme.textSecondary,
+                                  },
+                                ]}
+                              >
+                                <Text style={nflMainStyles.last5ResultText}>
+                                  {evt.gameResult || "-"}
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  nflMainStyles.last5Opponent,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {evt.atVs || ""}{" "}
+                                {opponent?.displayName || opponentAbbr}
                               </Text>
-                            </View>
-                            <Text
-                              style={[
-                                nflMainStyles.last5Opponent,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {evt.atVs || ""}{" "}
-                              {opponent?.displayName || opponentAbbr}
-                            </Text>
-                            <Text
-                              style={[
-                                nflMainStyles.last5Score,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {evt.score || ""}
-                            </Text>
-                            <Text
-                              style={[
-                                nflMainStyles.last5Date,
-                                { color: theme.textTertiary },
-                              ]}
-                            >
-                              {dateStr}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                              <Text
+                                style={[
+                                  nflMainStyles.last5Score,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {evt.score || ""}
+                              </Text>
+                              <Text
+                                style={[
+                                  nflMainStyles.last5Date,
+                                  { color: theme.textTertiary },
+                                ]}
+                              >
+                                {dateStr}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                     </View>
                   </View>
                 );
@@ -6695,7 +6840,6 @@ const GameDetailsScreen = ({ route }) => {
                   awayTeam?.team?.name ||
                   "Away",
               }}
-              logo={awayLogoUri}
               score={awayTeam?.score ?? "0"}
               record={awayRecord}
               side="away"
@@ -6768,7 +6912,6 @@ const GameDetailsScreen = ({ route }) => {
                   homeTeam?.team?.name ||
                   "Home",
               }}
-              logo={homeLogoUri}
               record={homeRecord}
               score={homeTeam?.score ?? "0"}
               side="home"
@@ -6861,10 +7004,9 @@ const GameDetailsScreen = ({ route }) => {
             ]}
           >
             <View style={nflHeaderStyles.miniSide}>
-              <Image
-                source={{ uri: awayLogoUri }}
+              <TeamLogoImage
+                team={awayTeam?.team}
                 style={nflHeaderStyles.miniLogo}
-                resizeMode="contain"
               />
               <Text
                 style={[
@@ -6949,10 +7091,9 @@ const GameDetailsScreen = ({ route }) => {
               >
                 {homeAbbr}
               </Text>
-              <Image
-                source={{ uri: homeLogoUri }}
+              <TeamLogoImage
+                team={homeTeam?.team}
                 style={nflHeaderStyles.miniLogo}
-                resizeMode="contain"
               />
             </View>
           </Animated.View>
@@ -7037,26 +7178,24 @@ const GameDetailsScreen = ({ route }) => {
                   <View>
                     {/* Player Header only (no copy-card here) */}
                     <View style={styles.playerHeader}>
-                      <Image
-                        source={{
-                          uri: NFLService.convertToHttps(
-                            selectedPlayer.headshot?.href ||
-                              selectedPlayer.headshot,
-                          ),
-                        }}
+                      <PlayerHeadshotImage
+                        athleteId={selectedPlayer?.id}
                         style={[
                           styles.playerHeadshot,
                           {
-                            backgroundColor: `#${
+                            borderRadius: 40,
+                            backgroundColor: getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
                               selectedPlayer?.team?.team?.primaryColor ||
                               selectedPlayer?.team?.team?.color ||
                               colors.primary
                             }`,
                           },
                         ]}
-                        defaultSource={{
-                          uri: "https://via.placeholder.com/80x80?text=Player",
-                        }}
+                        borderColor={getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
+                          selectedPlayer?.team?.team?.primaryColor ||
+                          selectedPlayer?.team?.team?.color ||
+                          colors.primary
+                        }`}
                       />
                       <View style={styles.playerInfo}>
                         <Text
@@ -7140,6 +7279,72 @@ const GameDetailsScreen = ({ route }) => {
           onRequestClose={() => setPlayerCopyModalVisible(false)}
         >
           <View style={nflShareStyles.overlay}>
+
+            {/* Category selector buttons (outside card, above actions) */}
+            {playerShareCategories.length > 1 && selectedPlayer && (() => {
+              const clickedCat = (selectedPlayer?.allStats?.name || "").toLowerCase();
+              const otherCats = playerShareCategories.filter(
+                (c) => c.toLowerCase() !== clickedCat,
+              );
+              if (otherCats.length === 0) return null;
+              const teamCol = getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${selectedPlayer?.team?.team?.primaryColor || selectedPlayer?.team?.team?.color || colors.primary.replace("#", "")}`;
+              const fmtCat = (name) => {
+                if (!name) return "";
+                return name
+                  .replace(/([a-z])([A-Z])/g, "$1 $2")
+                  .replace(/^./, (s) => s.toUpperCase())
+                  .trim();
+              };
+              return (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    justifyContent: "center",
+                  }}
+                >
+                  {otherCats.map((catName) => {
+                    const isActive = playerShareExtraCategories.some(
+                      (c) => c.toLowerCase() === catName.toLowerCase(),
+                    );
+                    return (
+                      <TouchableOpacity
+                        key={catName}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setPlayerShareExtraCategories((prev) => {
+                            if (prev.some((c) => c.toLowerCase() === catName.toLowerCase())) {
+                              return prev.filter((c) => c.toLowerCase() !== catName.toLowerCase());
+                            }
+                            return [...prev, catName];
+                          });
+                        }}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: isActive ? teamCol : "rgba(255,255,255,0.15)",
+                          backgroundColor: isActive ? teamCol + "33" : "rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: isActive ? "800" : "600",
+                            color: isActive ? "#fff" : "rgba(255,255,255,0.6)",
+                          }}
+                        >
+                          + {fmtCat(catName)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })()}
+
             <View
               ref={playerCopyCardRef}
               collapsable={false}
@@ -7147,7 +7352,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               {selectedPlayer ? (
                 (() => {
-                  const teamColor = `#${
+                  const teamColor = getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
                     selectedPlayer?.team?.team?.primaryColor ||
                     selectedPlayer?.team?.team?.color ||
                     colors.primary.replace("#", "")
@@ -7171,18 +7376,19 @@ const GameDetailsScreen = ({ route }) => {
                       selectedPlayer?.allStats?.name || ""
                     ).toLowerCase();
 
-                    // Filter categories to clicked one
-                    const filteredCats = playerStats.splits.categories.filter(
+                    // Filter categories to clicked one + any extra selected categories
+                    const primaryCats = playerStats.splits.categories.filter(
                       (c) => {
                         const n = (c.name || "").toLowerCase();
                         return n === clickedCat;
                       },
                     );
                     const catsToUse =
-                      filteredCats.length > 0
-                        ? filteredCats
+                      primaryCats.length > 0
+                        ? primaryCats
                         : playerStats.splits.categories;
 
+                    // Primary category stats (no prefix)
                     catsToUse.forEach((cat) => {
                       const labels = cat.labels || [];
                       const stats = cat.stats || [];
@@ -7202,6 +7408,47 @@ const GameDetailsScreen = ({ route }) => {
                           }
                         }
                         statItems.push({ label, value: displayValue });
+                      });
+                    });
+
+                    // Extra category stats (with prefix)
+                    const extraCatPrefixes = {
+                      passing: "PASS ",
+                      rushing: "RUSH ",
+                      receiving: "REC ",
+                      defensive: "DEF ",
+                      defense: "DEF ",
+                      interceptions: "INT ",
+                      kicking: "KICK ",
+                      punting: "PUNT ",
+                      fumbles: "FUM ",
+                      kickReturns: "KR ",
+                      puntReturns: "PR ",
+                    };
+                    playerShareExtraCategories.forEach((extraCatName) => {
+                      const extraCat = playerStats.splits.categories.find(
+                        (c) => (c.name || "").toLowerCase() === extraCatName.toLowerCase(),
+                      );
+                      if (!extraCat) return;
+                      const prefix = extraCatPrefixes[extraCatName.toLowerCase()] || `${(extraCat.text || extraCatName).toUpperCase().slice(0, 4)} `;
+                      const labels = extraCat.labels || [];
+                      const stats = extraCat.stats || [];
+                      labels.forEach((label, i) => {
+                        const val = stats[i];
+                        let displayValue = "0";
+                        if (val !== undefined && val !== null) {
+                          if (typeof val === "object" && val.displayValue) {
+                            displayValue = val.displayValue;
+                          } else if (
+                            typeof val === "object" &&
+                            val.value !== undefined
+                          ) {
+                            displayValue = val.value.toString();
+                          } else {
+                            displayValue = val.toString();
+                          }
+                        }
+                        statItems.push({ label: `${prefix}${label}`, value: displayValue });
                       });
                     });
 
@@ -7252,7 +7499,7 @@ const GameDetailsScreen = ({ route }) => {
                           <View
                             style={[
                               nflShareStyles.posBadge,
-                              { backgroundColor: teamColor },
+                              { backgroundColor: teamColor, maxWidth: "55%", flexShrink: 1 },
                             ]}
                           >
                             <Text
@@ -7260,15 +7507,32 @@ const GameDetailsScreen = ({ route }) => {
                                 nflShareStyles.posBadgeText,
                                 { color: getTextOnColor(teamColor) },
                               ]}
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.7}
                             >
-                              {pos
-                                .replace(/([A-Z])/g, " $1")
-                                .replace(/^./, (s) => s.toUpperCase())
-                                .trim() || "POS"}
+                              {(() => {
+                                const formatCatName = (name) => {
+                                  if (!name) return "";
+                                  return name
+                                    .replace(/([a-z])([A-Z])/g, "$1 $2")
+                                    .replace(/^./, (s) => s.toUpperCase())
+                                    .trim();
+                                };
+                                const mainPos = formatCatName(selectedPlayer?.allStats?.name) || formatCatName(pos) || "POS";
+                                if (playerShareExtraCategories.length === 0) return mainPos;
+                                const extraLabels = playerShareExtraCategories.map((c) => {
+                                  const cat = playerStats?.splits?.categories?.find(
+                                    (cat) => (cat.name || "").toLowerCase() === c.toLowerCase(),
+                                  );
+                                  return formatCatName(cat?.name || c);
+                                });
+                                return `${mainPos} · ${extraLabels.join(" · ")}`;
+                              })()}
                             </Text>
                           </View>
                           {isGameFinished || isGameLive ? (
-                            <View style={nflShareStyles.scoreWrap}>
+                            <View style={[nflShareStyles.scoreWrap, { flexShrink: 0 }]}>
                               <TeamLogoImage
                                 team={awayTeam?.team || awayTeam}
                                 style={nflShareStyles.scoreLogo}
@@ -7331,13 +7595,13 @@ const GameDetailsScreen = ({ route }) => {
 
                         {/* Headshot + name row */}
                         <View style={nflShareStyles.headshotRow}>
-                          <Image
-                            source={{ uri: headshotUri }}
+                          <PlayerHeadshotImage
+                            athleteId={selectedPlayer?.id}
                             style={[
                               nflShareStyles.cardHeadshot,
                               { borderColor: teamColor },
                             ]}
-                            resizeMode="cover"
+                            borderColor={teamColor}
                           />
                           <View style={nflShareStyles.nameBlock}>
                             {/* Top priority stats above name (NHL-style) */}
@@ -7444,7 +7708,7 @@ const GameDetailsScreen = ({ route }) => {
 
                       {/* Stat grid (dynamic columns) */}
                       {(() => {
-                        const gridItems = statItems.slice(0, 9);
+                        const gridItems = playerShareExtraCategories.length > 0 ? statItems : statItems.slice(0, 9);
                         const count = gridItems.length;
                         const cols = count >= 3 ? 3 : count === 2 ? 2 : 1;
                         const fullRows = Math.floor(count / cols);
@@ -7552,6 +7816,7 @@ const GameDetailsScreen = ({ route }) => {
                 onPress={async () => {
                   await sharePlayerCopyCard();
                   setPlayerCopyModalVisible(false);
+                  setPlayerShareExtraCategories([]);
                 }}
               >
                 <View style={nflShareStyles.actionBtnRow}>
@@ -7568,7 +7833,10 @@ const GameDetailsScreen = ({ route }) => {
                     borderColor: theme.border,
                   },
                 ]}
-                onPress={() => setPlayerCopyModalVisible(false)}
+                onPress={() => {
+                  setPlayerCopyModalVisible(false);
+                  setPlayerShareExtraCategories([]);
+                }}
               >
                 <View style={nflShareStyles.actionBtnRow}>
                   <Ionicons name="close" size={16} color={theme.text} />
@@ -8050,17 +8318,17 @@ const GameDetailsScreen = ({ route }) => {
                     // Use the other team's color
                     if (driveTeamId === homeTeamId) {
                       // Drive team is home, use away team's color
-                      teamColor = play.awayTeam?.team?.color
+                      teamColor = getSmartColor(play.awayTeam?.team?.abbreviation) || (play.awayTeam?.team?.color
                         ? `#${play.awayTeam.team.color}`
-                        : "#000000";
+                        : "#000000");
                       teamLogo = play.awayTeam?.team;
                       teamName = play.awayTeam?.team?.displayName || teamName;
                       teamAbbr = play.awayTeam?.team?.abbreviation || teamAbbr;
                     } else if (driveTeamId === awayTeamId) {
                       // Drive team is away, use home team's color
-                      teamColor = play.homeTeam?.team?.color
+                      teamColor = getSmartColor(play.homeTeam?.team?.abbreviation) || (play.homeTeam?.team?.color
                         ? `#${play.homeTeam.team.color}`
-                        : "#000000";
+                        : "#000000");
                       teamLogo = play.homeTeam?.team;
                       teamName = play.homeTeam?.team?.displayName || teamName;
                       teamAbbr = play.homeTeam?.team?.abbreviation || teamAbbr;
@@ -8132,14 +8400,10 @@ const GameDetailsScreen = ({ route }) => {
                   const fieldWrapAspectRatio = fieldHeight / fieldWidth;
                   const rotatedFieldWidthPct = `${(fieldWidth / fieldHeight) * 100}%`;
                   const rotatedFieldHeightPct = `${(fieldHeight / fieldWidth) * 100}%`;
-                  // Scoring plays show full drive span; regular plays show individual play span
+                  // Always use play's own start/end for field visualization
                   const isScoringShare = !!play.scoringPlay;
-                  const driveStartYard = isScoringShare
-                    ? (shareDrive?.start?.yardLine ?? play.start?.yardLine)
-                    : play.start?.yardLine;
-                  const driveEndYard = isScoringShare
-                    ? (shareDrive?.end?.yardLine ?? play.end?.yardLine)
-                    : (play.end?.yardLine ?? play.start?.yardLine);
+                  const driveStartYard = play.start?.yardLine;
+                  const driveEndYard = play.end?.yardLine ?? play.start?.yardLine;
                   const hasDriveVisualization =
                     driveStartYard != null && driveEndYard != null;
 
@@ -9195,7 +9459,7 @@ const GameDetailsScreen = ({ route }) => {
                                     style={{
                                       flexDirection: "row",
                                       flexWrap: "wrap",
-                                      justifyContent: "space-between",
+                                      justifyContent: mainPlayerStats.length === 1 ? "center" : "space-between",
                                       marginBottom: 10,
                                     }}
                                   >
