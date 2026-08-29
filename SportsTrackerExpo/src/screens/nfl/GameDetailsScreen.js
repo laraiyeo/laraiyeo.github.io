@@ -78,17 +78,9 @@ const resolveMatchColors = ({
   homeFallback,
   awayFallback,
 }) => {
-  const homeColors = [
-    homePrimary,
-    homeSecondary,
-    homeFallback,
-  ].filter(Boolean);
+  const homeColors = [homePrimary, homeSecondary, homeFallback].filter(Boolean);
 
-  const awayColors = [
-    awayPrimary,
-    awaySecondary,
-    awayFallback,
-  ].filter(Boolean);
+  const awayColors = [awayPrimary, awaySecondary, awayFallback].filter(Boolean);
 
   // Try every combination, in priority order.
   for (const homeColor of homeColors) {
@@ -109,7 +101,6 @@ const resolveMatchColors = ({
     awayColor: awayColors[0],
   };
 };
-
 
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
   return resolveMatchColors({
@@ -150,7 +141,9 @@ const _getLogoSource = (abbr) => {
   if (!abbr) return require("../../../assets/nfl.png");
   const key = abbr.toUpperCase();
   if (_logoUriCache.has(key)) return _logoUriCache.get(key);
-  const src = { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${key}.png&w=150&h=150` };
+  const src = {
+    uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${key}.png&w=150&h=150`,
+  };
   _logoUriCache.set(key, src);
   return src;
 };
@@ -189,12 +182,38 @@ const _populateAthleteNameCache = (boxscorePlayers) => {
 
 // ── ESPN team ID → abbreviation mapping (module-level, never recreated) ──
 const NFL_TEAM_ID_TO_ABBR = {
-  2: "BUF", 15: "MIA", 17: "NE", 20: "NYJ", 33: "BAL", 4: "CIN",
-  5: "CLE", 23: "PIT", 34: "HOU", 11: "IND", 30: "JAX", 10: "TEN",
-  7: "DEN", 12: "KC", 13: "LV", 24: "LAC", 6: "DAL", 19: "NYG",
-  21: "PHI", 28: "WAS", 3: "CHI", 8: "DET", 9: "GB", 16: "MIN",
-  1: "ATL", 29: "CAR", 18: "NO", 27: "TB", 22: "ARI", 14: "LAR",
-  25: "SF", 26: "SEA",
+  2: "BUF",
+  15: "MIA",
+  17: "NE",
+  20: "NYJ",
+  33: "BAL",
+  4: "CIN",
+  5: "CLE",
+  23: "PIT",
+  34: "HOU",
+  11: "IND",
+  30: "JAX",
+  10: "TEN",
+  7: "DEN",
+  12: "KC",
+  13: "LV",
+  24: "LAC",
+  6: "DAL",
+  19: "NYG",
+  21: "PHI",
+  28: "WAS",
+  3: "CHI",
+  8: "DET",
+  9: "GB",
+  16: "MIN",
+  1: "ATL",
+  29: "CAR",
+  18: "NO",
+  27: "TB",
+  22: "ARI",
+  14: "LAR",
+  25: "SF",
+  26: "SEA",
 };
 
 const NFL_ABBR_TO_ID = Object.fromEntries(
@@ -211,10 +230,14 @@ const getNFLTeamAbbreviation = (espnTeam) => {
 const getPlayerInitials = (athleteOrId) => {
   // Accept either a full athlete object or just an ID (number/string)
   let athlete = athleteOrId;
-  if (athleteOrId != null && typeof athleteOrId !== 'object') {
+  if (athleteOrId != null && typeof athleteOrId !== "object") {
     // It's a raw ID — look up from cache
     athlete = _athleteNameCache.get(String(athleteOrId)) || null;
-  } else if (athleteOrId?.id && !athleteOrId.displayName && !athleteOrId.firstName) {
+  } else if (
+    athleteOrId?.id &&
+    !athleteOrId.displayName &&
+    !athleteOrId.firstName
+  ) {
     // Object with only an id — look up from cache
     athlete = _athleteNameCache.get(String(athleteOrId.id)) || athleteOrId;
   }
@@ -235,47 +258,47 @@ const getPlayerInitials = (athleteOrId) => {
 // Custom comparator: only re-render when abbreviation or isLosingTeam changes
 const TeamLogoImage = React.memo(
   ({ team, style, isLosingTeam = false }) => {
-  const abbr = getNFLTeamAbbreviation(team);
-  const [failed, setFailed] = useState(false);
+    const abbr = getNFLTeamAbbreviation(team);
+    const [failed, setFailed] = useState(false);
 
-  const source = _getLogoSource(abbr);
+    const source = _getLogoSource(abbr);
 
-  if (failed) {
-    const initial = (abbr || team?.name || "?")[0]?.toUpperCase() || "?";
-    return (
-      <View
-        style={[
-          style,
-          {
-            backgroundColor: "rgba(128,128,128,0.15)",
-            borderRadius: (style?.width || style?.height || 24) / 2,
-            alignItems: "center",
-            justifyContent: "center",
-          },
-          isLosingTeam && { opacity: 0.5 },
-        ]}
-      >
-        <Text
-          style={{
-            fontSize: ((style?.width || style?.height || 24) * 0.45),
-            fontWeight: "800",
-            color: "#888",
-          }}
+    if (failed) {
+      const initial = (abbr || team?.name || "?")[0]?.toUpperCase() || "?";
+      return (
+        <View
+          style={[
+            style,
+            {
+              backgroundColor: "rgba(128,128,128,0.15)",
+              borderRadius: (style?.width || style?.height || 24) / 2,
+              alignItems: "center",
+              justifyContent: "center",
+            },
+            isLosingTeam && { opacity: 0.5 },
+          ]}
         >
-          {initial}
-        </Text>
-      </View>
-    );
-  }
+          <Text
+            style={{
+              fontSize: (style?.width || style?.height || 24) * 0.45,
+              fontWeight: "800",
+              color: "#888",
+            }}
+          >
+            {initial}
+          </Text>
+        </View>
+      );
+    }
 
-  return (
-    <Image
-      style={[style, isLosingTeam && { opacity: 0.5 }]}
-      source={source}
-      onError={() => setFailed(true)}
-      resizeMode="contain"
-    />
-  );
+    return (
+      <Image
+        style={[style, isLosingTeam && { opacity: 0.5 }]}
+        source={source}
+        onError={() => setFailed(true)}
+        resizeMode="contain"
+      />
+    );
   },
   (prev, next) => {
     // Only re-render when abbreviation or isLosingTeam actually changes
@@ -288,43 +311,43 @@ const TeamLogoImage = React.memo(
 // ── Cached PlayerHeadshotImage (module-level, shows initials on failure) ──
 const PlayerHeadshotImage = React.memo(
   ({ athleteId, style, borderColor }) => {
-  const [failed, setFailed] = useState(false);
-  const uri = _getHeadshotUri(athleteId);
-  const initials = getPlayerInitials(athleteId);
+    const [failed, setFailed] = useState(false);
+    const uri = _getHeadshotUri(athleteId);
+    const initials = getPlayerInitials(athleteId);
 
-  if (failed || !uri) {
-    return (
-      <View
-        style={[
-          style,
-          {
-            backgroundColor: borderColor + 33 || "rgba(128,128,128,0.2)",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        ]}
-      >
-        <Text
-          style={{
-            fontSize: ((style?.width || style?.height || 40) * 0.38),
-            fontWeight: "800",
-            color: getTextOnColor(borderColor || "#fff"),
-          }}
+    if (failed || !uri) {
+      return (
+        <View
+          style={[
+            style,
+            {
+              backgroundColor: borderColor + 33 || "rgba(128,128,128,0.2)",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
         >
-          {initials}
-        </Text>
-      </View>
-    );
-  }
+          <Text
+            style={{
+              fontSize: (style?.width || style?.height || 40) * 0.38,
+              fontWeight: "800",
+              color: getTextOnColor(borderColor || "#fff"),
+            }}
+          >
+            {initials}
+          </Text>
+        </View>
+      );
+    }
 
-  return (
-    <Image
-      source={{ uri }}
-      style={style}
-      resizeMode="cover"
-      onError={() => setFailed(true)}
-    />
-  );
+    return (
+      <Image
+        source={{ uri }}
+        style={style}
+        resizeMode="cover"
+        onError={() => setFailed(true)}
+      />
+    );
   },
   (prev, next) => prev.athleteId === next.athleteId,
 );
@@ -953,7 +976,9 @@ const GameDetailsScreen = ({ route }) => {
   const [playerCopyModalVisible, setPlayerCopyModalVisible] = useState(false);
   // Multi-category stats for player share card
   const [playerShareCategories, setPlayerShareCategories] = useState([]); // all categories player appears in
-  const [playerShareExtraCategories, setPlayerShareExtraCategories] = useState([]); // selected extra categories
+  const [playerShareExtraCategories, setPlayerShareExtraCategories] = useState(
+    [],
+  ); // selected extra categories
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1614,10 +1639,14 @@ const GameDetailsScreen = ({ route }) => {
       // Also populate from leaders data
       if (details?.leaders) {
         for (const teamLeader of details.leaders) {
-          for (const cat of (teamLeader.leaders || [])) {
-            for (const entry of (cat.leaders || [])) {
+          for (const cat of teamLeader.leaders || []) {
+            for (const entry of cat.leaders || []) {
               const a = entry?.athlete;
-              if (a?.id && a.displayName && !_athleteNameCache.has(String(a.id))) {
+              if (
+                a?.id &&
+                a.displayName &&
+                !_athleteNameCache.has(String(a.id))
+              ) {
                 _athleteNameCache.set(String(a.id), {
                   displayName: a.displayName,
                   firstName: a.firstName,
@@ -1688,10 +1717,14 @@ const GameDetailsScreen = ({ route }) => {
 
       // Populate athlete name cache from resolved play participants
       for (const drive of drives) {
-        for (const play of (drive.plays || [])) {
-          for (const p of (play.participants || [])) {
+        for (const play of drive.plays || []) {
+          for (const p of play.participants || []) {
             const a = p?.athlete;
-            if (a?.id && a.displayName && !_athleteNameCache.has(String(a.id))) {
+            if (
+              a?.id &&
+              a.displayName &&
+              !_athleteNameCache.has(String(a.id))
+            ) {
               _athleteNameCache.set(String(a.id), {
                 displayName: a.displayName,
                 firstName: a.firstName,
@@ -1910,7 +1943,9 @@ const GameDetailsScreen = ({ route }) => {
       // Get team information for the scoring team
       const driveTeam = overrideDrive?.team || selectedDrive?.team;
       const teamLogo = driveTeam?.logos?.[0]?.href || "";
-      const teamColor = getSmartColor(driveTeam?.abbreviation) || (driveTeam?.color ? `#${driveTeam.color}` : "#000000");
+      const teamColor =
+        getSmartColor(driveTeam?.abbreviation) ||
+        (driveTeam?.color ? `#${driveTeam.color}` : "#000000");
       const teamAbbr = driveTeam?.abbreviation || "";
       const teamName = driveTeam?.displayName || driveTeam?.name || "";
 
@@ -4469,9 +4504,12 @@ const GameDetailsScreen = ({ route }) => {
     const driveTeamId = activeDrive?.team?.id;
     const driveTeamAbbr = activeDrive?.team?.abbreviation || "";
     const driveEndTeamAbbr = activeDrive?.endTeam?.abbreviation || "";
-    const driveHasEndTeam = driveEndTeamAbbr && driveEndTeamAbbr !== driveTeamAbbr;
+    const driveHasEndTeam =
+      driveEndTeamAbbr && driveEndTeamAbbr !== driveTeamAbbr;
     const driveTeamColor = getSmartColor(driveTeamAbbr);
-    const driveEndTeamColor = driveHasEndTeam ? getSmartColor(driveEndTeamAbbr) : driveTeamColor;
+    const driveEndTeamColor = driveHasEndTeam
+      ? getSmartColor(driveEndTeamAbbr)
+      : driveTeamColor;
     const driveIsTD = activeDrive?.isScore;
 
     return (
@@ -4493,16 +4531,15 @@ const GameDetailsScreen = ({ route }) => {
             const hasEndTeam = endAbbr && endAbbr !== abbr;
             const isTD = drive.isScore;
             // If endTeam differs and drive scored, use endTeam color
-            const chipColor = (hasEndTeam && isTD)
-              ? getSmartColor(endAbbr)
-              : getSmartColor(abbr);
+            const chipColor =
+              hasEndTeam && isTD ? getSmartColor(endAbbr) : getSmartColor(abbr);
             const teamLogo = isDarkMode
               ? team?.logos?.[1]?.href || team?.logo || ""
               : team?.logos?.[0]?.href || team?.logo || "";
             const endTeamLogo = hasEndTeam
-              ? (isDarkMode
+              ? isDarkMode
                 ? endTeam?.logos?.[1]?.href || endTeam?.logo || ""
-                : endTeam?.logos?.[0]?.href || endTeam?.logo || "")
+                : endTeam?.logos?.[0]?.href || endTeam?.logo || ""
               : "";
 
             return (
@@ -4523,15 +4560,30 @@ const GameDetailsScreen = ({ route }) => {
                         ? theme.surfaceSecondary
                         : theme.surface,
                   },
-                ]}>
+                ]}
+              >
                 {/* If endTeam differs, show both logos with divider */}
                 {hasEndTeam ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 2,
+                    }}
+                  >
                     <TeamLogoImage
                       team={team}
                       style={nflDrivesStyles.driveChipLogo}
                     />
-                    <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: "700" }}>|</Text>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: theme.textSecondary,
+                        fontWeight: "700",
+                      }}
+                    >
+                      |
+                    </Text>
                     <TeamLogoImage
                       team={endTeam}
                       style={nflDrivesStyles.driveChipLogo}
@@ -4566,9 +4618,7 @@ const GameDetailsScreen = ({ route }) => {
             {
               backgroundColor: theme.surfaceSecondary,
               flexDirection: "row",
-              borderColor: driveHasEndTeam
-                ? driveEndTeamColor
-                : driveTeamColor,
+              borderColor: driveHasEndTeam ? driveEndTeamColor : driveTeamColor,
             },
           ]}
         >
@@ -4694,11 +4744,14 @@ const GameDetailsScreen = ({ route }) => {
               // Team color for card border - use play's own team color
               const playTeamAbbr = play.team?.abbreviation || driveTeamAbbr;
               const playTeamColor = getSmartColor(playTeamAbbr);
-              const playTeamDiffersFromDrive = playTeamAbbr.toUpperCase() !== driveTeamAbbr.toUpperCase();
+              const playTeamDiffersFromDrive =
+                playTeamAbbr.toUpperCase() !== driveTeamAbbr.toUpperCase();
               // Scoring: endTeam color if endTeam differs, otherwise play team color
               // Non-scoring: play team border only if play team differs from drive team
               const cardBorderColor = isScoring
-                ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor)
+                ? driveHasEndTeam
+                  ? driveEndTeamColor
+                  : playTeamColor
                 : playTeamDiffersFromDrive
                   ? playTeamColor
                   : theme.border;
@@ -4739,7 +4792,9 @@ const GameDetailsScreen = ({ route }) => {
                       {
                         borderColor: cardBorderColor,
                         backgroundColor: isScoring
-                          ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) + "18"
+                          ? (driveHasEndTeam
+                              ? driveEndTeamColor
+                              : playTeamColor) + "18"
                           : theme.surface,
                       },
                     ]}
@@ -4749,7 +4804,13 @@ const GameDetailsScreen = ({ route }) => {
                       <Text
                         style={[
                           nflDrivesStyles.playTypeLabel,
-                          { color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text },
+                          {
+                            color: isScoring
+                              ? driveHasEndTeam
+                                ? driveEndTeamColor
+                                : playTeamColor
+                              : theme.text,
+                          },
                         ]}
                       >
                         {playType}
@@ -4761,7 +4822,11 @@ const GameDetailsScreen = ({ route }) => {
                           style={[
                             nflDrivesStyles.playScore,
                             {
-                              color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text,
+                              color: isScoring
+                                ? driveHasEndTeam
+                                  ? driveEndTeamColor
+                                  : playTeamColor
+                                : theme.text,
                               fontWeight:
                                 play.awayScore < play.homeScore ? "500" : "800",
                             },
@@ -4772,7 +4837,13 @@ const GameDetailsScreen = ({ route }) => {
                         <Text
                           style={[
                             nflDrivesStyles.playScore,
-                            { color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text },
+                            {
+                              color: isScoring
+                                ? driveHasEndTeam
+                                  ? driveEndTeamColor
+                                  : playTeamColor
+                                : theme.text,
+                            },
                           ]}
                         >
                           &nbsp;-&nbsp;
@@ -4781,7 +4852,11 @@ const GameDetailsScreen = ({ route }) => {
                           style={[
                             nflDrivesStyles.playScore,
                             {
-                              color: isScoring ? (driveHasEndTeam ? driveEndTeamColor : playTeamColor) : theme.text,
+                              color: isScoring
+                                ? driveHasEndTeam
+                                  ? driveEndTeamColor
+                                  : playTeamColor
+                                : theme.text,
                               fontWeight:
                                 play.awayScore > play.homeScore ? "500" : "800",
                             },
@@ -4842,9 +4917,16 @@ const GameDetailsScreen = ({ route }) => {
                         {/* Field visualization: for scoring plays with same team/endTeam, use drive yards */}
                         {hasYardLine &&
                           (() => {
-                            const useDriveYards = isScoring && !driveHasEndTeam && activeDrive?.end?.yardLine != null;
-                            const fieldStartYard = useDriveYards ? activeDrive.start?.yardLine : play.start?.yardLine;
-                            const fieldEndYard = useDriveYards ? activeDrive.end?.yardLine : (play.end?.yardLine ?? play.start?.yardLine);
+                            const useDriveYards =
+                              isScoring &&
+                              !driveHasEndTeam &&
+                              activeDrive?.end?.yardLine != null;
+                            const fieldStartYard = useDriveYards
+                              ? activeDrive.start?.yardLine
+                              : play.start?.yardLine;
+                            const fieldEndYard = useDriveYards
+                              ? activeDrive.end?.yardLine
+                              : (play.end?.yardLine ?? play.start?.yardLine);
                             return (
                               <NflPlayFieldMini
                                 play={play}
@@ -5512,13 +5594,23 @@ const GameDetailsScreen = ({ route }) => {
 
             // Compare drive team and endTeam for yardLine selection
             const liveDriveTeamAbbr = currentDrive?.team?.abbreviation || "";
-            const liveDriveEndTeamAbbr = currentDrive?.endTeam?.abbreviation || "";
-            const liveDriveHasEndTeam = liveDriveEndTeamAbbr && liveDriveEndTeamAbbr !== liveDriveTeamAbbr;
+            const liveDriveEndTeamAbbr =
+              currentDrive?.endTeam?.abbreviation || "";
+            const liveDriveHasEndTeam =
+              liveDriveEndTeamAbbr &&
+              liveDriveEndTeamAbbr !== liveDriveTeamAbbr;
 
             // For scoring plays where same team held possession and drive end is available, use drive yards
-            const useDriveYardsLive = isScoring && !liveDriveHasEndTeam && currentDrive?.end?.yardLine != null;
-            const fieldStartYard = useDriveYardsLive ? currentDrive.start?.yardLine : startYard;
-            const fieldEndYard = useDriveYardsLive ? currentDrive.end?.yardLine : (endYard ?? startYard);
+            const useDriveYardsLive =
+              isScoring &&
+              !liveDriveHasEndTeam &&
+              currentDrive?.end?.yardLine != null;
+            const fieldStartYard = useDriveYardsLive
+              ? currentDrive.start?.yardLine
+              : startYard;
+            const fieldEndYard = useDriveYardsLive
+              ? currentDrive.end?.yardLine
+              : (endYard ?? startYard);
 
             // ── Enrich participants (resolve $ref from drives API, same as handlePlayPress) ──
             const enrichedParticipants = [];
@@ -7192,18 +7284,27 @@ const GameDetailsScreen = ({ route }) => {
                           styles.playerHeadshot,
                           {
                             borderRadius: 40,
-                            backgroundColor: getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
-                              selectedPlayer?.team?.team?.primaryColor ||
-                              selectedPlayer?.team?.team?.color ||
-                              colors.primary
-                            }`,
+                            backgroundColor:
+                              getSmartColor(
+                                selectedPlayer?.team?.team?.abbreviation,
+                              ) ||
+                              `#${
+                                selectedPlayer?.team?.team?.primaryColor ||
+                                selectedPlayer?.team?.team?.color ||
+                                colors.primary
+                              }`,
                           },
                         ]}
-                        borderColor={getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
-                          selectedPlayer?.team?.team?.primaryColor ||
-                          selectedPlayer?.team?.team?.color ||
-                          colors.primary
-                        }`}
+                        borderColor={
+                          getSmartColor(
+                            selectedPlayer?.team?.team?.abbreviation,
+                          ) ||
+                          `#${
+                            selectedPlayer?.team?.team?.primaryColor ||
+                            selectedPlayer?.team?.team?.color ||
+                            colors.primary
+                          }`
+                        }
                       />
                       <View style={styles.playerInfo}>
                         <Text
@@ -7287,71 +7388,90 @@ const GameDetailsScreen = ({ route }) => {
           onRequestClose={() => setPlayerCopyModalVisible(false)}
         >
           <View style={nflShareStyles.overlay}>
-
             {/* Category selector buttons (outside card, above actions) */}
-            {playerShareCategories.length > 1 && selectedPlayer && (() => {
-              const clickedCat = (selectedPlayer?.allStats?.name || "").toLowerCase();
-              const otherCats = playerShareCategories.filter(
-                (c) => c.toLowerCase() !== clickedCat,
-              );
-              if (otherCats.length === 0) return null;
-              const teamCol = getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${selectedPlayer?.team?.team?.primaryColor || selectedPlayer?.team?.team?.color || colors.primary.replace("#", "")}`;
-              const fmtCat = (name) => {
-                if (!name) return "";
-                return name
-                  .replace(/([a-z])([A-Z])/g, "$1 $2")
-                  .replace(/^./, (s) => s.toUpperCase())
-                  .trim();
-              };
-              return (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    justifyContent: "center",
-                  }}
-                >
-                  {otherCats.map((catName) => {
-                    const isActive = playerShareExtraCategories.some(
-                      (c) => c.toLowerCase() === catName.toLowerCase(),
-                    );
-                    return (
-                      <TouchableOpacity
-                        key={catName}
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setPlayerShareExtraCategories((prev) => {
-                            if (prev.some((c) => c.toLowerCase() === catName.toLowerCase())) {
-                              return prev.filter((c) => c.toLowerCase() !== catName.toLowerCase());
-                            }
-                            return [...prev, catName];
-                          });
-                        }}
-                        style={{
-                          paddingHorizontal: 14,
-                          paddingVertical: 8,
-                          borderRadius: 20,
-                          borderWidth: 1,
-                          borderColor: isActive ? teamCol : "rgba(255,255,255,0.15)",
-                          backgroundColor: isActive ? teamCol + "33" : "rgba(255,255,255,0.05)",
-                        }}
-                      >
-                        <Text
+            {playerShareCategories.length > 1 &&
+              selectedPlayer &&
+              (() => {
+                const clickedCat = (
+                  selectedPlayer?.allStats?.name || ""
+                ).toLowerCase();
+                const otherCats = playerShareCategories.filter(
+                  (c) => c.toLowerCase() !== clickedCat,
+                );
+                if (otherCats.length === 0) return null;
+                const teamCol =
+                  getSmartColor(selectedPlayer?.team?.team?.abbreviation) ||
+                  `#${selectedPlayer?.team?.team?.primaryColor || selectedPlayer?.team?.team?.color || colors.primary.replace("#", "")}`;
+                const fmtCat = (name) => {
+                  if (!name) return "";
+                  return name
+                    .replace(/([a-z])([A-Z])/g, "$1 $2")
+                    .replace(/^./, (s) => s.toUpperCase())
+                    .trim();
+                };
+                return (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      justifyContent: "center",
+                    }}
+                  >
+                    {otherCats.map((catName) => {
+                      const isActive = playerShareExtraCategories.some(
+                        (c) => c.toLowerCase() === catName.toLowerCase(),
+                      );
+                      return (
+                        <TouchableOpacity
+                          key={catName}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setPlayerShareExtraCategories((prev) => {
+                              if (
+                                prev.some(
+                                  (c) =>
+                                    c.toLowerCase() === catName.toLowerCase(),
+                                )
+                              ) {
+                                return prev.filter(
+                                  (c) =>
+                                    c.toLowerCase() !== catName.toLowerCase(),
+                                );
+                              }
+                              return [...prev, catName];
+                            });
+                          }}
                           style={{
-                            fontSize: 13,
-                            fontWeight: isActive ? "800" : "600",
-                            color: isActive ? "#fff" : "rgba(255,255,255,0.6)",
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                            borderRadius: 20,
+                            borderWidth: 1,
+                            borderColor: isActive
+                              ? teamCol
+                              : "rgba(255,255,255,0.15)",
+                            backgroundColor: isActive
+                              ? teamCol + "33"
+                              : "rgba(255,255,255,0.05)",
                           }}
                         >
-                          + {fmtCat(catName)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              );
-            })()}
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: isActive ? "800" : "600",
+                              color: isActive
+                                ? "#fff"
+                                : "rgba(255,255,255,0.6)",
+                            }}
+                          >
+                            + {fmtCat(catName)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
 
             <View
               ref={playerCopyCardRef}
@@ -7360,11 +7480,13 @@ const GameDetailsScreen = ({ route }) => {
             >
               {selectedPlayer ? (
                 (() => {
-                  const teamColor = getSmartColor(selectedPlayer?.team?.team?.abbreviation) || `#${
-                    selectedPlayer?.team?.team?.primaryColor ||
-                    selectedPlayer?.team?.team?.color ||
-                    colors.primary.replace("#", "")
-                  }`;
+                  const teamColor =
+                    getSmartColor(selectedPlayer?.team?.team?.abbreviation) ||
+                    `#${
+                      selectedPlayer?.team?.team?.primaryColor ||
+                      selectedPlayer?.team?.team?.color ||
+                      colors.primary.replace("#", "")
+                    }`;
                   const headshotUri = NFLService.convertToHttps(
                     selectedPlayer.headshot?.href || selectedPlayer.headshot,
                   );
@@ -7435,10 +7557,14 @@ const GameDetailsScreen = ({ route }) => {
                     };
                     playerShareExtraCategories.forEach((extraCatName) => {
                       const extraCat = playerStats.splits.categories.find(
-                        (c) => (c.name || "").toLowerCase() === extraCatName.toLowerCase(),
+                        (c) =>
+                          (c.name || "").toLowerCase() ===
+                          extraCatName.toLowerCase(),
                       );
                       if (!extraCat) return;
-                      const prefix = extraCatPrefixes[extraCatName.toLowerCase()] || `${(extraCat.text || extraCatName).toUpperCase().slice(0, 4)} `;
+                      const prefix =
+                        extraCatPrefixes[extraCatName.toLowerCase()] ||
+                        `${(extraCat.text || extraCatName).toUpperCase().slice(0, 4)} `;
                       const labels = extraCat.labels || [];
                       const stats = extraCat.stats || [];
                       labels.forEach((label, i) => {
@@ -7456,7 +7582,10 @@ const GameDetailsScreen = ({ route }) => {
                             displayValue = val.toString();
                           }
                         }
-                        statItems.push({ label: `${prefix}${label}`, value: displayValue });
+                        statItems.push({
+                          label: `${prefix}${label}`,
+                          value: displayValue,
+                        });
                       });
                     });
 
@@ -7507,7 +7636,11 @@ const GameDetailsScreen = ({ route }) => {
                           <View
                             style={[
                               nflShareStyles.posBadge,
-                              { backgroundColor: teamColor, maxWidth: "55%", flexShrink: 1 },
+                              {
+                                backgroundColor: teamColor,
+                                maxWidth: "55%",
+                                flexShrink: 1,
+                              },
                             ]}
                           >
                             <Text
@@ -7527,20 +7660,35 @@ const GameDetailsScreen = ({ route }) => {
                                     .replace(/^./, (s) => s.toUpperCase())
                                     .trim();
                                 };
-                                const mainPos = formatCatName(selectedPlayer?.allStats?.name) || formatCatName(pos) || "POS";
-                                if (playerShareExtraCategories.length === 0) return mainPos;
-                                const extraLabels = playerShareExtraCategories.map((c) => {
-                                  const cat = playerStats?.splits?.categories?.find(
-                                    (cat) => (cat.name || "").toLowerCase() === c.toLowerCase(),
-                                  );
-                                  return formatCatName(cat?.name || c);
-                                });
+                                const mainPos =
+                                  formatCatName(
+                                    selectedPlayer?.allStats?.name,
+                                  ) ||
+                                  formatCatName(pos) ||
+                                  "POS";
+                                if (playerShareExtraCategories.length === 0)
+                                  return mainPos;
+                                const extraLabels =
+                                  playerShareExtraCategories.map((c) => {
+                                    const cat =
+                                      playerStats?.splits?.categories?.find(
+                                        (cat) =>
+                                          (cat.name || "").toLowerCase() ===
+                                          c.toLowerCase(),
+                                      );
+                                    return formatCatName(cat?.name || c);
+                                  });
                                 return `${mainPos} · ${extraLabels.join(" · ")}`;
                               })()}
                             </Text>
                           </View>
                           {isGameFinished || isGameLive ? (
-                            <View style={[nflShareStyles.scoreWrap, { flexShrink: 0 }]}>
+                            <View
+                              style={[
+                                nflShareStyles.scoreWrap,
+                                { flexShrink: 0 },
+                              ]}
+                            >
                               <TeamLogoImage
                                 team={awayTeam?.team || awayTeam}
                                 style={nflShareStyles.scoreLogo}
@@ -7716,7 +7864,10 @@ const GameDetailsScreen = ({ route }) => {
 
                       {/* Stat grid (dynamic columns) */}
                       {(() => {
-                        const gridItems = playerShareExtraCategories.length > 0 ? statItems : statItems.slice(0, 9);
+                        const gridItems =
+                          playerShareExtraCategories.length > 0
+                            ? statItems
+                            : statItems.slice(0, 9);
                         const count = gridItems.length;
                         const cols = count >= 3 ? 3 : count === 2 ? 2 : 1;
                         const fullRows = Math.floor(count / cols);
@@ -8326,17 +8477,21 @@ const GameDetailsScreen = ({ route }) => {
                     // Use the other team's color
                     if (driveTeamId === homeTeamId) {
                       // Drive team is home, use away team's color
-                      teamColor = getSmartColor(play.awayTeam?.team?.abbreviation) || (play.awayTeam?.team?.color
-                        ? `#${play.awayTeam.team.color}`
-                        : "#000000");
+                      teamColor =
+                        getSmartColor(play.awayTeam?.team?.abbreviation) ||
+                        (play.awayTeam?.team?.color
+                          ? `#${play.awayTeam.team.color}`
+                          : "#000000");
                       teamLogo = play.awayTeam?.team;
                       teamName = play.awayTeam?.team?.displayName || teamName;
                       teamAbbr = play.awayTeam?.team?.abbreviation || teamAbbr;
                     } else if (driveTeamId === awayTeamId) {
                       // Drive team is away, use home team's color
-                      teamColor = getSmartColor(play.homeTeam?.team?.abbreviation) || (play.homeTeam?.team?.color
-                        ? `#${play.homeTeam.team.color}`
-                        : "#000000");
+                      teamColor =
+                        getSmartColor(play.homeTeam?.team?.abbreviation) ||
+                        (play.homeTeam?.team?.color
+                          ? `#${play.homeTeam.team.color}`
+                          : "#000000");
                       teamLogo = play.homeTeam?.team;
                       teamName = play.homeTeam?.team?.displayName || teamName;
                       teamAbbr = play.homeTeam?.team?.abbreviation || teamAbbr;
@@ -8410,10 +8565,21 @@ const GameDetailsScreen = ({ route }) => {
                   const rotatedFieldHeightPct = `${(fieldHeight / fieldWidth) * 100}%`;
                   const isScoringShare = !!play.scoringPlay;
                   // Compare drive team and endTeam for yardLine selection
-                  const shareDriveHasEndTeam = shareDrive?.endTeam?.abbreviation && shareDrive?.team?.abbreviation && shareDrive.endTeam.abbreviation !== shareDrive.team.abbreviation;
-                  const useDriveYardsShare = isScoringShare && !shareDriveHasEndTeam && shareDrive?.end?.yardLine != null;
-                  const driveStartYard = useDriveYardsShare ? shareDrive.start?.yardLine : play.start?.yardLine;
-                  const driveEndYard = useDriveYardsShare ? shareDrive.end?.yardLine : (play.end?.yardLine ?? play.start?.yardLine);
+                  const shareDriveHasEndTeam =
+                    shareDrive?.endTeam?.abbreviation &&
+                    shareDrive?.team?.abbreviation &&
+                    shareDrive.endTeam.abbreviation !==
+                      shareDrive.team.abbreviation;
+                  const useDriveYardsShare =
+                    isScoringShare &&
+                    !shareDriveHasEndTeam &&
+                    shareDrive?.end?.yardLine != null;
+                  const driveStartYard = useDriveYardsShare
+                    ? shareDrive.start?.yardLine
+                    : play.start?.yardLine;
+                  const driveEndYard = useDriveYardsShare
+                    ? shareDrive.end?.yardLine
+                    : (play.end?.yardLine ?? play.start?.yardLine);
                   const hasDriveVisualization =
                     driveStartYard != null && driveEndYard != null;
 
@@ -9470,7 +9636,10 @@ const GameDetailsScreen = ({ route }) => {
                                     style={{
                                       flexDirection: "row",
                                       flexWrap: "wrap",
-                                      justifyContent: mainPlayerStats.length === 1 ? "center" : "space-between",
+                                      justifyContent:
+                                        mainPlayerStats.length === 1
+                                          ? "center"
+                                          : "space-between",
                                       marginBottom: 10,
                                     }}
                                   >
