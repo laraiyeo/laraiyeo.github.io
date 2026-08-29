@@ -4839,11 +4839,12 @@ const GameDetailsScreen = ({ route }) => {
                     {/* Expanded: field display + share */}
                     {isExpanded && (
                       <View style={nflDrivesStyles.playExpandedWrap}>
-                        {/* Field visualization - always use play's own start/end and team color */}
+                        {/* Field visualization: for scoring plays with same team/endTeam, use drive yards */}
                         {hasYardLine &&
                           (() => {
-                            const fieldStartYard = play.start?.yardLine;
-                            const fieldEndYard = play.end?.yardLine ?? play.start?.yardLine;
+                            const useDriveYards = isScoring && !driveHasEndTeam && activeDrive?.end?.yardLine != null;
+                            const fieldStartYard = useDriveYards ? activeDrive.start?.yardLine : play.start?.yardLine;
+                            const fieldEndYard = useDriveYards ? activeDrive.end?.yardLine : (play.end?.yardLine ?? play.start?.yardLine);
                             return (
                               <NflPlayFieldMini
                                 play={play}
@@ -5508,9 +5509,16 @@ const GameDetailsScreen = ({ route }) => {
             const endYard = play.end?.yardLine;
 
             const isScoring = !!play.scoringPlay;
-            // Always use play's own start/end for field visualization
-            const fieldStartYard = startYard;
-            const fieldEndYard = endYard ?? startYard;
+
+            // Compare drive team and endTeam for yardLine selection
+            const liveDriveTeamAbbr = currentDrive?.team?.abbreviation || "";
+            const liveDriveEndTeamAbbr = currentDrive?.endTeam?.abbreviation || "";
+            const liveDriveHasEndTeam = liveDriveEndTeamAbbr && liveDriveEndTeamAbbr !== liveDriveTeamAbbr;
+
+            // For scoring plays where same team held possession and drive end is available, use drive yards
+            const useDriveYardsLive = isScoring && !liveDriveHasEndTeam && currentDrive?.end?.yardLine != null;
+            const fieldStartYard = useDriveYardsLive ? currentDrive.start?.yardLine : startYard;
+            const fieldEndYard = useDriveYardsLive ? currentDrive.end?.yardLine : (endYard ?? startYard);
 
             // ── Enrich participants (resolve $ref from drives API, same as handlePlayPress) ──
             const enrichedParticipants = [];
@@ -8342,7 +8350,7 @@ const GameDetailsScreen = ({ route }) => {
                     play.end?.downDistanceText ||
                     "";
                   const yardLine =
-                    play.end?.yardLine || play.end?.yardLine || 0;
+                    play.end?.yardLine || play.start?.yardLine || 0;
                   const possession =
                     play.start?.possessionText || play.start?.yardLine || "";
 
@@ -8400,10 +8408,12 @@ const GameDetailsScreen = ({ route }) => {
                   const fieldWrapAspectRatio = fieldHeight / fieldWidth;
                   const rotatedFieldWidthPct = `${(fieldWidth / fieldHeight) * 100}%`;
                   const rotatedFieldHeightPct = `${(fieldHeight / fieldWidth) * 100}%`;
-                  // Always use play's own start/end for field visualization
                   const isScoringShare = !!play.scoringPlay;
-                  const driveStartYard = play.start?.yardLine;
-                  const driveEndYard = play.end?.yardLine ?? play.start?.yardLine;
+                  // Compare drive team and endTeam for yardLine selection
+                  const shareDriveHasEndTeam = shareDrive?.endTeam?.abbreviation && shareDrive?.team?.abbreviation && shareDrive.endTeam.abbreviation !== shareDrive.team.abbreviation;
+                  const useDriveYardsShare = isScoringShare && !shareDriveHasEndTeam && shareDrive?.end?.yardLine != null;
+                  const driveStartYard = useDriveYardsShare ? shareDrive.start?.yardLine : play.start?.yardLine;
+                  const driveEndYard = useDriveYardsShare ? shareDrive.end?.yardLine : (play.end?.yardLine ?? play.start?.yardLine);
                   const hasDriveVisualization =
                     driveStartYard != null && driveEndYard != null;
 
@@ -9405,8 +9415,9 @@ const GameDetailsScreen = ({ route }) => {
                                       marginBottom: 10,
                                     }}
                                   >
-                                    <Image
-                                      source={{ uri: mainPlayerHeadshot }}
+                                    <PlayerHeadshotImage
+                                      athleteId={mainPlayerId}
+                                      borderColor={teamColor}
                                       style={{
                                         width: 60,
                                         height: 60,

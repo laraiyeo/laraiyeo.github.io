@@ -77,7 +77,7 @@ const SoccerHomeScreen = () => {
   const navigation = useNavigation();
   const { theme, colors, isDarkMode } = useTheme();
 
-  const show = false; // Set to true to show the top 5 leagues, false to hide them
+  const show = true; // Set to true to show the top 5 leagues, false to hide them
 
 const soccerLeagues = [
   ...(!show)
@@ -94,14 +94,6 @@ const soccerLeagues = [
     ],
   },
 ] : [],
-  {
-    id: "fifa.world",
-    name: "FIFA World Cup",
-    flag: null,
-    type: "competition",
-    mainLeague: { name: "FIFA World Cup", logo: "4" },
-    competitions: [],
-  },
 
   ...(show
     ? [
@@ -185,6 +177,14 @@ const soccerLeagues = [
     flag: null,
     type: "competition",
     mainLeague: { name: "Europa Conference League", logo: "20296" },
+    competitions: [],
+  },
+  {
+    id: "fifa.world",
+    name: "FIFA World Cup",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "FIFA World Cup", logo: "4" },
     competitions: [],
   },
 ];

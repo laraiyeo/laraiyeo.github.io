@@ -22,7 +22,6 @@ import {
   RefreshControl,
   Modal,
 } from "react-native";
-import ViewShot from "react-native-view-shot";
 import { WebView } from "react-native-webview";
 import Svg, {
   Line,
@@ -31,22 +30,52 @@ import Svg, {
   LinearGradient,
   Stop,
   Path,
+  Rect,
 } from "react-native-svg";
-import { ItalyServiceEnhanced } from "../../../services/soccer/ItalyServiceEnhanced";
-import { useTheme } from "../../../context/ThemeContext";
-import { useFavorites } from "../../../context/FavoritesContext";
-import { captureRef } from "react-native-view-shot";
+import { Ionicons } from "@expo/vector-icons";
+import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import ChatComponent from "../../../components/ChatComponent";
 import useIsLoggedIn from "../../../hooks/useIsLoggedIn";
-import LiveTrackerEmbed from "../../../components/LiveTrackerEmbed";
-import LiveTrackerService from "../../../services/liveTrackerService";
-import { buildLiveTrackerUrl } from "../../../utils/liveTracker";
-import { Ionicons } from "@expo/vector-icons";
+import { ItalyServiceEnhanced } from "../../../services/soccer/ItalyServiceEnhanced";
+import { useTheme } from "../../../context/ThemeContext";
+import { useFavorites } from "../../../context/FavoritesContext";
 import { useStreamingAccess } from "../../../utils/streamingUtils";
-import useGamePresence from "../../../hooks/useGamePresence";
+import { useGamePresence } from "../../../hooks/useGamePresence";
 
 const { width } = Dimensions.get("window");
+
+// Add this HeaderGradient component near the top of the file, after the imports
+const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
+  <View style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
+    <Svg
+      width={width}
+      height={height}
+      style={{
+        transform: [{ translateX: -1 }, { translateY: -1 }],
+      }}
+      pointerEvents="none"
+    >
+      <Defs>
+        <LinearGradient id="italyHeaderGrad" x1="00%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={homeColor} stopOpacity="0.3" />
+          <Stop
+            offset="40%"
+            stopColor={theme.surfaceSecondary}
+            stopOpacity="0"
+          />
+          <Stop
+            offset="60%"
+            stopColor={theme.surfaceSecondary}
+            stopOpacity="0"
+          />
+          <Stop offset="100%" stopColor={awayColor} stopOpacity="0.3" />
+        </LinearGradient>
+      </Defs>
+      <Rect width={width} height={height} fill="url(#italyHeaderGrad)" />
+    </Svg>
+  </View>
+);
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -75,107 +104,107 @@ const getContrastColor = (backgroundColor) => {
   return luminance > 0.5 ? "#000000" : "#FFFFFF";
 };
 
-// Function to get team logo URLs with dark mode support
+// Helper function for team logo URLs
 const getTeamLogoUrls = (teamId, isDarkMode) => {
-  if (!teamId) return { primaryUrl: null, fallbackUrl: null };
+  const primaryUrl = isDarkMode
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
 
-  const baseUrl =
-    "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500";
-  const darkUrl = `${baseUrl}-dark/${teamId}.png&w=200&h=200`;
-  const lightUrl = `${baseUrl}/${teamId}.png&w=200&h=200`;
+  const fallbackUrl = isDarkMode
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
-  return {
-    primaryUrl: isDarkMode ? darkUrl : lightUrl,
-    fallbackUrl: isDarkMode ? lightUrl : darkUrl,
-  };
+  return { primaryUrl, fallbackUrl };
 };
 
-// TeamLogoImage component with dark mode and fallback support
+// Memoized TeamLogoImage component to prevent flickering on state changes
 const TeamLogoImage = React.memo(
   ({ teamId, style, isScoring = false, isDarkMode, scoringTextColor }) => {
     const [logoSource, setLogoSource] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
 
-    const loadLogo = useCallback(async () => {
-      if (teamId) {
-        try {
-          if (isScoring) {
-            // For scoring plays, always use dark variant
-            const code = scoringTextColor === "#000" ? "" : "-dark";
-            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500${code}/${teamId}.png&w=200&h=200`;
-            setLogoSource({ uri: darkUrl });
-          } else {
-            // For non-scoring, use normal dark mode logic
-            const { primaryUrl, fallbackUrl } = getTeamLogoUrls(
-              teamId,
-              isDarkMode,
-            );
-            setLogoSource({ uri: primaryUrl });
+    useEffect(() => {
+      const loadLogo = async () => {
+        if (teamId) {
+          try {
+            if (isScoring) {
+              // For scoring plays, always use dark variant
+              const code = scoringTextColor === "#000" ? "" : "-dark";
+              const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500${code}/${teamId}.png&w=200&h=200`;
+              setLogoSource({ uri: darkUrl });
+            } else {
+              // For non-scoring, use normal dark mode logic
+              const { primaryUrl, fallbackUrl } = getTeamLogoUrls(
+                teamId,
+                isDarkMode,
+              );
+              setLogoSource({ uri: primaryUrl });
+            }
+          } catch (error) {
+            console.error("Error loading team logo:", error);
+            setLogoSource(require("../../../../assets/soccer.png"));
           }
-        } catch (error) {
-          console.log("Error loading team logo:", error);
-          setLogoSource(null);
+        } else {
+          setLogoSource(require("../../../../assets/soccer.png"));
         }
-      }
+        setRetryCount(0);
+      };
+
+      loadLogo();
     }, [teamId, isDarkMode, isScoring, scoringTextColor]);
 
-    useEffect(() => {
-      loadLogo();
-    }, [loadLogo]);
-
-    const handleImageError = useCallback(() => {
-      if (retryCount < 2) {
-        setRetryCount((prev) => prev + 1);
-        const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
-        if (fallbackUrl) {
+    const handleError = useCallback(() => {
+      if (retryCount === 0 && teamId) {
+        if (isScoring) {
+          // For scoring plays, fallback to regular variant
+          const regularUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
+          setRetryCount(1);
+          setLogoSource({ uri: regularUrl });
+        } else {
+          // For non-scoring, try the fallback URL (opposite dark mode variant)
+          const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
+          setRetryCount(1);
           setLogoSource({ uri: fallbackUrl });
         }
       } else {
-        // Final fallback to a generic placeholder or null
-        setLogoSource(null);
+        // Final fallback to soccer.png
+        setLogoSource(require("../../../../assets/soccer.png"));
       }
-    }, [retryCount, teamId, isDarkMode]);
+    }, [retryCount, teamId, isScoring, isDarkMode]);
 
-    if (!logoSource) {
-      return (
-        <View
-          style={[
-            style,
-            {
-              backgroundColor: "#f0f0f0",
-              justifyContent: "center",
-              alignItems: "center",
-            },
-          ]}
-        >
-          <Text style={{ fontSize: 10, color: "#999" }}>?</Text>
-        </View>
-      );
-    }
+    // Get the default source - use actual logo first, then soccer.png
+    const getDefaultSource = () => {
+      if (teamId) {
+        if (isScoring) {
+          // For scoring plays, use dark variant as default
+          const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+          return { uri: darkUrl };
+        } else {
+          // For non-scoring, use normal logic
+          const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
+          return { uri: primaryUrl };
+        }
+      }
+      return require("../../../../assets/soccer.png");
+    };
 
     return (
       <Image
-        source={logoSource}
         style={style}
-        onError={handleImageError}
-        resizeMode="contain"
+        source={logoSource || getDefaultSource()}
+        defaultSource={getDefaultSource()}
+        onError={handleError}
       />
     );
   },
 );
 
-const ItalyGameDetailsScreen = ({ route, navigation }) => {
+const ITALYGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } =
     route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
   const { isFavorite } = useFavorites();
-
-  // Initialize game presence tracking
-  useGamePresence(gameId);
-
   const [gameData, setGameData] = useState(null);
-  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
-  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
@@ -190,6 +219,10 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   // Lazy loading state for plays
   const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
   const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
+
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+
   const [lineupData, setLineupData] = useState({
     homeLineup: [],
     awayLineup: [],
@@ -199,8 +232,12 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerPopupVisible, setPlayerPopupVisible] = useState(false);
   const [playerGameStats, setPlayerGameStats] = useState(null);
-  const [pitchPlayerShareCard, setPitchPlayerShareCard] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
+
+  // Player share card state
+  const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  const [sharingPlayerCard, setSharingPlayerCard] = useState(false);
+  const playerShareCardRef = useRef(null);
   const [statsData, setStatsData] = useState(null);
   const [loadingMatchStats, setLoadingMatchStats] = useState(false);
 
@@ -212,6 +249,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const isLoggedIn = useIsLoggedIn();
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
 
   // Share card state
   const [shareCardPlay, setShareCardPlay] = useState(null);
@@ -229,19 +269,274 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     redCards: 0,
   });
 
-  // Streaming access check
-  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+  // Helper: look up a player in the lineup roster by name and extract stats
+  const lookupPlayerInRoster = (playerName, teamSide) => {
+    if (!playerName) return null;
+    const roster =
+      teamSide === "home" ? lineupData.homeLineup : lineupData.awayLineup;
+    if (!roster || roster.length === 0) return null;
+
+    const nameLower = playerName.toLowerCase();
+    for (const entry of roster) {
+      const athlete = entry.athlete || entry;
+      const entryName = (
+        athlete.displayName ||
+        athlete.name ||
+        athlete.fullName ||
+        ""
+      ).toLowerCase();
+      if (
+        entryName &&
+        (entryName === nameLower ||
+          nameLower.includes(entryName) ||
+          entryName.includes(nameLower))
+      ) {
+        // Found the player in roster — extract stats
+        const rawStats = entry.stats || [];
+        const statsMap = {};
+        if (Array.isArray(rawStats)) {
+          rawStats.forEach((s) => {
+            if (s.abbreviation && s.displayValue !== undefined) {
+              statsMap[s.abbreviation] = s.displayValue;
+            }
+          });
+        }
+        console.log(
+          `[ShareCard] Found player "${playerName}" in ${teamSide} roster:`,
+          statsMap,
+        );
+        return {
+          id: athlete.id,
+          name: athlete.displayName || athlete.name || playerName,
+          statsMap,
+        };
+      }
+    }
+    return null;
+  };
+
+  // Helper: parse a stats map into our stat shape
+  const parseRosterStats = (statsMap) => {
+    const get = (keys) => {
+      for (const k of keys) {
+        const v = statsMap[k];
+        if (v !== undefined && v !== null) {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        }
+      }
+      return 0;
+    };
+    return {
+      goals: get(["G", "goals", "totalGoals"]),
+      ownGoals: get(["OG", "ownGoals"]),
+      assists: get(["A", "assists", "goalAssists"]),
+      shots: get(["SHOT", "shots", "totalShots"]),
+      shotsOnTarget: get(["SOG", "shotsOnTarget", "shotsOnGoal"]),
+      yellowCards: get(["YC", "yellowCards"]),
+      redCards: get(["RC", "redCards"]),
+    };
+  };
+
+  // Fetch player names and stats when shareCardPlay changes
+  useEffect(() => {
+    const fetchPlayerData = async () => {
+      if (!shareCardPlay?.participants) {
+        setShareCardPlayerNames({ scorer: null, assister: null });
+        setShareCardPlayerStats({
+          goals: 0,
+          assists: 0,
+          ownGoals: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          yellowCards: 0,
+          redCards: 0,
+        });
+        return;
+      }
+
+      const names = { scorer: null, assister: null };
+      let stats = {
+        goals: 0,
+        assists: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        yellowCards: 0,
+        redCards: 0,
+        ownGoals: 0,
+      };
+
+      // Determine which team scored from context
+      const contextTeamSide = shareCardPlay._contextTeams?.playTeamId
+        ? String(shareCardPlay._contextTeams.playTeamId) ===
+          String(gameData?.homeCompetitor?.team?.id)
+          ? "home"
+          : String(shareCardPlay._contextTeams.playTeamId) ===
+              String(gameData?.awayCompetitor?.team?.id)
+            ? "away"
+            : null
+        : null;
+
+      // ── Resolve scorer name ────────────────────────────────────────
+      const scorerParticipant = shareCardPlay.participants?.[0];
+      if (scorerParticipant?.athlete?.displayName) {
+        names.scorer = scorerParticipant.athlete.displayName;
+      } else if (scorerParticipant?.displayName) {
+        names.scorer = scorerParticipant.displayName;
+      }
+
+      // ── Resolve assister name ──────────────────────────────────────
+      const assisterParticipant = shareCardPlay.participants?.[1];
+      if (assisterParticipant?.athlete?.displayName) {
+        names.assister = assisterParticipant.athlete.displayName;
+      } else if (assisterParticipant?.displayName) {
+        names.assister = assisterParticipant.displayName;
+      }
+
+      // ── Look up scorer stats in lineupData roster (fast, no API) ──
+      if (names.scorer && contextTeamSide) {
+        const rosterLookup = lookupPlayerInRoster(
+          names.scorer,
+          contextTeamSide,
+        );
+        if (rosterLookup && Object.keys(rosterLookup.statsMap).length > 0) {
+          stats = parseRosterStats(rosterLookup.statsMap);
+          console.log("[ShareCard] Using roster stats for scorer:", stats);
+        }
+      }
+
+      // ── Fallback: API fetch if roster lookup failed ────────────────
+      if (
+        stats.goals === 0 &&
+        stats.shots === 0 &&
+        stats.assists === 0 &&
+        names.scorer
+      ) {
+        const contextTeamId =
+          shareCardPlay._contextTeams?.playTeamId ||
+          shareCardPlay.team?.id ||
+          shareCardPlay.team?.$ref?.match(/teams\/(\d+)/)?.[1];
+        const gameId = route?.params?.gameId;
+
+        if (gameId && contextTeamId) {
+          try {
+            // Try roster endpoint to find athlete ID by name
+            const rosterUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster?lang=en&region=us`;
+            const rosterResp = await fetch(convertToHttps(rosterUrl));
+            let foundAthleteId = null;
+
+            if (rosterResp.ok) {
+              const rosterData = await rosterResp.json();
+              const entries = rosterData.items || rosterData.roster || [];
+              for (const entry of entries) {
+                const athlete = entry.athlete || entry;
+                const entryName = (
+                  athlete.displayName ||
+                  athlete.name ||
+                  ""
+                ).toLowerCase();
+                if (entryName && entryName === names.scorer.toLowerCase()) {
+                  foundAthleteId = athlete.id;
+                  if (athlete.$ref) {
+                    const refId = athlete.$ref.match(/athletes\/(\d+)/)?.[1];
+                    if (refId) foundAthleteId = refId;
+                  }
+                  break;
+                }
+              }
+            }
+
+            if (foundAthleteId) {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster/${foundAthleteId}/statistics/0?lang=en&region=us`;
+              console.log(
+                "[ShareCard] API fallback: Fetching player stats from:",
+                statsUrl,
+              );
+              const statsResponse = await fetch(convertToHttps(statsUrl));
+              if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                if (statsData.splits?.categories) {
+                  const allStats = {};
+                  statsData.splits.categories.forEach((category) => {
+                    if (category.stats && Array.isArray(category.stats)) {
+                      category.stats.forEach((stat) => {
+                        if (stat.name && stat.value !== undefined) {
+                          allStats[stat.name] = stat.value;
+                        }
+                      });
+                    }
+                  });
+                  stats = {
+                    goals: allStats.totalGoals || allStats.goalsScored || 0,
+                    assists:
+                      allStats.goalAssists || allStats.assistsProvided || 0,
+                    shots:
+                      allStats.totalShots ||
+                      allStats.shots ||
+                      allStats.shotsTotal ||
+                      0,
+                    ownGoals: allStats.ownGoals || 0,
+                    shotsOnTarget:
+                      allStats.shotsOnTarget ||
+                      allStats.shotsOnGoal ||
+                      allStats.shotsOnTargetTotal ||
+                      0,
+                    yellowCards:
+                      allStats.yellowCards || allStats.yellowCardsReceived || 0,
+                    redCards:
+                      allStats.redCards || allStats.redCardsReceived || 0,
+                  };
+                  console.log(
+                    "[ShareCard] API fallback: Mapped player stats:",
+                    stats,
+                  );
+                }
+              }
+            }
+          } catch (error) {
+            console.error(
+              "[ShareCard] Error fetching player stats (API fallback):",
+              error,
+            );
+          }
+        }
+      }
+
+      setShareCardPlayerNames(names);
+      setShareCardPlayerStats(stats);
+    };
+
+    if (shareCardPlay) {
+      fetchPlayerData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareCardPlay, route?.params?.gameId, lineupData]);
 
   const scrollViewRef = useRef(null);
-  const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [headerHeight, setHeaderHeight] = useState(0);
   const lastPlaysHashRef = useRef("");
   const goalShareCardRef = useRef();
-  const pitchPlayerShareCardRef = useRef();
+  const processedPlaysRef = useRef(null); // Ref to always have latest processedPlays
+
+  // Sticky header computed from scrollY (NBA-style)
+  const stickyThreshold = headerHeight > 0 ? headerHeight - 30 : 150;
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [stickyThreshold, stickyThreshold + 40],
+    outputRange: [0, 54],
+    extrapolate: "clamp",
+  });
 
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = async (teamId, isDarkMode) => {
     // Use the service's enhanced logo logic with caching and fallbacks
-    const logoUrl = await ItalyServiceEnhanced.getTeamLogoWithFallback(teamId);
+    const logoUrl =
+      await ItalyServiceEnhanced.getTeamLogoWithFallback(teamId);
     return { primaryUrl: logoUrl, fallbackUrl: logoUrl };
   };
 
@@ -277,6 +572,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     // Build a compact, stable fingerprint that avoids volatile fields like the live clock
     const parts = [];
+    // Prefer _sequence from commentary (unique per play)
+    if (play._sequence != null) parts.push(`seq${play._sequence}`);
     if (play.period) parts.push(`p${play.period.number || play.period}`);
     // Team identity (stable)
     if (play.team) parts.push(`t${extractTeamId(play.team)}`);
@@ -369,7 +666,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         }
 
         console.log(
-          "[ItalyGameDetails] incremental update: added=",
+          "[ITALYGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount,
@@ -379,7 +676,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
       if (changed) {
         console.log(
-          "[ItalyGameDetails] incremental update: added=",
+          "[ITALYGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount,
@@ -563,25 +860,22 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  // Check if game is final (post status)
+  const isGameFinal = () => {
+    if (!gameData) return false;
+    const competition = gameData.header?.competitions?.[0];
+    const status = competition?.status;
+    return status?.type?.state === "post";
+  };
+
   const handleScroll = (event) => {
     const offsetY = event?.nativeEvent?.contentOffset?.y || 0;
     scrollYRef.current = offsetY;
-    const shouldShow = offsetY > 120;
-    if (shouldShow !== showStickyHeader) {
-      setShowStickyHeader(shouldShow);
-      Animated.timing(stickyHeaderOpacity, {
-        toValue: shouldShow ? 1 : 0,
-        duration: 350,
-        useNativeDriver: true,
-      }).start();
-    }
+    scrollY.setValue(offsetY);
   };
 
   useEffect(() => {
-    loadGameDetails();
-
-    // Adaptive polling: when the game is live and the Plays tab is active, poll faster (10s).
-    // Otherwise poll at a default 30s interval.
+    // Adaptive polling for live games (no initial load - useFocusEffect handles that)
     const isLive =
       gameData &&
       gameData.header?.competitions?.[0]?.status?.type?.state === "in";
@@ -589,12 +883,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     const interval = setInterval(() => {
       try {
-        // Skip update if stream modal is open
-        if (showStreamModal) {
-          console.log("Stream modal open, skipping Italy game update");
-          return;
-        }
-
+        if (showStreamModal) return;
         if (isLive) {
           loadGameDetails(true); // Silent update for live games
         }
@@ -608,12 +897,13 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [gameId, gameData, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, gameData, activeTab, showStreamModal]);
 
   // Reload data when the screen comes into focus (useful when navigating back)
   useFocusEffect(
     React.useCallback(() => {
-      console.log("[ItalyGameDetails] useFocusEffect triggered");
+      console.log("[ITALYGameDetails] useFocusEffect triggered");
       loadGameDetails();
       // Only clear plays and stats data when the gameId changes, not on every focus
       // This prevents losing data when navigating back from other screens with same gameId
@@ -633,7 +923,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
   // Clear data when gameId changes (different game)
   useEffect(() => {
-    console.log("[ItalyGameDetails] gameId changed - clearing data states");
+    console.log("[ITALYGameDetails] gameId changed - clearing data states");
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
@@ -645,180 +935,22 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         gameData &&
         gameData.header?.competitions?.[0]?.status?.type?.state === "in";
       if (isLive) {
-        console.log(
-          "Stream modal closed, immediately fetching Italy game data",
-        );
+        console.log("Stream modal closed, immediately fetching ITALY game data");
         loadGameDetails(true);
       }
     }
   }, [showStreamModal]);
-
-  // Fetch player names and stats when shareCardPlay changes
-  useEffect(() => {
-    const fetchPlayerData = async () => {
-      if (!shareCardPlay?.participants) {
-        setShareCardPlayerNames({ scorer: null, assister: null });
-        setShareCardPlayerStats({
-          goals: 0,
-          assists: 0,
-          ownGoals: 0,
-          shots: 0,
-          shotsOnTarget: 0,
-          yellowCards: 0,
-          redCards: 0,
-        });
-        return;
-      }
-
-      const names = { scorer: null, assister: null };
-      let stats = {
-        goals: 0,
-        assists: 0,
-        shots: 0,
-        shotsOnTarget: 0,
-        yellowCards: 0,
-        redCards: 0,
-      };
-
-      // Find and fetch scorer
-      const scorerParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "scorer",
-      );
-      let scorerData = null;
-
-      if (scorerParticipant?.athlete?.$ref) {
-        try {
-          const scorerUrl = convertToHttps(scorerParticipant.athlete.$ref);
-          const scorerResponse = await fetch(scorerUrl);
-          if (scorerResponse.ok) {
-            scorerData = await scorerResponse.json();
-            names.scorer =
-              scorerData.displayName ||
-              scorerData.shortName ||
-              scorerData.lastName ||
-              scorerData.fullName ||
-              "Unknown Player";
-          }
-        } catch (error) {
-          console.error("Error fetching scorer:", error);
-        }
-      }
-
-      // Find and fetch assister
-      const assisterParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "assister",
-      );
-      if (assisterParticipant?.athlete?.$ref) {
-        try {
-          const assisterUrl = convertToHttps(assisterParticipant.athlete.$ref);
-          const assisterResponse = await fetch(assisterUrl);
-          if (assisterResponse.ok) {
-            const assisterData = await assisterResponse.json();
-            names.assister =
-              assisterData.displayName ||
-              assisterData.shortName ||
-              assisterData.lastName ||
-              assisterData.fullName;
-          }
-        } catch (error) {
-          console.error("Error fetching assister:", error);
-        }
-      }
-
-      // Fetch player stats for the scorer (like web scoreboard does)
-      if (scorerData?.id && shareCardPlay.team?.$ref) {
-        try {
-          const teamUrl = convertToHttps(shareCardPlay.team.$ref);
-          const teamResponse = await fetch(teamUrl);
-
-          if (teamResponse.ok) {
-            const teamData = await teamResponse.json();
-            const teamId = teamData.id;
-
-            // Construct stats URL like web scoreboard - extract gameId from route params
-            const gameId = route?.params?.gameId;
-            if (gameId) {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${scorerData.id}/statistics/0?lang=en&region=us`;
-
-              console.log("Fetching player stats from:", statsUrl);
-              const statsResponse = await fetch(convertToHttps(statsUrl));
-
-              if (statsResponse.ok) {
-                const statsData = await statsResponse.json();
-                console.log("Player stats response:", statsData);
-
-                // Parse nested structure like web scoreboard
-                if (statsData.splits?.categories) {
-                  const allStats = {};
-
-                  statsData.splits.categories.forEach((category) => {
-                    if (category.stats && Array.isArray(category.stats)) {
-                      category.stats.forEach((stat) => {
-                        if (stat.name && stat.value !== undefined) {
-                          allStats[stat.name] = stat.value;
-                        }
-                      });
-                    }
-                  });
-
-                  console.log("All parsed stats:", allStats);
-
-                  // Map to display stats like web scoreboard
-                  stats = {
-                    goals: allStats.totalGoals || allStats.goalsScored || 0,
-                    assists:
-                      allStats.goalAssists || allStats.assistsProvided || 0,
-                    shots:
-                      allStats.totalShots ||
-                      allStats.shots ||
-                      allStats.shotsTotal ||
-                      0,
-                    ownGoals: allStats.ownGoals || 0,
-                    shotsOnTarget:
-                      allStats.shotsOnTarget ||
-                      allStats.shotsOnGoal ||
-                      allStats.shotsOnTargetTotal ||
-                      0,
-                    yellowCards:
-                      allStats.yellowCards || allStats.yellowCardsReceived || 0,
-                    redCards:
-                      allStats.redCards || allStats.redCardsReceived || 0,
-                  };
-
-                  console.log("Mapped player stats:", stats);
-                }
-              } else {
-                console.warn(
-                  "Failed to fetch player stats:",
-                  statsResponse.status,
-                );
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching player stats:", error);
-        }
-      }
-
-      setShareCardPlayerNames(names);
-      setShareCardPlayerStats(stats);
-    };
-
-    if (shareCardPlay) {
-      fetchPlayerData();
-    }
-  }, [shareCardPlay, route?.params?.gameId]);
 
   const loadGameDetails = async (silentUpdate = false) => {
     try {
       if (!silentUpdate) {
         setLoading(true);
       }
-      console.log("[ItalyGameDetails] loadGameDetails START", {
+      console.log("[ITALYGameDetails] loadGameDetails START", {
         gameId,
         silentUpdate,
       });
-      console.debug("[ItalyGameDetails] requesting game details for", gameId);
+      console.debug("[ITALYGameDetails] requesting game details for", gameId);
       const data = await ItalyServiceEnhanced.getGameDetails(gameId);
 
       // Process the data similar to soccer web logic
@@ -837,7 +969,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         setGameData(processedData);
         setLastUpdateHash(currentHash);
         console.log(
-          "[ItalyGameDetails] Game data updated - hash changed",
+          "[ITALYGameDetails] Game data updated - hash changed",
           currentHash,
         );
 
@@ -847,20 +979,20 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         // Fetch lineup data when game data is updated
         const lineupResult = await fetchLineupData(processedData);
         setLineupData(lineupResult);
-        console.log("[ItalyGameDetails] Lineup data updated:", lineupResult);
+        console.log("[ITALYGameDetails] Lineup data updated:", lineupResult);
 
         // Do not forcibly clear playsData here; the plays effect will compare hashes and merge/refresh
       } else {
-        console.debug("[ItalyGameDetails] Game data hash unchanged");
+        console.debug("[ITALYGameDetails] Game data hash unchanged");
       }
 
       setLoading(false);
-      console.log("[ItalyGameDetails] loadGameDetails END", {
+      console.log("[ITALYGameDetails] loadGameDetails END", {
         gameId,
         silentUpdate,
       });
     } catch (error) {
-      console.error("Error loading Italy game details:", error);
+      console.error("Error loading ITALY game details:", error);
       if (!silentUpdate) {
         setLoading(false);
         Alert.alert("Error", "Failed to load game details. Please try again.");
@@ -889,93 +1021,62 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         : null,
     ]);
 
-    let homeScore = null;
-    let awayScore = null;
-    let homeShootoutScore = null;
-    let awayShootoutScore = null;
-
-    try {
-      // Fetch scores if the game has started
-      if (homeCompetitor?.score?.$ref) {
-        console.log("Fetching home score from:", homeCompetitor.score.$ref);
-        const homeScoreResponse = await fetch(
-          convertToHttps(homeCompetitor.score.$ref),
-        );
-        const homeScoreData = await homeScoreResponse.json();
-        console.log("Full home score data:", homeScoreData);
-        homeScore = homeScoreData.value;
-        homeShootoutScore = homeScoreData.shootout;
-        console.log(
-          "Home score fetched:",
-          homeScore,
-          "Shootout:",
-          homeShootoutScore,
-        );
-      }
-
-      if (awayCompetitor?.score?.$ref) {
-        console.log("Fetching away score from:", awayCompetitor.score.$ref);
-        const awayScoreResponse = await fetch(
-          convertToHttps(awayCompetitor.score.$ref),
-        );
-        const awayScoreData = await awayScoreResponse.json();
-        console.log("Full away score data:", awayScoreData);
-        awayScore = awayScoreData.value;
-        awayShootoutScore = awayScoreData.shootout;
-        console.log(
-          "Away score fetched:",
-          awayScore,
-          "Shootout:",
-          awayShootoutScore,
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching scores:", error);
-      // Fallback to any existing score values
-      homeScore = homeCompetitor?.score?.value || 0;
-      awayScore = awayCompetitor?.score?.value || 0;
-      homeShootoutScore = homeCompetitor?.score?.shootout;
-      awayShootoutScore = awayCompetitor?.score?.shootout;
-    }
-
-    // If no $ref URLs, check for direct score values
-    if (homeScore === null) {
-      homeScore = homeCompetitor?.score?.value || homeCompetitor?.score || 0;
-    }
-    if (awayScore === null) {
-      awayScore = awayCompetitor?.score?.value || awayCompetitor?.score || 0;
-    }
-
-    // If no shootout scores from $ref, check for direct values
-    if (homeShootoutScore === null || homeShootoutScore === undefined) {
-      homeShootoutScore = homeCompetitor?.shootoutScore;
-    }
-    if (awayShootoutScore === null || awayShootoutScore === undefined) {
-      awayShootoutScore = awayCompetitor?.shootoutScore;
-    }
+    // Scores - use inline values from the summary first (no extra API calls needed)
+    const homeScore =
+      homeCompetitor?.score?.value ?? homeCompetitor?.score ?? 0;
+    const awayScore =
+      awayCompetitor?.score?.value ?? awayCompetitor?.score ?? 0;
+    const homeShootoutScore = homeCompetitor?.score?.shootout;
+    const awayShootoutScore = awayCompetitor?.score?.shootout;
 
     console.log("Final scores - Home:", homeScore, "Away:", awayScore);
-    console.log(
-      "Final shootout scores - Home:",
-      homeShootoutScore,
-      "Away:",
-      awayShootoutScore,
-    );
 
-    // Process scorers (similar to soccer web renderScorersBox)
-    const processScorers = (team) => {
-      const scorers =
-        team?.statistics?.find((stat) => stat.name === "scorers")?.athletes ||
-        [];
-      return scorers.map((scorer) => ({
-        displayName: scorer.athlete?.displayName || "Unknown",
-        clock: scorer.clock || "",
-        penaltyKick: scorer.penaltyKick || false,
-      }));
+    // ── Extract ALL data from the summary endpoint ──────────────────────
+    // Stats: boxscore.teams has per-team statistics with labels
+    const boxscoreTeams = data.boxscore?.teams || [];
+    const homeBoxscore = boxscoreTeams.find((t) => t.homeAway === "home");
+    const awayBoxscore = boxscoreTeams.find((t) => t.homeAway === "away");
+
+    // Lineups: rosters array has home/away with formation & player list
+    const rosters = data.rosters || [];
+    const homeRosterData = rosters.find((r) => r.homeAway === "home");
+    const awayRosterData = rosters.find((r) => r.homeAway === "away");
+
+    // Plays: commentary array is the full play-by-play
+    const commentaryPlays = data.commentary || [];
+
+    // Head-to-head: headToHeadGames array
+    const headToHeadGamesData = data.headToHeadGames || [];
+
+    // Key events for highlights
+    const keyEventsData = data.keyEvents || [];
+
+    // ── Scorers: from header.competitions[].details[] with scoringPlay: true ─
+    const details = competition?.details || [];
+    const scoringDetails = details.filter((d) => d.scoringPlay);
+
+    const processScorers = (teamId) => {
+      return scoringDetails
+        .filter((d) => String(d.team?.id) === String(teamId))
+        .map((d) => {
+          const scorer = d.participants?.[0]?.athlete;
+          const assister = d.participants?.[1]?.athlete;
+          const name = scorer?.displayName || scorer?.shortName || "Unknown";
+          const clock = d.clock?.displayValue || "";
+          const isPenalty = d.penaltyKick || false;
+          const isOwnGoal = d.ownGoal || false;
+          return {
+            displayName: name,
+            clock,
+            penaltyKick: isPenalty,
+            ownGoal: isOwnGoal,
+            assisterName: assister?.displayName || assister?.shortName,
+          };
+        });
     };
 
-    const homeScorers = processScorers(homeCompetitor);
-    const awayScorers = processScorers(awayCompetitor);
+    const homeScorers = processScorers(homeTeamId);
+    const awayScorers = processScorers(awayTeamId);
 
     return {
       ...data,
@@ -983,19 +1084,22 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       awayLogo,
       homeScorers,
       awayScorers,
-      // Add processed scores to the data
-      processedScores: {
-        home: homeScore,
-        away: awayScore,
-      },
-      // Add processed shootout scores to the data
+      processedScores: { home: homeScore, away: awayScore },
       processedShootoutScores: {
         home: homeShootoutScore,
         away: awayShootoutScore,
       },
-      // Also update the competitors with proper home/away order
       homeCompetitor,
       awayCompetitor,
+      boxscoreTeams,
+      homeBoxscore,
+      awayBoxscore,
+      homeRosterData,
+      awayRosterData,
+      commentaryPlays,
+      headToHeadGamesData,
+      keyEventsData,
+      scoringDetails,
     };
   };
 
@@ -1042,11 +1146,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           redCards: 0,
           totalPasses: 0,
           foulsDrawn: 0,
-          foulsCommitted: 0,
           accuratePasses: 0,
           tackles: 0,
-          interceptions: 0,
-          blockedShots: 0,
           clearances: 0,
           minutes: 0,
           saves: 0,
@@ -1081,11 +1182,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             redCards: allStats.redCards || allStats.redCardsReceived || 0,
             totalPasses: allStats.totalPasses || 0,
             foulsDrawn: allStats.foulsDrawn || allStats.foulsWon || 0,
-            foulsCommitted: allStats.foulsCommitted || 0,
             accuratePasses: allStats.accuratePasses || 0,
             tackles: allStats.totalTackles || 0,
-            interceptions: allStats.interceptions || 0,
-            blockedShots: allStats.blockedShots || 0,
             clearances: allStats.totalClearance || 0,
             minutes: allStats.minutes || 0,
             saves: allStats.saves || allStats.totalSaves || 0,
@@ -1138,26 +1236,51 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   };
 
   // Function to load more plays
+  // Uses processedPlaysRef to avoid stale closure issues when gameData polls update
   const loadMorePlays = useCallback(() => {
-    if (isLoadingMorePlays || !playsData) return;
-
-    console.log(
-      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`,
-    );
+    const plays = processedPlaysRef.current;
+    console.log("[LoadMorePlays] onPress fired!", {
+      isLoadingMorePlays,
+      hasPlays: !!plays,
+      playsLength: plays?.length,
+      visiblePlaysCount,
+    });
+    if (isLoadingMorePlays) {
+      console.log("[LoadMorePlays] BLOCKED: already loading");
+      return;
+    }
+    if (!plays) {
+      console.log("[LoadMorePlays] BLOCKED: no plays in ref");
+      return;
+    }
     setIsLoadingMorePlays(true);
-
-    // Simulate a small delay to prevent rapid loading
+    // Compute the same filtered count used in renderPlayByPlay
+    const filteredCount = plays.filter((play) => {
+      const text = play.text || play.shortText || "";
+      return [
+        "Out at",
+        "Pass at",
+        "touch at",
+        "Clear at",
+        "Take On",
+        "Attempted Tackle",
+      ].every((phrase) => !text.includes(phrase));
+    }).length;
+    const newCount = Math.min(visiblePlaysCount + 30, filteredCount);
+    console.log("[LoadMorePlays] Updating visiblePlaysCount:", {
+      current: visiblePlaysCount,
+      newCount,
+      filteredCount,
+    });
     setTimeout(() => {
-      setVisiblePlaysCount((prev) => Math.min(prev + 30, playsData.length));
+      setVisiblePlaysCount((prev) => {
+        const next = Math.min(prev + 30, filteredCount);
+        console.log("[LoadMorePlays] setVisiblePlaysCount:", { prev, next });
+        return next;
+      });
       setIsLoadingMorePlays(false);
-      console.log(
-        `[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(
-          visiblePlaysCount + 30,
-          playsData.length,
-        )}`,
-      );
     }, 100);
-  }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
+  }, [isLoadingMorePlays, visiblePlaysCount]);
 
   // Reset visible plays count when switching to plays tab
   const resetPlaysCount = useCallback(() => {
@@ -1176,6 +1299,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     if (!gameData) return { text: "", isLive: false };
 
     const status = gameData.header?.competitions?.[0]?.status;
+    const type = status?.type;
     const state = status?.type?.state;
 
     if (state === "pre") {
@@ -1215,6 +1339,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         isLive: false,
         isPre: true,
         isPost: false,
+        description: type?.description || "",
       };
     } else if (state === "in") {
       // Match in progress - show clock time and half info
@@ -1229,6 +1354,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           isLive: true,
           isPre: false,
           isPost: false,
+          description: type?.description || "",
         };
       }
 
@@ -1250,6 +1376,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         isLive: true,
         isPre: false,
         isPost: false,
+        description: type?.description || "",
       };
     } else {
       return {
@@ -1258,6 +1385,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         isLive: false,
         isPre: false,
         isPost: true,
+        description: type?.shortDetail || "",
       };
     }
   };
@@ -1313,7 +1441,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       "hull city": "hull-city",
       "cardiff city": "cardiff-city",
       cardiff: "cardiff-city",
-      internazionale: "inter-milan",
+      "republic of ireland": "ireland",
     };
 
     const lowerName = teamName.toLowerCase();
@@ -2109,222 +2237,244 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     const competition = gameData.header?.competitions?.[0];
     // Use processed competitors if available, fallback to original structure
-    const homeTeam =
+    const homeTeamData =
       gameData.homeCompetitor ||
       competition?.competitors?.find((comp) => comp.homeAway === "home") ||
       competition?.competitors?.[0];
-    const awayTeam =
+    const awayTeamData =
       gameData.awayCompetitor ||
       competition?.competitors?.find((comp) => comp.homeAway === "away") ||
       competition?.competitors?.[1];
     const matchStatus = getMatchStatus();
 
-    // Get winner/loser status using shootout logic
-    const { homeIsWinner, awayIsWinner, isDraw } =
-      determineWinnerWithShootout();
-    const homeIsLoser = matchStatus.isPost && !isDraw && !homeIsWinner;
-    const awayIsLoser = matchStatus.isPost && !isDraw && !awayIsWinner;
+    const homeScoreNum = parseInt(homeTeamData.score) || 0;
+    const awayScoreNum = parseInt(awayTeamData.score) || 0;
+
+    const homeShootoutScore = parseInt(homeTeamData.shootoutScore) || null;
+    const awayShootoutScore = parseInt(awayTeamData.shootoutScore) || null;
+
+    const homeIsWinner = matchStatus.isPost && (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
+    const awayIsWinner = matchStatus.isPost && (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
+
+    const homeIsLoser =
+      !matchStatus.isLive && !matchStatus.isPre && !homeIsWinner;
+    const awayIsLoser =
+      !matchStatus.isLive && !matchStatus.isPre && !awayIsWinner;
 
     // Format date for display
-    const formatDate = () => {
-      if (!competition?.date) return "";
-      const date = new Date(competition.date);
+    
+    const gameDate = competition?.date || "";
+    const formatDateLine = () => {
+      if (!gameDate) return "";
+      const date = new Date(gameDate);
       const today = new Date();
       const isToday = date.toDateString() === today.toDateString();
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      const isYesterday = date.toDateString() === yesterday.toDateString();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-      if (isToday) return "Today";
-      if (isYesterday) return "Yesterday";
-      if (isTomorrow) return "Tomorrow";
-      return date.toLocaleDateString([], { month: "short", day: "numeric" });
+      if (isToday) {
+        return `Today • ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      }
+      return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} • ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     };
 
     return (
-      <Animated.View
+      <View
         style={[
-          styles.stickyHeader,
-          { backgroundColor: theme.surface, opacity: stickyHeaderOpacity },
+          styles.stickyUnit,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.border,
+          },
         ]}
       >
-        <View style={styles.stickyContent}>
-          {/* Home Team (Left) */}
-          <View style={styles.stickyTeamContainer}>
-            <View style={styles.stickyTeamInfo}>
-              <TeamLogoImage
-                teamId={gameData.homeCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
-                style={[
-                  styles.stickyLogo,
-                  // Apply loser styling if home team is losing (only for finished games)
-                  homeIsLoser && {
-                    opacity: 0.6,
-                  },
-                ]}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.stickyTeamAbbr,
-                  {
-                    color: isFavorite(homeTeam?.team?.id, "serie a")
-                      ? colors.primary
-                      : theme.text,
-                  },
-                  // Apply loser styling if home team is losing (only for finished games)
-                  homeIsLoser && {
-                    opacity: 0.6,
-                  },
-                ]}
-              >
-                {isFavorite(homeTeam?.team?.id, "serie a") && "★ "}
-                {homeTeam?.team?.abbreviation ||
-                  homeTeam?.team?.displayName?.substring(0, 3) ||
-                  "TBD"}
-              </Text>
-            </View>
-            {(matchStatus.isLive || matchStatus.isPost) && (
-              <View style={styles.scoreContainer}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.stickyScore,
-                    { color: theme.text },
-                    // Apply loser styling if home team is losing (only for finished games)
-                    homeIsLoser && {
-                      opacity: 0.6,
-                    },
-                  ]}
-                >
-                  {getTeamScore("home")}
-                </Text>
-                {getTeamShootoutScore("home") && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.shootoutScore,
-                      { color: theme.textSecondary },
-                      // Apply loser styling if home team is losing
-                      homeIsLoser && {
-                        opacity: 0.6,
-                      },
-                    ]}
-                  >
-                    ({getTeamShootoutScore("home")})
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Status (Center) */}
-          <View style={styles.stickyStatusContainer}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.stickyStatusText, { color: theme.text }]}
-            >
-              {matchStatus.isPre
-                ? competition?.date
-                  ? new Date(competition.date).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Scheduled"
-                : matchStatus.isPost
-                  ? "Full Time"
-                  : matchStatus.text}
-            </Text>
+        {/* Animated Mini Header */}
+        <Animated.View
+          style={[
+            styles.stickyMini,
+            {
+              height: stickyMiniHeight,
+              opacity: stickyOpacity,
+              backgroundColor: theme.surface,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {/* Home team (left) */}
+          <View style={styles.miniSide}>
+            <TeamLogoImage
+              teamId={homeTeamData?.team?.id}
+              style={[
+                styles.miniLogo,
+                { opacity: isGameFinal() ? (homeIsWinner ? 1 : 0.55) : 1 },
+              ]}
+              isDarkMode={isDarkMode}
+            />
             <Text
               allowFontScaling={false}
               style={[
-                styles.stickyStatusDetail,
-                { color: theme.textSecondary },
+                styles.miniAbbr,
+                {
+                  color: theme.text,
+                  opacity: isGameFinal() ? (homeIsWinner ? 1 : 0.55) : 1,
+                },
               ]}
+              numberOfLines={1}
             >
-              {matchStatus.isPre
-                ? formatDate()
-                : matchStatus.isPost
-                  ? formatDate()
-                  : matchStatus.detail}
+              {homeTeamData?.team?.abbreviation ||
+                homeTeamData?.team?.displayName?.substring(0, 3) ||
+                "HOME"}
             </Text>
-          </View>
-
-          {/* Away Team (Right) */}
-          <View
-            style={[styles.stickyTeamContainer, { justifyContent: "flex-end" }]}
-          >
-            {(matchStatus.isLive || matchStatus.isPost) && (
-              <View style={[styles.scoreContainer, styles.awayScoreContainer]}>
-                {getTeamShootoutScore("away") && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.shootoutScore,
-                      { color: theme.textSecondary },
-                      // Apply loser styling if away team is losing
-                      awayIsLoser && {
-                        opacity: 0.6,
-                      },
-                    ]}
-                  >
-                    ({getTeamShootoutScore("away")})
-                  </Text>
-                )}
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.stickyScoreAway,
-                    { color: theme.text },
-                    // Apply loser styling if away team is losing (only for finished games)
-                    awayIsLoser && {
-                      opacity: 0.6,
-                    },
-                  ]}
-                >
-                  {getTeamScore("away")}
-                </Text>
-              </View>
-            )}
-            <View style={styles.stickyTeamInfo}>
+            {!matchStatus.isPre && (
               <Text
                 allowFontScaling={false}
                 style={[
-                  styles.stickyTeamAbbr,
+                  styles.miniScore,
                   {
-                    color: isFavorite(awayTeam?.team?.id, "serie a")
-                      ? colors.primary
-                      : theme.text,
-                  },
-                  // Apply loser styling if away team is losing (only for finished games)
-                  awayIsLoser && {
-                    opacity: 0.6,
+                    color: homeIsWinner ? theme.text : theme.textSecondary,
+                    fontWeight: isGameFinal() && homeIsWinner ? "700" : "400",
                   },
                 ]}
               >
-                {isFavorite(awayTeam?.team?.id, "serie a") && "★ "}
-                {awayTeam?.team?.abbreviation ||
-                  awayTeam?.team?.displayName?.substring(0, 3) ||
-                  "TBD"}
+                {homeScoreNum}
               </Text>
-              <TeamLogoImage
-                teamId={gameData.awayCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
+            )}
+            {!matchStatus.isPre && homeShootoutScore && (
+              <Text
+                allowFontScaling={false}
                 style={[
-                  styles.stickyLogoAway,
-                  // Apply loser styling if away team is losing (only for finished games)
-                  awayIsLoser && {
-                    opacity: 0.6,
+                  styles.miniShootoutScore,
+                  {
+                    color: homeIsWinner ? theme.text : theme.textSecondary,
+                    fontWeight: isGameFinal() && homeIsWinner ? "700" : "400",
                   },
                 ]}
-              />
-            </View>
+              >
+                ({homeShootoutScore})
+              </Text>
+            )}
+          </View>
+
+          {/* Status (center) */}
+          <View style={styles.miniStatusBlock}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.miniStatusLine, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {matchStatus.isPre
+                  ? matchStatus.description
+                  : matchStatus.isPost
+                    ? matchStatus.description
+                    : matchStatus.text}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.miniStatusSub, { color: theme.textTertiary }]}
+              numberOfLines={1}
+            >
+              {matchStatus.isLive ? matchStatus.detail : formatDateLine()}
+            </Text>
+          </View>
+
+          {/* Away team (right) */}
+          <View style={[styles.miniSide, { justifyContent: "flex-end" }]}>
+            {!matchStatus.isPre && awayShootoutScore && (
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.miniShootoutScore,
+                  {
+                    color: awayIsWinner ? theme.text : theme.textSecondary,
+                    fontWeight: isGameFinal() && awayIsWinner ? "700" : "400",
+                  },
+                ]}
+              >
+                ({awayShootoutScore})
+              </Text>
+            )}
+            {!matchStatus.isPre && (
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.miniScore,
+                  {
+                    color: awayIsWinner ? theme.text : theme.textSecondary,
+                    fontWeight: isGameFinal() && awayIsWinner ? "700" : "400",
+                  },
+                ]}
+              >
+                {awayScoreNum}
+              </Text>
+            )}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.miniAbbr,
+                {
+                  color: theme.text,
+                  opacity: isGameFinal() ? (awayIsWinner ? 1 : 0.55) : 1,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {awayTeamData?.team?.abbreviation ||
+                awayTeamData?.team?.displayName?.substring(0, 3) ||
+                "AWAY"}
+            </Text>
+            <TeamLogoImage
+              teamId={awayTeamData?.team?.id}
+              style={[
+                styles.miniLogo,
+                { opacity: isGameFinal() ? (awayIsWinner ? 1 : 0.55) : 1 },
+              ]}
+              isDarkMode={isDarkMode}
+            />
+          </View>
+        </Animated.View>
+
+        {/* Tab Bar */}
+        <View style={styles.tabBarWrapper}>
+          <View style={styles.tabBarContent}>
+            {[
+              { key: "stats", label: "Stats" },
+              { key: "home", label: "Home" },
+              { key: "away", label: "Away" },
+              { key: "plays", label: "Plays" },
+            ].map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.tabBarButton,
+                  activeTab === tab.key && {
+                    borderBottomColor: colors.primary,
+                  },
+                ]}
+                onPress={() => {
+                  if (tab.key === "plays") {
+                    resetPlaysCount();
+                  }
+                  setActiveTab(tab.key);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.tabBarLabel,
+                    {
+                      color:
+                        activeTab === tab.key
+                          ? colors.primary
+                          : theme.textSecondary,
+                      fontWeight: activeTab === tab.key ? "700" : "500",
+                    },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -2337,6 +2487,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     }
 
     return (
+      homeScorers.length > 0 || awayScorers.length > 0 ? (
       <View style={styles.headerScorersContainer}>
         {/* Home Scorers (Left) */}
         <View style={styles.headerScorersColumn}>
@@ -2350,14 +2501,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 {scorer.displayText}
               </Text>
             ))
-          ) : (
-            <Text
-              allowFontScaling={false}
-              style={[styles.headerScorerText, { color: theme.textSecondary }]}
-            >
-              No scorers
-            </Text>
-          )}
+          ) : null}
         </View>
 
         {/* Soccer Ball Separator */}
@@ -2379,780 +2523,321 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 {scorer.displayText}
               </Text>
             ))
-          ) : (
-            <Text
-              allowFontScaling={false}
-              style={[styles.headerScorerText, { color: theme.textSecondary }]}
-            >
-              No scorers
-            </Text>
-          )}
+          ) : null }
         </View>
       </View>
+        ) : null
     );
   };
 
-  const processScorersFromPlays = () => {
-    if (!playsData || !Array.isArray(playsData)) {
-      return { homeScorers: [], awayScorers: [] };
-    }
-
-    const homeScorersMap = new Map();
-    const awayScorersMap = new Map();
-
-    // Filter scoring plays - be more flexible with goal types but exclude shootout goals
-    const scoringPlays = playsData
-      .filter((play) => {
-        // Check for scoring plays that are goals
-        const isGoal =
-          play.scoringPlay &&
-          (play.type?.id === "70" || // Standard goal
-            play.type?.id === "71" || // Penalty goal
-            play.type?.name?.toLowerCase().includes("goal") ||
-            play.text?.toLowerCase().includes("goal") ||
-            play.shortText?.toLowerCase().includes("goal"));
-
-        // Check if it's a shootout goal and exclude it
-        const isShootout =
-          play.shootout ||
-          play.text?.toLowerCase().includes("shootout") ||
-          play.shortText?.toLowerCase().includes("shootout") ||
-          play.type?.name?.toLowerCase().includes("shootout");
-
-        return isGoal && !isShootout;
-      })
-      .sort((a, b) => {
-        // Sort by clock value (earliest first)
-        const aTime = a.clock?.value || 0;
-        const bTime = b.clock?.value || 0;
-        return aTime - bTime;
-      });
-
-    scoringPlays.forEach((play) => {
-      // Find the scorer in participants
-      const scorer = play.participants?.find((p) => p.type === "scorer");
-      if (!scorer?.athlete) {
-        return;
-      }
-
-      const athleteId = scorer.athlete.$ref || scorer.athlete.id;
-      const time = play.clock?.displayValue || "";
-
-      // Check for own goal and penalty
-      const isOwnGoal =
-        play.ownGoal ||
-        play.text?.toLowerCase().includes("own goal") ||
-        play.shortText?.toLowerCase().includes("own goal") ||
-        play.type?.name?.toLowerCase().includes("own goal");
-      const isPenalty =
-        play.penaltyKick ||
-        play.text?.toLowerCase().includes("penalty") ||
-        play.shortText?.toLowerCase().includes("penalty");
-      const isFreeKick =
-        play.freeKick ||
-        play.text?.toLowerCase().includes("free-kick") ||
-        play.shortText?.toLowerCase().includes("free-kick");
-
-      // Format time with appropriate suffix
-      let timeWithSuffix = time;
-      if (isOwnGoal) {
-        timeWithSuffix = `${time} (OG.)`;
-      } else if (isPenalty) {
-        timeWithSuffix = `${time} (P.)`;
-      } else if (isFreeKick) {
-        timeWithSuffix = `${time} (FK.)`;
-      }
-
-      // Parse clock value for proper sorting, especially for extra time
-      let sortingValue = play.clock?.value || 0;
-
-      // For extra time (like "45'+4'"), we need to add the extra minutes to the base time
-      if (time.includes("'+")) {
-        const match = time.match(/(\d+)'\+(\d+)'/);
-        if (match) {
-          const baseTime = parseInt(match[1]);
-          const extraTime = parseInt(match[2]);
-          sortingValue = baseTime * 60 + extraTime; // Convert to seconds for accurate sorting
-        }
-      } else if (time.includes("'")) {
-        const match = time.match(/(\d+)'/);
-        if (match) {
-          sortingValue = parseInt(match[1]) * 60; // Convert regular minutes to seconds
-        }
-      }
-
-      // Better team identification - use the team from the play or the scorer's team
-      let isAwayGoal = false;
-      if (play.team) {
-        // Extract team ID from play.team
-        const playTeamId =
-          typeof play.team === "string"
-            ? play.team.match(/teams\/(\d+)/)?.[1]
-            : play.team.id || play.team.$ref?.match(/teams\/(\d+)/)?.[1];
-
-        // Compare with away team ID from gameData
-        const awayTeamId =
-          gameData?.header?.competitions?.[0]?.competitors?.find(
-            (c) => c.homeAway === "away",
-          )?.team?.id;
-        isAwayGoal = playTeamId === awayTeamId?.toString();
-      } else {
-        // Fallback to score comparison (less reliable)
-        isAwayGoal = play.awayScore > (play.homeScore || 0);
-      }
-
-      // Get player name - try multiple sources and clean up
-      let playerName = "";
-
-      // First try participant name
-      if (scorer.athlete.displayName) {
-        playerName = scorer.athlete.displayName;
-      } else if (scorer.athlete.name) {
-        playerName = scorer.athlete.name;
-      }
-
-      // Fallback to extracting from text
-      if (!playerName && play.shortText) {
-        // For penalties, shortText might be "Mikel Oyarzabal Penalty Goal"
-        if (isPenalty) {
-          playerName = play.shortText
-            .replace(/\s*(Penalty|Goal)\s*/gi, "")
-            .trim();
-        }
-        // For own goals, shortText might be "Álex Berenguer Own Goal"
-        else if (isOwnGoal) {
-          playerName = play.shortText.replace(/\s*(Own|Goal)\s*/gi, "").trim();
-        } else if (isFreeKick) {
-          playerName = play.shortText
-            .replace(/\s*([-] Free[-]Kick|Goal)\s*/gi, "")
-            .trim();
-        }
-        // Regular goals: "Player Name Goal"
-        else {
-          playerName = play.shortText.replace(/\s*Goal\s*/gi, "").trim();
-        }
-      } else if (!playerName && play.text) {
-        // Extract from longer text format - try different patterns
-        let match;
-
-        // For penalties: "Goal! Team Penalty - Scored by Player Name (Penalty)"
-        if (isPenalty) {
-          match =
-            play.text.match(/Penalty - Scored by ([^(]+)/i) ||
-            play.text.match(/Goal! .+ ([^-]+) - Penalty/i) ||
-            play.text.match(/Goal! .+ ([^(]+) \(Penalty\)/i);
-        }
-        // For own goals: "Goal! Team Own Goal by Player Name"
-        else if (isOwnGoal) {
-          match =
-            play.text.match(/Own Goal by ([^(]+)/i) ||
-            play.text.match(/Goal! .+ ([^-]+) - Own Goal/i) ||
-            play.text.match(/Goal! .+ ([^(]+) \(Own Goal\)/i);
-        }
-        // Regular goals
-        else {
-          match =
-            play.text.match(/Goal! .+ ([^(]+) \(/) ||
-            play.text.match(/([^-]+) - [^0-9]*\d+'/);
-        }
-
-        if (match) {
-          playerName = match[1].trim();
-        }
-      }
-
-      // Clean up player name - remove common prefixes and suffixes
-      if (playerName) {
-        playerName = playerName
-          .replace(
-            /^(Header|Left footed shot|Right footed shot|Shot|Penalty|Own Goal|Own)\s*-?\s*/i,
-            "",
-          )
-          .replace(
-            /\s*-\s*(Header|Head|Left footed shot|Right footed shot|Shot|Penalty|Scored|Own Goal|Own|Volley).*$/i,
-            "",
-          )
-          .replace(/\s*\(.*\)$/i, "") // Remove any remaining parentheses content
-          .replace(/\s*Goal\s*/gi, "") // Remove any remaining "Goal" text
-          .replace(
-            /\s*-\s*(Header|Head|Left footed|Right footed|Shot|Penalty|Own Goal|Own|Volley)\s*\d+.*$/i,
-            "",
-          ) // Remove goal type with time
-          .trim();
-      }
-
-      if (!playerName) {
-        return;
-      }
-
-      // Add to appropriate team map
-      const targetMap = isAwayGoal ? awayScorersMap : homeScorersMap;
-
-      if (targetMap.has(athleteId)) {
-        // Player already scored, add this time
-        const existing = targetMap.get(athleteId);
-        existing.times.push(timeWithSuffix);
-        // Update sorting value to earliest goal if this is earlier
-        if (sortingValue < existing.firstGoalTime) {
-          existing.firstGoalTime = sortingValue;
-        }
-      } else {
-        // New scorer - track first goal time for sorting
-        targetMap.set(athleteId, {
-          name: playerName,
-          times: [timeWithSuffix],
-          athleteId,
-          firstGoalTime: sortingValue, // Use parsed sorting value
-        });
-      }
-    });
-
-    // Convert maps to arrays with formatted display and sort by first goal time
-    const formatScorers = (scorersMap) => {
-      return Array.from(scorersMap.values())
-        .sort((a, b) => a.firstGoalTime - b.firstGoalTime) // Sort by time of first goal
-        .map((scorer) => ({
-          displayText: `${scorer.name} ${scorer.times.join(", ")}`,
-          name: scorer.name,
-          times: scorer.times,
-          firstGoalTime: scorer.firstGoalTime,
-        }));
-    };
-
-    const homeScorers = formatScorers(homeScorersMap);
-    const awayScorers = formatScorers(awayScorersMap);
-
-    return {
-      homeScorers,
-      awayScorers,
-    };
-  };
-
-  // Memoized scorers data to prevent redundant processing
+  // Memoized scorers data - use homeScorers/awayScorers from processGameData (details[] with scoringPlay)
   const scorersData = useMemo(() => {
-    if (!playsData || !Array.isArray(playsData)) {
-      return { homeScorers: [], awayScorers: [] };
-    }
-    return processScorersFromPlays();
-  }, [playsData, gameData]);
-
-  const renderScorersBox = () => {
-    const { homeScorers, awayScorers } = scorersData;
-
-    // Don't show scorers if there's a shootout
-    if (hasShootout()) {
-      return null;
-    }
-
-    if (!homeScorers.length && !awayScorers.length) {
-      return null;
-    }
-
-    return (
-      <View
-        style={[styles.scorersContainer, { backgroundColor: theme.surface }]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.scorersTitle, { color: theme.text }]}
-        >
-          Goal Scorers
-        </Text>
-        <View style={styles.scorersBox}>
-          <View style={styles.scorersColumn}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.scorersHeader, { color: theme.textSecondary }]}
-            >
-              {
-                gameData.header?.competitions?.[0]?.competitors?.[1]?.team
-                  ?.displayName
-              }
-            </Text>
-            {awayScorers.length > 0 ? (
-              awayScorers.map((scorer, index) => (
-                <Text
-                  allowFontScaling={false}
-                  key={index}
-                  style={[styles.scorerText, { color: theme.text }]}
-                >
-                  {scorer.displayText}
-                </Text>
-              ))
-            ) : (
-              <Text
-                allowFontScaling={false}
-                style={[styles.noScorers, { color: theme.text }]}
-              >
-                No scorers
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.soccerBallContainer}>
-            <Text allowFontScaling={false} style={styles.soccerBallEmoji}>
-              ⚽
-            </Text>
-          </View>
-
-          <View style={styles.scorersColumn}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.scorersHeader, { color: theme.textSecondary }]}
-            >
-              {
-                gameData.header?.competitions?.[0]?.competitors?.[0]?.team
-                  ?.displayName
-              }
-            </Text>
-            {homeScorers.length > 0 ? (
-              homeScorers.map((scorer, index) => (
-                <Text
-                  allowFontScaling={false}
-                  key={index}
-                  style={[styles.scorerText, { color: theme.text }]}
-                >
-                  {scorer.displayText}
-                </Text>
-              ))
-            ) : (
-              <Text
-                allowFontScaling={false}
-                style={[styles.noScorers, { color: theme.text }]}
-              >
-                No scorers
-              </Text>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  // Resolve live tracker UUID (from route param or by matching team names)
-  useEffect(() => {
-    let cancelled = false;
-    const resolveTracker = async () => {
-      if (!gameData) return;
-      const provided = route?.params?.liveTrackerMatchId;
-      if (provided) {
-        setLiveTrackerUuid(provided);
-        return;
-      }
-
-      const competition = gameData.header?.competitions?.[0];
-      const homeName =
-        gameData.homeCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "home")?.team
-          ?.displayName ||
-        "";
-      const awayName =
-        gameData.awayCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "away")?.team
-          ?.displayName ||
-        "";
-
-      try {
-        const id = await LiveTrackerService.findMatchIdByTeams(
-          homeName,
-          awayName,
-        );
-        if (!cancelled && id) setLiveTrackerUuid(id);
-      } catch (e) {
-        // ignore
-      }
+    if (!gameData) return { homeScorers: [], awayScorers: [] };
+    const processDetailsScorers = (scorers) => {
+      const map = new Map();
+      scorers.forEach((s) => {
+        const key = s.displayName;
+        if (!map.has(key)) {
+          map.set(key, {
+            name: s.displayName,
+            times: [],
+            ownGoal: s.ownGoal,
+            penaltyKick: s.penaltyKick,
+          });
+        }
+        const suffix = s.ownGoal ? " (OG.)" : s.penaltyKick ? " (P.)" : "";
+        map.get(key).times.push(s.clock + suffix);
+      });
+      return Array.from(map.values()).map((entry) => ({
+        displayText: `${entry.name} ${entry.times.join(", ")}`,
+        name: entry.name,
+        times: entry.times,
+      }));
     };
-
-    resolveTracker();
-    return () => {
-      cancelled = true;
-    };
-  }, [gameData, route?.params?.liveTrackerMatchId]);
+    const homeScorers = processDetailsScorers(gameData.homeScorers || []);
+    const awayScorers = processDetailsScorers(gameData.awayScorers || []);
+    return { homeScorers, awayScorers };
+  }, [gameData]);
 
   const renderMatchHeader = () => {
     if (!gameData) return null;
 
-    // If inline live tracker is visible, render the embed replacing the header
-    if (liveTrackerVisible) {
-      const defaultWrapperBase =
-        "https://sportsheart.ca/widgets/livetracker.html";
-      const provided = route?.params?.liveTrackerWrapperUrl || null;
-      const wrapperUrlBase = provided
-        ? provided.includes("?")
-          ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
-          : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
-        : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`;
-
-      const formulaO = route?.params?.liveTrackerFormulaO ?? 50;
-      const deviceWidth = Math.round(width || 800);
-      const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
-        deviceWidth,
-      )}&o=${encodeURIComponent(formulaO)}`;
-      const ratio = 0.505;
-      const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
-
-      return (
-        <LiveTrackerEmbed
-          uuid={liveTrackerUuid}
-          visible={true}
-          inline={true}
-          wrapperUrl={wrapperUrl}
-          initialHeight={initialEmbedHeight}
-          showHeader={false}
-          onClose={() => setLiveTrackerVisible(false)}
-        />
-      );
-    }
-
     const competition = gameData.header?.competitions?.[0];
-    // Use processed competitors if available, fallback to original structure
-    const homeTeam =
+    const homeTeamData =
       gameData.homeCompetitor ||
       competition?.competitors?.find((comp) => comp.homeAway === "home") ||
       competition?.competitors?.[0];
-    const awayTeam =
+    const awayTeamData =
       gameData.awayCompetitor ||
       competition?.competitors?.find((comp) => comp.homeAway === "away") ||
       competition?.competitors?.[1];
     const matchStatus = getMatchStatus();
 
-    // Get winner/loser status using shootout logic
-    const { homeIsWinner, awayIsWinner, isDraw } =
-      determineWinnerWithShootout();
+    const homeScoreNum = parseInt(homeTeamData.score) || 0;
+    const awayScoreNum = parseInt(awayTeamData.score) || 0;
+
+    const homeShootoutScore = parseInt(homeTeamData.shootoutScore) || null;
+    const awayShootoutScore = parseInt(awayTeamData.shootoutScore) || null;
+
+    const homeIsWinner = matchStatus.isPost && (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
+    const awayIsWinner = matchStatus.isPost && (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
+
     const homeIsLoser =
-      !matchStatus.isLive && !matchStatus.isPre && !isDraw && !homeIsWinner;
+      !matchStatus.isLive && !matchStatus.isPre && !homeIsWinner;
     const awayIsLoser =
-      !matchStatus.isLive && !matchStatus.isPre && !isDraw && !awayIsWinner;
+      !matchStatus.isLive && !matchStatus.isPre && !awayIsWinner;
 
-    // Get team colors
-    const homeColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
-      homeTeam?.team,
-    );
-    const awayColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
-      awayTeam?.team,
-    );
+    // Get team colors for gradient
+    let homeColor =
+      ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+        homeTeamData?.team,
+      ) || colors.primary;
+    let awayColor =
+      ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+        awayTeamData?.team,
+      ) ||
+      colors.secondary;
 
-    const seriesName = competition?.series
-      ? competition.series[0].title
-      : gameData.header.season.name.split(", ")[1] || "Soccer";
+    homeColor = homeColor.startsWith("#") ? homeColor : `#${homeColor}`;
+    awayColor = awayColor.startsWith("#") ? awayColor : `#${awayColor}`;
+
+    console.log(matchStatus)
+
+    // Format date
+    const gameDate = competition?.date || "";
+    const formatDateLine = () => {
+      if (!gameDate) return "";
+      const date = new Date(gameDate);
+      const today = new Date();
+      const isToday = date.toDateString() === today.toDateString();
+      if (isToday) {
+        return `Today • ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      }
+      return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} • ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    };
 
     return (
       <View
-        style={[styles.headerContainer, { backgroundColor: theme.surface }]}
+        style={[
+          styles.simpleHeaderCard,
+          {
+            backgroundColor: theme.surfaceSecondary,
+            borderColor: "rgba(0,0,0,0.08)",
+          },
+        ]}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        {/* Competition Info */}
-        <View style={styles.competitionContainer}>
+        <HeaderGradient
+          homeColor={homeColor}
+          awayColor={awayColor}
+          theme={theme}
+          height={headerHeight}
+        />
+
+        {/* League/Competition info */}
+        <View style={styles.simpleLeagueRow}>
           <Text
             allowFontScaling={false}
-            style={[styles.competitionText, { color: theme.textSecondary }]}
+            style={[styles.simpleLeagueText, { color: theme.textTertiary }]}
+            numberOfLines={1}
           >
-            {gameData.header.league.isTournament
-              ? `${gameData.competitionName || "Soccer"} - ${seriesName} ${competition?.leg ? `- ${competition.leg.displayValue}` : ""}`
-              : `${gameData.competitionName || "Soccer"}`}
+            {gameData.competitionName || "ITALY World Cup"}
           </Text>
         </View>
 
-        {/* Match Info */}
-        <View style={styles.matchContainer}>
-          {/* Home Team (Left) */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamLogoAndScore}>
+        {/* Main teams and score row */}
+        <View style={styles.simpleMainRow}>
+          {/* Home Team (Left - NBA convention) */}
+          <View style={styles.simpleTeamContainer}>
+            <View style={styles.simpleTeamTopRow}>
               <TeamLogoImage
-                teamId={gameData.homeCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
+                teamId={homeTeamData?.team?.id}
                 style={[
-                  styles.teamLogo,
-                  // Apply loser styling if home team is losing (only for finished games)
-                  homeIsLoser && {
-                    opacity: 0.6,
-                  },
-                ]}
-              />
-              <View style={styles.scoreBox}>
-                <View style={styles.scoreWithShootout}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.scoreText,
-                      { color: theme.text },
-                      // Apply loser styling if home team is losing (only for finished games)
-                      homeIsLoser && {
-                        opacity: 0.6,
-                        fontWeight: "500",
-                      },
-                    ]}
-                  >
-                    {getTeamScore("home")}
-                  </Text>
-                  {getTeamShootoutScore("home") && (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.shootoutScore,
-                        { color: theme.textSecondary },
-                        // Apply loser styling if home team is losing
-                        homeIsLoser && {
-                          opacity: 0.6,
-                        },
-                      ]}
-                    >
-                      ({getTeamShootoutScore("home")})
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.teamName,
-                {
-                  color: isFavorite(homeTeam?.team?.id, "serie a")
-                    ? colors.primary
-                    : theme.text,
-                },
-                // Apply loser styling if home team is losing (only for finished games)
-                homeIsLoser && {
-                  opacity: 0.6,
-                },
-              ]}
-              numberOfLines={2}
-            >
-              {isFavorite(homeTeam?.team?.id, "serie a") ? "★ " : ""}
-              {homeTeam?.team?.displayName}
-            </Text>
-          </View>
-
-          {/* Status */}
-          <View style={styles.statusSection}>
-            <View
-              style={[
-                styles.statusBadge,
-                matchStatus.isLive && { backgroundColor: theme.error },
-                matchStatus.isPre && { backgroundColor: theme.success },
-                !matchStatus.isLive &&
-                  !matchStatus.isPre && { backgroundColor: theme.textTertiary },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.statusText,
+                  styles.simpleTeamLogo,
                   {
-                    color:
-                      matchStatus.isLive || matchStatus.isPre
-                        ? "#fff"
-                        : theme.text,
+                    opacity: matchStatus.isPost ? (homeIsWinner ? 1 : 0.55) : 1,
                   },
                 ]}
-              >
-                {matchStatus.text}
-              </Text>
-              {matchStatus.detail && (
+                isDarkMode={isDarkMode}
+              />
+              {!matchStatus.isPre && (
                 <Text
                   allowFontScaling={false}
                   style={[
-                    styles.statusDetail,
+                    styles.simpleTeamScore,
                     {
-                      color:
-                        matchStatus.isLive || matchStatus.isPre
-                          ? "#fff"
-                          : theme.textSecondary,
+                      color: homeIsWinner
+                        ? theme.text
+                        : homeIsLoser
+                          ? theme.textSecondary
+                          : theme.text,
                     },
+                    styles.scoreRight,
                   ]}
                 >
-                  {matchStatus.detail}
+                  {homeScoreNum}
                 </Text>
               )}
             </View>
+            <View style={styles.simpleTeamInfo}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.simpleTeamName,
+                  {
+                    color: isFavorite(homeTeamData?.team?.id, "serie a")
+                      ? colors.primary
+                      : theme.text,
+                    opacity: matchStatus.isPost ? (homeIsWinner ? 1 : 0.55) : 1,
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {isFavorite(homeTeamData?.team?.id, "serie a") ? "★ " : ""}
+                {homeTeamData?.team?.displayName || "Home Team"}
+              </Text>
+            </View>
+          </View>
 
-            {/* Stream Button - Only show for live games and when streaming is unlocked */}
+          {/* Center Status */}
+          <View style={styles.simpleStatusCenter}>
+            <View style={styles.simpleStatusBadge}>
+                {homeShootoutScore !== null && awayShootoutScore !== null && (
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.simpleStatusSecondary,
+                  {
+                    color: theme.text,
+                  },
+                ]}
+              >
+                Pen: {homeShootoutScore} - {awayShootoutScore}
+              </Text>
+                )}
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.simpleStatusMain,
+                  {
+                    color: matchStatus.isLive
+                      ? theme.error || colors.primary
+                      : matchStatus.isPre
+                        ? theme.text
+                        : theme.textSecondary,
+                  },
+                ]}
+              >
+                {matchStatus.isPre
+                  ? matchStatus.description
+                  : matchStatus.isPost
+                    ? matchStatus.description
+                    : matchStatus.text}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.simpleStatusSub, { color: theme.textTertiary }]}
+              >
+                {matchStatus.isLive ? matchStatus.detail : formatDateLine()}
+              </Text>
+            </View>
+
+            {/* Stream button - only for live games when unlocked */}
             {matchStatus.isLive && isStreamingUnlocked && (
               <TouchableOpacity
                 style={[
-                  styles.streamButton,
-                  { backgroundColor: colors.primary },
+                  styles.simpleStreamBtn,
+                  { borderColor: colors.primary },
                 ]}
                 onPress={() => {
                   loadStreams();
                   setShowStreamModal(true);
                 }}
+                activeOpacity={0.8}
               >
-                <Text allowFontScaling={false} style={styles.streamButtonText}>
-                  Watch Live
-                </Text>
-              </TouchableOpacity>
-            )}
-            {/* Tracker Button - show if we resolved a liveTracker UUID */}
-            {liveTrackerUuid && (
-              <TouchableOpacity
-                style={[
-                  styles.streamButton,
-                  { backgroundColor: colors.primary, marginBottom: 8 },
-                ]}
-                onPress={() => {
-                  setLiveTrackerVisible(true);
-                }}
-              >
-                <Text allowFontScaling={false} style={styles.streamButtonText}>
-                  Tracker
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Away Team (Right) */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamLogoAndScore}>
-              <View style={styles.scoreBox}>
-                <View
-                  style={[
-                    styles.scoreWithShootout,
-                    styles.awayScoreWithShootout,
-                  ]}
-                >
-                  {getTeamShootoutScore("away") && (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.shootoutScore,
-                        { color: theme.textSecondary },
-                        // Apply loser styling if away team is losing
-                        awayIsLoser && {
-                          opacity: 0.6,
-                        },
-                      ]}
-                    >
-                      ({getTeamShootoutScore("away")})
-                    </Text>
-                  )}
+                <View style={styles.simpleStreamBtnInner}>
+                  <View
+                    style={[
+                      styles.simpleStreamBtnDot,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
                   <Text
                     allowFontScaling={false}
                     style={[
-                      styles.scoreText,
-                      { color: theme.text },
-                      // Apply loser styling if away team is losing (only for finished games)
-                      awayIsLoser && {
-                        opacity: 0.6,
-                        fontWeight: "500",
-                      },
+                      styles.simpleStreamBtnText,
+                      { color: colors.primary },
                     ]}
                   >
-                    {getTeamScore("away")}
+                    Stream
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Away Team (Right - NBA convention) */}
+          <View style={styles.simpleTeamContainer}>
+            <View style={styles.simpleTeamTopRow}>
+              {!matchStatus.isPre && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.simpleTeamScore,
+                    {
+                      color: awayIsWinner
+                        ? theme.text
+                        : awayIsLoser
+                          ? theme.textSecondary
+                          : theme.text,
+                    },
+                    styles.scoreLeft,
+                  ]}
+                >
+                  {awayScoreNum}
+                </Text>
+              )}
               <TeamLogoImage
-                teamId={gameData.awayCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
+                teamId={awayTeamData?.team?.id}
                 style={[
-                  styles.teamLogo,
-                  // Apply loser styling if away team is losing (only for finished games)
-                  awayIsLoser && {
-                    opacity: 0.6,
+                  styles.simpleTeamLogo,
+                  {
+                    opacity: matchStatus.isPost ? (awayIsWinner ? 1 : 0.55) : 1,
                   },
                 ]}
+                isDarkMode={isDarkMode}
               />
             </View>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.teamName,
-                {
-                  color: isFavorite(awayTeam?.team?.id, "serie a")
-                    ? colors.primary
-                    : theme.text,
-                },
-                // Apply loser styling if away team is losing (only for finished games)
-                awayIsLoser && {
-                  opacity: 0.6,
-                },
-              ]}
-              numberOfLines={2}
-            >
-              {isFavorite(awayTeam?.team?.id, "serie a") ? "★ " : ""}
-              {awayTeam?.team?.displayName}
-            </Text>
+            <View style={styles.simpleTeamInfo}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.simpleTeamName,
+                  {
+                    color: isFavorite(awayTeamData?.team?.id, "serie a")
+                      ? colors.primary
+                      : theme.text,
+                    opacity: matchStatus.isPost ? (awayIsWinner ? 1 : 0.55) : 1,
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {isFavorite(awayTeamData?.team?.id, "serie a") ? "★ " : ""}
+                {awayTeamData?.team?.displayName || "Away Team"}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Scorers Box */}
+        {/* Scorers Box (ITALY-specific addition) */}
         {renderHeaderScorersBox()}
-
-        {/* Date Info */}
-        <View style={styles.timeAndHalfContainer}>
-          {competition?.date && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.dateText, { color: theme.textSecondary }]}
-            >
-              {new Date(competition.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-          )}
-        </View>
-
-        {/* Match Details */}
-        {competition?.venue && (
-          <View style={styles.venueContainer}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.venueText, { color: theme.textSecondary }]}
-            >
-              📍 {competition.venue.fullName}
-            </Text>
-          </View>
-        )}
       </View>
     );
   };
 
   const renderTabs = () => {
-    const tabs = [
-      { key: "stats", label: "Stats" },
-      { key: "home", label: "Home" },
-      { key: "away", label: "Away" },
-      { key: "plays", label: "Plays" },
-    ];
-
-    return (
-      <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
-        <View style={styles.tabRow}>
-          {tabs.map((tab, index) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.tab,
-                activeTab === tab.key && { backgroundColor: colors.primary },
-                index === tabs.length - 1 && styles.lastTab, // Remove margin from last tab
-              ]}
-              onPress={() => {
-                setActiveTab(tab.key);
-                if (tab.key === "plays") {
-                  resetPlaysCount();
-                }
-              }}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.tabText,
-                  { color: activeTab === tab.key ? "#fff" : theme.text },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
+    // Tabs are now rendered in the sticky header
+    return null;
   };
 
   const renderTabContent = () => {
@@ -3289,7 +2974,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
               : 0;
         }
       } catch (err) {
-        console.log("[ItalyGameDetails] getStat error:", err);
+        console.log("[ITALYGameDetails] getStat error:", err);
       }
       return 0;
     };
@@ -3348,8 +3033,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
               <View style={styles.statsTeamHome}>
                 <TeamLogoImage
                   teamId={homeTeam?.team?.id}
-                  isDarkMode={isDarkMode}
                   style={styles.statsTeamLogo}
+                  isDarkMode={isDarkMode}
                 />
                 <Text
                   allowFontScaling={false}
@@ -3367,8 +3052,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 </Text>
                 <TeamLogoImage
                   teamId={awayTeam?.team?.id}
-                  isDarkMode={isDarkMode}
                   style={styles.statsTeamLogo}
+                  isDarkMode={isDarkMode}
                 />
               </View>
             </View>
@@ -3834,7 +3519,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 null;
               navigation.navigate("ItalyGameDetails", {
                 gameId: event.id,
-                sport: "Italian",
+                sport: "ITALY",
                 competitionHint,
               });
             }
@@ -3858,8 +3543,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.h2hTeam}>
               <TeamLogoImage
                 teamId={homeTeamIdInMatch}
-                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text
                 allowFontScaling={false}
@@ -3877,8 +3562,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             <View style={[styles.h2hTeam, styles.h2hTeamReverse]}>
               <TeamLogoImage
                 teamId={awayTeamIdInMatch}
-                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text
                 allowFontScaling={false}
@@ -3983,8 +3668,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         >
           <TeamLogoImage
             teamId={gameData.homeCompetitor?.team?.id}
-            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text
@@ -4053,6 +3738,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
               id:
                 athlete?.id ||
                 `${entry.jersey || "unknown"}-${starter ? "starter" : "sub"}`,
+              shortName: athlete?.shortName || athlete?.displayName || "",
             },
             jersey: entry.jersey || athlete?.jersey || entry.jerseyNumber || "",
             starter: starter,
@@ -4103,8 +3789,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         >
           <TeamLogoImage
             teamId={gameData.awayCompetitor?.team?.id}
-            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text
@@ -4385,27 +4071,32 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       }
     };
 
-    const handlePlayerLongPress = async () => {
-      const athleteId = player.athlete?.id || player.id;
-      const positionAbbr = player.position?.abbreviation || "";
-      setPitchPlayerShareCard({
-        player,
-        teamId,
-        teamType,
-        position: positionAbbr,
-      });
-      if (athleteId && teamId) {
-        await fetchPlayerGameStats(athleteId, teamId);
-      }
-    };
-
     return (
       <TouchableOpacity
         key={`player-${jersey}-${name}`}
         style={[styles.playerContainer, positionStyle]}
         onPress={handlePlayerPress}
-        onLongPress={handlePlayerLongPress}
-        delayLongPress={500}
+        onLongPress={() => {
+          // Long press: open share card directly (no player stats popup)
+          setSelectedPlayer({
+            ...player,
+            stats,
+            teamLogo,
+            teamId,
+            teamType,
+            yellowCard,
+            redCard,
+          });
+          const athleteId = player.athlete?.id || player.id;
+          if (athleteId && teamId) {
+            fetchPlayerGameStats(athleteId, teamId).then(() => {
+              setPlayerShareVisible(true);
+            });
+          } else {
+            setTimeout(() => setPlayerShareVisible(true), 300);
+          }
+        }}
+            delayLongPress={250}
         activeOpacity={0.7}
       >
         <View style={styles.playerCircle}>
@@ -4479,8 +4170,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 ? gameData?.homeCompetitor?.team?.id
                 : gameData?.awayCompetitor?.team?.id
             }
-            isDarkMode={isDarkMode}
             style={styles.subsTeamLogo}
+            isDarkMode={isDarkMode}
           />
           <Text
             allowFontScaling={false}
@@ -4545,31 +4236,35 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
               }
             };
 
-            const handleSubLongPress = async () => {
-              const subTeamId =
-                teamType === "home"
-                  ? gameData?.homeCompetitor?.team?.id
-                  : gameData?.awayCompetitor?.team?.id;
-              const athleteId = sub.athlete?.id || sub.id;
-              const positionAbbr = sub.position?.abbreviation || "";
-              setPitchPlayerShareCard({
-                player: sub,
-                teamId: subTeamId,
-                teamType,
-                position: positionAbbr,
-              });
-              if (athleteId && subTeamId) {
-                await fetchPlayerGameStats(athleteId, subTeamId);
-              }
-            };
-
             return (
               <TouchableOpacity
                 key={`sub-${index}`}
                 style={styles.subsListItemContainer}
                 onPress={handleSubPress}
-                onLongPress={handleSubLongPress}
-                delayLongPress={500}
+                onLongPress={() => {
+                  const subTeamId =
+                    teamType === "home"
+                      ? gameData?.homeCompetitor?.team?.id
+                      : gameData?.awayCompetitor?.team?.id;
+                  setSelectedPlayer({
+                    ...sub,
+                    stats,
+                    teamLogo,
+                    teamId: subTeamId,
+                    teamType,
+                    yellowCard,
+                    redCard,
+                  });
+                  const athleteId = sub.athlete?.id || sub.id;
+                  if (athleteId && subTeamId) {
+                    fetchPlayerGameStats(athleteId, subTeamId).then(() => {
+                      setPlayerShareVisible(true);
+                    });
+                  } else {
+                    setTimeout(() => setPlayerShareVisible(true), 300);
+                  }
+                }}
+            delayLongPress={250}
                 activeOpacity={0.7}
               >
                 <Text
@@ -4631,8 +4326,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           <View style={styles.teamInfo}>
             <TeamLogoImage
               teamId={gameData?.awayCompetitor?.team?.id}
-              isDarkMode={isDarkMode}
               style={styles.formTeamLogo}
+              isDarkMode={isDarkMode}
             />
             <Text
               allowFontScaling={false}
@@ -4667,8 +4362,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             </Text>
             <TeamLogoImage
               teamId={gameData?.homeCompetitor?.team?.id}
-              isDarkMode={isDarkMode}
               style={styles.formTeamLogo}
+              isDarkMode={isDarkMode}
             />
           </View>
           <View style={styles.footballPitch}>
@@ -4709,8 +4404,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 ? gameData?.homeCompetitor?.team?.id
                 : gameData?.awayCompetitor?.team?.id
             }
-            isDarkMode={isDarkMode}
             style={styles.formTeamLogo}
+            isDarkMode={isDarkMode}
           />
           <Text
             allowFontScaling={false}
@@ -4737,7 +4432,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     );
   };
 
-  // Fetch lineup data from ESPN lineup API (exactly like scoreboard.js)
+  // Fetch lineup data from summary rosters (already loaded via processGameData)
   const fetchLineupData = async (sourceData = null) => {
     if (!gameId)
       return {
@@ -4748,35 +4443,18 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       };
 
     try {
-      const candidate = sourceData || gameData || {};
+      // Use the rosters already extracted from the summary in processGameData
+      const homeRosterData =
+        sourceData?.homeRosterData || gameData?.homeRosterData;
+      const awayRosterData =
+        sourceData?.awayRosterData || gameData?.awayRosterData;
 
-      // The summary data includes rosters at top-level in many payloads
-      const rosters =
-        candidate?.rosters || candidate?.gamepackageJSON?.rosters || [];
+      const homeLineup = homeRosterData?.roster || [];
+      const awayLineup = awayRosterData?.roster || [];
+      const homeFormation = homeRosterData?.formation || "4-3-3";
+      const awayFormation = awayRosterData?.formation || "4-3-3";
 
-      if (!Array.isArray(rosters) || rosters.length === 0) {
-        console.log(
-          "[EnglandGameDetails] No rosters found in summary data for gameId:",
-          gameId,
-        );
-        return {
-          homeLineup: [],
-          awayLineup: [],
-          homeFormation: "4-3-3",
-          awayFormation: "4-3-3",
-        };
-      }
-
-      const homeRoster = rosters.find((r) => r.homeAway === "home");
-      const awayRoster = rosters.find((r) => r.homeAway === "away");
-
-      const homeLineup = homeRoster?.roster || [];
-      const awayLineup = awayRoster?.roster || [];
-
-      const homeFormation = homeRoster?.formation || "4-3-3";
-      const awayFormation = awayRoster?.formation || "4-3-3";
-
-      console.log("[EnglandGameDetails] Extracted lineups from summary:", {
+      console.log("[ITALYGameDetails] Extracted lineups from summary:", {
         homeLineup: homeLineup.length,
         awayLineup: awayLineup.length,
         homeFormation,
@@ -4785,7 +4463,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
       return { homeLineup, awayLineup, homeFormation, awayFormation };
     } catch (error) {
-      console.error("[EnglandGameDetails] fetchLineupData error:", error);
+      console.error("[ITALYGameDetails] fetchLineupData error:", error);
       return {
         homeLineup: [],
         awayLineup: [],
@@ -4795,419 +4473,70 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Helper: find first stat entry by candidate names
-  const getStat = (flattenedStats, candidates = []) => {
-    if (!Array.isArray(flattenedStats)) return null;
-    for (let i = 0; i < candidates.length; i++) {
-      const name = candidates[i];
-      const found = flattenedStats.find((s) => s && s.name === name);
-      if (found) return found;
-    }
-    return null;
-  };
-
-  // Helper: parse a stat entry into numeric and display value
-  const parseStatValue = (statEntry) => {
-    if (!statEntry) return { num: null, display: null };
-    const name = String(statEntry.name || "").toLowerCase();
-    const rawVal = statEntry.value;
-    const disp =
-      statEntry.displayValue !== undefined
-        ? String(statEntry.displayValue)
-        : null;
-
-    // If numeric value exists
-    if (typeof rawVal === "number") {
-      // If it's likely a percentage (name contains pct or display contains % or value <= 1)
-      if (name.includes("pct") || (disp && disp.includes("%")) || rawVal <= 1) {
-        const pct = rawVal <= 1 ? rawVal * 100 : rawVal;
-        return {
-          num: Number.isFinite(pct) ? pct : null,
-          display: disp || String(pct),
-        };
-      }
-      return { num: rawVal, display: disp || String(rawVal) };
-    }
-
-    // Fallback parse from displayValue
-    if (disp !== null) {
-      // Trim percent sign if present
-      const cleaned = disp.replace("%", "").trim();
-      const parsed = parseFloat(cleaned);
-      if (!Number.isNaN(parsed)) return { num: parsed, display: disp };
-      return { num: null, display: disp };
-    }
-
-    return { num: null, display: null };
-  };
-
-  // Map flattened stats array into a normalized object used by the UI
-  const mapTeamStats = (flattenedStats = []) => {
-    try {
-      const f = Array.isArray(flattenedStats) ? flattenedStats : [];
-
-      // Candidate name lists
-      const candidates = {
-        possession: ["possessionPct", "possession", "possessionPercent"],
-        shots_total: [
-          "shots",
-          "shotAttempts",
-          "shotsAttempted",
-          "shotsTotal",
-          "shotsAttemptedTotal",
-        ],
-        shots_on_goal: ["shotsOnGoal", "shotsOnTarget", "shotsOnNet"],
-        shots_blocked: ["blockedShots", "shotsBlocked"],
-        shots_inside: ["shotsInsideBox", "shotsInsidePenaltyArea"],
-        shots_outside: ["shotsOutsideBox"],
-        fouls: ["foulsCommitted", "fouls"],
-        yellow: ["yellowCards", "yellowCard"],
-        red: ["redCards", "redCard"],
-        corners: ["cornerKicks", "corners", "cornerKick"],
-        corners_conceded: ["lostCorners", "cornerKicksAgainst"],
-        offsides: ["offsides"],
-        saves: ["saves", "savesTotal"],
-      };
-
-      const pick = (list) => getStat(f, list);
-      const p = parseStatValue;
-
-      const possessionStat = p(pick(candidates.possession));
-      const totalShotsStat = p(pick(candidates.shots_total));
-      const onGoalStat = p(pick(candidates.shots_on_goal));
-      const blockedStat = p(pick(candidates.shots_blocked));
-      const insideStat = p(pick(candidates.shots_inside));
-      const outsideStat = p(pick(candidates.shots_outside));
-
-      const foulsStat = p(pick(candidates.fouls));
-      const yellowStat = p(pick(candidates.yellow));
-      const redStat = p(pick(candidates.red));
-
-      const cornersStat = p(pick(candidates.corners));
-      const cornersConcededStat = p(pick(candidates.corners_conceded));
-      const offsidesStat = p(pick(candidates.offsides));
-      const savesStat = p(pick(candidates.saves));
-
-      // Derive off-target if possible: total - onGoal - blocked (only when numbers available)
-      let offTargetNum = null;
-      if (totalShotsStat.num != null) {
-        const total = totalShotsStat.num;
-        const on = onGoalStat.num != null ? onGoalStat.num : 0;
-        const blocked = blockedStat.num != null ? blockedStat.num : 0;
-        const derived = total - on - blocked;
-        offTargetNum = Number.isFinite(derived) ? derived : null;
-      }
-
-      return {
-        possession: {
-          num: possessionStat.num,
-          display: possessionStat.display,
-        },
-        shots: {
-          total: totalShotsStat.num,
-          totalDisplay: totalShotsStat.display,
-          onGoal: onGoalStat.num,
-          onGoalDisplay: onGoalStat.display,
-          blocked: blockedStat.num,
-          blockedDisplay: blockedStat.display,
-          insideBox: insideStat.num,
-          insideBoxDisplay: insideStat.display,
-          outsideBox: outsideStat.num,
-          outsideBoxDisplay: outsideStat.display,
-          offTarget: offTargetNum,
-        },
-        discipline: {
-          fouls: foulsStat.num,
-          foulsDisplay: foulsStat.display,
-          yellow: yellowStat.num,
-          yellowDisplay: yellowStat.display,
-          red: redStat.num,
-          redDisplay: redStat.display,
-        },
-        setPieces: {
-          corners: cornersStat.num,
-          cornersDisplay: cornersStat.display,
-          cornersConceded: cornersConcededStat.num,
-          cornersConcededDisplay: cornersConcededStat.display,
-          offsides: offsidesStat.num,
-          offsidesDisplay: offsidesStat.display,
-          saves: savesStat.num,
-          savesDisplay: savesStat.display,
-        },
-      };
-    } catch (err) {
-      console.log("[ItalyGameDetails] mapTeamStats error:", err);
-      return {};
-    }
-  };
-
   const fetchMatchStats = async () => {
     try {
-      if (!gameId) return null;
+      if (!gameData) return null;
 
-      const MATCH_STATS_API_URL = `https://cdn.espn.com/core/soccer/matchstats?xhr=1&gameId=${gameId}`;
-      const response = await fetch(convertToHttps(MATCH_STATS_API_URL));
+      const homeBoxscore = gameData.homeBoxscore;
+      const awayBoxscore = gameData.awayBoxscore;
+      const headToHeadData = gameData.headToHeadGamesData || [];
 
-      if (!response.ok) {
-        throw new Error(`Stats API responded with status: ${response.status}`);
-      }
+      // Convert boxscore statistics array into a format compatible with the UI.
+      // Boxscore stat entries: { name, displayValue (string), label }
+      const mapBoxscoreToTeamStats = (boxscore) => {
+        if (!boxscore) return null;
+        const rawStats = boxscore.statistics || [];
 
-      const matchStatsData = await response.json();
-
-      // Extract teams data from CDN response
-      const teams = matchStatsData.gamepackageJSON?.boxscore?.teams || [];
-      const headToHeadData =
-        matchStatsData.gamepackageJSON?.headToHeadGames || [];
-
-      // Also fetch the authoritative sports.core event resource to find competitor statistics $ref links
-      // This ensures we fetch the exact per-competitor statistics resource (as in c1/c2)
-      let coreCompetitors = [];
-      try {
-        const CORE_EVENT_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}?lang=en&region=us`;
-        const coreResp = await fetch(convertToHttps(CORE_EVENT_URL));
-        if (coreResp.ok) {
-          const coreData = await coreResp.json();
-          coreCompetitors = coreData?.competitions?.[0]?.competitors || [];
-        } else {
-          console.log(
-            "[ItalyGameDetails] core event resource responded with",
-            coreResp.status,
+        // Find value by label (case-insensitive), parsing displayValue to number
+        const findStatByLabel = (label) => {
+          const s = rawStats.find(
+            (x) => (x.label || "").toLowerCase() === label.toLowerCase(),
           );
-        }
-      } catch (coreErr) {
-        console.log(
-          "[ItalyGameDetails] Error fetching core event resource:",
-          coreErr,
-        );
-      }
-
-      // Map competitor by homeAway or team id for easy lookup
-      const compMap = {};
-      coreCompetitors.forEach((comp) => {
-        const key = comp.homeAway || comp.id || comp.team?.id;
-        if (key) compMap[String(key)] = comp;
-      });
-
-      // For each competitor found in core, fetch its statistics.$ref and log first 100 lines
-      const statFetchPromises = coreCompetitors.map(async (comp) => {
-        try {
-          const statRef =
-            comp?.statistics?.$ref ||
-            (comp.statistics && typeof comp.statistics === "string"
-              ? comp.statistics
-              : null);
-          if (!statRef) return { comp, rawText: null, parsed: null };
-          const sResp = await fetch(convertToHttps(statRef));
-          if (!sResp.ok) {
-            console.log(
-              "[ItalyGameDetails] statRef fetch failed",
-              statRef,
-              sResp.status,
-            );
-            return { comp, rawText: null, parsed: null };
+          if (s && s.displayValue !== undefined) {
+            const v = parseFloat(String(s.displayValue).replace("%", ""));
+            return Number.isFinite(v) ? v : 0;
           }
-          const rawText = await sResp.text();
-          // Try parse JSON (may be large) for later use
-          let parsed = null;
-          try {
-            parsed = JSON.parse(rawText);
-          } catch (e) {
-            parsed = null;
-          }
-          return { comp, rawText, parsed, statRef };
-        } catch (err) {
-          console.log(
-            "[ItalyGameDetails] Failed to fetch statRef for competitor",
-            comp?.id,
-            err,
-          );
-          return { comp, rawText: null, parsed: null };
-        }
-      });
+          return 0;
+        };
 
-      const statFetchResults = await Promise.all(statFetchPromises);
+        const statsArray = rawStats.map((s) => ({
+          name: s.name,
+          displayValue: s.displayValue ?? "",
+          value:
+            parseFloat(String(s.displayValue ?? "0").replace("%", "")) || 0,
+        }));
 
-      // Find home and away stat fetch results and log first 100 lines
-      try {
-        const homeComp = coreCompetitors.find((c) => c.homeAway === "home");
-        const awayComp = coreCompetitors.find((c) => c.homeAway === "away");
+        const normalizedStats = {
+          possession: { num: findStatByLabel("possession") },
+          shots: {
+            onGoal: findStatByLabel("on goal"),
+            total: findStatByLabel("shots"),
+          },
+          discipline: {
+            fouls: findStatByLabel("fouls"),
+            yellow: findStatByLabel("yellow cards"),
+            red: findStatByLabel("red cards"),
+          },
+          setPieces: {
+            corners: findStatByLabel("corner kicks"),
+            saves: findStatByLabel("saves"),
+          },
+        };
 
-        const homeResult = statFetchResults.find(
-          (r) => r.comp && r.comp.id === (homeComp && homeComp.id),
-        );
-        const awayResult = statFetchResults.find(
-          (r) => r.comp && r.comp.id === (awayComp && awayComp.id),
-        );
-
-        if (homeResult && homeResult.rawText) {
-          const homeLines = homeResult.rawText
-            .split(/\r?\n/)
-            .slice(0, 100)
-            .join("\n");
-        } else {
-        }
-
-        if (awayResult && awayResult.rawText) {
-          const awayLines = awayResult.rawText
-            .split(/\r?\n/)
-            .slice(0, 100)
-            .join("\n");
-        } else {
-        }
-      } catch (logErr) {}
-
-      // Attach parsed flattened stats to teams where possible for UI compatibility
-      try {
-        teams.forEach((team) => {
-          const homeAway = team.homeAway;
-          // find matching core comp by homeAway or team id
-          const coreComp = coreCompetitors.find(
-            (c) =>
-              c.homeAway === homeAway ||
-              (c.team && String(c.team?.id) === String(team.team?.id)),
-          );
-          const result = statFetchResults.find(
-            (r) => r.comp && r.comp.id === (coreComp && coreComp.id),
-          );
-          if (result && result.parsed) {
-            // Handle the fact that splits might be an object, not an array
-            const flattened = [];
-            const splitsData = result.parsed.splits;
-
-            // Check if splits is an object with categories, or an array
-            if (splitsData && typeof splitsData === "object") {
-              const splitsArray = Array.isArray(splitsData)
-                ? splitsData
-                : [splitsData];
-              splitsArray.forEach((split) => {
-                (split.categories || []).forEach((cat) => {
-                  (cat.stats || []).forEach((s) => {
-                    flattened.push({
-                      name: s.name,
-                      displayValue:
-                        s.displayValue !== undefined
-                          ? String(s.displayValue)
-                          : s.value !== undefined
-                            ? String(s.value)
-                            : "",
-                      value: s.value,
-                    });
-                  });
-                });
-              });
-              team.statistics = flattened;
-              console.log(
-                `[ItalyGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`,
-              );
-            }
-          }
-        });
-      } catch (attachErr) {
-        console.log(
-          "[ItalyGameDetails] Error attaching parsed stats to teams:",
-          attachErr,
-        );
-      }
-
-      // If we have gameData and competitor statistics $refs, fetch those and
-      // flatten them into a compatible statistics array for the UI.
-      try {
-        const competition = gameData?.header?.competitions?.[0];
-        const competitors = competition?.competitors || [];
-
-        // Build a map from homeAway or team id to the competitor object (which has statistics $ref)
-        const compByHomeAway = {};
-        competitors.forEach((comp) => {
-          const key = comp.homeAway || (comp.team && comp.team.id) || null;
-          if (key) compByHomeAway[key] = comp;
-        });
-
-        // For each team from matchStats CDN, try to fetch the competitor statistics $ref
-        await Promise.all(
-          teams.map(async (team) => {
-            try {
-              const homeAway = team.homeAway;
-              const comp =
-                compByHomeAway[homeAway] ||
-                competitors.find((c) => c.team?.id == team.team?.id);
-              const statRef = comp?.statistics?.$ref || comp?.statistics;
-              if (statRef && typeof statRef === "string") {
-                // Fetch competitor statistics resource (sports.core API)
-                const sResp = await fetch(convertToHttps(statRef));
-                if (sResp.ok) {
-                  const sData = await sResp.json();
-                  // sData typically contains 'splits' object/array with categories containing 'stats'
-                  const flattened = [];
-                  const splitsData = sData.splits;
-
-                  // Handle splits being either an object or array
-                  if (splitsData && typeof splitsData === "object") {
-                    const splitsArray = Array.isArray(splitsData)
-                      ? splitsData
-                      : [splitsData];
-                    splitsArray.forEach((split) => {
-                      const categories = split.categories || [];
-                      categories.forEach((cat) => {
-                        const stats = cat.stats || [];
-                        stats.forEach((s) => {
-                          // Keep name, displayValue and numeric value when present
-                          flattened.push({
-                            name: s.name,
-                            displayValue:
-                              s.displayValue !== undefined
-                                ? String(s.displayValue)
-                                : s.value !== undefined
-                                  ? String(s.value)
-                                  : "",
-                            value: s.value,
-                          });
-                        });
-                      });
-                    });
-                    // Replace/augment the team's statistics with the flattened array
-                    team.statistics = flattened;
-                    // Also attach a normalized stats object for UI consumption
-                    try {
-                      team.normalizedStats = mapTeamStats(flattened);
-                    } catch (e) {
-                      team.normalizedStats = {};
-                    }
-                  }
-                }
-              }
-            } catch (innerErr) {
-              console.log(
-                "Failed to fetch competitor statistics for team",
-                team.team?.id,
-                innerErr,
-              );
-            }
-          }),
-        );
-      } catch (mapErr) {
-        console.log(
-          "Error while attempting to fetch competitor statistics refs:",
-          mapErr,
-        );
-      }
-
-      const homeTeam = teams.find((team) => team.homeAway === "home");
-      const awayTeam = teams.find((team) => team.homeAway === "away");
-
-      // Debug logging: print first 100 flattened stat entries for each team
-      try {
-        const homeStatsSample = (homeTeam?.statistics || []).slice(0, 100);
-        const awayStatsSample = (awayTeam?.statistics || []).slice(0, 100);
-        // Also log normalized stats for easier verification
-      } catch (logErr) {}
-
-      return {
-        homeTeam,
-        awayTeam,
-        headToHeadData,
+        return {
+          team: boxscore.team,
+          statistics: statsArray,
+          normalizedStats,
+          homeAway: boxscore.homeAway,
+        };
       };
+
+      const homeTeam = mapBoxscoreToTeamStats(homeBoxscore);
+      const awayTeam = mapBoxscoreToTeamStats(awayBoxscore);
+
+      return { homeTeam, awayTeam, headToHeadData };
     } catch (error) {
-      console.error("[ItalyGameDetails] fetchMatchStats error:", error);
+      console.error("[ITALYGameDetails] fetchMatchStats error:", error);
       return null;
     }
   };
@@ -5225,110 +4554,125 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         </View>
       );
     }
-
     return <View style={styles.tabContent}>{renderPlayByPlay()}</View>;
   };
 
-  // Central fetch used for both initial load and silent updates.
-  const fetchPlaysDataInternal = async ({ silent = true } = {}) => {
-    // Skip if user is actively scrolling
-    if (isUserScrollingRef.current) {
-      console.log(
-        "[ItalyGameDetails] skipping plays fetch - user is scrolling",
-      );
-      return;
-    }
+  // ── Process plays from gameData.commentaryPlays (no separate fetch) ───
+  // Includes score tracking: start at 0-0, update whenever a goal is scored
+  const processedPlays = useMemo(() => {
+    if (!gameData?.commentaryPlays?.length) return null;
 
-    if (!gameId) return;
+    const homeId = String(gameData.homeCompetitor?.team?.id || "");
+    const awayId = String(gameData.awayCompetitor?.team?.id || "");
 
-    // Prevent concurrent fetches
-    if (playsFetchingRef.current) {
-      console.debug(
-        "[ItalyGameDetails] plays fetch already in progress - skipping",
-      );
-      return;
-    }
+    // Get team colors
+    const homeColor =
+      ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+        gameData.homeCompetitor?.team,
+      ) || "007bff";
+    const awayColor =
+      ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+        gameData.awayCompetitor?.team,
+      ) || "28a745";
 
-    playsFetchingRef.current = true;
-    const initialLoad = !Array.isArray(playsData) || playsData.length === 0;
-    if (initialLoad) {
-      // only show loading indicator for the initial fetch
-      setLoadingPlays(true);
-    }
+    let homeScore = 0;
+    let awayScore = 0;
 
-    console.log("[ItalyGameDetails] fetchPlaysData START", {
-      gameId,
-      lastUpdateHash,
-      playsDataCount: playsData ? playsData.length : 0,
-      silent,
-    });
+    const plays = gameData.commentaryPlays
+      .map((entry) => {
+        const play = entry.play;
+        if (!play) return null;
 
-    try {
-      // Fetch plays data from ESPN API exactly like scoreboard.js
-      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
+        // Determine team side from play.team
+        let teamSide = null;
+        if (play.team) {
+          const playTeamId = String(play.team.id || "");
+          if (playTeamId === homeId) teamSide = "home";
+          else if (playTeamId === awayId) teamSide = "away";
 
-      const response = await fetch(convertToHttps(PLAYS_API_URL));
-      if (!response.ok) {
-        throw new Error(`Plays API responded with status: ${response.status}`);
-      }
+          // Fallback: match by displayName when id is not available
+          if (!teamSide && play.team.displayName) {
+            const playTeamName = play.team.displayName.toLowerCase();
+            const homeName = (
+              gameData.homeCompetitor?.team?.displayName || ""
+            ).toLowerCase();
+            const awayName = (
+              gameData.awayCompetitor?.team?.displayName || ""
+            ).toLowerCase();
+            if (playTeamName === homeName) teamSide = "home";
+            else if (playTeamName === awayName) teamSide = "away";
+          }
+        }
 
-      const data = await response.json();
+        const teamColor =
+          teamSide === "home"
+            ? homeColor
+            : teamSide === "away"
+              ? awayColor
+              : null;
 
-      if (!data.items || data.items.length === 0) {
-        console.warn("[ItalyGameDetails] No plays data available in response");
-        if (initialLoad) setPlaysData([]);
-        // Keep lastPlaysHashRef aligned with game-level hash (so we don't repeatedly try)
-        lastPlaysHashRef.current = lastUpdateHash;
-        return;
-      }
+        // Detect goal plays: scoringPlay flag OR type.type includes "goal" OR type.id === "70"/"71"
+        // Use includes() to catch "goal", "ownGoal", "penaltyGoal", etc.
+        const isGoalPlay =
+          play.scoringPlay ||
+          play.type?.type?.toLowerCase?.().includes("goal") ||
+          play.type?.name?.toLowerCase?.().includes("goal") ||
+          play.type?.id === "70" ||
+          play.type?.id === "71" ||
+          play.type?.id === "97" ||
+          play.type?.id === "98";
 
-      // Sort plays in reverse chronological order (most recent first)
-      const fetchedPlays = [...data.items].reverse();
+        // Track scores from goal text
+        // ESPN format: "Goal! HomeTeam X, AwayTeam Y. ..." — home team is ALWAYS listed first
+        const text = play.text || "";
+        const goalMatch = text.match(/([A-Za-z\s]+)\s+(\d+),\s*([A-Za-z\s]+)\s+(\d+)/);
+        if (isGoalPlay && goalMatch) {
+          const score1 = parseInt(goalMatch[2], 10);
+          const score2 = parseInt(goalMatch[4], 10);
+          if (!isNaN(score1) && !isNaN(score2)) {
+            // ESPN always puts home team score first in the text
+            homeScore = score1;
+            awayScore = score2;
+            console.log(
+              `[ProcessedPlays] Sequence: ${entry.sequence}. Score: ${
+                gameData.homeCompetitor?.team?.displayName || "Home"
+              } - ${homeScore}, ${
+                gameData.awayCompetitor?.team?.displayName || "Away"
+              } - ${awayScore}. Identifier: ${text}`,
+            );
+          }
+        }
 
-      // Compute a lightweight plays hash (count + top play key + sequence/startTime) to detect changes
-      const topPlay = fetchedPlays[0];
-      const topKey = topPlay ? computePlayKey(topPlay) : "";
-      const topSeq =
-        topPlay?.sequence || topPlay?.startTime || topPlay?.id || "";
-      const playsHash = JSON.stringify({
-        count: fetchedPlays.length,
-        topKey,
-        topSeq,
-      });
+        return {
+          ...play,
+          _commentaryTime: entry.time,
+          _commentaryText: entry.text,
+          _sequence: entry.sequence,
+          _teamSide: teamSide,
+          _teamColor: teamColor,
+          _homeScore: homeScore,
+          _awayScore: awayScore,
+          _isGoalPlay: isGoalPlay,
+        };
+      })
+      .filter(Boolean)
+      .reverse(); // Most recent first
 
-      if (playsHash !== lastPlaysHashRef.current) {
-        console.log(
-          "[ItalyGameDetails] plays changed - applying incremental update",
-          { playsHash, prev: lastPlaysHashRef.current },
-        );
-        updatePlaysDataIncremental(fetchedPlays);
-        lastPlaysHashRef.current = playsHash;
-      } else {
-        console.debug(
-          "[ItalyGameDetails] plays hash unchanged - skipping merge",
-        );
-      }
+    console.log(
+      `[ProcessedPlays] Total plays processed: ${plays.length}. ` +
+        `Home score: ${homeScore}, Away score: ${awayScore}`,
+    );
+    return plays;
+  }, [gameData]);
 
-      console.log(
-        "[ItalyGameDetails] fetchPlaysData END - items",
-        fetchedPlays.length,
-      );
-    } catch (error) {
-      console.error("[ItalyGameDetails] Error fetching plays data:", error);
-      if (initialLoad) setPlaysData([]);
-    } finally {
-      playsFetchingRef.current = false;
-      if (initialLoad) setLoadingPlays(false);
-    }
-  };
-
-  // Initial load: when the Plays tab becomes active or the game changes, do a fetch that may show initial loading
+  // Keep processedPlaysRef in sync with the memoized value
   useEffect(() => {
-    if (activeTab === "plays" && gameId) {
-      fetchPlaysDataInternal({ silent: false });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, gameId]);
+    processedPlaysRef.current = processedPlays;
+    console.log("[ProcessedPlaysRef] Updated ref:", {
+      hasPlays: !!processedPlays,
+      length: processedPlays?.length,
+    });
+  }, [processedPlays]);
 
   // Fetch stats data when stats tab becomes active
   useEffect(() => {
@@ -5343,31 +4687,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     loadStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, gameId, statsData]);
-
-  // Silent updates: when game details update (lastUpdateHash changes), refresh plays silently if plays tab is active
-  useEffect(() => {
-    if (activeTab === "plays" && gameId) {
-      fetchPlaysDataInternal({ silent: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastUpdateHash]);
-
-  // Fetch plays data silently when gameData is loaded (for scorers box functionality)
-  useEffect(() => {
-    console.log("[ItalyGameDetails] Plays fetch useEffect triggered", {
-      hasGameData: !!gameData,
-      gameId,
-      hasPlaysData: !!playsData,
-      playsDataLength: playsData?.length || 0,
-    });
-
-    if (gameData && gameId && !playsData) {
-      console.log("[ItalyGameDetails] Fetching plays data for scorers box");
-      fetchPlaysDataInternal({ silent: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameData, gameId, playsData]);
+  }, [activeTab, gameId, statsData, gameData]);
 
   // Add scroll listeners to detect user scroll start/stop inside the plays ScrollView
   useEffect(() => {
@@ -5379,7 +4699,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
         console.log(
-          "[ItalyGameDetails] user stopped scrolling - updates will resume",
+          "[ITALYGameDetails] user stopped scrolling - updates will resume",
         );
       }, 600);
     };
@@ -5400,21 +4720,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   const renderPlayByPlay = () => {
     if (!gameData) return null;
 
-    if (loadingPlays) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.loadingText, { color: theme.text }]}
-          >
-            Loading plays...
-          </Text>
-        </View>
-      );
-    }
+    const playsArray = processedPlays;
 
-    if (!playsData || playsData.length === 0) {
+    if (!playsArray || playsArray.length === 0) {
       return (
         <View style={styles.tabContent}>
           <Text
@@ -5438,98 +4746,76 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     const homeLogo = gameData.homeLogo || "https://via.placeholder.com/40";
     const awayLogo = gameData.awayLogo || "https://via.placeholder.com/40";
 
+    // Filter out plays with noise phrases
+    const filteredPlays = playsArray.filter((play) => {
+      const text = play.text || play.shortText || "";
+      return [
+        "Out at",
+        "Pass at",
+        "touch at",
+        "Clear at",
+        "Take On",
+        "Attempted Tackle",
+      ].every((phrase) => !text.includes(phrase));
+    });
+
     // Only render the visible plays for performance
-    const visiblePlays = playsData.slice(0, visiblePlaysCount);
-    console.log(
-      `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`,
-    );
+    const visiblePlays = filteredPlays.slice(0, visiblePlaysCount);
 
     const renderedPlays = visiblePlays.map((play, index) => {
-      const playKey = computePlayKey(play);
+      const playKey = `${computePlayKey(play)}-${index}`;
       const isOpen = openPlays.has(playKey);
-      const isScoring = play.scoringPlay || false;
+      // Use pre-computed goal flag from processedPlays (checks type.type === "goal" / type.id "70"/"71" / scoringPlay)
+      const isScoring = play._isGoalPlay || false;
 
-      // Get scores from the play data - for the last play (index 0), use previous play's scores
-      let currentHomeScore, currentAwayScore;
-
-      if (index === 0 && playsData.length > 1) {
-        // This is the last/most recent play - use the previous play's scores
-        currentHomeScore = playsData[1].homeScore || 0;
-        currentAwayScore = playsData[1].awayScore || 0;
-      } else {
-        // For all other plays, use their own scores
-        currentHomeScore = play.homeScore || 0;
-        currentAwayScore = play.awayScore || 0;
-      }
+      // Use tracked scores from processedPlays
+      const currentHomeScore = play._homeScore ?? 0;
+      const currentAwayScore = play._awayScore ?? 0;
 
       const period = play.period ? play.period.number || 1 : 1;
-      const clock = play.clock ? play.clock.displayValue : "";
+      const clock = play.clock
+        ? play.clock.displayValue
+        : play._commentaryTime?.displayValue || "";
       const text =
         play.text ||
         play.shortText ||
         play.type?.text ||
         "No description available";
 
-      // Determine event type and team side
-      let eventType = "gen";
-      let teamSide = "home"; // Default
-      // Default marker color: use theme primary when available, otherwise fall back to a blue
-      let teamColor = colors && colors.primary ? colors.primary : "#007bff"; // Default
-
-      // Helper: extract numeric team id from various possible API shapes.
-      const extractTeamId = (teamObj) => {
-        if (!teamObj) return null;
-        try {
-          // If it's a plain string reference
-          if (typeof teamObj === "string") {
-            const m = teamObj.match(/teams\/(\d+)/);
-            if (m) return m[1];
-            return null;
-          }
-
-          // If API provides an object with id
-          if (teamObj.id) return String(teamObj.id);
-
-          // If API provides a $ref link
-          if (teamObj.$ref && typeof teamObj.$ref === "string") {
-            const m = teamObj.$ref.match(/teams\/(\d+)/);
-            if (m) return m[1];
-          }
-
-          // Nested shapes (rare) - try teamObj.team.$ref or teamObj.team.id
-          if (teamObj.team) {
-            if (teamObj.team.id) return String(teamObj.team.id);
-            if (teamObj.team.$ref) {
-              const m2 = String(teamObj.team.$ref).match(/teams\/(\d+)/);
-              if (m2) return m2[1];
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-        return null;
-      };
-
-      const playTeamId = extractTeamId(play.team);
-      const homeId = extractTeamId(homeTeam) || extractTeamId(homeTeam?.team);
-      const awayId = extractTeamId(awayTeam) || extractTeamId(awayTeam?.team);
-
-      if (playTeamId) {
-        if (String(playTeamId) === String(awayId)) {
-          teamSide = "away";
-          teamColor =
-            ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+      // Use pre-computed team side and color from processedPlays
+      let teamSide = play._teamSide || "home";
+      let teamColor =
+        play._teamColor ||
+        (teamSide === "home"
+          ? ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+              homeTeam?.team || homeTeam,
+            ) || "#007bff"
+          : ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
               awayTeam?.team || awayTeam,
-            ) || "#28a745";
-        } else if (String(playTeamId) === String(homeId)) {
+            ) || "#28a745");
+
+      // If teamSide was not resolved by ID, try displayName fallback here too
+      if (!play._teamSide && play.team?.displayName) {
+        const playTeamName = play.team.displayName.toLowerCase();
+        const hName = (homeTeam?.team?.displayName || "").toLowerCase();
+        const aName = (awayTeam?.team?.displayName || "").toLowerCase();
+        if (playTeamName === hName) {
           teamSide = "home";
           teamColor =
             ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
               homeTeam?.team || homeTeam,
             ) || "#007bff";
+        } else if (playTeamName === aName) {
+          teamSide = "away";
+          teamColor =
+            ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+              awayTeam?.team || awayTeam,
+            ) || "#28a745";
         }
       }
 
+      // Determine event type (isScoring is now resolved from _isGoalPlay)
+      let eventType = "gen";
       if (isScoring) {
         eventType = "goal";
       } else if (text.toLowerCase().includes("yellow card")) {
@@ -5542,7 +4828,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         text.toLowerCase().includes("attempt") ||
         text.toLowerCase().includes("saved") ||
         text.toLowerCase().includes("blocked") ||
-        text.toLowerCase().includes("missed")
+        text.toLowerCase().includes("post") ||
+        text.toLowerCase().includes("miss")
       ) {
         eventType = "shot";
       } else if (text.toLowerCase().includes("offside")) {
@@ -5569,8 +4856,14 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           : colors?.primary || "#007bff";
       const scoringTextColor = getContrastColor(finalTeamColor);
 
-      // Border left style: only show when we have a resolved team id
-      const borderLeftStyle = playTeamId
+      // Border left style: show when we have a resolved team side
+      const resolvedTeamId =
+        teamSide === "home"
+          ? homeTeam?.team?.id
+          : teamSide === "away"
+            ? awayTeam?.team?.id
+            : null;
+      const borderLeftStyle = resolvedTeamId
         ? { borderLeftWidth: 6, borderLeftColor: finalTeamColor }
         : { borderLeftWidth: 0 };
 
@@ -5584,7 +4877,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
               homeTeam: homeTeam,
               awayTeam: awayTeam,
               teamColor: teamColor,
-              playTeamId: playTeamId,
+              playTeamId: resolvedTeamId,
             },
           };
           setShareCardPlay(playWithContext);
@@ -5593,7 +4886,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
       return (
         <View
-          key={computePlayKey(play)}
+          key={playKey}
           style={[
             styles.playContainer,
             { backgroundColor: isScoring ? finalTeamColor : theme.surface },
@@ -5604,7 +4897,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             style={styles.playHeader}
             onPress={() => togglePlay(playKey)}
             onLongPress={handleGoalLongPress}
-            delayLongPress={500}
+            delayLongPress={250}
           >
             <View style={styles.playMainInfo}>
               <View style={styles.playTeamsScore}>
@@ -5803,30 +5096,34 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     // Add load more button if there are more plays to show
     const loadMoreButton = [];
-    if (visiblePlaysCount < playsData.length) {
+    if (visiblePlaysCount < filteredPlays.length) {
+      const remaining = filteredPlays.length - visiblePlaysCount;
       loadMoreButton.push(
         <TouchableOpacity
           key="load-more-button"
-          style={[styles.loadMoreButton, { backgroundColor: colors.primary }]}
-          onPress={loadMorePlays}
+          style={[
+            styles.loadMoreButton,
+            { backgroundColor: colors.primary, marginBottom: 80 },
+          ]}
+          onPress={() => {
+            console.log("[LoadMorePlays] Button onPress triggered!");
+            loadMorePlays();
+          }}
           disabled={isLoadingMorePlays}
+          activeOpacity={0.7}
         >
           {isLoadingMorePlays ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={[styles.loadMoreText, { color: "#fff" }]}>
-              Load More Plays ({playsData.length - visiblePlaysCount} remaining)
+              Load More Plays ({remaining} remaining)
             </Text>
           )}
         </TouchableOpacity>,
       );
     }
 
-    return (
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {[...renderedPlays, ...loadMoreButton]}
-      </ScrollView>
-    );
+    return <View>{[...renderedPlays, ...loadMoreButton]}</View>;
   };
 
   // Landscape Mini Field Component - Exact replica of web version
@@ -5863,8 +5160,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     // Field split into 2 halves - right half = home, left half = away
     // X: 0 = far end, 1 = half line (center)
     // Position relative to field outline (white lines), not container
-    const espnX = coordinate.x;
-    const espnY = coordinate.y;
+    const espnX =
+      teamSide === "home" ? 1 + coordinate.x / 100 : coordinate.x / 100;
+    const espnY = coordinate.y / 100;
 
     // Convert ESPN coordinates with exact web logic
     let leftPercent, topPercent;
@@ -5873,14 +5171,20 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       // Home team on right half of field
       // X=0 (far right) → 96% left position (near right goal)
       // X=1 (center line) → 50% left position
-      leftPercent = 50 + (1 - espnX) * 46; // X=0→96%, X=1→50%
+      leftPercent = 55 + (1 - espnX) * 46;
       topPercent = 4 + espnY * 92; // Y=0→4%, Y=1→96% (within field outline)
+      console.log(
+        `[MiniField] Home team coordinates: ESPN(${espnX}, ${espnY}) → Position: ${leftPercent}%, ${topPercent}%`,
+      );
     } else {
       // Away team on left half of field
       // X=0 (far left) → 4% left position (near left goal)
       // X=1 (center line) → 50% left position
-      leftPercent = 4 + espnX * 46; // X=0→4%, X=1→50%
+      leftPercent = 40 + (4 + espnX * 46); // X=0→4%, X=1→50%
       topPercent = 4 + (1 - espnY) * 92; // Y=0→96%, Y=1→4% (inverted, within field outline)
+      console.log(
+        `[MiniField] Away team coordinates: ESPN(${espnX}, ${espnY}) → Position: ${leftPercent}%, ${topPercent}%`,
+      );
     }
 
     // Constrain to field outline bounds (white lines area)
@@ -5899,8 +5203,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       coordinate2.y !== undefined &&
       !(coordinate2.x === 0 && coordinate2.y === 0)
     ) {
-      const espnX2 = coordinate2.x;
-      const espnY2 = coordinate2.y;
+      const espnX2 =
+        teamSide === "home" ? 1 + coordinate2.x / 100 : coordinate2.x / 100;
+      const espnY2 = coordinate2.y / 100;
 
       let leftPercent2, topPercent2;
 
@@ -5910,7 +5215,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         topPercent2 = 4 + espnY2 * 92; // Y=0→4%, Y=1→96%
       } else {
         // Away team on left half
-        leftPercent2 = 4 + espnX2 * 46; // X=0→4%, X=1→50%
+        leftPercent2 = 40 + (4 + espnX2) * 46; // X=0→4%, X=1→50%
         topPercent2 = 4 + (1 - espnY2) * 92; // Y=0→96%, Y=1→4% (inverted)
       }
 
@@ -6083,11 +5388,16 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     if (playerId && Array.isArray(playsData)) {
       playsData.forEach((play) => {
         // Check if this play is a shot/goal based on type
+        const isGoal =
+          play.scoringPlay ||
+          play.type?.type === "goal" ||
+          play.type?.id === "70" ||
+          play.type?.id === "71";
         const isShot =
+          isGoal ||
           play.type?.text?.toLowerCase().includes("shot") ||
           play.type?.text?.toLowerCase().includes("goal") ||
-          play.type?.text?.toLowerCase().includes("attempt") ||
-          play.scoringPlay;
+          play.type?.text?.toLowerCase().includes("attempt");
 
         if (
           isShot &&
@@ -6101,14 +5411,21 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           // For shots, look for order 1 participant (the shooter)
           let shooterParticipant = null;
 
-          if (play.scoringPlay) {
+          if (isGoal) {
             // For goals, find the scorer
             shooterParticipant = play.participants.find(
               (p) => p.type === "scorer",
             );
+            // Fallback: if no scorer type, use first participant
+            if (!shooterParticipant) {
+              shooterParticipant = play.participants[0];
+            }
           } else {
             // For shots, find the participant with order 1
             shooterParticipant = play.participants.find((p) => p.order === 1);
+            if (!shooterParticipant) {
+              shooterParticipant = play.participants[0];
+            }
           }
 
           if (shooterParticipant && shooterParticipant.athlete?.$ref) {
@@ -6139,7 +5456,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 y: play.fieldPositionY,
                 x2: play.fieldPosition2X,
                 y2: play.fieldPosition2Y,
-                isGoal: play.scoringPlay || false,
+                isGoal: isGoal || false,
                 text: play.text || play.shortText || "",
                 clock: play.clock?.displayValue || "",
                 type: play.type?.text || "",
@@ -6310,6 +5627,353 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  // ── Player Share Card helpers ───────────────────────────────────────
+  const resetPlayerShare = useCallback(() => {
+    setPlayerShareVisible(false);
+    setSharingPlayerCard(false);
+  }, []);
+
+  useEffect(() => {
+    if (!playerPopupVisible) resetPlayerShare();
+  }, [playerPopupVisible, resetPlayerShare]);
+
+  const handlePlayerShareCard = useCallback(async () => {
+    if (sharingPlayerCard || !playerShareCardRef.current) return;
+    try {
+      setSharingPlayerCard(true);
+      await new Promise((r) => setTimeout(r, 350));
+      const uri = await playerShareCardRef.current.capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Player Stats",
+      });
+    } catch (err) {
+      console.error("Error sharing player card:", err);
+    } finally {
+      setSharingPlayerCard(false);
+    }
+  }, [sharingPlayerCard]);
+
+  // Build share stats for the selected player
+  const buildPlayerShareData = useCallback(() => {
+    if (!selectedPlayer) return null;
+
+    const player = selectedPlayer;
+    const athlete = player.athlete || {};
+    const fullName =
+      athlete.displayName || athlete.fullName || athlete.lastName || "Unknown";
+    const jersey = player.jersey || "";
+    const teamType = player.teamType;
+
+    // Determine team color
+    const competition = gameData?.header?.competitions?.[0];
+    const homeTeamData =
+      gameData?.homeCompetitor ||
+      competition?.competitors?.find((c) => c.homeAway === "home");
+    const awayTeamData =
+      gameData?.awayCompetitor ||
+      competition?.competitors?.find((c) => c.homeAway === "away");
+
+    let teamColor = "#007bff";
+    if (teamType === "home") {
+      teamColor =
+        ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+          homeTeamData?.team,
+        ) || colors.primary;
+    } else if (teamType === "away") {
+      teamColor =
+        ItalyServiceEnhanced.getTeamColorWithAlternateLogic(
+          awayTeamData?.team,
+        ) || colors.secondary;
+    }
+    teamColor = teamColor.startsWith("#") ? teamColor : `#${teamColor}`;
+
+    const textOnBg = (() => {
+      const c = teamColor.replace("#", "");
+      const r = parseInt(c.substr(0, 2), 16);
+      const g = parseInt(c.substr(2, 2), 16);
+      const b = parseInt(c.substr(4, 2), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5
+        ? "#000000"
+        : "#FFFFFF";
+    })();
+
+    // Get ESPN stat abbreviations from player.stats (roster stats)
+    const stats = player.stats || {};
+    const s = (key) => {
+      const v = stats[key];
+      return v != null && v !== "" ? v : null;
+    };
+
+    // Position info
+    const posName = player.position?.displayName || "";
+    const posAbbr = player.position?.abbreviation || "";
+    const isGK = posAbbr === "G" || posName.toLowerCase().includes("goalkeeper");
+    const isDEF =
+      posAbbr.includes("D") || posName.toLowerCase().includes("defender") || posName.toLowerCase().includes("back");
+    const isMF =
+      posAbbr.includes("M") || posName.toLowerCase().includes("midfielder");
+
+    // Get detailed stats from playerGameStats (fetched per player)
+    const gs = playerGameStats || {};
+
+    // Team scores
+    const homeScore = getTeamScore("home");
+    const awayScore = getTeamScore("away");
+    const matchStatus = getMatchStatus();
+
+    // Build stat grid based on position
+    let shareStatItems;
+    if (isGK) {
+      shareStatItems = [
+        { label: "SV", value: s("SV") ?? gs.saves ?? 0 },
+        { label: "GA", value: s("GA") ?? gs.goalsConceded ?? 0 },
+        { label: "PASS", value: s("APP") != null ? (gs.totalPasses ?? "—") : "—" },
+        { label: "PASS %", value: gs.totalPasses > 0 ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%` : "—" },
+        { label: "CLR", value: gs.clearances ?? "—" },
+        { label: "MIN", value: s("APP") != null ? gs.minutes ?? "—" : "—" },
+        { label: "YC", value: s("YC") ?? gs.yellowCards ?? 0 },
+        { label: "RC", value: s("RC") ?? gs.redCards ?? 0 },
+        { label: "OG", value: s("OG") ?? gs.ownGoals ?? 0 },
+      ];
+    } else {
+      shareStatItems = [
+        { label: "GLS", value: s("G") ?? gs.goals ?? 0 },
+        { label: "AST", value: s("A") ?? gs.assists ?? 0 },
+        { label: "SHOT", value: s("SHOT") ?? gs.shots ?? 0 },
+        { label: "SOG", value: s("SOG") ?? gs.shotsOnTarget ?? 0 },
+        { label: "TCKL", value: gs.tackles ?? "—" },
+        { label: "CLR", value: gs.clearances ?? "—" },
+        { label: "PASS", value: gs.totalPasses ?? "—" },
+        { label: "PASS %", value: gs.totalPasses > 0 ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%` : "—" },
+        { label: "MIN", value: gs.minutes ?? "—" },
+        { label: "YC", value: s("YC") ?? gs.yellowCards ?? 0 },
+        { label: "RC", value: s("RC") ?? gs.redCards ?? 0 },
+        { label: "OG", value: s("OG") ?? gs.ownGoals ?? 0 },
+      ];
+    }
+
+    // Summary row (first 4 non-zero)
+    const summaryItems = shareStatItems.filter(
+      (i) => i.value != null && i.value !== 0 && i.value !== "—" && i.value !== "",
+    ).slice(0, 4);
+    const summaryFill = shareStatItems
+      .filter((i) => !summaryItems.find((s) => s.label === i.label))
+      .slice(0, 4 - summaryItems.length);
+    const summaryStats = [...summaryItems, ...summaryFill].slice(0, 4);
+
+    const initials = [athlete.shortName?.[0], athlete.lastName?.[0]]
+      .filter(Boolean)
+      .join("")
+      .toUpperCase() || fullName.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "P";
+
+    console.log(athlete);
+
+    return {
+      fullName,
+      initials,
+      jersey,
+      posAbbr: posAbbr || "—",
+      posName : posName || null,
+      teamType,
+      teamColor,
+      textOnBg,
+      homeScore,
+      awayScore,
+      homeTeamData,
+      awayTeamData,
+      matchStatus,
+      shareStatItems,
+      summaryStats,
+    };
+  }, [selectedPlayer, playerGameStats, gameData, colors]);
+
+  const playerShareData = buildPlayerShareData();
+
+  const renderPlayerShareCard = () => {
+    if (!playerShareData) return null;
+    const d = playerShareData;
+    const cardWidth = Math.min(width - 48, 540);
+
+    return (
+      <Modal
+        visible={playerShareVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setPlayerShareVisible(false)}
+      >
+        <View style={styles.playerShareOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setPlayerShareVisible(false)}
+          />
+          <View style={styles.playerShareCenterWrap}>
+            <ViewShot
+              ref={playerShareCardRef}
+              options={{ format: "png", quality: 1 }}
+              style={{ overflow: "hidden" }}
+            >
+              <View
+                style={[styles.playerShareCard, { width: cardWidth, backgroundColor: theme.surface }]}
+              >
+                {/* Header */}
+                <View
+                  style={[
+                    styles.playerShareHeader,
+                    { backgroundColor: `${d.teamColor}22`, borderBottomColor: d.teamColor },
+                  ]}
+                >
+                  <View style={styles.playerShareTopRow}>
+                    <View style={[styles.playerSharePosBadge, { backgroundColor: d.teamColor }]}>
+                      <Text style={[styles.playerSharePosBadgeText, { color: d.textOnBg }]}>
+                        #{d.jersey || "?"} · {d.posName || d.posAbbr}
+                      </Text>
+                    </View>
+                    <View style={styles.playerShareScoreWrap}>
+                      {d.homeTeamData?.team?.id && (
+                        <TeamLogoImage
+                          teamId={d.homeTeamData.team.id}
+                          style={styles.playerShareScoreLogo}
+                          isDarkMode={isDarkMode}
+                        />
+                      )}
+                      <Text style={[styles.playerShareScoreText, { color: theme.text }]}>
+                        <Text style={{ fontWeight: Number(d.homeScore) > Number(d.awayScore) ? "800" : "400" }}>
+                          {d.homeScore}
+                        </Text>
+                        {" - "}
+                        <Text style={{ fontWeight: Number(d.awayScore) > Number(d.homeScore) ? "800" : "400" }}>
+                          {d.awayScore}
+                        </Text>
+                      </Text>
+                      {d.awayTeamData?.team?.id && (
+                        <TeamLogoImage
+                          teamId={d.awayTeamData.team.id}
+                          style={styles.playerShareScoreLogo}
+                          isDarkMode={isDarkMode}
+                        />
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.playerShareNameRow}>
+                    <View
+                      style={[
+                        styles.playerShareAvatar,
+                        { backgroundColor: `${d.teamColor}30`, borderColor: d.teamColor, borderWidth: 2 },
+                      ]}
+                    >
+                      <Text style={[styles.playerShareInitials, { color: d.textOnBg }]}>
+                        {d.initials}
+                      </Text>
+                    </View>
+                    <View style={styles.playerShareNameRight}>
+                      <View style={styles.playerShareSummaryRow}>
+                        {d.summaryStats.map(({ label, value }) => (
+                          <View key={label} style={styles.playerShareSummaryCell}>
+                            <Text style={[styles.playerShareSummaryVal, { color: theme.text }]}>
+                              {value != null ? String(value) : "0"}
+                            </Text>
+                            <Text style={[styles.playerShareSummaryLbl, { color: theme.textSecondary }]}>
+                              {label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                      <View style={styles.playerShareMetaRow}>
+                        <View style={styles.playerShareMetaLeft}>
+                          <Text style={[styles.playerSharePlayerName, { color: theme.text }]} numberOfLines={1}>
+                            {d.fullName}
+                          </Text>
+                          <View style={styles.playerShareTeamRow}>
+                            {d.teamType === "home" && d.homeTeamData?.team?.id && (
+                              <TeamLogoImage
+                                teamId={d.homeTeamData.team.id}
+                                style={styles.playerShareTeamLogo}
+                                isDarkMode={isDarkMode}
+                              />
+                            )}
+                            {d.teamType === "away" && d.awayTeamData?.team?.id && (
+                              <TeamLogoImage
+                                teamId={d.awayTeamData.team.id}
+                                style={styles.playerShareTeamLogo}
+                                isDarkMode={isDarkMode}
+                              />
+                            )}
+                            <Text style={[styles.playerShareTeamName, { color: theme.textSecondary }]} numberOfLines={1}>
+                              {d.teamType === "home"
+                                ? d.homeTeamData?.team?.displayName || "Home"
+                                : d.awayTeamData?.team?.displayName || "Away"}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.playerShareStatGrid}>
+                  {d.shareStatItems.map(({ label, value }, i) => (
+                    <View
+                      key={label}
+                      style={[
+                        styles.playerShareStatCell,
+                        { borderColor: theme.border },
+                        i % 3 !== 2 && { borderRightWidth: StyleSheet.hairlineWidth },
+                        i < Math.ceil(d.shareStatItems.length / 3) * 3 - 3 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                      ]}
+                    >
+                      <Text style={[styles.playerShareStatVal, { color: theme.text }]}>
+                        {value != null ? String(value) : "0"}
+                      </Text>
+                      <Text style={[styles.playerShareStatLbl, { color: theme.textSecondary }]}>
+                        {label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Footer */}
+                <View style={[styles.playerShareFooter, { borderTopColor: theme.border }]}>
+                  <Text style={[styles.playerShareFooterBrand, { color: theme.text }]}>
+                    SportsHeart{" "}
+                    <Ionicons name="heart" size={10} color={colors.primary} />
+                  </Text>
+                </View>
+              </View>
+            </ViewShot>
+
+            {/* Action buttons outside ViewShot */}
+            <View style={styles.playerShareActions}>
+              <TouchableOpacity
+                style={[styles.playerShareActionBtn, { backgroundColor: colors.primary }]}
+                onPress={handlePlayerShareCard}
+                disabled={sharingPlayerCard}
+              >
+                {sharingPlayerCard ? (
+                  <Text style={styles.playerShareActionBtnText}>Sharing...</Text>
+                ) : (
+                  <>
+                    <Ionicons name="share-outline" size={18} color="#fff" />
+                    <Text style={styles.playerShareActionBtnText}>Share</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.playerShareActionBtn, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={() => setPlayerShareVisible(false)}
+              >
+                <Text style={[styles.playerShareActionBtnText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   const renderPlayerPopup = () => {
     if (!selectedPlayer) return null;
 
@@ -6317,6 +5981,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       selectedPlayer.athlete?.displayName ||
       selectedPlayer.athlete?.lastName ||
       "Unknown Player";
+    const id = selectedPlayer.athlete?.id || selectedPlayer.id;
     const jersey = selectedPlayer.jersey || "N/A";
     const stats = selectedPlayer.stats || {};
     const yellowCard = selectedPlayer.yellowCard;
@@ -6412,12 +6077,28 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                 </View>
                 <View style={styles.playerModalNameSection}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.playerModalName, { color: playerNameColor }]}
+                  <TouchableOpacity
+                    onPress={() => {
+                      navigation.navigate("ItalyPlayerPage", {
+                        playerId: id,
+                        playerName: name,
+                        teamId: selectedPlayer.teamId,
+                        competitionId: gameData.header?.league?.slug,
+                        sport: "soccer",
+                      });
+                      setPlayerPopupVisible(false);
+                    }}
                   >
-                    {name}
-                  </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.playerModalName,
+                        { color: playerNameColor },
+                      ]}
+                    >
+                      {name}
+                    </Text>
+                  </TouchableOpacity>
                   <View style={styles.playerTeamInfo}>
                     <TeamLogoImage
                       teamId={selectedPlayer.teamId}
@@ -6446,20 +6127,22 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
-                  style={[
-                    styles.playerCloseButton,
-                    { backgroundColor: theme.error || "#FF3B30" },
-                  ]}
-                  onPress={() => {
-                    setPlayerPopupVisible(false);
-                    setSelectedPlayer(null);
-                  }}
-                >
-                  <Text allowFontScaling={false} style={styles.playerCloseText}>
-                    ×
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.playerModalHeaderActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.playerCloseButton,
+                      { backgroundColor: theme.error || "#FF3B30" },
+                    ]}
+                    onPress={() => {
+                      setPlayerPopupVisible(false);
+                      setSelectedPlayer(null);
+                    }}
+                  >
+                    <Text allowFontScaling={false} style={styles.playerCloseText}>
+                      ×
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -6998,13 +6681,17 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {renderStickyHeader()}
-
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
-        onScroll={handleScroll}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[1]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -7014,12 +6701,20 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           />
         }
       >
+        {/* Main Header Section */}
         {renderMatchHeader()}
-        {renderTabs()}
-        {renderTabContent()}
-      </ScrollView>
+
+        {/* Sticky Header Section containing Mini Header and Tab Bar */}
+        {renderStickyHeader()}
+
+        {/* Tab Content */}
+        <View style={styles.contentArea}>
+          <View style={styles.tabContent}>{renderTabContent()}</View>
+        </View>
+      </Animated.ScrollView>
 
       {renderPlayerPopup()}
+      {renderPlayerShareCard()}
 
       {/* Stream Modal - Only render when streaming is unlocked */}
       {isStreamingUnlocked && (
@@ -7172,7 +6867,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
-                        "Italy WebView navigation request:",
+                        "ITALY WebView navigation request:",
                         request.url,
                       );
 
@@ -7232,7 +6927,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
-                          "Blocked Italy popup/cross-domain navigation:",
+                          "Blocked ITALY popup/cross-domain navigation:",
                           request.url,
                         );
                         return false;
@@ -7243,7 +6938,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                       }
 
                       console.log(
-                        "Blocked Italy popup/cross-domain navigation:",
+                        "Blocked ITALY popup/cross-domain navigation:",
                         request.url,
                       );
                       return false;
@@ -7252,7 +6947,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                     onOpenWindow={(syntheticEvent) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
-                        "Blocked Italy popup window:",
+                        "Blocked ITALY popup window:",
                         nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
@@ -7541,7 +7236,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                           // Advanced fallback - parse team names from play text
                           // Format: "Goal! Manchester City 5, Burnley 1. Player..."
                           const textMatch = play.text.match(
-                            /Goal!\s+(.+?)\s+\d+,\s+(.+?)\s+\d+\./,
+                            /([A-Za-z\s]+)\s+(\d+),\s*([A-Za-z\s]+)\s+(\d+)/,
                           );
                           if (textMatch) {
                             const [, team1Name, team2Name] = textMatch;
@@ -7677,9 +7372,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                             ? "2nd Half"
                             : `Extra Time`;
 
-                      // Get current scores
-                      const homeScore = play.homeScore || 0;
-                      const awayScore = play.awayScore || 0;
+                      // Get current scores (use tracked scores from processedPlays)
+                      const homeScore = play._homeScore || play.homeScore || 0;
+                      const awayScore = play._awayScore || play.awayScore || 0;
 
                       // Determine goal type and situation
                       const playText = play.text || play.shortText || "";
@@ -7950,7 +7645,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                                             y: play.fieldPosition2Y,
                                           }
                                         : null,
-                                      "goal",
+                                      "owngoal",
                                       scoringTeamSide,
                                       playerCircleColor,
                                     )
@@ -8204,505 +7899,6 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </Modal>
       )}
-
-      {/* ── Pitch Player Copy Card Modal ─────────────────────────────── */}
-      {!!pitchPlayerShareCard &&
-        (() => {
-          const {
-            player,
-            teamId,
-            teamType,
-            position: posAbbr,
-          } = pitchPlayerShareCard;
-          const name =
-            player.athlete?.displayName ||
-            player.athlete?.lastName ||
-            "Unknown";
-          const jersey = player.jersey || "?";
-          const pos = posAbbr || player.position?.abbreviation || "";
-          const rawColor =
-            teamType === "home"
-              ? gameData?.homeCompetitor?.team?.color
-              : gameData?.awayCompetitor?.team?.color;
-          const teamColor = rawColor
-            ? rawColor.startsWith("#")
-              ? rawColor
-              : `#${rawColor}`
-            : colors.primary;
-          const hexToLum = (hex) => {
-            const h = (hex || "333333").replace("#", "");
-            const r = parseInt(h.substr(0, 2), 16) / 255;
-            const g = parseInt(h.substr(2, 2), 16) / 255;
-            const b = parseInt(h.substr(4, 2), 16) / 255;
-            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-          };
-          const textOnTeam = hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
-          const homeScore = gameData?.homeCompetitor?.score ?? "—";
-          const awayScore = gameData?.awayCompetitor?.score ?? "—";
-          const homeTeamId = gameData?.homeCompetitor?.team?.id;
-          const awayTeamId = gameData?.awayCompetitor?.team?.id;
-          const initials = name
-            .split(" ")
-            .map((n) => n[0] || "")
-            .join("")
-            .toUpperCase()
-            .slice(0, 2);
-          const s = playerGameStats || {};
-          const passPct =
-            s.totalPasses > 0
-              ? `${Math.round((s.accuratePasses / s.totalPasses) * 100)}%`
-              : null;
-          const passDisplay =
-            s.totalPasses > 0 ? `${s.accuratePasses}-${s.totalPasses}` : "—";
-          const posUpper = pos.toUpperCase().split("-")[0];
-          const isGK = posUpper === "GK" || posUpper === "G";
-          const isDEF = [
-            "CB",
-            "RCB",
-            "LCB",
-            "RB",
-            "LB",
-            "RWB",
-            "LWB",
-            "SW",
-            "CD",
-          ].includes(posUpper);
-          const isMF = [
-            "CDM",
-            "CM",
-            "RM",
-            "LM",
-            "CAM",
-            "RAM",
-            "LAM",
-            "AM",
-          ].includes(posUpper);
-          let statItems;
-          if (isGK) {
-            statItems = [
-              { label: "SVS", value: s.saves },
-              { label: "GA", value: s.goalsConceded },
-              { label: "PASS", value: passDisplay, pct: passPct },
-              { label: "CLR", value: s.clearances },
-              { label: "FC", value: s.foulsCommitted },
-              { label: "MIN", value: s.minutes },
-              { label: "YC", value: s.yellowCards },
-              { label: "RC", value: s.redCards },
-              { label: "OG", value: s.ownGoals },
-            ];
-          } else if (isDEF) {
-            statItems = [
-              { label: "TCKL", value: s.tackles },
-              { label: "INT", value: s.interceptions },
-              { label: "CLR", value: s.clearances },
-              { label: "PASS", value: passDisplay, pct: passPct },
-              { label: "SHB", value: s.blockedShots },
-              { label: "FC", value: s.foulsCommitted },
-              { label: "MIN", value: s.minutes },
-              { label: "YC", value: s.yellowCards },
-              { label: "RC", value: s.redCards },
-            ];
-          } else if (isMF) {
-            statItems = [
-              { label: "GLS", value: s.goals },
-              { label: "AST", value: s.assists },
-              { label: "SHT", value: s.shots },
-              { label: "PASS", value: passDisplay, pct: passPct },
-              { label: "TCKL", value: s.tackles },
-              { label: "FA", value: s.foulsDrawn },
-              { label: "MIN", value: s.minutes },
-              { label: "YC", value: s.yellowCards },
-              { label: "RC", value: s.redCards },
-            ];
-          } else {
-            statItems = [
-              { label: "GLS", value: s.goals },
-              { label: "SHT", value: s.shots },
-              { label: "SOT", value: s.shotsOnTarget },
-              { label: "AST", value: s.assists },
-              { label: "PASS", value: passDisplay, pct: passPct },
-              { label: "FA", value: s.foulsDrawn },
-              { label: "MIN", value: s.minutes },
-              { label: "YC", value: s.yellowCards },
-              { label: "RC", value: s.redCards },
-            ];
-          }
-          return (
-            <Modal
-              key="pitchPlayerCopyCard"
-              visible={true}
-              animationType="fade"
-              transparent
-              onRequestClose={() => setPitchPlayerShareCard(null)}
-            >
-              <View style={styles.pitchShareCardOverlay}>
-                <View
-                  ref={pitchPlayerShareCardRef}
-                  collapsable={false}
-                  style={[
-                    styles.pitchShareCard,
-                    { backgroundColor: theme.surface, width: width - 48 },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.pitchShareCardHeader,
-                      {
-                        backgroundColor: teamColor + "22",
-                        borderBottomColor: teamColor,
-                      },
-                    ]}
-                  >
-                    <View style={styles.pitchShareCardTopRow}>
-                      <View
-                        style={[
-                          styles.pitchShareCardPosBadge,
-                          { backgroundColor: teamColor },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.pitchShareCardPosBadgeText,
-                            { color: textOnTeam },
-                          ]}
-                        >
-                          {`#${jersey}`}
-                          {pos ? ` • ${pos}` : ""}
-                        </Text>
-                      </View>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        <TeamLogoImage
-                          teamId={homeTeamId}
-                          style={{ width: 18, height: 18 }}
-                          isDarkMode={isDarkMode}
-                        />
-                        <Text
-                          style={[
-                            styles.pitchShareCardScoreText,
-                            { color: theme.text },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              fontWeight:
-                                String(homeScore) > String(awayScore)
-                                  ? "800"
-                                  : "400",
-                            }}
-                          >
-                            {homeScore}
-                          </Text>
-                          {" - "}
-                          <Text
-                            style={{
-                              fontWeight:
-                                String(awayScore) > String(homeScore)
-                                  ? "800"
-                                  : "400",
-                            }}
-                          >
-                            {awayScore}
-                          </Text>
-                        </Text>
-                        <TeamLogoImage
-                          teamId={awayTeamId}
-                          style={{ width: 18, height: 18 }}
-                          isDarkMode={isDarkMode}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.pitchShareCardNameRow}>
-                      <View
-                        style={[
-                          styles.pitchShareCardInitialsCircle,
-                          { backgroundColor: teamColor },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.pitchShareCardInitialsText,
-                            { color: textOnTeam },
-                          ]}
-                        >
-                          {initials}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        {(() => {
-                          const SP = isGK
-                            ? ["SVS", "GA", "PASS", "CLR", "MIN"]
-                            : isDEF
-                              ? ["TCKL", "INT", "CLR", "PASS", "SHB", "MIN"]
-                              : isMF
-                                ? ["GLS", "AST", "SHT", "PASS", "TCKL", "MIN"]
-                                : [
-                                    "GLS",
-                                    "SHT",
-                                    "SOT",
-                                    "AST",
-                                    "PASS",
-                                    "FA",
-                                    "MIN",
-                                  ];
-                          const ordered = statItems
-                            .filter(({ label }) => SP.includes(label))
-                            .sort(
-                              (a, b) =>
-                                SP.indexOf(a.label) - SP.indexOf(b.label),
-                            );
-                          const nz = ordered.filter(
-                            ({ value }) =>
-                              value != null && value !== 0 && value !== "0%",
-                          );
-                          const fill = ordered.filter(
-                            ({ label }) => !nz.find((n) => n.label === label),
-                          );
-                          const ss = [...nz, ...fill].slice(0, 3);
-                          return (
-                            <View style={styles.pitchShareSummaryRow}>
-                              {ss.map(({ label, value }) => (
-                                <View
-                                  key={label}
-                                  style={styles.pitchShareSummaryCell}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.pitchShareSummaryVal,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {value != null ? String(value) : "—"}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.pitchShareSummaryLbl,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    {label}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          );
-                        })()}
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "flex-start",
-                            justifyContent: "space-between",
-                            marginTop: 6,
-                          }}
-                        >
-                          <View style={{ flex: 1, gap: 3 }}>
-                            <Text
-                              style={[
-                                styles.pitchShareCardName,
-                                { color: theme.text },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {name}
-                            </Text>
-                            <View
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 5,
-                              }}
-                            >
-                              <TeamLogoImage
-                                teamId={teamId}
-                                style={{ width: 14, height: 14 }}
-                                isDarkMode={isDarkMode}
-                              />
-                              <Text
-                                style={[
-                                  styles.pitchShareCardTeamLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {(teamType === "home"
-                                  ? gameData?.homeCompetitor?.team?.displayName
-                                  : gameData?.awayCompetitor?.team
-                                      ?.displayName) || ""}
-                              </Text>
-                            </View>
-                          </View>
-                          {!!gameData?.header?.competitions?.[0]?.date &&
-                            (() => {
-                              const gd = new Date(
-                                gameData.header.competitions[0].date,
-                              );
-                              return (
-                                <View
-                                  style={{
-                                    alignItems: "flex-end",
-                                    marginLeft: 6,
-                                  }}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.pitchShareCardTeamLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    {gd.toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.pitchShareCardTeamLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    {gd.toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                    })}
-                                  </Text>
-                                </View>
-                              );
-                            })()}
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                  {loadingPlayerStats ? (
-                    <View style={{ alignItems: "center", paddingVertical: 24 }}>
-                      <ActivityIndicator color={teamColor} />
-                      <Text
-                        style={[
-                          styles.pitchShareCardLoadingText,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        Loading stats…
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.pitchShareCardStatGrid}>
-                      {statItems.map(({ label, value, pct }, i) => (
-                        <View
-                          key={label}
-                          style={[
-                            styles.pitchShareCardStatCell,
-                            { borderColor: theme.border },
-                            i % 3 !== 2 && {
-                              borderRightWidth: StyleSheet.hairlineWidth,
-                            },
-                            i < 6 && {
-                              borderBottomWidth: StyleSheet.hairlineWidth,
-                            },
-                          ]}
-                        >
-                          {!!pct && (
-                            <Text
-                              style={[
-                                styles.pitchShareCardStatPct,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {pct}
-                            </Text>
-                          )}
-                          <Text
-                            style={[
-                              styles.pitchShareCardStatVal,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {value != null && value !== 0
-                              ? String(value)
-                              : value === 0
-                                ? "0"
-                                : "—"}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.pitchShareCardStatLbl,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.pitchShareCardFooter,
-                      { borderTopColor: theme.border },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.pitchShareCardBrand,
-                        { color: theme.text },
-                      ]}
-                    >
-                      SportsHeart{" "}
-                      <Ionicons name="heart" size={10} color={colors.primary} />
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.pitchShareCardActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.pitchShareCardActionBtn,
-                      { backgroundColor: colors.primary },
-                    ]}
-                    onPress={async () => {
-                      try {
-                        const uri = await captureRef(pitchPlayerShareCardRef, {
-                          format: "png",
-                          quality: 2,
-                        });
-                        await Sharing.shareAsync(uri, {
-                          mimeType: "image/png",
-                          dialogTitle: "Share Player Stats",
-                        });
-                      } catch (e) {
-                        console.error("Error sharing player card", e);
-                      }
-                    }}
-                  >
-                    <Ionicons name="share-outline" size={20} color="#fff" />
-                    <Text style={styles.pitchShareCardActionBtnText}>
-                      Share
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.pitchShareCardActionBtn,
-                      { backgroundColor: theme.surfaceSecondary },
-                    ]}
-                    onPress={() => setPitchPlayerShareCard(null)}
-                  >
-                    <Ionicons name="close" size={20} color={theme.text} />
-                    <Text
-                      style={[
-                        styles.pitchShareCardActionBtnText,
-                        { color: theme.text },
-                      ]}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-          );
-        })()}
     </View>
   );
 };
@@ -8742,189 +7938,214 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  stickyHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
+  scrollContent: {
+    flexGrow: 1,
   },
-  stickyContent: {
+  // NBA-style sticky unit (mini header + tab bar)
+  stickyUnit: {
+    borderBottomWidth: 1,
+  },
+  // Animated mini header
+  stickyMini: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 12,
+    overflow: "hidden",
+    borderBottomWidth: 1,
   },
-  stickyTeamContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    minWidth: 100,
-  },
-  stickyTeamInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  stickyLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 6,
-  },
-  stickyLogoAway: {
-    width: 24,
-    height: 24,
-    marginLeft: 6,
-  },
-  stickyTeamAbbr: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  stickyScore: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  stickyScoreAway: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginRight: 8,
-  },
-  scoreContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  awayScoreContainer: {
-    flexDirection: "row",
-  },
-  shootoutScore: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginHorizontal: 4,
-    alignSelf: "flex-start",
-    marginTop: 2,
-  },
-  stickyStatusContainer: {
+  miniSide: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    gap: 6,
   },
-  stickyStatusText: {
-    fontSize: 12,
-    fontWeight: "600",
+  miniAbbr: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  miniLogo: {
+    width: 35,
+    height: 35,
+  },
+  miniScore: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  miniShootoutScore: {
+    fontSize: 16,
+    lineHeight: 26,
+    marginHorizontal: -4,
+  },
+  miniStatusBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+    paddingHorizontal: 4,
+  },
+  miniStatusLine: {
+    fontSize: 11,
+    fontWeight: "700",
     textAlign: "center",
   },
-  stickyStatusDetail: {
+  miniStatusSub: {
     fontSize: 10,
     textAlign: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
-  headerContainer: {
-    padding: 20,
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  // Tab bar styles (NBA-style)
+  tabBarWrapper: {
+    height: 40,
+    justifyContent: "center",
+    borderBottomWidth: 0,
   },
-  competitionContainer: {
+  tabBarContent: {
+    flexDirection: "row",
+  },
+  tabBarButton: {
+    width: Dimensions.get("window").width / 4,
     alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  competitionText: {
-    fontSize: 16,
-    fontWeight: "600",
+  tabBarLabel: {
+    fontSize: 13,
   },
-  matchContainer: {
+  // Content area
+  contentArea: {
+    flex: 1,
+    padding: 12,
+    marginTop: 12,
+  },
+  // NBA-style header card
+  simpleHeaderCard: {
+    padding: 20,
+    overflow: "hidden",
+    position: "relative",
+    borderBottomWidth: 0,
+    marginBottom: 0,
+    borderWidth: 1,
+  },
+  simpleLeagueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  simpleLeagueText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  simpleMainRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 0,
   },
-  teamSection: {
+  simpleTeamContainer: {
     flex: 1,
     alignItems: "center",
+    gap: 8,
   },
-  teamLogoAndScore: {
+  simpleTeamLogo: {
+    width: 65,
+    height: 65,
+  },
+  simpleTeamInfo: {
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: 120,
+    flexDirection: "row",
+    gap: 6,
+  },
+  simpleTeamName: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  simpleTeamScore: {
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: "800",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  simpleTeamTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "center",
+    marginBottom: -5,
+    gap: 8,
   },
-  teamLogo: {
-    width: 48,
-    height: 48,
+  scoreRight: {
+    marginRight: 8,
   },
-  teamName: {
-    fontSize: 14,
-    fontWeight: "600",
+  scoreLeft: {
+    marginLeft: 8,
+  },
+  simpleStatusCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  simpleStatusBadge: {
+    paddingHorizontal: 8,
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  simpleStatusMain: {
+    fontSize: 15,
+    fontWeight: "800",
     textAlign: "center",
-    minHeight: 36,
   },
-  scoreBox: {
-    minWidth: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: "center",
-    marginHorizontal: 8,
-  },
-  timeAndHalfContainer: {
-    alignItems: "center",
-    marginTop: 12,
-    paddingHorizontal: 16,
-  },
-  timeText: {
-    fontSize: 16,
-    fontWeight: "bold",
+  simpleStatusSecondary: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: -12,
     marginBottom: 4,
   },
-  halfText: {
+  simpleStatusSub: {
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  simpleStreamBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  simpleStreamBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  simpleStreamBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  simpleStreamBtnText: {
+    fontWeight: "700",
     fontSize: 12,
-    fontWeight: "600",
+  },
+  simpleDateText: {
+    marginTop: 12,
+    textAlign: "center",
+    fontSize: 11,
   },
   dateText: {
     fontSize: 12,
     textAlign: "center",
-  },
-  scoreText: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  scoreWithShootout: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  awayScoreWithShootout: {
-    flexDirection: "row",
-  },
-  shootoutScore: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginTop: -2,
-    marginHorizontal: 4,
-  },
-  statusSection: {
-    flex: 0.8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    alignItems: "center",
-    minWidth: 80,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  statusDetail: {
-    fontSize: 11,
-    marginTop: 2,
   },
   venueContainer: {
     marginTop: 16,
@@ -9003,33 +8224,7 @@ const styles = StyleSheet.create({
   soccerBallEmoji: {
     fontSize: 24,
   },
-  tabContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 12,
-    padding: 4,
-  },
-  tabRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  tab: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
-    alignItems: "center",
-  },
-  lastTab: {
-    marginRight: 0,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
   tabContent: {
-    margin: 16,
     minHeight: 200,
   },
   comingSoonText: {
@@ -9401,9 +8596,10 @@ const styles = StyleSheet.create({
     transform: [{ translateX: "-50%" }],
   },
   playerContainer: {
-    width: 40,
     alignItems: "center",
     position: "absolute", // Important for positioning
+    marginLeft: 12.5,
+    marginTop: 3.5
   },
   playerCircle: {
     width: 50, // Matches scoreboard.js exactly
@@ -9415,7 +8611,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 5,
-    transform: [{ translateX: "30%" }, { translateY: "12.5%" }], // Center horizontally
   },
   playerNumber: {
     color: "#000000", // Black text like web
@@ -9429,7 +8624,7 @@ const styles = StyleSheet.create({
     textShadowColor: "#000000", // Black text shadow like web
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
-    transform: [{ translateX: "30%" }, { translateY: "12.5%" }], // Center horizontally
+    width: 80,
   },
   subsBox: {
     width: width - 20, // Match the pitch width
@@ -9895,7 +9090,7 @@ const styles = StyleSheet.create({
     width: "95%",
     maxWidth: 800,
     height: "85%",
-    maxHeight: 600,
+    maxHeight: 325,
     borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",
@@ -9980,33 +9175,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // Floating Chat Button
   floatingChatButton: {
     position: "absolute",
     bottom: 30,
-    left: 20,
+    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 999,
   },
-  // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0)",
-    justifyContent: "flex-end",
+    paddingTop: 50,
   },
   chatModalContent: {
-    height: "85%",
+    flex: 1,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: "hidden",
@@ -10015,19 +9206,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 20,
     borderBottomWidth: 1,
   },
   chatModalTitle: {
     fontSize: 18,
     fontWeight: "bold",
     flex: 1,
-    textAlign: "center",
-    marginRight: -20,
+    marginRight: 10,
   },
   chatModalCloseButton: {
-    padding: 4,
+    padding: 5,
   },
   chatModalBody: {
     flex: 1,
@@ -10042,7 +9231,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-
   // Goal Share Card Styles
   goalShareCardOverlay: {
     flex: 1,
@@ -10537,105 +9725,167 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
-  // ── Pitch player copy-card modal ──────────────────────────────────────────
-  pitchShareCardOverlay: {
+  // ── Player Share Card styles ───────────────────────────────────────
+  playerShareOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
   },
-  pitchShareCard: {
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 16,
-  },
-  pitchShareCardHeader: { padding: 14, borderBottomWidth: 2 },
-  pitchShareCardTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  playerShareCenterWrap: {
     alignItems: "center",
-    marginBottom: 12,
   },
-  pitchShareCardPosBadge: {
+  playerShareCard: {
+    borderRadius: 0,
+    overflow: "hidden",
+  },
+  playerShareHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+  },
+  playerShareTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+    gap: 8,
+  },
+  playerSharePosBadge: {
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  pitchShareCardPosBadgeText: {
+  playerSharePosBadgeText: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  pitchShareCardScoreText: { fontSize: 15, fontWeight: "700" },
-  pitchShareCardNameRow: { flexDirection: "row", alignItems: "center" },
-  pitchShareCardInitialsCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  playerShareScoreWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  playerShareScoreLogo: {
+    width: 18,
+    height: 18,
+  },
+  playerShareScoreText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  playerShareNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
+  playerShareAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
+    flexShrink: 0,
   },
-  pitchShareCardInitialsText: { fontSize: 20, fontWeight: "800" },
-  pitchShareCardName: { fontSize: 13, fontWeight: "600" },
-  pitchShareCardTeamLabel: { fontSize: 12, fontWeight: "500" },
-  pitchShareSummaryRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
-  pitchShareSummaryCell: { alignItems: "flex-start", gap: 1 },
-  pitchShareSummaryVal: { fontSize: 18, fontWeight: "800", lineHeight: 22 },
-  pitchShareSummaryLbl: {
+  playerShareInitials: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  playerShareNameRight: {
+    flex: 1,
+    minWidth: 0,
+  },
+  playerShareSummaryRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 4,
+  },
+  playerShareSummaryCell: {
+    alignItems: "center",
+  },
+  playerShareSummaryVal: {
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  playerShareSummaryLbl: {
     fontSize: 9,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  pitchShareCardStatGrid: { flexDirection: "row", flexWrap: "wrap" },
-  pitchShareCardStatCell: {
+  playerShareMetaRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  playerShareMetaLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  playerSharePlayerName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  playerShareTeamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  playerShareTeamLogo: {
+    width: 14,
+    height: 14,
+  },
+  playerShareTeamName: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  playerShareStatGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  playerShareStatCell: {
     width: "33.333%",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 4,
-    position: "relative",
   },
-  pitchShareCardStatPct: {
-    position: "absolute",
-    top: 5,
-    right: 7,
-    fontSize: 8,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  pitchShareCardStatVal: {
+  playerShareStatVal: {
     fontSize: 18,
     fontWeight: "800",
     textAlign: "center",
   },
-  pitchShareCardStatLbl: {
+  playerShareStatLbl: {
     fontSize: 9,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 3,
+    marginTop: 2,
     textAlign: "center",
   },
-  pitchShareCardLoadingText: { fontSize: 12, marginTop: 8 },
-  pitchShareCardFooter: {
+  playerShareFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     alignItems: "flex-end",
   },
-  pitchShareCardBrand: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
-  pitchShareCardActions: {
+  playerShareFooterBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  playerShareActions: {
     flexDirection: "row",
     gap: 12,
     marginTop: 14,
     paddingHorizontal: 4,
   },
-  pitchShareCardActionBtn: {
-    flex: 1,
+  playerShareActionBtn: {
+    minWidth: 132,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -10643,11 +9893,29 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     gap: 6,
   },
-  pitchShareCardActionBtnText: {
+  playerShareActionBtnText: {
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
   },
+  // ── Player modal header actions row ────────────────────────────────
+  playerModalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  playerShareButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
 });
 
-export default ItalyGameDetailsScreen;
+export default ITALYGameDetailsScreen;

@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useState,
   useEffect,
   useRef,
@@ -37,7 +37,7 @@ import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import ChatComponent from "../../../components/ChatComponent";
 import useIsLoggedIn from "../../../hooks/useIsLoggedIn";
-import { EuropaLeagueServiceEnhanced } from "../../../services/soccer/EuropaLeagueServiceEnhanced";
+import { EuropaConferenceLeagueServiceEnhanced } from "../../../services/soccer/EuropaConferenceLeagueServiceEnhanced";
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
 import { useStreamingAccess } from "../../../utils/streamingUtils";
@@ -57,7 +57,7 @@ const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
       pointerEvents="none"
     >
       <Defs>
-        <LinearGradient id="europaLeagueHeaderGrad" x1="00%" y1="0%" x2="100%" y2="0%">
+        <LinearGradient id="europaConferenceLeagueHeaderGrad" x1="00%" y1="0%" x2="100%" y2="0%">
           <Stop offset="0%" stopColor={homeColor} stopOpacity="0.3" />
           <Stop
             offset="40%"
@@ -72,7 +72,7 @@ const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
           <Stop offset="100%" stopColor={awayColor} stopOpacity="0.3" />
         </LinearGradient>
       </Defs>
-      <Rect width={width} height={height} fill="url(#europaLeagueHeaderGrad)" />
+      <Rect width={width} height={height} fill="url(#europaConferenceLeagueHeaderGrad)" />
     </Svg>
   </View>
 );
@@ -199,7 +199,7 @@ const TeamLogoImage = React.memo(
   },
 );
 
-const UELGameDetailsScreen = ({ route, navigation }) => {
+const UECLGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } =
     route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
@@ -421,7 +421,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         if (gameId && contextTeamId) {
           try {
             // Try roster endpoint to find athlete ID by name
-            const rosterUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster?lang=en&region=us`;
+            const rosterUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster?lang=en&region=us`;
             const rosterResp = await fetch(convertToHttps(rosterUrl));
             let foundAthleteId = null;
 
@@ -447,7 +447,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             }
 
             if (foundAthleteId) {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster/${foundAthleteId}/statistics/0?lang=en&region=us`;
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/competitors/${contextTeamId}/roster/${foundAthleteId}/statistics/0?lang=en&region=us`;
               console.log(
                 "[ShareCard] API fallback: Fetching player stats from:",
                 statsUrl,
@@ -536,7 +536,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const getTeamLogo = async (teamId, isDarkMode) => {
     // Use the service's enhanced logo logic with caching and fallbacks
     const logoUrl =
-      await EuropaLeagueServiceEnhanced.getTeamLogoWithFallback(teamId);
+      await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(teamId);
     return { primaryUrl: logoUrl, fallbackUrl: logoUrl };
   };
 
@@ -666,7 +666,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         }
 
         console.log(
-          "[UELGameDetails] incremental update: added=",
+          "[UECLGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount,
@@ -676,7 +676,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
       if (changed) {
         console.log(
-          "[UELGameDetails] incremental update: added=",
+          "[UECLGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount,
@@ -903,7 +903,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   // Reload data when the screen comes into focus (useful when navigating back)
   useFocusEffect(
     React.useCallback(() => {
-      console.log("[UELGameDetails] useFocusEffect triggered");
+      console.log("[UECLGameDetails] useFocusEffect triggered");
       loadGameDetails();
       // Only clear plays and stats data when the gameId changes, not on every focus
       // This prevents losing data when navigating back from other screens with same gameId
@@ -923,7 +923,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
   // Clear data when gameId changes (different game)
   useEffect(() => {
-    console.log("[UELGameDetails] gameId changed - clearing data states");
+    console.log("[UECLGameDetails] gameId changed - clearing data states");
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
@@ -935,7 +935,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         gameData &&
         gameData.header?.competitions?.[0]?.status?.type?.state === "in";
       if (isLive) {
-        console.log("Stream modal closed, immediately fetching UEL game data");
+        console.log("Stream modal closed, immediately fetching UECL game data");
         loadGameDetails(true);
       }
     }
@@ -946,12 +946,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       if (!silentUpdate) {
         setLoading(true);
       }
-      console.log("[UELGameDetails] loadGameDetails START", {
+      console.log("[UECLGameDetails] loadGameDetails START", {
         gameId,
         silentUpdate,
       });
-      console.debug("[UELGameDetails] requesting game details for", gameId);
-      const data = await EuropaLeagueServiceEnhanced.getGameDetails(gameId);
+      console.debug("[UECLGameDetails] requesting game details for", gameId);
+      const data = await EuropaConferenceLeagueServiceEnhanced.getGameDetails(gameId);
 
       // Process the data similar to soccer web logic
       const processedData = await processGameData(data);
@@ -969,7 +969,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         setGameData(processedData);
         setLastUpdateHash(currentHash);
         console.log(
-          "[UELGameDetails] Game data updated - hash changed",
+          "[UECLGameDetails] Game data updated - hash changed",
           currentHash,
         );
 
@@ -979,20 +979,20 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         // Fetch lineup data when game data is updated
         const lineupResult = await fetchLineupData(processedData);
         setLineupData(lineupResult);
-        console.log("[UELGameDetails] Lineup data updated:", lineupResult);
+        console.log("[UECLGameDetails] Lineup data updated:", lineupResult);
 
         // Do not forcibly clear playsData here; the plays effect will compare hashes and merge/refresh
       } else {
-        console.debug("[UELGameDetails] Game data hash unchanged");
+        console.debug("[UECLGameDetails] Game data hash unchanged");
       }
 
       setLoading(false);
-      console.log("[UELGameDetails] loadGameDetails END", {
+      console.log("[UECLGameDetails] loadGameDetails END", {
         gameId,
         silentUpdate,
       });
     } catch (error) {
-      console.error("Error loading UEL game details:", error);
+      console.error("Error loading UECL game details:", error);
       if (!silentUpdate) {
         setLoading(false);
         Alert.alert("Error", "Failed to load game details. Please try again.");
@@ -1014,10 +1014,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     const [homeLogo, awayLogo] = await Promise.all([
       homeTeamId
-        ? EuropaLeagueServiceEnhanced.getTeamLogoWithFallback(homeTeamId)
+        ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(homeTeamId)
         : null,
       awayTeamId
-        ? EuropaLeagueServiceEnhanced.getTeamLogoWithFallback(awayTeamId)
+        ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(awayTeamId)
         : null,
     ]);
 
@@ -1119,7 +1119,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         return;
       }
 
-      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${playerId}/statistics/0?lang=en&region=us`;
+      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${playerId}/statistics/0?lang=en&region=us`;
 
       console.log("Fetching player game stats from:", statsUrl);
       console.log("Parameters:", { gameId, teamId, playerId });
@@ -2589,11 +2589,11 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     // Get team colors for gradient
     let homeColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
         homeTeamData?.team,
       ) || colors.primary;
     let awayColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
         awayTeamData?.team,
       ) ||
       colors.secondary;
@@ -2641,7 +2641,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             style={[styles.simpleLeagueText, { color: theme.textTertiary }]}
             numberOfLines={1}
           >
-            {gameData.competitionName || "UEL World Cup"}
+            {gameData.competitionName || "UECL World Cup"}
           </Text>
         </View>
 
@@ -2685,7 +2685,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 style={[
                   styles.simpleTeamName,
                   {
-                    color: isFavorite(homeTeamData?.team?.id, "europa league")
+                    color: isFavorite(homeTeamData?.team?.id, "europa conference league")
                       ? colors.primary
                       : theme.text,
                     opacity: matchStatus.isPost ? (homeIsWinner ? 1 : 0.55) : 1,
@@ -2693,7 +2693,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 ]}
                 numberOfLines={2}
               >
-                {isFavorite(homeTeamData?.team?.id, "europa league") ? "★ " : ""}
+                {isFavorite(homeTeamData?.team?.id, "europa conference league") ? "★ " : ""}
                 {homeTeamData?.team?.displayName || "Home Team"}
               </Text>
             </View>
@@ -2814,7 +2814,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 style={[
                   styles.simpleTeamName,
                   {
-                    color: isFavorite(awayTeamData?.team?.id, "europa league")
+                    color: isFavorite(awayTeamData?.team?.id, "europa conference league")
                       ? colors.primary
                       : theme.text,
                     opacity: matchStatus.isPost ? (awayIsWinner ? 1 : 0.55) : 1,
@@ -2822,14 +2822,14 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 ]}
                 numberOfLines={2}
               >
-                {isFavorite(awayTeamData?.team?.id, "europa league") ? "★ " : ""}
+                {isFavorite(awayTeamData?.team?.id, "europa conference league") ? "★ " : ""}
                 {awayTeamData?.team?.displayName || "Away Team"}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Scorers Box (UEL-specific addition) */}
+        {/* Scorers Box (UECL-specific addition) */}
         {renderHeaderScorersBox()}
       </View>
     );
@@ -2974,7 +2974,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               : 0;
         }
       } catch (err) {
-        console.log("[UELGameDetails] getStat error:", err);
+        console.log("[UECLGameDetails] getStat error:", err);
       }
       return 0;
     };
@@ -2995,10 +2995,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     // Ensure colors are properly formatted with # prefix
     let homeColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) ||
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) ||
       "#007bff";
     let awayColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) ||
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) ||
       "#28a745";
 
     // Add # prefix if missing
@@ -3517,9 +3517,9 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 event.competitionName ||
                 event.leagueName ||
                 null;
-              navigation.navigate("EuropaLeagueGameDetails", {
+              navigation.navigate("EuropaConferenceLeagueGameDetails", {
                 gameId: event.id,
-                sport: "UEL",
+                sport: "UECL",
                 competitionHint,
               });
             }
@@ -4454,7 +4454,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       const homeFormation = homeRosterData?.formation || "4-3-3";
       const awayFormation = awayRosterData?.formation || "4-3-3";
 
-      console.log("[UELGameDetails] Extracted lineups from summary:", {
+      console.log("[UECLGameDetails] Extracted lineups from summary:", {
         homeLineup: homeLineup.length,
         awayLineup: awayLineup.length,
         homeFormation,
@@ -4463,7 +4463,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
       return { homeLineup, awayLineup, homeFormation, awayFormation };
     } catch (error) {
-      console.error("[UELGameDetails] fetchLineupData error:", error);
+      console.error("[UECLGameDetails] fetchLineupData error:", error);
       return {
         homeLineup: [],
         awayLineup: [],
@@ -4536,7 +4536,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
       return { homeTeam, awayTeam, headToHeadData };
     } catch (error) {
-      console.error("[UELGameDetails] fetchMatchStats error:", error);
+      console.error("[UECLGameDetails] fetchMatchStats error:", error);
       return null;
     }
   };
@@ -4567,11 +4567,11 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     // Get team colors
     const homeColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
         gameData.homeCompetitor?.team,
       ) || "007bff";
     const awayColor =
-      EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+      EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
         gameData.awayCompetitor?.team,
       ) || "28a745";
 
@@ -4699,7 +4699,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
         console.log(
-          "[UELGameDetails] user stopped scrolling - updates will resume",
+          "[UECLGameDetails] user stopped scrolling - updates will resume",
         );
       }, 600);
     };
@@ -4787,10 +4787,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       let teamColor =
         play._teamColor ||
         (teamSide === "home"
-          ? EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+          ? EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
               homeTeam?.team || homeTeam,
             ) || "#007bff"
-          : EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+          : EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
               awayTeam?.team || awayTeam,
             ) || "#28a745");
 
@@ -4802,13 +4802,13 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         if (playTeamName === hName) {
           teamSide = "home";
           teamColor =
-            EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+            EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
               homeTeam?.team || homeTeam,
             ) || "#007bff";
         } else if (playTeamName === aName) {
           teamSide = "away";
           teamColor =
-            EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+            EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
               awayTeam?.team || awayTeam,
             ) || "#28a745";
         }
@@ -5677,12 +5677,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     let teamColor = "#007bff";
     if (teamType === "home") {
       teamColor =
-        EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
           homeTeamData?.team,
         ) || colors.primary;
     } else if (teamType === "away") {
       teamColor =
-        EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
           awayTeamData?.team,
         ) || colors.secondary;
     }
@@ -6005,12 +6005,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     let teamColor = "#000"; // Default black
     if (selectedPlayer.teamType === "home") {
       teamColor =
-        EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
           homeTeamData?.team,
         ) || "#007bff";
     } else if (selectedPlayer.teamType === "away") {
       teamColor =
-        EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
           awayTeamData?.team,
         ) || "#28a745";
     }
@@ -6079,7 +6079,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.playerModalNameSection}>
                   <TouchableOpacity
                     onPress={() => {
-                      navigation.navigate("EuropaLeaguePlayerPage", {
+                      navigation.navigate("EuropaConferenceLeaguePlayerPage", {
                         playerId: id,
                         playerName: name,
                         teamId: selectedPlayer.teamId,
@@ -6867,7 +6867,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
-                        "UEL WebView navigation request:",
+                        "UECL WebView navigation request:",
                         request.url,
                       );
 
@@ -6927,7 +6927,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
-                          "Blocked UEL popup/cross-domain navigation:",
+                          "Blocked UECL popup/cross-domain navigation:",
                           request.url,
                         );
                         return false;
@@ -6938,7 +6938,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                       }
 
                       console.log(
-                        "Blocked UEL popup/cross-domain navigation:",
+                        "Blocked UECL popup/cross-domain navigation:",
                         request.url,
                       );
                       return false;
@@ -6947,7 +6947,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                     onOpenWindow={(syntheticEvent) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
-                        "Blocked UEL popup window:",
+                        "Blocked UECL popup window:",
                         nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
@@ -7304,7 +7304,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                       if (!contextTeamColor && scoringTeam) {
                         // Try the existing service if context color not available
                         teamColor =
-                          EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+                          EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
                             scoringTeam,
                           ) || teamColor;
 
@@ -7334,7 +7334,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                       let playerCircleColor = finalTeamColor;
                       if (isOwnGoal && ownGoalerTeamData) {
                         const ogRaw =
-                          EuropaLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+                          EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
                             ownGoalerTeamData?.team || ownGoalerTeamData,
                           ) ||
                           ownGoalerTeamData.color ||
@@ -9918,4 +9918,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UELGameDetailsScreen;
+export default UECLGameDetailsScreen;
