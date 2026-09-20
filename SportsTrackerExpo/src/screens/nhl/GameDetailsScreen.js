@@ -625,7 +625,10 @@ const getStatusLines = (game, nowMs) => {
   if (isNhlGameFinished(game)) {
     const { time, ampm } = formatLocalTime(game.startTimeUtc);
     const date = formatLocalDate(game.startTimeUtc);
-    return { line1: game.statusMain || "FT", line2: `${time} ${ampm} • ${date}`.trim() };
+    return {
+      line1: game.statusMain || "FT",
+      line2: `${time} ${ampm} • ${date}`.trim(),
+    };
   }
   return { line1: game.statusMain || "--", line2: game.statusSub || "" };
 };

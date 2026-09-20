@@ -168,7 +168,9 @@ const StatsScreen = ({ route }) => {
               { borderColor: teamColor },
               isFirst && styles.podiumHeadshotFirst,
             ]}
-            defaultSource={{ uri: "https://via.placeholder.com/60x60?text=MLB" }}
+            defaultSource={{
+              uri: "https://via.placeholder.com/60x60?text=MLB",
+            }}
           />
           <Image
             cachePolicy="memory-disk"
@@ -185,7 +187,11 @@ const StatsScreen = ({ route }) => {
         <Text
           allowFontScaling={false}
           numberOfLines={1}
-          style={[styles.podiumName, { color: theme.text }, isFirst && styles.podiumNameFirst]}
+          style={[
+            styles.podiumName,
+            { color: theme.text },
+            isFirst && styles.podiumNameFirst,
+          ]}
         >
           {leader.person.fullName}
         </Text>
@@ -203,7 +209,10 @@ const StatsScreen = ({ route }) => {
         >
           <Text
             allowFontScaling={false}
-            style={[styles.podiumBarValue, isFirst && styles.podiumBarValueFirst]}
+            style={[
+              styles.podiumBarValue,
+              isFirst && styles.podiumBarValueFirst,
+            ]}
           >
             {leader.value}
           </Text>
@@ -319,7 +328,9 @@ const StatsScreen = ({ route }) => {
 
             {isExpanded && (
               <View style={styles.remainingContainer}>
-                {remainingLeaders.map((leader) => renderRemainingPlayer(leader))}
+                {remainingLeaders.map((leader) =>
+                  renderRemainingPlayer(leader),
+                )}
               </View>
             )}
           </>

@@ -4490,7 +4490,9 @@ const ShareFieldView = ({
   let hitDot = null;
   if (hitData) {
     const totalDist = Number(hitData.totalDistance) || 0;
-    const airBall = ["line", "fly"].some((term) => hitData?.trajectory?.includes(term)) ?? false;
+    const airBall =
+      ["line", "fly"].some((term) => hitData?.trajectory?.includes(term)) ??
+      false;
     const coords = hitData?.coordinates;
     const landingX = coords?.landingPosX;
     const landingY = coords?.landingPosY;
