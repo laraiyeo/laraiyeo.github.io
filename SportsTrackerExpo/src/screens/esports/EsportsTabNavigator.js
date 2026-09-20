@@ -10,7 +10,7 @@ import LOLTabNavigator from './lol/LOLTabNavigator';
 
 const EsportsTabNavigator = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
-  const [activeGame, setActiveGame] = useState('VAL');
+  const [activeGame, setActiveGame] = useState('CS2');
   const hasInitialized = useRef(false);
 
   // Background fetch team earnings data when esports page loads
@@ -36,7 +36,7 @@ const EsportsTabNavigator = ({ navigation, route }) => {
   }, []); // Only run once when component mounts
 
   const games = [
-    { key: 'VAL', label: 'VALORANT' },
+    //{ key: 'VAL', label: 'VALORANT' },
     { key: 'CS2', label: 'CS2' },
     { key: 'LOL', label: 'LOL' },
   ];

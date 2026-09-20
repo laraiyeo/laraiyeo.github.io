@@ -1357,6 +1357,8 @@ const MainStackNavigator = ({ initialRouteName }) => {
               return <NFLGameDetailsScreen {...props} />;
             case "mlb":
               return <MLBGameDetailsScreen {...props} />;
+            case "milb":
+              return <MLBGameDetailsScreen {...props} />;
             case "wbc":
               return <WBCGameDetailsScreen {...props} />;
             case "nba":

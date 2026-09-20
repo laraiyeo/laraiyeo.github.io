@@ -9,6 +9,508 @@ const teamColors = {
   "23": "#00205B", "54": "#B4975A", "15": "#041E42", "52": "#041E42"
 };
 
+const teamData = {
+  "data": [
+    {
+      "id": 32,
+      "franchiseId": 27,
+      "fullName": "Quebec Nordiques",
+      "leagueId": 133,
+      "rawTricode": "QUE",
+      "triCode": "QUE"
+    },
+    {
+      "id": 8,
+      "franchiseId": 1,
+      "fullName": "Montréal Canadiens",
+      "leagueId": 133,
+      "rawTricode": "MTL",
+      "triCode": "MTL"
+    },
+    {
+      "id": 58,
+      "franchiseId": 5,
+      "fullName": "Toronto St. Patricks",
+      "leagueId": 133,
+      "rawTricode": "TSP",
+      "triCode": "TSP"
+    },
+    {
+      "id": 7,
+      "franchiseId": 19,
+      "fullName": "Buffalo Sabres",
+      "leagueId": 133,
+      "rawTricode": "BUF",
+      "triCode": "BUF"
+    },
+    {
+      "id": 46,
+      "franchiseId": 13,
+      "fullName": "Oakland Seals",
+      "leagueId": 133,
+      "rawTricode": "OAK",
+      "triCode": "OAK"
+    },
+    {
+      "id": 48,
+      "franchiseId": 23,
+      "fullName": "Kansas City Scouts",
+      "leagueId": 133,
+      "rawTricode": "KCS",
+      "triCode": "KCS"
+    },
+    {
+      "id": 36,
+      "franchiseId": 3,
+      "fullName": "Ottawa Senators (1917)",
+      "leagueId": 133,
+      "rawTricode": "SEN",
+      "triCode": "SEN"
+    },
+    {
+      "id": 70,
+      "franchiseId": null,
+      "fullName": "To be determined",
+      "leagueId": 133,
+      "rawTricode": "TBD",
+      "triCode": "TBD"
+    },
+    {
+      "id": 11,
+      "franchiseId": 35,
+      "fullName": "Atlanta Thrashers",
+      "leagueId": 133,
+      "rawTricode": "ATL",
+      "triCode": "ATL"
+    },
+    {
+      "id": 45,
+      "franchiseId": 3,
+      "fullName": "St. Louis Eagles",
+      "leagueId": 133,
+      "rawTricode": "SLE",
+      "triCode": "SLE"
+    },
+    {
+      "id": 33,
+      "franchiseId": 28,
+      "fullName": "Winnipeg Jets (1979)",
+      "leagueId": 133,
+      "rawTricode": "WIN",
+      "triCode": "WIN"
+    },
+    {
+      "id": 28,
+      "franchiseId": 29,
+      "fullName": "San Jose Sharks",
+      "leagueId": 133,
+      "rawTricode": "SJS",
+      "triCode": "SJS"
+    },
+    {
+      "id": 42,
+      "franchiseId": 4,
+      "fullName": "Quebec Bulldogs",
+      "leagueId": 133,
+      "rawTricode": "QBD",
+      "triCode": "QBD"
+    },
+    {
+      "id": 53,
+      "franchiseId": 28,
+      "fullName": "Arizona Coyotes",
+      "leagueId": 133,
+      "rawTricode": "ARI",
+      "triCode": "ARI"
+    },
+    {
+      "id": 13,
+      "franchiseId": 33,
+      "fullName": "Florida Panthers",
+      "leagueId": 133,
+      "rawTricode": "FLA",
+      "triCode": "FLA"
+    },
+    {
+      "id": 12,
+      "franchiseId": 26,
+      "fullName": "Carolina Hurricanes",
+      "leagueId": 133,
+      "rawTricode": "CAR",
+      "triCode": "CAR"
+    },
+    {
+      "id": 52,
+      "franchiseId": 35,
+      "fullName": "Winnipeg Jets",
+      "leagueId": 133,
+      "rawTricode": "WPG",
+      "triCode": "WPG"
+    },
+    {
+      "id": 18,
+      "franchiseId": 34,
+      "fullName": "Nashville Predators",
+      "leagueId": 133,
+      "rawTricode": "NSH",
+      "triCode": "NSH"
+    },
+    {
+      "id": 27,
+      "franchiseId": 28,
+      "fullName": "Phoenix Coyotes",
+      "leagueId": 133,
+      "rawTricode": "PHX",
+      "triCode": "PHX"
+    },
+    {
+      "id": 41,
+      "franchiseId": 2,
+      "fullName": "Montreal Wanderers",
+      "leagueId": 133,
+      "rawTricode": "MWN",
+      "triCode": "MWN"
+    },
+    {
+      "id": 39,
+      "franchiseId": 9,
+      "fullName": "Philadelphia Quakers",
+      "leagueId": 133,
+      "rawTricode": "QUA",
+      "triCode": "QUA"
+    },
+    {
+      "id": 37,
+      "franchiseId": 4,
+      "fullName": "Hamilton Tigers",
+      "leagueId": 133,
+      "rawTricode": "HAM",
+      "triCode": "HAM"
+    },
+    {
+      "id": 40,
+      "franchiseId": 12,
+      "fullName": "Detroit Cougars",
+      "leagueId": 133,
+      "rawTricode": "DCG",
+      "triCode": "DCG"
+    },
+    {
+      "id": 35,
+      "franchiseId": 23,
+      "fullName": "Colorado Rockies",
+      "leagueId": 133,
+      "rawTricode": "CLR",
+      "triCode": "CLR"
+    },
+    {
+      "id": 38,
+      "franchiseId": 9,
+      "fullName": "Pittsburgh Pirates",
+      "leagueId": 133,
+      "rawTricode": "PIR",
+      "triCode": "PIR"
+    },
+    {
+      "id": 34,
+      "franchiseId": 26,
+      "fullName": "Hartford Whalers",
+      "leagueId": 133,
+      "rawTricode": "HFD",
+      "triCode": "HFD"
+    },
+    {
+      "id": 1,
+      "franchiseId": 23,
+      "fullName": "New Jersey Devils",
+      "leagueId": 133,
+      "rawTricode": "NJD",
+      "triCode": "NJD"
+    },
+    {
+      "id": 9,
+      "franchiseId": 30,
+      "fullName": "Ottawa Senators",
+      "leagueId": 133,
+      "rawTricode": "OTT",
+      "triCode": "OTT"
+    },
+    {
+      "id": 21,
+      "franchiseId": 27,
+      "fullName": "Colorado Avalanche",
+      "leagueId": 133,
+      "rawTricode": "COL",
+      "triCode": "COL"
+    },
+    {
+      "id": 44,
+      "franchiseId": 8,
+      "fullName": "New York Americans",
+      "leagueId": 133,
+      "rawTricode": "NYA",
+      "triCode": "NYA"
+    },
+    {
+      "id": 15,
+      "franchiseId": 24,
+      "fullName": "Washington Capitals",
+      "leagueId": 133,
+      "rawTricode": "WSH",
+      "triCode": "WSH"
+    },
+    {
+      "id": 31,
+      "franchiseId": 15,
+      "fullName": "Minnesota North Stars",
+      "leagueId": 133,
+      "rawTricode": "MNS",
+      "triCode": "MNS"
+    },
+    {
+      "id": 99,
+      "franchiseId": null,
+      "fullName": "NHL",
+      "leagueId": 133,
+      "rawTricode": "NHL",
+      "triCode": "NHL"
+    },
+    {
+      "id": 43,
+      "franchiseId": 7,
+      "fullName": "Montreal Maroons",
+      "leagueId": 133,
+      "rawTricode": "MMR",
+      "triCode": "MMR"
+    },
+    {
+      "id": 49,
+      "franchiseId": 13,
+      "fullName": "Cleveland Barons",
+      "leagueId": 133,
+      "rawTricode": "CLE",
+      "triCode": "CLE"
+    },
+    {
+      "id": 51,
+      "franchiseId": 8,
+      "fullName": "Brooklyn Americans",
+      "leagueId": 133,
+      "rawTricode": "BRK",
+      "triCode": "BRK"
+    },
+    {
+      "id": 50,
+      "franchiseId": 12,
+      "fullName": "Detroit Falcons",
+      "leagueId": 133,
+      "rawTricode": "DFL",
+      "triCode": "DFL"
+    },
+    {
+      "id": 56,
+      "franchiseId": 13,
+      "fullName": "California Golden Seals",
+      "leagueId": 133,
+      "rawTricode": "CGS",
+      "triCode": "CGS"
+    },
+    {
+      "id": 47,
+      "franchiseId": 21,
+      "fullName": "Atlanta Flames",
+      "leagueId": 133,
+      "rawTricode": "AFM",
+      "triCode": "AFM"
+    },
+    {
+      "id": 57,
+      "franchiseId": 5,
+      "fullName": "Toronto Arenas",
+      "leagueId": 133,
+      "rawTricode": "TAN",
+      "triCode": "TAN"
+    },
+    {
+      "id": 19,
+      "franchiseId": 18,
+      "fullName": "St. Louis Blues",
+      "leagueId": 133,
+      "rawTricode": "STL",
+      "triCode": "STL"
+    },
+    {
+      "id": 17,
+      "franchiseId": 12,
+      "fullName": "Detroit Red Wings",
+      "leagueId": 133,
+      "rawTricode": "DET",
+      "triCode": "DET"
+    },
+    {
+      "id": 3,
+      "franchiseId": 10,
+      "fullName": "New York Rangers",
+      "leagueId": 133,
+      "rawTricode": "NYR",
+      "triCode": "NYR"
+    },
+    {
+      "id": 24,
+      "franchiseId": 32,
+      "fullName": "Anaheim Ducks",
+      "leagueId": 133,
+      "rawTricode": "ANA",
+      "triCode": "ANA"
+    },
+    {
+      "id": 16,
+      "franchiseId": 11,
+      "fullName": "Chicago Blackhawks",
+      "leagueId": 133,
+      "rawTricode": "CHI",
+      "triCode": "CHI"
+    },
+    {
+      "id": 55,
+      "franchiseId": 39,
+      "fullName": "Seattle Kraken",
+      "leagueId": 133,
+      "rawTricode": "SEA",
+      "triCode": "SEA"
+    },
+    {
+      "id": 5,
+      "franchiseId": 17,
+      "fullName": "Pittsburgh Penguins",
+      "leagueId": 133,
+      "rawTricode": "PIT",
+      "triCode": "PIT"
+    },
+    {
+      "id": 6,
+      "franchiseId": 6,
+      "fullName": "Boston Bruins",
+      "leagueId": 133,
+      "rawTricode": "BOS",
+      "triCode": "BOS"
+    },
+    {
+      "id": 25,
+      "franchiseId": 15,
+      "fullName": "Dallas Stars",
+      "leagueId": 133,
+      "rawTricode": "DAL",
+      "triCode": "DAL"
+    },
+    {
+      "id": 14,
+      "franchiseId": 31,
+      "fullName": "Tampa Bay Lightning",
+      "leagueId": 133,
+      "rawTricode": "TBL",
+      "triCode": "TBL"
+    },
+    {
+      "id": 4,
+      "franchiseId": 16,
+      "fullName": "Philadelphia Flyers",
+      "leagueId": 133,
+      "rawTricode": "PHI",
+      "triCode": "PHI"
+    },
+    {
+      "id": 30,
+      "franchiseId": 37,
+      "fullName": "Minnesota Wild",
+      "leagueId": 133,
+      "rawTricode": "MIN",
+      "triCode": "MIN"
+    },
+    {
+      "id": 29,
+      "franchiseId": 36,
+      "fullName": "Columbus Blue Jackets",
+      "leagueId": 133,
+      "rawTricode": "CBJ",
+      "triCode": "CBJ"
+    },
+    {
+      "id": 2,
+      "franchiseId": 22,
+      "fullName": "New York Islanders",
+      "leagueId": 133,
+      "rawTricode": "NYI",
+      "triCode": "NYI"
+    },
+    {
+      "id": 23,
+      "franchiseId": 20,
+      "fullName": "Vancouver Canucks",
+      "leagueId": 133,
+      "rawTricode": "VAN",
+      "triCode": "VAN"
+    },
+    {
+      "id": 26,
+      "franchiseId": 14,
+      "fullName": "Los Angeles Kings",
+      "leagueId": 133,
+      "rawTricode": "LAK",
+      "triCode": "LAK"
+    },
+    {
+      "id": 68,
+      "franchiseId": 40,
+      "fullName": "Utah Mammoth",
+      "leagueId": 133,
+      "rawTricode": "UTA",
+      "triCode": "UTA"
+    },
+    {
+      "id": 59,
+      "franchiseId": 40,
+      "fullName": "Utah Hockey Club",
+      "leagueId": 133,
+      "rawTricode": "UTA",
+      "triCode": "UTA"
+    },
+    {
+      "id": 10,
+      "franchiseId": 5,
+      "fullName": "Toronto Maple Leafs",
+      "leagueId": 133,
+      "rawTricode": "TOR",
+      "triCode": "TOR"
+    },
+    {
+      "id": 22,
+      "franchiseId": 25,
+      "fullName": "Edmonton Oilers",
+      "leagueId": 133,
+      "rawTricode": "EDM",
+      "triCode": "EDM"
+    },
+    {
+      "id": 54,
+      "franchiseId": 38,
+      "fullName": "Vegas Golden Knights",
+      "leagueId": 133,
+      "rawTricode": "VGK",
+      "triCode": "VGK"
+    },
+    {
+      "id": 20,
+      "franchiseId": 21,
+      "fullName": "Calgary Flames",
+      "leagueId": 133,
+      "rawTricode": "CGY",
+      "triCode": "CGY"
+    }
+  ],
+  "total": 62
+}
+
 async function getLogoUrl(triCode) {
   return `https://assets.nhle.com/logos/nhl/svg/${triCode}_dark.svg`;
 }
@@ -32,7 +534,7 @@ function getAdjustedDateForNHL() {
                        String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
                        String(estNow.getDate()).padStart(2, "0");
 
-  return adjustedDate;
+  return adjustedDate.split("-").join(""); // Return in YYYYMMDD format
 }
 
 function wrapTeamName(name) {
@@ -43,19 +545,8 @@ function wrapTeamName(name) {
   return name;
 }
 
-async function fetchTimeRemaining(gameId) {
-  try {
-    const res = await fetch(`https://corsproxy.io/?url=https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`);
-    const data = await res.json();
-    return data.clock?.inIntermission ? "End" : data.clock?.timeRemaining || "00:00"; // Handle intermission
-  } catch (err) {
-    console.error(`Error fetching timeRemaining for game ${gameId}:`, err);
-    return "00:00";
-  }
-}
-
 async function buildGameCard(game) {
-  const { id: gameId, awayTeam, homeTeam, gameState, startTimeUTC, seriesStatus, clock, periodDescriptor } = game;
+  const { id: gameId, awayTeam, homeTeam, gameState, startTimeUTC, seriesStatus, clock, periodDescriptor, period } = game;
   const awayLogo = await getLogoUrl(awayTeam.abbrev);
   const homeLogo = await getLogoUrl(homeTeam.abbrev);
 
@@ -65,13 +556,12 @@ async function buildGameCard(game) {
     hour12: true,
   });
 
-  const seriesInfo = seriesStatus
-    ? `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`
+  const seriesInfo = seriesStatus?.seriesTitle
+    ? `${seriesStatus.seriesTitle} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`
     : "";
 
-  const awayRecord = '';
-
-  const homeRecord = '';
+  const awayRecord = awayTeam.record || "";
+  const homeRecord = homeTeam.record || "";
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -88,13 +578,13 @@ async function buildGameCard(game) {
 
   let gameSeriesInfo = "";
 
-  const currentPeriod = periodDescriptor.periodType === "OT"
-    ? `${getOrdinalSuffix(periodDescriptor.otPeriods)} OT`
-    : `${getOrdinalSuffix(periodDescriptor.number)} Period`;
+  const currentPeriod = periodDescriptor
+    ? periodDescriptor.periodType === "OT"
+      ? "OT"
+      : `${getOrdinalSuffix(periodDescriptor.number)} Period`
+    : "";
 
-  const timeRemaining = gameState === "LIVE" || gameState === "CRIT"
-    ? await fetchTimeRemaining(gameId)
-    : "00:00";
+  const timeRemaining = clock?.timeRemaining || "00:00";
 
   if (["PRE", "FUT"].includes(gameState)) {
     // Scheduled game card
@@ -104,46 +594,45 @@ async function buildGameCard(game) {
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
               <span style="font-size: 0.9rem;">${awayRecord}</span>
             </div>
-            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(awayTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(awayTeam.name)}</div>
           </div>
           <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 0.9rem;">${homeRecord}</span>
-              <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
             </div>
-            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(homeTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(homeTeam.name)}</div>
           </div>
         </div>
       </div>
     `;
   } else if (["FINAL", "OFF"].includes(gameState)) {
     // Finished game card
-
     return `
       <div class="game-card">
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
               <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
             </div>
-            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.1rem; font-weight: bold;">${periodDescriptor.periodType === "OT" ? "Final/OT" : "Final"}</div>
+            <div style="font-size: 1.1rem; font-weight: bold;">${periodDescriptor?.periodType === "OT" ? "Final/OT" : "Final"}</div>
             <div style="font-size: 0.9rem; color: grey; margin-top: 8px;">${gameSeriesInfo}</div>
           </div>
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
-              <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
             </div>
-            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
           </div>
         </div>
       </div>
@@ -156,10 +645,10 @@ async function buildGameCard(game) {
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
               <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
             </div>
-            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
           </div>
           <div style="text-align: center;">
             <div style="font-size: 1.3rem; font-weight: bold; margin-top: 12px;">${timeRemaining}</div>
@@ -169,9 +658,9 @@ async function buildGameCard(game) {
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
-              <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 60px; height: 40px;">
+              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
             </div>
-            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
           </div>
         </div>
       </div>
@@ -195,7 +684,7 @@ let updateInterval;
 
 async function fetchGames() {
   const today = getAdjustedDateForNHL();
-  const url = `https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${today}`;
+  const url = `https://sportsheart-hockey.up.railway.app/nhl/scoreboard/${today}`;
 
   try {
     const res = await fetch(url);
@@ -203,32 +692,18 @@ async function fetchGames() {
     const newHash = hashString(text);
 
     if (newHash === lastScheduleHash) {
-      // Update timeRemaining for live games
-      const liveGameCards = document.querySelectorAll(".game-card[data-game-id]");
-      for (const card of liveGameCards) {
-        const gameId = card.getAttribute("data-game-id");
-        const timeRemaining = await fetchTimeRemaining(gameId);
-        const timeRemainingEl = card.querySelector(".time-remaining");
-        if (timeRemainingEl) {
-          timeRemainingEl.textContent = timeRemaining;
-        }
-      }
+      // No structural changes — just re-render to update clock.timeRemaining
       return;
     }
     lastScheduleHash = newHash;
 
     const gamesData = JSON.parse(text);
-    const games = gamesData.gameWeek?.[0]?.games || [];
+    const games = gamesData?.games || [];
 
     // Check if all games are finished
     const allGamesFinished = games.length > 0 && games.every(game => ["FINAL", "OFF"].includes(game.gameState));
 
-    const teamsRes = await fetch(`https://corsproxy.io/?url=https://api.nhle.com/stats/rest/en/team`);
-    if (!teamsRes.ok) {
-      throw new Error(`Failed to fetch teams: ${teamsRes.status}`);
-    }
-    const teamsData = await teamsRes.json();
-    const teams = teamsData?.data?.filter(team => teamColors[team.id]) || [];
+    const teams = teamData?.data?.filter(team => teamColors[team.id]) || [];
 
     const container = document.getElementById("gamesContainer");
 
@@ -323,7 +798,7 @@ const updateGames = async () => {
 };
 
 updateGames(); // Initial fetch
-updateInterval = setInterval(updateGames, 2000);
+updateInterval = setInterval(updateGames, 10000);
 
 // Game Card Customization functionality
 const defaultStyles = {

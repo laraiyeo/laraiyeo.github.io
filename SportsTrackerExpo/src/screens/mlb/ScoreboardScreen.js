@@ -1059,6 +1059,7 @@ const MLBGridCard = ({
   isDarkMode,
   isFavorite,
   showPitchers,
+  isMiLBMode,
 }) => {
   const [cardHeight, setCardHeight] = useState(0);
   const away = game.awayTeam || {};
@@ -1135,7 +1136,7 @@ const MLBGridCard = ({
         setCardHeight((prev) => (prev !== nextHeight ? nextHeight : prev));
       }}
       onPress={() =>
-        navigation.navigate("GameDetails", { gamePk: game.id, sport: "mlb" })
+        navigation.navigate("GameDetails", { gamePk: game.id, sport: isMiLBMode ? "milb" : "mlb" })
       }
       activeOpacity={0.8}
     >
@@ -1229,7 +1230,7 @@ const MLBGridCard = ({
               >
                 {awayScore ?? "—"}
               </Text>
-              {awayLogo && (
+              {awayLogo ? (
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: awayLogo }}
@@ -1239,6 +1240,21 @@ const MLBGridCard = ({
                   ]}
                   resizeMode="contain"
                 />
+              ) : (
+                <View
+                  style={[
+                    mlbGridStyles.scoreLogoOverlay,
+                    mlbGridStyles.scoreLogoOverlayPlaceholder,
+                    {
+                      backgroundColor: awayColor || colors.primary,
+                      opacity: isFinished && !awayWins ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={mlbGridStyles.scoreLogoOverlayText}>
+                    {awayAbbr.charAt(0)}
+                  </Text>
+                </View>
               )}
             </View>
           )}
@@ -1316,7 +1332,7 @@ const MLBGridCard = ({
               >
                 {homeScore ?? "—"}
               </Text>
-              {homeLogo && (
+              {homeLogo ? (
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: homeLogo }}
@@ -1326,6 +1342,21 @@ const MLBGridCard = ({
                   ]}
                   resizeMode="contain"
                 />
+              ) : (
+                <View
+                  style={[
+                    mlbGridStyles.scoreLogoOverlay,
+                    mlbGridStyles.scoreLogoOverlayPlaceholder,
+                    {
+                      backgroundColor: homeColor || colors.secondary,
+                      opacity: isFinished && !homeWins ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={mlbGridStyles.scoreLogoOverlayText}>
+                    {homeAbbr.charAt(0)}
+                  </Text>
+                </View>
               )}
             </View>
           )}
@@ -1423,6 +1454,7 @@ const MLBGridSection = ({
   toggleCollapse,
   showPitchersEnabled,
   togglePitchersGroup,
+  isMiLBMode,
 }) => (
   <View style={mlbGridStyles.container}>
     {groups.map((group) => {
@@ -1443,7 +1475,11 @@ const MLBGridSection = ({
             >
               <Image
                 cachePolicy="memory-disk"
-                source={require("../../../assets/mlb.png")}
+                source={
+                  isMiLBMode
+                    ? require("../../../assets/milb.png")
+                    : require("../../../assets/mlb.png")
+                }
                 style={mlbGridStyles.groupBubbleLogo}
                 resizeMode="contain"
               />
@@ -1529,6 +1565,7 @@ const MLBGridSection = ({
                     isDarkMode={isDarkMode}
                     isFavorite={isFavorite}
                     showPitchers={showPitchersEnabled}
+                    isMiLBMode={isMiLBMode}
                   />
                 ))}
               </View>
@@ -1555,6 +1592,7 @@ const ScoreboardSection = ({
   toggleCollapse,
   showPitchersEnabled,
   togglePitchersGroup,
+  isMiLBMode,
 }) => (
   <View style={styles.scoreboardContainer}>
     {groups.map((group, gIdx) => {
@@ -1581,7 +1619,11 @@ const ScoreboardSection = ({
               <View style={styles.eventLogoContainer}>
                 <Image
                   cachePolicy="memory-disk"
-                  source={require("../../../assets/mlb.png")}
+                  source={
+                    isMiLBMode
+                      ? require("../../../assets/milb.png")
+                      : require("../../../assets/mlb.png")
+                  }
                   style={styles.eventLogoImage}
                   resizeMode="contain"
                 />
@@ -1596,7 +1638,7 @@ const ScoreboardSection = ({
                 <Text
                   style={[styles.eventSubLabel, { color: theme.textTertiary }]}
                 >
-                  MLB
+                  {isMiLBMode ? "MiLB" : "MLB"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -1740,7 +1782,7 @@ const ScoreboardSection = ({
                     onPress={() =>
                       navigation.navigate("GameDetails", {
                         gamePk: game.id,
-                        sport: "mlb",
+                        sport: isMiLBMode ? "milb" : "mlb",
                       })
                     }
                   >
@@ -2177,6 +2219,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [isGridView, setIsGridView] = useState(false);
   const [showPitchersEnabled, setShowPitchersEnabled] = useState(false);
   const [derbyEventData, setDerbyEventData] = useState(null);
+  const [isMiLBMode, setIsMiLBMode] = useState(false);
   const DERBY_DATE_STR = "20260713";
   const DERBY_POLL_MS = 5 * 1000; // 5 seconds for live derby
 
@@ -2206,6 +2249,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
         }
       });
     });
+
+    AsyncStorage.getItem("isMiLBMode_mlb").then((val) => {
+      if (val === "true") setIsMiLBMode(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -2214,6 +2261,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
       String(showPitchersEnabled),
     );
   }, [showPitchersEnabled]);
+
+  useEffect(() => {
+    AsyncStorage.setItem("isMiLBMode_mlb", String(isMiLBMode));
+  }, [isMiLBMode]);
 
   const toggleViewMode = () => {
     setIsGridView((v) => {
@@ -2276,7 +2327,24 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const lastLoadedFilterRef = useRef(null);
   const fetchCacheRef = useRef({});
   const inFlightRef = useRef({});
+  const isMiLBModeRef = useRef(false);
+  const fetchGenRef = useRef(0);
   const IN_MEMORY_CACHE_MS = 10 * 1000; // 10s UI-level cache to avoid rapid refetches
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isMiLBModeRef.current = isMiLBMode;
+    // Invalidate UI cache when switching modes so data is refetched
+    fetchCacheRef.current = {};
+    inFlightRef.current = {};
+    // Trigger a fresh fetch with the new sportId
+    const gen = ++fetchGenRef.current;
+    loadData(activeFilter, true).then((fresh) => {
+      if (gen === fetchGenRef.current) {
+        schedulePolling(activeFilter, fresh);
+      }
+    });
+  }, [isMiLBMode]);
 
   const loadData = useCallback(
     async (filter, silent = false, background = false, force = false) => {
@@ -2294,6 +2362,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
       if (inFlightRef.current[filter]) return inFlightRef.current[filter];
 
       const promise = (async () => {
+        const gen = fetchGenRef.current;
         if (!silent) setLoading(true);
         else if (!background) setFetching(true);
         try {
@@ -2311,7 +2380,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
             startDate = tmp.startDate;
             endDate = tmp.endDate;
           }
-          const data = await MLBService.getScoreboard(startDate, endDate);
+          const data = await MLBService.getScoreboard(startDate, endDate, isMiLBModeRef.current ? 11 : 1);
 
           let events = data?.events || [];
 
@@ -2341,6 +2410,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
           });
 
           const nextGroups = groupGamesByDate(events);
+
+          // Discard stale result if mode has changed since fetch started
+          if (gen !== fetchGenRef.current) return nextGroups;
+
           setGroups(nextGroups);
           // Track last loaded filter to avoid unnecessary reloads on focus
           lastLoadedFilterRef.current = filter;
@@ -2540,7 +2613,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
       >
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Loading MLB Scoreboard…
+          {isMiLBMode ? "Loading MiLB Scoreboard…" : "Loading MLB Scoreboard…"}
         </Text>
       </View>
     );
@@ -2597,6 +2670,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
                 toggleCollapse={toggleCollapse}
                 showPitchersEnabled={showPitchersEnabled}
                 togglePitchersGroup={togglePitchersGroup}
+                isMiLBMode={isMiLBMode}
               />
             ) : (
               <View style={styles.listContainer}>
@@ -2613,6 +2687,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
                   toggleCollapse={toggleCollapse}
                   showPitchersEnabled={showPitchersEnabled}
                   togglePitchersGroup={togglePitchersGroup}
+                  isMiLBMode={isMiLBMode}
                 />
               </View>
             )
@@ -2634,6 +2709,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
         <View style={[styles.bottomPadding, { height: 40 }]} />
       </ScrollView>
+
       {!isPro && (
         <View
           style={{
@@ -2647,6 +2723,44 @@ const MLBScoreboardScreen = ({ navigation }) => {
           <BannerAdWrapper />
         </View>
       )}
+
+      {/* ─── MiLB / MLB Toggle Floating Button ────────────────────────── */}
+      <TouchableOpacity
+        onPress={() => {
+          console.log("[MiLB Toggle] Button pressed, current mode:", isMiLBMode ? "MiLB" : "MLB");
+          setIsMiLBMode((prev) => {
+            const next = !prev;
+            console.log("[MiLB Toggle] Switching to:", next ? "MiLB" : "MLB");
+            return next;
+          });
+        }}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={[
+          styles.milbFloatingBtn,
+          {
+            bottom: isPro ? 20 : 80,
+            backgroundColor: theme.surfaceSecondary,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Image
+          source={
+            isMiLBMode
+              ? require("../../../assets/mlb.png")
+              : require("../../../assets/milb.png")
+          }
+          style={styles.milbFloatingImg}
+          resizeMode="contain"
+        />
+        <Text
+          style={[styles.milbFloatingLabel, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {isMiLBMode ? "MLB" : "Triple A"}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -2723,6 +2837,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   bottomPadding: { height: 32 },
+  milbFloatingBtn: {
+    position: "absolute",
+    right: 16,
+    bottom: 20,
+    width: 62,
+    height: 72,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 100,
+  },
+  milbFloatingImg: {
+    width: 46,
+    height: 32,
+    marginBottom: 3,
+  },
+  milbFloatingLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   listContainer: {
     paddingHorizontal: 16,
   },
@@ -3127,6 +3268,16 @@ const mlbGridStyles = StyleSheet.create({
     width: 20,
     height: 20,
     opacity: 0.75,
+  },
+  scoreLogoOverlayPlaceholder: {
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreLogoOverlayText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#fff",
   },
   teamAbbr: {
     fontSize: 11,

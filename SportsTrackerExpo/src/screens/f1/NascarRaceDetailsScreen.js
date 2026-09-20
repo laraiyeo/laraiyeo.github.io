@@ -219,7 +219,7 @@ const computeNascarStatus = (raceDate) => {
   const startMs = raceDate ? Date.parse(raceDate) : null;
   if (!startMs || Number.isNaN(startMs)) return "off";
   const nowMs = Date.now();
-  return nowMs >= startMs && nowMs <= startMs + 3 * 60 * 60 * 1000
+  return nowMs >= startMs && nowMs <= startMs + 5 * 60 * 60 * 1000
     ? "live"
     : "off";
 };

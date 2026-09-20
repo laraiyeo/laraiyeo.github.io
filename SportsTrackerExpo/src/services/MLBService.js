@@ -86,6 +86,36 @@ export class MLBService {
     "Washington Nationals": "#AB0003",
     "American League All-Stars": "#134A8E",
     "National League All-Stars": "#AB0003",
+        "Albuquerque Isotopes": "#4B2E83",
+    "Buffalo Bisons": "#C8102E",
+    "Charlotte Knights": "#0055A5",
+    "Columbus Clippers": "#0C2340",
+    "Durham Bulls": "#0055A5",
+    "El Paso Chihuahuas": "#BE0F34",
+    "Gwinnett Stripers": "#002B5C",
+    "Indianapolis Indians": "#17202A",
+    "Iowa Cubs": "#0E3386",
+    "Jacksonville Jumbo Shrimp": "#041E42",
+    "Las Vegas Aviators": "#002D62",
+    "Lehigh Valley IronPigs": "#7A0019",
+    "Louisville Bats": "#EC1C2C",
+    "Memphis Redbirds": "#B01842",
+    "Nashville Sounds": "#002D62",
+    "Norfolk Tides": "#28539C",
+    "Oklahoma City Comets": "#005A9C",
+    "Omaha Storm Chasers": "#0057B8",
+    "Reno Aces": "#1D428A",
+    "Rochester Red Wings": "#EE2D24",
+    "Round Rock Express": "#091F40",
+    "Sacramento River Cats": "#000000",
+    "Salt Lake Bees": "#002D62",
+    "Scranton/Wilkes-Barre RailRiders": "#002C5D",
+    "St. Paul Saints": "#000000",
+    "Sugar Land Space Cowboys": "#002D62",
+    "Syracuse Mets": "#002D72",
+    "Tacoma Rainiers": "#003562",
+    "Toledo Mud Hens": "#0C2340",
+    "Worcester Red Sox": "#BD3039",
   };
 
   // Generic cache method with AsyncStorage persistence
@@ -189,8 +219,9 @@ export class MLBService {
   }
 
   // Fetch MLB scoreboard (games for date range)
-  static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || "today"}_${endDate || startDate || "today"}`;
+// sportId: 1 = MLB (default), 11 = MiLB (Triple-A Minor League)
+  static async getScoreboard(startDate = null, endDate = null, sportId = 1) {
+    const cacheKey = `scoreboard_${sportId}_${startDate || "today"}_${endDate || startDate || "today"}`;
 
     // First check if we have cached data to determine if there are live games
     let hasLiveGames = false;
@@ -207,7 +238,7 @@ export class MLBService {
     return this.getCachedData(
       cacheKey,
       async () => {
-        let url = this.SCHEDULE_URL;
+        let url = this.SCHEDULE_URL.replace("sportId=1", `sportId=${sportId}`);
 
         if (startDate) {
           if (endDate && endDate !== startDate) {
@@ -584,7 +615,7 @@ export class MLBService {
   // Get MLB team logo URL by team ID (mirrors WBCService.getTeamLogo signature)
   static getTeamLogo(teamId, isDarkMode = false) {
     const name = this.teamIdMap[Number(teamId)];
-    if (!name) return null;
+    if (!name) return `https://www.mlbstatic.com/team-logos/${encodeURIComponent(String(teamId))}.svg`;
     return this.getLogoUrl(name, null, isDarkMode ? "dark" : "light");
   }
 

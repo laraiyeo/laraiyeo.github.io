@@ -18,6 +18,7 @@ import {
   Modal,
   PanResponder,
   Alert,
+  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
@@ -12153,12 +12154,26 @@ const NHLGameDetailsScreen = ({ route }) => {
 
                 {currentStreamType && availableStreams[currentStreamType] && (
                   <WebView
-                    source={{ uri: availableStreams[currentStreamType] }}
+                    ref={(ref) => {
+                      if (ref) {
+                        ref.clearCache?.(true);
+                      }
+                    }}
+                    source={{
+                      uri:
+                        Platform.OS === "web"
+                          ? `${availableStreams[currentStreamType]}${availableStreams[currentStreamType].includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : availableStreams[currentStreamType],
+                    }}
+                    key={currentStreamType}
                     style={styles.streamWebView}
                     javaScriptEnabled
                     domStorageEnabled
                     allowsInlineMediaPlayback
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setStreamLoading(true)}
                     onLoadEnd={() => setStreamLoading(false)}
                     onError={() => setStreamLoading(false)}

@@ -741,6 +741,7 @@ const TeamRow = ({
     clinchIndicator,
   } = teamRecord;
 
+
   const abbr = MLB_TEAM_ID_TO_ABBR[team?.id] ?? team?.abbreviation ?? "";
   const streakCode = streak?.streakCode ?? "";
   const gb = leagueGamesBack === "-" ? "—" : (leagueGamesBack ?? "—");
@@ -761,6 +762,8 @@ const TeamRow = ({
   const clinchColor =
     clinchIndicator === "z"
       ? theme.success
+    : clinchIndicator === "x"
+      ? theme.success + "77"
       : clinchIndicator === "y"
         ? theme.warning
         : clinchIndicator === "w"
@@ -853,6 +856,7 @@ const TeamRow = ({
           numberOfLines={1}
         >
           {isFav ? "★ " : ""}
+          {clinchIndicator ? `${clinchIndicator} - ` : ""}
           {team.name}
         </Text>
 
@@ -1293,6 +1297,7 @@ const StandingsScreen = ({ route }) => {
                   color: theme.success,
                   label: "z - Clinched Division and Best Record",
                 },
+                {color: theme.success + "77", label: "x - Clinched Division"},
                 { color: theme.warning, label: "y - Clinched Division" },
                 { color: theme.info, label: "w - Clinched Wild Card" },
                 { color: theme.error, label: "e - Eliminated" },

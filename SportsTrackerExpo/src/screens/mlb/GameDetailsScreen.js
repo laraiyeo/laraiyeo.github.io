@@ -33,6 +33,7 @@ import Svg, {
   Rect,
   Path,
   G,
+  Circle,
 } from "react-native-svg";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -113,6 +114,9 @@ const TeamColumn = ({
   onPress,
   colors,
   isFav,
+  teamColor,
+  challenge,
+  showChallenges,
 }) => {
   const logo = WBCService.getTeamLogo(team?.id, isDarkMode);
 
@@ -169,8 +173,8 @@ const TeamColumn = ({
               style={[
                 styles.teamLogoPlaceholder,
                 {
-                  backgroundColor: theme.surfaceSecondary,
-                  opacity: isWinner ? 0.6 : 0.3,
+                  backgroundColor: theme.surface,
+                  opacity: isFinished ? (isWinner ? 1 : 0.55) : 1,
                 },
               ]}
             >
@@ -228,6 +232,32 @@ const TeamColumn = ({
           </Text>
         </View>
       </View>
+
+      {/* ABS CHALLENGE DOTS */}
+      {showChallenges && isLive && (
+        <View style={styles.challengeRow}>
+          {(() => {
+            const failed = Math.min(Number(challenge?.usedFailed) || 0, 2);
+            return [0, 1].map((i) => {
+              // Home fills failed dots left-to-right, away right-to-left.
+              const isFailed =
+                side === "away" ? failed >= 2 - i : failed >= i + 1;
+              return (
+                <View
+                  key={`${side}-challenge-${i}`}
+                  style={[
+                    styles.challengeDot,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: isFailed ? "#ffffff3b" : "#ffffff",
+                    },
+                  ]}
+                />
+              );
+            });
+          })()}
+        </View>
+      )}
     </View>
   );
 };
@@ -1345,6 +1375,7 @@ const PlayerDetailModal = ({
   gameDate,
   theme,
   colors,
+  isMiLB,
 }) => {
   const panY = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(
@@ -1853,12 +1884,14 @@ const PlayerDetailModal = ({
                 activeOpacity={0.75}
                 onPress={() => {
                   handleClose();
-                  navigation.navigate("PlayerPage", {
-                    playerId,
-                    playerName: fullName,
-                    teamId,
-                    sport: SCREEN_SPORT,
-                  });
+                  if (!isMiLB) {
+                    navigation.navigate("PlayerPage", {
+                      playerId,
+                      playerName: fullName,
+                      teamId,
+                      sport: SCREEN_SPORT,
+                    });
+                  }
                 }}
                 style={{
                   flex: 1,
@@ -1997,12 +2030,14 @@ const PlayerDetailModal = ({
               activeOpacity={0.75}
               onPress={() => {
                 handleClose();
-                navigation.navigate("PlayerPage", {
-                  playerId,
-                  playerName: fullName,
-                  teamId,
-                  sport: SCREEN_SPORT,
-                });
+                if (!isMiLB) {
+                  navigation.navigate("PlayerPage", {
+                    playerId,
+                    playerName: fullName,
+                    teamId,
+                    sport: SCREEN_SPORT,
+                  });
+                }
               }}
               style={{ alignItems: "center" }}
             >
@@ -2327,7 +2362,42 @@ const PlayerDetailModal = ({
                               const logo = teamIdFinal
                                 ? WBCService.getTeamLogo(teamIdFinal)
                                 : null;
-                              if (!logo) return null;
+                              const teamNameForLogo =
+                                teamIdFinal && p.side
+                                  ? p.side === "away"
+                                    ? awayTeam?.name
+                                    : homeTeam?.name
+                                  : "";
+                              if (!logo) {
+                                return (
+                                  <View
+                                    style={[
+                                      pdStyles.compareTeamLogo,
+                                      {
+                                        borderColor:
+                                          teamColorForLogo || theme.border,
+                                        backgroundColor:
+                                          (teamColorForLogo || theme.border) +
+                                          "33",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: "800",
+                                        color: theme.text,
+                                      }}
+                                    >
+                                      {(teamNameForLogo || p.name || "?")
+                                        .charAt(0)
+                                        .toUpperCase()}
+                                    </Text>
+                                  </View>
+                                );
+                              }
                               return (
                                 <Image
                                   cachePolicy="memory-disk"
@@ -3958,16 +4028,41 @@ const PlayerShareCardModal = ({
                       gap: 6,
                     }}
                   >
-                    {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image
-                        cachePolicy="memory-disk"
-                        source={{
-                          uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
-                        }}
-                        style={{ width: 18, height: 18 }}
-                        resizeMode="contain"
-                      />
-                    )}
+                    {(() => {
+                      const awLogo = WBCService.getTeamLogo(
+                        awayTeam?.id,
+                        isDarkMode,
+                      );
+                      return awLogo ? (
+                        <Image
+                          cachePolicy="memory-disk"
+                          source={{ uri: awLogo }}
+                          style={{ width: 18, height: 18 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: colors.primary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: "#fff",
+                            }}
+                          >
+                            {(awayTeam?.name || "A")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                     <Text style={[scStyles.cardScore, { color: theme.text }]}>
                       <Text
                         style={{
@@ -3991,16 +4086,41 @@ const PlayerShareCardModal = ({
                         {homeScore}
                       </Text>
                     </Text>
-                    {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image
-                        cachePolicy="memory-disk"
-                        source={{
-                          uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
-                        }}
-                        style={{ width: 18, height: 18 }}
-                        resizeMode="contain"
-                      />
-                    )}
+                    {(() => {
+                      const hmLogo = WBCService.getTeamLogo(
+                        homeTeam?.id,
+                        isDarkMode,
+                      );
+                      return hmLogo ? (
+                        <Image
+                          cachePolicy="memory-disk"
+                          source={{ uri: hmLogo }}
+                          style={{ width: 18, height: 18 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: colors.secondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: "#fff",
+                            }}
+                          >
+                            {(homeTeam?.name || "H")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
                 )}
               </View>
@@ -4038,13 +4158,35 @@ const PlayerShareCardModal = ({
                       </Text>
                       {!!teamName && (
                         <View style={psStyles.teamNameRow}>
-                          {!!teamLogoUri && (
+                          {teamLogoUri ? (
                             <Image
                               cachePolicy="memory-disk"
                               source={{ uri: teamLogoUri }}
                               style={psStyles.teamNameLogo}
                               resizeMode="contain"
                             />
+                          ) : (
+                            <View
+                              style={[
+                                psStyles.teamNameLogo,
+                                {
+                                  borderRadius: 8,
+                                  backgroundColor: teamColor,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: "800",
+                                  color: "#fff",
+                                }}
+                              >
+                                {(teamName || "T")[0].toUpperCase()}
+                              </Text>
+                            </View>
                           )}
                           <Text
                             style={[
@@ -4255,6 +4397,391 @@ const psStyles = StyleSheet.create({
   },
 });
 
+// ─── Stadium Field Share View ───────────────────────────────────────────────
+const SHARE_FIELD_W = 210;
+const SHARE_FIELD_H = 150;
+const SHARE_HOME_X = SHARE_FIELD_W / 2;
+const SHARE_HOME_Y = SHARE_FIELD_H - 5;
+const SHARE_BASE_DIST = 16;
+
+const SHARE_DEFAULT_FENCE = [
+  { name: "leftLine", angle: (Math.PI * 3) / 4, dist: 330 },
+  { name: "left", angle: (Math.PI * 11) / 16, dist: 360 },
+  { name: "leftCenter", angle: (Math.PI * 5) / 8, dist: 375 },
+  { name: "center", angle: Math.PI / 2, dist: 400 },
+  { name: "rightCenter", angle: (Math.PI * 3) / 8, dist: 375 },
+  { name: "right", angle: (Math.PI * 5) / 16, dist: 360 },
+  { name: "rightLine", angle: Math.PI / 4, dist: 330 },
+];
+
+const ShareFieldView = ({
+  fieldInfo,
+  theme,
+  hitData,
+  teamColor,
+  batterId,
+  matchup,
+}) => {
+  const fi = fieldInfo ?? {};
+
+  // Build realistic fence distances, filling gaps from neighbours
+  const leftLine = fi.leftLine ?? 330;
+  const rightLine = fi.rightLine ?? 330;
+  const center = fi.center ?? 400;
+  const leftCenter = fi.leftCenter ?? (leftLine + center) / 2;
+  const rightCenter = fi.rightCenter ?? (center + rightLine) / 2;
+  const left = fi.left ?? (leftLine + leftCenter) / 2;
+  const right = fi.right ?? (rightCenter + rightLine) / 2;
+
+  const fieldDists = {
+    leftLine,
+    left,
+    leftCenter,
+    center,
+    rightCenter,
+    right,
+    rightLine,
+  };
+  const maxDist = Math.max(...Object.values(fieldDists));
+  const SCALE = (SHARE_FIELD_H - 10) / maxDist;
+
+  const fencePoints = SHARE_DEFAULT_FENCE.map((fp) => ({
+    angle: fp.angle,
+    dist: (fieldDists[fp.name] ?? fp.dist) * SCALE,
+  }));
+
+  const fenceSvg = fencePoints.map((fp) => ({
+    x: +(SHARE_HOME_X + Math.cos(fp.angle) * fp.dist).toFixed(1),
+    y: +(SHARE_HOME_Y - Math.sin(fp.angle) * fp.dist).toFixed(1),
+  }));
+
+  const fencePathD =
+    `M ${fenceSvg[0].x} ${fenceSvg[0].y} ` +
+    fenceSvg
+      .slice(1)
+      .map((p) => `L ${p.x} ${p.y}`)
+      .join(" ");
+
+  const grassPathD =
+    `M ${SHARE_HOME_X} ${SHARE_HOME_Y} L ${fenceSvg[0].x} ${fenceSvg[0].y} ` +
+    fenceSvg
+      .slice(1)
+      .map((p) => `L ${p.x} ${p.y}`)
+      .join(" ") +
+    " Z";
+
+  const b1 = {
+    x: +(SHARE_HOME_X + SHARE_BASE_DIST).toFixed(1),
+    y: +(SHARE_HOME_Y - SHARE_BASE_DIST).toFixed(1),
+  };
+  const b2 = {
+    x: SHARE_HOME_X,
+    y: +(SHARE_HOME_Y - SHARE_BASE_DIST * 2).toFixed(1),
+  };
+  const b3 = {
+    x: +(SHARE_HOME_X - SHARE_BASE_DIST).toFixed(1),
+    y: +(SHARE_HOME_Y - SHARE_BASE_DIST).toFixed(1),
+  };
+
+  // Compute hit dot position — same angle logic as DerbyDiamondView
+  // coordX range: 0 (left field) to ~220 (right field)
+  // landingPosX range: -320 (left) to +320 (right)
+  const COORD_X_MAX = 220;
+  let hitDot = null;
+  if (hitData) {
+    const totalDist = Number(hitData.totalDistance) || 0;
+    const airBall = ["line", "fly"].some((term) => hitData?.trajectory?.includes(term)) ?? false;
+    const coords = hitData?.coordinates;
+    const landingX = coords?.landingPosX;
+    const landingY = coords?.landingPosY;
+    const coordX = Number(coords?.coordX);
+    const coordY = Number(coords?.coordY);
+
+    // Foul line angles
+    const fenceStartAngle = Math.PI / 4; // right field foul line (45°)
+    const fenceEndAngle = (Math.PI * 3) / 4; // left field foul line (135°)
+
+    let angle;
+    if (
+      !isNaN(landingX) &&
+      !isNaN(landingY) &&
+      (landingX !== 0 || landingY !== 0)
+    ) {
+      // Statcast landing coordinates (-320..+320)
+      const maxX = 320;
+      const normalizedX = Math.max(-1, Math.min(1, landingX / maxX));
+      angle = Math.PI / 2 - normalizedX * (Math.PI / 4);
+      angle = Math.max(
+        fenceStartAngle + 0.04,
+        Math.min(fenceEndAngle - 0.04, angle),
+      );
+    } else if (
+      !isNaN(coordX) &&
+      !isNaN(coordY) &&
+      (coordX !== 0 || coordY !== 0)
+    ) {
+      // Play-event hitData coords: coordX 0→220 (left→right)
+      const normalizedX = Math.max(0, Math.min(1, coordX / COORD_X_MAX));
+      angle = fenceEndAngle - normalizedX * (fenceEndAngle - fenceStartAngle);
+    } else {
+      // No coordinate data — use center
+      angle = Math.PI / 2;
+    }
+
+    let dist;
+    if (totalDist != null && !isNaN(totalDist) && airBall && totalDist > 100) {
+      // Always prefer totalDistance from hitData
+      dist = totalDist * SCALE;
+    } else if (!isNaN(coordY) && coordY > 0) {
+      // coordY: 0 = far away (at/beyond fence), ~200 = home plate
+      // Map linearly: coordY 0 → maxDist feet, coordY 200 → 0 feet
+      const estFt = ((205 - coordY) / 205) * maxDist;
+      dist = Math.max(5, estFt) * SCALE;
+    } else {
+      // Rough estimate from launch speed
+      const speed = Number(hitData.launchSpeed) || 90;
+      const estDist = Math.max(100, speed * 3.3);
+      dist = estDist * SCALE;
+    }
+
+    hitDot = {
+      x: +(SHARE_HOME_X + Math.cos(angle) * dist).toFixed(1),
+      y: +(SHARE_HOME_Y - Math.sin(angle) * dist).toFixed(1),
+    };
+  }
+
+  // Determine which bases should be lit: postOn{X}.id exists AND not the current batter
+  const runnerIds = {
+    first: matchup?.postOnFirst?.id,
+    second: matchup?.postOnSecond?.id,
+    third: matchup?.postOnThird?.id,
+  };
+  const tc = teamColor || theme.primary || "#3B82F6";
+  const baseLit = (runnerId) => runnerId != null;
+
+  // b1=1B, b2=2B, b3=3B
+  const bases = [
+    { pos: b1, runnerId: runnerIds.first },
+    { pos: b2, runnerId: runnerIds.second },
+    { pos: b3, runnerId: runnerIds.third },
+  ];
+
+  const hitStats = hitData
+    ? [
+        {
+          l: "Speed",
+          v:
+            hitData.launchSpeed != null
+              ? `${Math.round(hitData.launchSpeed)} mph`
+              : null,
+        },
+        {
+          l: "Angle",
+          v:
+            hitData.launchAngle != null
+              ? `${Math.round(hitData.launchAngle)}°`
+              : null,
+        },
+        {
+          l: "Dist",
+          v:
+            hitData.totalDistance != null
+              ? `${Math.round(hitData.totalDistance)} ft`
+              : null,
+        },
+      ].filter((s) => s.v != null)
+    : [];
+
+  const traj = hitData?.trajectory;
+  const hard = hitData?.hardness;
+  const hasTrajHard = traj || hard;
+
+  return (
+    <View style={{ alignItems: "center", gap: 4 }}>
+      <View
+        style={{
+          width: SHARE_FIELD_W,
+          height: SHARE_FIELD_H + 30,
+          overflow: "visible",
+        }}
+      >
+        {/* Hit stats overlaid at top of field */}
+        {hitStats.length > 0 && (
+          <View
+            style={{
+              position: "absolute",
+              top: 2,
+              left: 0,
+              right: 0,
+              zIndex: 2,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {hitStats.map((s, i) => (
+              <React.Fragment key={s.l}>
+                {i > 0 && (
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontSize: 9,
+                      fontWeight: "600",
+                    }}
+                  >
+                    |
+                  </Text>
+                )}
+                <View style={{ alignItems: "center" }}>
+                  <Text
+                    style={{
+                      color: theme.text,
+                      fontSize: 11,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {s.v}
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontSize: 8,
+                      fontWeight: "600",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {s.l}
+                  </Text>
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+        )}
+
+        <Svg
+          width={SHARE_FIELD_W}
+          height={SHARE_FIELD_H + 30}
+          viewBox={`0 -35 ${SHARE_FIELD_W} ${SHARE_FIELD_H + 35}`}
+          style={{ overflow: "visible" }}
+        >
+          <Path
+            d={grassPathD}
+            fill={theme.surfaceSecondary || "rgba(128,128,128,0.08)"}
+          />
+          <Path
+            d={fencePathD}
+            fill="none"
+            stroke={theme.border}
+            strokeWidth={1.5}
+          />
+          <Path
+            d={`M ${SHARE_HOME_X} ${SHARE_HOME_Y} L ${fenceSvg[0].x} ${fenceSvg[0].y}`}
+            stroke={theme.border}
+            strokeWidth={0.8}
+            opacity={0.5}
+          />
+          <Path
+            d={`M ${SHARE_HOME_X} ${SHARE_HOME_Y} L ${fenceSvg[fenceSvg.length - 1].x} ${fenceSvg[fenceSvg.length - 1].y}`}
+            stroke={theme.border}
+            strokeWidth={0.8}
+            opacity={0.5}
+          />
+          <Circle
+            cx={SHARE_HOME_X}
+            cy={+(SHARE_HOME_Y - SHARE_BASE_DIST).toFixed(1)}
+            r={+(SHARE_BASE_DIST * 1.05).toFixed(1)}
+            fill={theme.surface || "rgba(128,128,128,0.06)"}
+            stroke={theme.border}
+            strokeWidth={0.8}
+          />
+          <Path
+            d={`M ${SHARE_HOME_X} ${SHARE_HOME_Y} L ${b1.x} ${b1.y} L ${b2.x} ${b2.y} L ${b3.x} ${b3.y} Z`}
+            fill="none"
+            stroke={theme.border}
+            strokeWidth={1}
+          />
+          {bases.map((b, i) => (
+            <Rect
+              key={i}
+              x={b.pos.x - 2.5}
+              y={b.pos.y - 2.5}
+              width={7.5}
+              height={7.5}
+              fill={baseLit(b.runnerId) ? tc : theme.surfaceSecondary}
+              stroke={theme.border}
+              strokeWidth={1}
+              transform={`rotate(45 ${b.pos.x} ${b.pos.y})`}
+            />
+          ))}
+          <Path
+            d={`M ${SHARE_HOME_X - 3} ${SHARE_HOME_Y - 1} L ${SHARE_HOME_X + 3} ${SHARE_HOME_Y - 1} L ${SHARE_HOME_X + 3} ${SHARE_HOME_Y + 1} L ${SHARE_HOME_X} ${SHARE_HOME_Y + 3} L ${SHARE_HOME_X - 3} ${SHARE_HOME_Y + 1} Z`}
+            fill={theme.surfaceSecondary}
+            stroke={theme.border}
+            strokeWidth={1}
+          />
+          <Circle
+            cx={SHARE_HOME_X}
+            cy={+(SHARE_HOME_Y - SHARE_BASE_DIST).toFixed(1)}
+            r={2.5}
+            fill={theme.surfaceSecondary}
+            stroke={theme.border}
+            strokeWidth={1}
+          />
+          {/* Hit dot */}
+          {hitDot && (
+            <>
+              <Circle
+                cx={hitDot.x}
+                cy={hitDot.y}
+                r={10}
+                fill="transparent"
+                stroke="#fff"
+                strokeWidth={1.5}
+                opacity={0.5}
+              />
+              <Circle
+                cx={hitDot.x}
+                cy={hitDot.y}
+                r={5}
+                fill={theme.primary || "#3B82F6"}
+                stroke="#fff"
+                strokeWidth={1}
+              />
+            </>
+          )}
+        </Svg>
+      </View>
+
+      {/* Trajectory / Hardness below field */}
+      {hasTrajHard && (
+        <View style={{ alignItems: "center", marginTop: 2 }}>
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 10,
+              fontWeight: "700",
+              textTransform: "uppercase",
+            }}
+          >
+            {traj ? traj.replace(/_/g, " ").toUpperCase() : "—"}
+          </Text>
+          <Text
+            style={{
+              color: theme.textSecondary,
+              fontSize: 8,
+              fontWeight: "600",
+              textTransform: "uppercase",
+            }}
+          >
+            {hard ? hard.replace(/_/g, " ").toUpperCase() : "—"}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
 const ShareCardModal = ({
   visible,
   onClose,
@@ -4267,6 +4794,7 @@ const ShareCardModal = ({
   boxscore,
   theme,
   colors,
+  venue,
 }) => {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
@@ -4308,6 +4836,15 @@ const ShareCardModal = ({
     (e) => e?.pitchData?.coordinates?.pX != null,
   );
 
+  // Find the first play event with hitData
+  const hitEvent = playEvents.find(
+    (e) =>
+      e?.hitData?.launchSpeed != null ||
+      e?.hitData?.coordinates?.coordX != null,
+  );
+  const hitData = hitEvent?.hitData ?? null;
+  const hasHitData = hitData != null;
+
   const CARD_SIZE = Math.min(width - 48, 540);
 
   const handleShare = async () => {
@@ -4325,15 +4862,15 @@ const ShareCardModal = ({
     }
   };
 
-  // Inline mini-player for the card
-  const PlayerMini = ({ info, bsColor, bStats, pStats, role }) => {
-    if (!info) return null;
-    const isPitcher = role === "pitcher";
+  // Inline mini-player for the card (used in matchup row)
+  const PlayerMini = ({ info, bsColor, side, bStats, pStats }) => {
+    if (!info) return <View style={{ flex: 1 }} />;
+    const isPitcher = side === "home";
     const statItems = isPitcher
       ? [
           { l: "IP", v: pStats?.inningsPitched },
-          { l: "R", v: pStats?.runs },
           { l: "K", v: pStats?.strikeOuts },
+          { l: "BB", v: pStats?.baseOnBalls },
         ]
       : [
           { l: "AB", v: bStats?.atBats },
@@ -4341,30 +4878,33 @@ const ShareCardModal = ({
           { l: "RBI", v: bStats?.rbi },
         ];
     return (
-      <View style={scStyles.miniPlayer}>
+      <View style={scStyles.matchupPlayer}>
         <Image
           cachePolicy="memory-disk"
           source={{ uri: playerHeadshotUrl(info.id) }}
-          style={[scStyles.miniHeadshot, { borderColor: bsColor }]}
+          style={[scStyles.matchupHeadshot, { borderColor: bsColor }]}
           resizeMode="cover"
         />
         <Text
-          style={[scStyles.miniName, { color: theme.text }]}
+          style={[scStyles.matchupName, { color: theme.text }]}
           numberOfLines={1}
         >
           {shortName(info.fullName)}
         </Text>
-        <Text style={[scStyles.miniRole, { color: bsColor }]}>
-          {isPitcher ? "Pitcher" : "Batter"}
+        <Text style={[scStyles.matchupRole, { color: bsColor }]}>
+          {!isPitcher ? "Batter" : "Pitcher"}
         </Text>
-        <View style={scStyles.miniStats}>
+        <View style={scStyles.matchupStatsRow}>
           {statItems.map(({ l, v }) => (
-            <View key={l} style={scStyles.miniStat}>
-              <Text style={[scStyles.miniStatVal, { color: theme.text }]}>
+            <View key={l} style={scStyles.matchupStat}>
+              <Text style={[scStyles.matchupStatVal, { color: theme.text }]}>
                 {v ?? "—"}
               </Text>
               <Text
-                style={[scStyles.miniStatLbl, { color: theme.textSecondary }]}
+                style={[
+                  scStyles.matchupStatLabel,
+                  { color: theme.textSecondary },
+                ]}
               >
                 {l}
               </Text>
@@ -4419,29 +4959,79 @@ const ShareCardModal = ({
                       gap: 6,
                     }}
                   >
-                    {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
-                      <Image
-                        cachePolicy="memory-disk"
-                        source={{
-                          uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
-                        }}
-                        style={{ width: 18, height: 18 }}
-                        resizeMode="contain"
-                      />
-                    )}
+                    {(() => {
+                      const awLogo = WBCService.getTeamLogo(
+                        awayTeam?.id,
+                        isDarkMode,
+                      );
+                      return awLogo ? (
+                        <Image
+                          cachePolicy="memory-disk"
+                          source={{ uri: awLogo }}
+                          style={{ width: 18, height: 18 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: awayColor || colors.primary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: "#fff",
+                            }}
+                          >
+                            {(awayTeam?.name || "A")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                     <Text style={[scStyles.cardScore, { color: theme.text }]}>
                       {awayScore} – {homeScore}
                     </Text>
-                    {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
-                      <Image
-                        cachePolicy="memory-disk"
-                        source={{
-                          uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
-                        }}
-                        style={{ width: 18, height: 18 }}
-                        resizeMode="contain"
-                      />
-                    )}
+                    {(() => {
+                      const hmLogo = WBCService.getTeamLogo(
+                        homeTeam?.id,
+                        isDarkMode,
+                      );
+                      return hmLogo ? (
+                        <Image
+                          cachePolicy="memory-disk"
+                          source={{ uri: hmLogo }}
+                          style={{ width: 18, height: 18 }}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: homeColor || colors.secondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: "#fff",
+                            }}
+                          >
+                            {(homeTeam?.name || "H")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
                 )}
               </View>
@@ -4460,159 +5050,188 @@ const ShareCardModal = ({
               )}
             </View>
 
-            {/* ── Bottom: pitch chart (left) | matchup + bases (right) ── */}
-            <View style={scStyles.cardBottom}>
-              {/* Left – pitch locations + hit data */}
-              <View style={scStyles.cardLeft}>
-                {pitches.length > 0 ? (
-                  <StrikeZoneView
-                    pitches={pitches}
-                    theme={theme}
-                    size={150}
-                    pitcherHandCode={pitchHandCode}
-                    animateAllOnTrigger={false}
-                    animatedIndex={null}
-                    isShareCard={true}
-                  />
-                ) : (
-                  <View
-                    style={[scStyles.noPitchBox, { borderColor: theme.border }]}
-                  >
-                    <Text
-                      style={{
-                        color: theme.textSecondary,
-                        fontSize: 10,
-                        textAlign: "center",
-                      }}
-                    >
-                      No pitch data
-                    </Text>
-                  </View>
-                )}
-                {(() => {
-                  const ev = playEvents.find(
-                    (e) => e?.hitData?.launchSpeed != null,
-                  );
-                  if (!ev) return null;
-                  const hd = ev.hitData;
-                  return (
-                    <View
-                      style={[
-                        scStyles.hitDataBox,
-                        { borderTopColor: theme.surface },
-                      ]}
-                    >
-                      <Text
+            {/* ── Middle: pitch chart (left) | field or matchup (right) ── */}
+            {hasHitData ? (
+              <>
+                <View style={scStyles.cardMiddle}>
+                  <View style={scStyles.cardLeft}>
+                    {pitches.length > 0 ? (
+                      <StrikeZoneView
+                        pitches={pitches}
+                        theme={theme}
+                        size={150}
+                        pitcherHandCode={pitchHandCode}
+                        animateAllOnTrigger={false}
+                        animatedIndex={null}
+                        isShareCard={true}
+                      />
+                    ) : (
+                      <View
                         style={[
-                          scStyles.hitDataTitle,
-                          { color: theme.textSecondary },
+                          scStyles.noPitchBox,
+                          { borderColor: theme.border },
                         ]}
                       >
-                        Hit Data
-                      </Text>
-                      <View style={scStyles.hitDataCols}>
-                        {[
-                          {
-                            label: "Speed",
-                            value: `${Math.round(hd.launchSpeed)} mph`,
-                          },
-                          {
-                            label: "Angle",
-                            value: `${Math.round(hd.launchAngle)}°`,
-                          },
-                          {
-                            label: "Dist",
-                            value: `${Math.round(hd.totalDistance)} ft`,
-                          },
-                        ].map(({ label, value }) => (
-                          <View key={label} style={scStyles.hitDataCol}>
-                            <Text
-                              style={[
-                                scStyles.hitDataVal,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {value}
-                            </Text>
-                            <Text
-                              style={[
-                                scStyles.hitDataLbl,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {label}
-                            </Text>
-                          </View>
-                        ))}
+                        <Text
+                          style={{
+                            color: theme.textSecondary,
+                            fontSize: 10,
+                            textAlign: "center",
+                          }}
+                        >
+                          No pitch data
+                        </Text>
                       </View>
-                    </View>
-                  );
-                })()}
-              </View>
-
-              {/* Right – batter → bases → pitcher */}
-              <View
-                style={[scStyles.cardRight, { borderLeftColor: theme.border }]}
-              >
-                <PlayerMini
-                  info={batterInfo}
-                  bsColor={batterTeamColor}
-                  bStats={batterBatting}
-                  pStats={{}}
-                  role="batter"
-                />
-
-                {/* Bases diamond */}
-                <View style={scStyles.cardBases}>
+                    )}
+                  </View>
                   <View
                     style={[
-                      scStyles.cardBaseDiamond,
-                      play?.matchup?.postOnSecond
-                        ? { backgroundColor: teamColor }
-                        : {
-                            backgroundColor: "transparent",
-                            borderWidth: 1.5,
-                            borderColor: theme.textSecondary,
-                          },
+                      scStyles.cardFieldRight,
+                      { borderLeftColor: theme.border },
                     ]}
-                  />
-                  <View style={scStyles.cardBasesRow}>
-                    <View
-                      style={[
-                        scStyles.cardBaseDiamond,
-                        play?.matchup?.postOnThird
-                          ? { backgroundColor: teamColor }
-                          : {
-                              backgroundColor: "transparent",
-                              borderWidth: 1.5,
-                              borderColor: theme.textSecondary,
-                            },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        scStyles.cardBaseDiamond,
-                        play?.matchup?.postOnFirst
-                          ? { backgroundColor: teamColor }
-                          : {
-                              backgroundColor: "transparent",
-                              borderWidth: 1.5,
-                              borderColor: theme.textSecondary,
-                            },
-                      ]}
+                  >
+                    <ShareFieldView
+                      fieldInfo={venue?.fieldInfo}
+                      theme={theme}
+                      hitData={hitData}
+                      teamColor={teamColor}
+                      batterId={batterId}
+                      matchup={play?.matchup}
                     />
                   </View>
                 </View>
-
-                <PlayerMini
-                  info={pitcherInfo}
-                  bsColor={pitcherTeamColor}
-                  bStats={{}}
-                  pStats={pitcherPitching}
-                  role="pitcher"
-                />
+                {/* ── Bottom: matchup row with stats ── */}
+                <View
+                  style={[
+                    scStyles.cardMatchupRow,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <PlayerMini
+                      info={batterInfo}
+                      bsColor={batterTeamColor}
+                      side="away"
+                      bStats={batterBatting}
+                      pStats={{}}
+                    />
+                  </View>
+                  <View style={scStyles.cardMatchupCenter}>
+                    <Text
+                      style={[
+                        scStyles.cardVsText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      VS
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PlayerMini
+                      info={pitcherInfo}
+                      bsColor={pitcherTeamColor}
+                      side="home"
+                      bStats={{}}
+                      pStats={pitcherPitching}
+                    />
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={scStyles.cardBottom}>
+                <View style={scStyles.cardLeft}>
+                  {pitches.length > 0 ? (
+                    <StrikeZoneView
+                      pitches={pitches}
+                      theme={theme}
+                      size={150}
+                      pitcherHandCode={pitchHandCode}
+                      animateAllOnTrigger={false}
+                      animatedIndex={null}
+                      isShareCard={true}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        scStyles.noPitchBox,
+                        { borderColor: theme.border },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: theme.textSecondary,
+                          fontSize: 10,
+                          textAlign: "center",
+                        }}
+                      >
+                        No pitch data
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View
+                  style={[
+                    scStyles.cardRight,
+                    { borderLeftColor: theme.border },
+                  ]}
+                >
+                  <PlayerMini
+                    info={batterInfo}
+                    bsColor={batterTeamColor}
+                    side="away"
+                    bStats={batterBatting}
+                    pStats={{}}
+                  />
+                  <View style={scStyles.cardBases}>
+                    <View
+                      style={[
+                        scStyles.cardBaseDiamond,
+                        play?.matchup?.postOnSecond
+                          ? { backgroundColor: teamColor }
+                          : {
+                              backgroundColor: "transparent",
+                              borderWidth: 1.5,
+                              borderColor: theme.textSecondary,
+                            },
+                      ]}
+                    />
+                    <View style={scStyles.cardBasesRow}>
+                      <View
+                        style={[
+                          scStyles.cardBaseDiamond,
+                          play?.matchup?.postOnThird
+                            ? { backgroundColor: teamColor }
+                            : {
+                                backgroundColor: "transparent",
+                                borderWidth: 1.5,
+                                borderColor: theme.textSecondary,
+                              },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          scStyles.cardBaseDiamond,
+                          play?.matchup?.postOnFirst
+                            ? { backgroundColor: teamColor }
+                            : {
+                                backgroundColor: "transparent",
+                                borderWidth: 1.5,
+                                borderColor: theme.textSecondary,
+                              },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <PlayerMini
+                    info={pitcherInfo}
+                    bsColor={pitcherTeamColor}
+                    side="home"
+                    bStats={{}}
+                    pStats={pitcherPitching}
+                  />
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Branding footer */}
             <View
@@ -4699,6 +5318,10 @@ const scStyles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  cardMiddle: {
+    flexDirection: "row",
+    minHeight: 170,
+  },
   cardBottom: {
     flexDirection: "row",
     minHeight: 180,
@@ -4718,6 +5341,13 @@ const scStyles = StyleSheet.create({
     alignItems: "center",
     padding: 8,
   },
+  cardFieldRight: {
+    flex: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 6,
+  },
   cardRight: {
     flex: 1,
     borderLeftWidth: StyleSheet.hairlineWidth,
@@ -4726,6 +5356,77 @@ const scStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-evenly",
     gap: 8,
+  },
+  cardMatchupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  cardMatchupCenter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  cardVsText: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  matchupPlayer: {
+    alignItems: "center",
+    gap: 3,
+  },
+  matchupHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  matchupName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  matchupRole: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  matchupStatsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: -1,
+  },
+  matchupStat: {
+    alignItems: "center",
+  },
+  matchupStatVal: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  matchupStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  cardBases: {
+    alignItems: "center",
+    gap: 5,
+  },
+  cardBasesRow: {
+    flexDirection: "row",
+    gap: 17.5,
+  },
+  cardBaseDiamond: {
+    width: 11,
+    height: 11,
+    borderRadius: 1.5,
+    transform: [{ rotate: "45deg" }],
   },
   cardFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -4754,94 +5455,6 @@ const scStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-  // mini player card
-  miniPlayer: {
-    alignItems: "center",
-    gap: 2,
-  },
-  miniHeadshot: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    backgroundColor: "rgba(128,128,128,0.1)",
-  },
-  miniName: {
-    fontSize: 11,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  miniRole: {
-    fontSize: 9,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 2,
-  },
-  miniStats: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  miniStat: {
-    alignItems: "center",
-  },
-  miniStatVal: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  miniStatLbl: {
-    fontSize: 9,
-    marginTop: 1,
-  },
-  // bases
-  cardBases: {
-    alignItems: "center",
-    gap: 5,
-  },
-  cardBasesRow: {
-    flexDirection: "row",
-    gap: 17.5,
-  },
-  cardBaseDiamond: {
-    width: 11,
-    height: 11,
-    borderRadius: 1.5,
-    transform: [{ rotate: "45deg" }],
-  },
-  // hit data in share card
-  hitDataBox: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    width: "100%",
-    alignItems: "center",
-  },
-  hitDataTitle: {
-    fontSize: 9,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  hitDataCols: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-  },
-  hitDataCol: {
-    alignItems: "center",
-    gap: 1,
-  },
-  hitDataVal: {
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  hitDataLbl: {
-    fontSize: 8,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
 });
 
 // Returns "J. Smith" from "John Smith"
@@ -4865,6 +5478,7 @@ const PlayDetailModal = ({
   colors,
   visible,
   onClose,
+  venue,
 }) => {
   // Swipe-down to dismiss
   const [shareVisible, setShareVisible] = useState(false);
@@ -5597,6 +6211,7 @@ const PlayDetailModal = ({
         boxscore={boxscore}
         theme={theme}
         colors={colors}
+        venue={venue}
       />
     </Modal>
   );
@@ -6017,6 +6632,7 @@ const PlaysPanel = ({
   boxscore,
   theme,
   colors,
+  venue,
 }) => {
   const [selectedPlay, setSelectedPlay] = useState(null);
   const [playerFilterId, setPlayerFilterId] = useState(null);
@@ -6632,6 +7248,7 @@ const PlaysPanel = ({
         colors={colors}
         visible={selectedPlay != null}
         onClose={() => setSelectedPlay(null)}
+        venue={venue}
       />
     </View>
   );
@@ -9467,6 +10084,7 @@ const SeriesGameCard = ({
   theme,
   isDarkMode,
   navigation,
+  activeSport,
 }) => {
   const home = match?.teams?.home ?? {};
   const away = match?.teams?.away ?? {};
@@ -9577,7 +10195,10 @@ const SeriesGameCard = ({
       onPress={() => {
         const nextPk = Number(match?.gamePk);
         if (!nextPk) return;
-        navigation.push("GameDetails", { gamePk: nextPk, sport: "mlb" });
+        navigation.push("GameDetails", {
+          gamePk: nextPk,
+          sport: activeSport || "mlb",
+        });
       }}
     >
       <View style={seriesStyles.matchCardTopRow}>
@@ -9848,6 +10469,8 @@ const SeriesGameCard = ({
 const GameDetailsScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const gamePk = route?.params?.gamePk;
+  const activeSport = route?.params?.sport || "mlb";
+  const isMiLB = activeSport === "milb";
 
   const [feed, setFeed] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -9906,63 +10529,60 @@ const GameDetailsScreen = ({ navigation, route }) => {
   }, []);
 
   // Show Live Activity button only between 2:00 AM PST today and 2:00 AM PST tomorrow
-const isWithinPstWindow = useCallback((gameDate) => {
-  try {
-    const game = new Date(gameDate);
-    const now = new Date();
+  const isWithinPstWindow = useCallback((gameDate) => {
+    try {
+      const game = new Date(gameDate);
+      const now = new Date();
 
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Los_Angeles",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      hour12: false,
-    });
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        hour12: false,
+      });
 
-    const getParts = (date) =>
-      Object.fromEntries(
-        formatter
-          .formatToParts(date)
-          .filter((p) => p.type !== "literal")
-          .map((p) => [p.type, p.value])
-      );
+      const getParts = (date) =>
+        Object.fromEntries(
+          formatter
+            .formatToParts(date)
+            .filter((p) => p.type !== "literal")
+            .map((p) => [p.type, p.value]),
+        );
 
-    const nowParts = getParts(now);
-    const gameParts = getParts(game);
+      const nowParts = getParts(now);
+      const gameParts = getParts(game);
 
-    const todayPst =
-      `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
+      const todayPst = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
 
-    const gamePst =
-      `${gameParts.year}-${gameParts.month}-${gameParts.day}`;
+      const gamePst = `${gameParts.year}-${gameParts.month}-${gameParts.day}`;
 
-    const gameHour = Number(gameParts.hour);
+      const gameHour = Number(gameParts.hour);
 
-    // Same PST day after 2 AM
-    if (gamePst === todayPst && gameHour >= 2) {
-      return true;
+      // Same PST day after 2 AM
+      if (gamePst === todayPst && gameHour >= 2) {
+        return true;
+      }
+
+      // Next PST day before 2 AM
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const tomorrowParts = getParts(tomorrow);
+
+      const tomorrowPst = `${tomorrowParts.year}-${tomorrowParts.month}-${tomorrowParts.day}`;
+
+      if (gamePst === tomorrowPst && gameHour < 2) {
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error(err);
+      return false;
     }
-
-    // Next PST day before 2 AM
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const tomorrowParts = getParts(tomorrow);
-
-    const tomorrowPst =
-      `${tomorrowParts.year}-${tomorrowParts.month}-${tomorrowParts.day}`;
-
-    if (gamePst === tomorrowPst && gameHour < 2) {
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error(err);
-    return false;
-  }
-}, []);
+  }, []);
 
   // sports-favs state
   const [sportsFavIds, setSportsFavIds] = useState(new Set());
@@ -10618,7 +11238,7 @@ const isWithinPstWindow = useCallback((gameDate) => {
 
         const { homeTeamId, awayTeamId, year } = seriesRequestParams;
         const url =
-          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1` +
+          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=${isMiLB ? 11 : 1}` +
           `&startDate=${year}-01-01` +
           `&endDate=${year}-12-31` +
           `&teamId=${homeTeamId}` +
@@ -11037,28 +11657,28 @@ const isWithinPstWindow = useCallback((gameDate) => {
   };
 
   const clearAllLiveActivities = useCallback(async () => {
-  try {
-    // Clear local storage
-    await AsyncStorage.removeItem("@mlb_live_activity_state_v1");
-    
-    // Show confirmation
-    Alert.alert(
-      "Live Activities Cleared",
-      "All stored Live Activity states have been cleared.",
-      [{ text: "OK" }]
-    );
-    
-    // Refresh the controller state
-    if (typeof closeLiveActivityModal === 'function') {
-      closeLiveActivityModal();
-    }
-  } catch (error) {
-    console.error("Failed to clear Live Activities:", error);
-    Alert.alert("Error", "Failed to clear Live Activities");
-  }
-}, []);
+    try {
+      // Clear local storage
+      await AsyncStorage.removeItem("@mlb_live_activity_state_v1");
 
-const show = false;
+      // Show confirmation
+      Alert.alert(
+        "Live Activities Cleared",
+        "All stored Live Activity states have been cleared.",
+        [{ text: "OK" }],
+      );
+
+      // Refresh the controller state
+      if (typeof closeLiveActivityModal === "function") {
+        closeLiveActivityModal();
+      }
+    } catch (error) {
+      console.error("Failed to clear Live Activities:", error);
+      Alert.alert("Error", "Failed to clear Live Activities");
+    }
+  }, []);
+
+  const show = false;
 
   // ── Loading / error states ────────────────────────────────────────────────
   if (loading) {
@@ -11107,25 +11727,29 @@ const show = false;
 
           {/* Team row */}
           <View style={styles.teamsRow}>
-<TeamColumn
-  status={status}
-  team={awayTeam}
-  score={displayedAwayScore}
-  isWinner={runItBackActive ? displayedAwayWinner : awayWinner}
-  side="away"
-  isDarkMode={isDarkMode}
-  theme={theme}
-  colors={colors}
-  isFav={sportsFavIds.has(String(awayTeam?.id))}
-  scoreOpacity={gameScoreOpacity}
-  onPress={() =>
-    awayTeam?.id != null &&
-    navigation.navigate("TeamPage", {
-      teamId: awayTeam.id,
-      sport: "mlb",
-    })
-  }
-/>
+            <TeamColumn
+              status={status}
+              team={awayTeam}
+              score={displayedAwayScore}
+              isWinner={runItBackActive ? displayedAwayWinner : awayWinner}
+              side="away"
+              isDarkMode={isDarkMode}
+              theme={theme}
+              colors={colors}
+              isFav={sportsFavIds.has(String(awayTeam?.id))}
+              teamColor={awayColor}
+              challenge={gameData?.absChallenges?.away}
+              showChallenges={!!gameData?.absChallenges?.hasChallenges}
+              scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                !isMiLB &&
+                awayTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: awayTeam.id,
+                  sport: "mlb",
+                })
+              }
+            />
 
             <View style={{ flex: 1, alignItems: "center" }}>
               <StatusBadge
@@ -11138,75 +11762,89 @@ const show = false;
               />
 
               {/* Live Stream Button — sits below the status badge in the centre column */}
-              {!isScheduled && !isGameFinished && isStreamingUnlocked && (
-                <TouchableOpacity
-                  style={[styles.streamBtn, { borderColor: colors.primary }]}
-                  onPress={openStreamModal}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.streamBtnInner}>
-                    <View
-                      style={[
-                        styles.streamBtnDot,
-                        { backgroundColor: colors.primary },
-                      ]}
-                    />
-                    <Text
-                      style={[styles.streamBtnText, { color: colors.primary }]}
-                    >
-                      Stream
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
+              {!isScheduled &&
+                !isGameFinished &&
+                isStreamingUnlocked &&
+                !isMiLB && (
+                  <TouchableOpacity
+                    style={[styles.streamBtn, { borderColor: colors.primary }]}
+                    onPress={openStreamModal}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.streamBtnInner}>
+                      <View
+                        style={[
+                          styles.streamBtnDot,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.streamBtnText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        Stream
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
-              {Platform.OS === "ios" && !isGameFinished && isLoggedIn && show && isWithinPstWindow(gameDateTime) && (
-                <TouchableOpacity
-                  style={[
-                    styles.streamBtn,
-                    {
-                      borderColor: colors.secondary,
-                      marginTop: 8,
-                      paddingHorizontal: 6,
-                      paddingVertical: 6,
-                    },
-                  ]}
-                  onPress={openLiveActivityModal}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.streamBtnInner}>
-                    <Text
-                      style={[
-                        styles.streamBtnText,
-                        { color: colors.secondary, fontSize: 10 },
-                      ]}
-                    >
-                      Live Activity
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
+              {Platform.OS === "ios" &&
+                !isGameFinished &&
+                isLoggedIn &&
+                show &&
+                isWithinPstWindow(gameDateTime) && (
+                  <TouchableOpacity
+                    style={[
+                      styles.streamBtn,
+                      {
+                        borderColor: colors.secondary,
+                        marginTop: 8,
+                        paddingHorizontal: 6,
+                        paddingVertical: 6,
+                      },
+                    ]}
+                    onPress={openLiveActivityModal}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.streamBtnInner}>
+                      <Text
+                        style={[
+                          styles.streamBtnText,
+                          { color: colors.secondary, fontSize: 10 },
+                        ]}
+                      >
+                        Live Activity
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
             </View>
 
-<TeamColumn
-  status={status}
-  team={homeTeam}
-  score={displayedHomeScore}
-  isWinner={runItBackActive ? displayedHomeWinner : homeWinner}
-  side="home"
-  isDarkMode={isDarkMode}
-  theme={theme}
-  colors={colors}
-  isFav={sportsFavIds.has(String(homeTeam?.id))}
-  scoreOpacity={gameScoreOpacity}
-  onPress={() =>
-    homeTeam?.id != null &&
-    navigation.navigate("TeamPage", {
-      teamId: homeTeam.id,
-      sport: "mlb",
-    })
-  }
-/>
+            <TeamColumn
+              status={status}
+              team={homeTeam}
+              score={displayedHomeScore}
+              isWinner={runItBackActive ? displayedHomeWinner : homeWinner}
+              side="home"
+              isDarkMode={isDarkMode}
+              theme={theme}
+              colors={colors}
+              isFav={sportsFavIds.has(String(homeTeam?.id))}
+              teamColor={homeColor}
+              challenge={gameData?.absChallenges?.home}
+              showChallenges={!!gameData?.absChallenges?.hasChallenges}
+              scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                !isMiLB &&
+                homeTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: homeTeam.id,
+                  sport: "mlb",
+                })
+              }
+            />
           </View>
         </View>
 
@@ -11244,7 +11882,26 @@ const show = false;
                   ]}
                   resizeMode="contain"
                 />
-              ) : null}
+              ) : (
+                <View
+                  style={[
+                    styles.miniLogo,
+                    styles.miniLogoPlaceholder,
+                    {
+                      backgroundColor: awayColor,
+                      opacity: isGameFinished
+                        ? (runItBackActive ? displayedAwayWinner : awayWinner)
+                          ? 1
+                          : 0.55
+                        : 1,
+                    },
+                  ]}
+                >
+                  <Text style={styles.miniLogoPlaceholderText}>
+                    {(awayTeam?.name || "A")[0].toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <Text
                 style={[
                   styles.miniAbbr,
@@ -11407,7 +12064,26 @@ const show = false;
                   ]}
                   resizeMode="contain"
                 />
-              ) : null}
+              ) : (
+                <View
+                  style={[
+                    styles.miniLogo,
+                    styles.miniLogoPlaceholder,
+                    {
+                      backgroundColor: homeColor,
+                      opacity: isGameFinished
+                        ? (runItBackActive ? displayedHomeWinner : homeWinner)
+                          ? 1
+                          : 0.55
+                        : 1,
+                    },
+                  ]}
+                >
+                  <Text style={styles.miniLogoPlaceholderText}>
+                    {(homeTeam?.name || "H")[0].toUpperCase()}
+                  </Text>
+                </View>
+              )}
             </View>
           </Animated.View>
 
@@ -11554,91 +12230,104 @@ const show = false;
                           </Text>
                         </View>
 
-    <View style={styles.liveActivityActionsRow}>
-      <TouchableOpacity
-        onPress={closeLiveActivityModal}
-        activeOpacity={0.85}
-        style={[
-          styles.liveActivityActionBtn,
-          styles.liveActivityCancelBtn,
-          { borderColor: theme.border },
-        ]}
-      >
-        <Text
-          style={[
-            styles.liveActivityActionText,
-            { color: theme.text },
-          ]}
-        >
-          Cancel
-        </Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        onPress={
-          liveActivityActive ? undefined : startLiveActivity
-        }
-        activeOpacity={0.85}
-        style={[
-          styles.liveActivityActionBtn,
-          styles.liveActivityPrimaryBtn,
-          {
-            backgroundColor: liveActivityActive
-              ? colors.secondary
-              : colors.primary,
-            borderColor: liveActivityActive
-              ? colors.primary
-              : colors.secondary,
-          },
-        ]}
-        disabled={busy || !gamePk || liveActivityActive}
-      >
-        <Text style={styles.liveActivityActionPrimaryText}>
-          {busy
-            ? pendingAction === "start"
-              ? "Starting..."
-              : "Processing..."
-            : liveActivityActive
-            ? "Active"
-            : "Start"}
-        </Text>
-      </TouchableOpacity>
-    </View>
-    
-    {/* Add Clear All button */}
-    <View style={styles.liveActivityActionsRow}>
-      <TouchableOpacity
-        onPress={async () => {
-          const confirmed = await new Promise(resolve => {
-            Alert.alert(
-              "Clear All Live Activities",
-              "This will remove all stored Live Activity states. Are you sure?",
-              [
-                { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-                { text: "Clear All", style: "destructive", onPress: () => resolve(true) }
-              ]
-            );
-          });
-          
-          if (confirmed) {
-            await clearAllLiveActivities();
-          }
-        }}
-        activeOpacity={0.85}
-        style={[
-          styles.liveActivityActionBtn,
-          { 
-            backgroundColor: theme.error,
-            borderColor: theme.error,
-            marginTop: 10,
-          },
-        ]}
-      >
-        <Text style={[styles.liveActivityActionPrimaryText, { color: '#fff' }]}>
-          Clear All
-        </Text>
-      </TouchableOpacity>
-    </View>
+                        <View style={styles.liveActivityActionsRow}>
+                          <TouchableOpacity
+                            onPress={closeLiveActivityModal}
+                            activeOpacity={0.85}
+                            style={[
+                              styles.liveActivityActionBtn,
+                              styles.liveActivityCancelBtn,
+                              { borderColor: theme.border },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.liveActivityActionText,
+                                { color: theme.text },
+                              ]}
+                            >
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={
+                              liveActivityActive ? undefined : startLiveActivity
+                            }
+                            activeOpacity={0.85}
+                            style={[
+                              styles.liveActivityActionBtn,
+                              styles.liveActivityPrimaryBtn,
+                              {
+                                backgroundColor: liveActivityActive
+                                  ? colors.secondary
+                                  : colors.primary,
+                                borderColor: liveActivityActive
+                                  ? colors.primary
+                                  : colors.secondary,
+                              },
+                            ]}
+                            disabled={busy || !gamePk || liveActivityActive}
+                          >
+                            <Text style={styles.liveActivityActionPrimaryText}>
+                              {busy
+                                ? pendingAction === "start"
+                                  ? "Starting..."
+                                  : "Processing..."
+                                : liveActivityActive
+                                  ? "Active"
+                                  : "Start"}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Add Clear All button */}
+                        <View style={styles.liveActivityActionsRow}>
+                          <TouchableOpacity
+                            onPress={async () => {
+                              const confirmed = await new Promise((resolve) => {
+                                Alert.alert(
+                                  "Clear All Live Activities",
+                                  "This will remove all stored Live Activity states. Are you sure?",
+                                  [
+                                    {
+                                      text: "Cancel",
+                                      style: "cancel",
+                                      onPress: () => resolve(false),
+                                    },
+                                    {
+                                      text: "Clear All",
+                                      style: "destructive",
+                                      onPress: () => resolve(true),
+                                    },
+                                  ],
+                                );
+                              });
+
+                              if (confirmed) {
+                                await clearAllLiveActivities();
+                              }
+                            }}
+                            activeOpacity={0.85}
+                            style={[
+                              styles.liveActivityActionBtn,
+                              {
+                                backgroundColor: theme.error,
+                                borderColor: theme.error,
+                                marginTop: 10,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.liveActivityActionPrimaryText,
+                                { color: "#fff" },
+                              ]}
+                            >
+                              Clear All
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     )}
                   />
@@ -11845,6 +12534,7 @@ const show = false;
             boxscore={boxscore}
             theme={theme}
             colors={colors}
+            venue={gameData?.venue}
           />
         )}
 
@@ -11931,6 +12621,7 @@ const show = false;
                         theme={theme}
                         isDarkMode={isDarkMode}
                         navigation={navigation}
+                        activeSport={activeSport}
                       />
                     ))}
 
@@ -12779,7 +13470,19 @@ const show = false;
                 )}
                 {streamUrl ? (
                   <WebView
-                    source={{ uri: streamUrl }}
+                    ref={(ref) => {
+                      if (ref) {
+                        // Clear WebView cache on mount for clean session
+                        ref.clearCache?.(true);
+                      }
+                    }}
+                    source={{
+                      uri:
+                        Platform.OS === "web"
+                          ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : streamUrl,
+                    }}
+                    key={streamUrl}
                     style={styles.webView}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
@@ -12788,6 +13491,9 @@ const show = false;
                     mixedContentMode="compatibility"
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setIsStreamLoading(true)}
                     onLoadEnd={() => setIsStreamLoading(false)}
                     onError={(error) => {
@@ -12933,6 +13639,7 @@ const show = false;
           gameDate={gameDateTime}
           theme={theme}
           colors={colors}
+          isMiLB={isMiLB}
         />
       )}
     </View>
@@ -12964,45 +13671,56 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   teamSide: {
-  flex: 1,
-  alignItems: "center",
-  gap: 8,
-},
-logoScoreRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-},
-teamLogo1: {
-  width: 65,
-  height: 60,
-},
-teamScore1: {
-  fontSize: 42,
-  lineHeight: 48,
-  fontWeight: "800",
-  minWidth: 24,
-  textAlign: "center",
-},
-teamNameRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 4,
-  maxWidth: 130,
-},
-teamNameBlock: {
-  alignItems: "center",
-  justifyContent: "center",
-  maxWidth: 130,
-},
-teamNamePowerPlayRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 4,
-  flexWrap: "wrap",
-},
+    flex: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  logoScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  teamLogo1: {
+    width: 65,
+    height: 60,
+  },
+  teamScore1: {
+    fontSize: 42,
+    lineHeight: 48,
+    fontWeight: "800",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    maxWidth: 130,
+  },
+  teamNameBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: 130,
+  },
+  challengeRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  challengeDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.25,
+  },
+  teamNamePowerPlayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    flexWrap: "wrap",
+  },
   teamName1: {
     fontSize: 13,
     fontWeight: "600",
@@ -13010,18 +13728,18 @@ teamNamePowerPlayRow: {
     maxWidth: 130,
     textAlign: "center",
   },
-teamPowerPlayText: {
-  fontSize: 11,
-  fontWeight: "800",
-  lineHeight: 14,
-},
-teamRecord: {
-  marginTop: 2,
-  fontSize: 11,
-  fontWeight: "600",
-  lineHeight: 14,
-  textAlign: "center",
-},
+  teamPowerPlayText: {
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  teamRecord: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 14,
+    textAlign: "center",
+  },
   teamColumn: {
     flex: 1,
     maxWidth: (width - 40) * 0.38,
@@ -13119,6 +13837,16 @@ teamRecord: {
   miniLogo: {
     width: 36,
     height: 30,
+  },
+  miniLogoPlaceholder: {
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniLogoPlaceholderText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#fff",
   },
   miniAbbr: {
     fontSize: 13,

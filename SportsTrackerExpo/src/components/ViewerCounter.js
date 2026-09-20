@@ -91,7 +91,7 @@ const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
 
   const isScheduledFlag =
     !!(status && status.isScheduled) ||
-    /scheduled|pre|upcoming|not started/i.test(statusStr);
+    /scheduled|pre|upcoming|not started|fut/i.test(statusStr);
 
   if (viewerCount === 0) return null;
 

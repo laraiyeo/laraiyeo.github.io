@@ -137,12 +137,12 @@ const { width } = Dimensions.get("window");
 const _logoUriCache = new Map(); // abbr -> { uri }
 const _headshotUriCache = new Map(); // athleteId -> uri string
 
-const _getLogoSource = (abbr) => {
+const _getLogoSource = (abbr, isDarkMode) => {
   if (!abbr) return require("../../../assets/nfl.png");
   const key = abbr.toUpperCase();
   if (_logoUriCache.has(key)) return _logoUriCache.get(key);
   const src = {
-    uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${key}.png&w=150&h=150`,
+    uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500${isDarkMode ? "-dark" : ""}/${key}.png&w=150&h=150`,
   };
   _logoUriCache.set(key, src);
   return src;
@@ -257,11 +257,11 @@ const getPlayerInitials = (athleteOrId) => {
 // ── Cached TeamLogoImage (module-level, avoids duplicate fetches) ─
 // Custom comparator: only re-render when abbreviation or isLosingTeam changes
 const TeamLogoImage = React.memo(
-  ({ team, style, isLosingTeam = false }) => {
+  ({ team, style, isLosingTeam = false, isDarkMode }) => {
     const abbr = getNFLTeamAbbreviation(team);
     const [failed, setFailed] = useState(false);
 
-    const source = _getLogoSource(abbr);
+    const source = _getLogoSource(abbr, isDarkMode);
 
     if (failed) {
       const initial = (abbr || team?.name || "?")[0]?.toUpperCase() || "?";
@@ -420,6 +420,88 @@ const NflPlayFieldMini = ({ play, teamColor, startYard, endYard }) => {
   const fieldHeight = 130;
 
   const hasDriveVisualization = startYard != null && endYard != null;
+
+  // ── First down marker (yellow line) ──
+  const getFirstDownMarker = () => {
+    if (startYard == null) return null;
+
+    // Skip for non-scrimmage plays: kickoff, touchdown, timeout, punt, extra point, etc.
+    const playTypeText = (
+      play?.type?.text ||
+      play?.type?.abbreviation ||
+      ""
+    ).toLowerCase();
+    const playDescText = (play?.text || play?.shortText || "").toLowerCase();
+    const skipTypes = [
+      "kickoff",
+      "touchdown",
+      "official timeout",
+      "punt",
+      "extra point",
+      "field goal",
+      "end of",
+      "two-point",
+    ];
+    if (
+      skipTypes.some(
+        (t) => playTypeText.includes(t) || playDescText.includes(t),
+      )
+    ) {
+      return null;
+    }
+
+    const ddText =
+      play?.start?.downDistanceText || play?.end?.downDistanceText || "";
+
+    // Parse distance from down & distance text (e.g. "2nd & 16", "3rd & inches", "1st & goal")
+    const match = ddText.match(/&\s*(.+)/);
+    if (!match) return null;
+    const distStr = match[1].trim().toLowerCase();
+
+    // "goal" → no yellow line
+    if (distStr === "goal") return null;
+
+    // "inches" → practically in front (use 1 yard)
+    let distance;
+    if (distStr === "inches") {
+      distance = 1;
+    } else {
+      distance = parseInt(distStr, 10);
+      if (isNaN(distance) || distance <= 0) return null;
+    }
+
+    // Direction: use yardsToEndzone from the API to determine which endzone
+    // the offense is attacking. yardsToEndzone is the distance from the current
+    // yard line to the endzone the offense is moving toward.
+    // Attacking yard 100 → yardsToEndzone ≈ 100 - startYard
+    // Attacking yard 0   → yardsToEndzone ≈ startYard
+    const yardsToEndzone =
+      play?.start?.yardsToEndzone ?? play?.end?.yardsToEndzone;
+    let goingRight;
+    if (yardsToEndzone != null) {
+      const distToFar = Math.abs(yardsToEndzone - (100 - startYard));
+      const distToNear = Math.abs(yardsToEndzone - startYard);
+      goingRight = distToFar <= distToNear;
+    } else {
+      // Fallback heuristic: if on own half, moving toward yard 100
+      goingRight = startYard <= 50;
+    }
+
+    // Calculate first down yard line (API yard value, counting from right endzone)
+    const firstDownYard = goingRight
+      ? startYard + distance
+      : startYard - distance;
+
+    // Clamp to valid field range [0, 100]
+    if (firstDownYard < 0 || firstDownYard > 100) return null;
+
+    // Convert API yard to CSS left% (API yard counts from right, CSS left% from left)
+    const cssLeftPct = 100 - firstDownYard;
+
+    return cssLeftPct;
+  };
+
+  const firstDownMarkerPct = getFirstDownMarker();
 
   // Yard markers (same as share card)
   const renderYardMarkers = () => {
@@ -732,6 +814,22 @@ const NflPlayFieldMini = ({ play, teamColor, startYard, endYard }) => {
 
           {/* Drive gradient visualization */}
           {renderDriveGradient()}
+
+          {/* First down marker (yellow line) */}
+          {firstDownMarkerPct != null && (
+            <View
+              style={{
+                position: "absolute",
+                left: `${firstDownMarkerPct}%`,
+                top: 0,
+                bottom: 0,
+                width: 2,
+                backgroundColor: "#FFD700",
+                opacity: 0.85,
+                marginLeft: -1,
+              }}
+            />
+          )}
         </View>
       </View>
     </View>
@@ -751,6 +849,7 @@ const NflTeamSide = ({
   colors,
   showPossession,
   onPress,
+  isDarkMode,
 }) => (
   <View style={nflHeaderStyles.teamSide}>
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -785,6 +884,7 @@ const NflTeamSide = ({
               nflHeaderStyles.teamLogo,
               { opacity: isFinished ? (isWinner ? 1 : 0.55) : 1 },
             ]}
+            isDarkMode={isDarkMode}
           />
           {showPossession && side === "away" ? (
             <View style={nflHeaderStyles.possessionBadgeAway}>
@@ -2394,7 +2494,13 @@ const GameDetailsScreen = ({ route }) => {
           { backgroundColor: theme.surface, borderBottomColor: theme.border },
         ]}
       >
-        {team && <TeamLogoImage team={team} style={styles.teamHeaderLogo} />}
+        {team && (
+          <TeamLogoImage
+            team={team}
+            style={styles.teamHeaderLogo}
+            isDarkMode={isDarkMode}
+          />
+        )}
         <Text
           allowFontScaling={false}
           style={[styles.teamHeaderName, { color: theme.text }]}
@@ -3319,6 +3425,7 @@ const GameDetailsScreen = ({ route }) => {
                   <TeamLogoImage
                     team={awayTeam?.team}
                     style={styles.leaderTeamLogo}
+                    isDarkMode={isDarkMode}
                   />
                   <Text
                     allowFontScaling={false}
@@ -3373,6 +3480,7 @@ const GameDetailsScreen = ({ route }) => {
                 <View style={styles.leaderTeamLogoContainer}>
                   <TeamLogoImage
                     team={homeTeam?.team}
+                    isDarkMode={isDarkMode}
                     style={styles.leaderTeamLogo}
                   />
                   <Text
@@ -3871,6 +3979,7 @@ const GameDetailsScreen = ({ route }) => {
                     <TeamLogoImage
                       team={awayTeam?.team}
                       style={{ width: 24, height: 24 }}
+                      isDarkMode={isDarkMode}
                     />
                     <Text
                       style={{
@@ -3910,6 +4019,7 @@ const GameDetailsScreen = ({ route }) => {
                     <TeamLogoImage
                       team={homeTeam?.team}
                       style={{ width: 24, height: 24 }}
+                      isDarkMode={isDarkMode}
                     />
                   </View>
                 </View>
@@ -4574,6 +4684,7 @@ const GameDetailsScreen = ({ route }) => {
                     <TeamLogoImage
                       team={team}
                       style={nflDrivesStyles.driveChipLogo}
+                      isDarkMode={isDarkMode}
                     />
                     <Text
                       style={{
@@ -4587,12 +4698,14 @@ const GameDetailsScreen = ({ route }) => {
                     <TeamLogoImage
                       team={endTeam}
                       style={nflDrivesStyles.driveChipLogo}
+                      isDarkMode={isDarkMode}
                     />
                   </View>
                 ) : teamLogo ? (
                   <TeamLogoImage
                     team={team}
                     style={nflDrivesStyles.driveChipLogo}
+                    isDarkMode={isDarkMode}
                   />
                 ) : null}
                 <Text
@@ -4657,6 +4770,7 @@ const GameDetailsScreen = ({ route }) => {
               <View style={{ position: "relative", width: 40, height: 40 }}>
                 <TeamLogoImage
                   team={activeDrive.endTeam}
+                  isDarkMode={isDarkMode}
                   style={{ width: 40, height: 40 }}
                 />
                 <View
@@ -4677,6 +4791,7 @@ const GameDetailsScreen = ({ route }) => {
                   <TeamLogoImage
                     team={activeDrive.team}
                     style={{ width: 16, height: 16 }}
+                    isDarkMode={isDarkMode}
                   />
                 </View>
               </View>
@@ -4684,6 +4799,7 @@ const GameDetailsScreen = ({ route }) => {
               <TeamLogoImage
                 team={activeDrive.team}
                 style={nflDrivesStyles.bubbleLogo}
+                isDarkMode={isDarkMode}
               />
             ) : null}
           </View>
@@ -6176,6 +6292,7 @@ const GameDetailsScreen = ({ route }) => {
                                   <TeamLogoImage
                                     team={play.team || driveTeam}
                                     style={{ width: 20, height: 20 }}
+                                    isDarkMode={isDarkMode}
                                   />
                                 </View>
                               </View>
@@ -6740,6 +6857,7 @@ const GameDetailsScreen = ({ route }) => {
                           <TeamLogoImage
                             team={teamInfo}
                             style={{ width: 18, height: 18 }}
+                            isDarkMode={isDarkMode}
                           />
                         )}
                         <Text
@@ -6962,6 +7080,7 @@ const GameDetailsScreen = ({ route }) => {
                   sport: "nfl",
                 })
               }
+              isDarkMode={isDarkMode}
             />
 
             <View style={nflHeaderStyles.statusCenter}>
@@ -7021,6 +7140,7 @@ const GameDetailsScreen = ({ route }) => {
               isLoser={awayWins}
               theme={theme}
               colors={colors}
+              isDarkMode={isDarkMode}
               showPossession={homeHasPossession}
               onPress={() =>
                 navigation.navigate("TeamPage", {
@@ -7107,6 +7227,7 @@ const GameDetailsScreen = ({ route }) => {
               <TeamLogoImage
                 team={awayTeam?.team}
                 style={nflHeaderStyles.miniLogo}
+                isDarkMode={isDarkMode}
               />
               <Text
                 style={[
@@ -7194,6 +7315,7 @@ const GameDetailsScreen = ({ route }) => {
               <TeamLogoImage
                 team={homeTeam?.team}
                 style={nflHeaderStyles.miniLogo}
+                isDarkMode={isDarkMode}
               />
             </View>
           </Animated.View>
@@ -7330,6 +7452,7 @@ const GameDetailsScreen = ({ route }) => {
                             <TeamLogoImage
                               team={selectedPlayer.team.team}
                               style={styles.playerTeamLogo}
+                              isDarkMode={isDarkMode}
                             />
                           )}
                           <Text
@@ -7692,6 +7815,7 @@ const GameDetailsScreen = ({ route }) => {
                               <TeamLogoImage
                                 team={awayTeam?.team || awayTeam}
                                 style={nflShareStyles.scoreLogo}
+                                isDarkMode={isDarkMode}
                               />
                               <Text
                                 style={[
@@ -7726,6 +7850,7 @@ const GameDetailsScreen = ({ route }) => {
                               <TeamLogoImage
                                 team={homeTeam?.team || homeTeam}
                                 style={nflShareStyles.scoreLogo}
+                                isDarkMode={isDarkMode}
                               />
                             </View>
                           ) : (
@@ -7815,6 +7940,7 @@ const GameDetailsScreen = ({ route }) => {
                                   <TeamLogoImage
                                     team={selectedPlayer?.team?.team}
                                     style={nflShareStyles.teamNameLogo}
+                                    isDarkMode={isDarkMode}
                                   />
                                   <Text
                                     style={[
@@ -8046,6 +8172,7 @@ const GameDetailsScreen = ({ route }) => {
                         <TeamLogoImage
                           team={selectedDrive.team}
                           style={styles.driveModalTeamLogo}
+                          isDarkMode={isDarkMode}
                         />
                       )}
                       <View>
@@ -8447,6 +8574,8 @@ const GameDetailsScreen = ({ route }) => {
                 (() => {
                   const play = shareCardPlay;
 
+                  const yac = play.yardsAfterCatch || 0;
+
                   let teamColor = play.teamColor || "#000000";
 
                   let teamLogo = NFLService.convertToHttps(
@@ -8765,6 +8894,7 @@ const GameDetailsScreen = ({ route }) => {
                               <TeamLogoImage
                                 team={play.homeTeam?.team}
                                 style={{ width: 18, height: 18 }}
+                                isDarkMode={isDarkMode}
                               />
                             ) : null}
                             <Text
@@ -8800,6 +8930,7 @@ const GameDetailsScreen = ({ route }) => {
                               <TeamLogoImage
                                 team={play.awayTeam?.team}
                                 style={{ width: 18, height: 18 }}
+                                isDarkMode={isDarkMode}
                               />
                             ) : null}
                           </View>
@@ -8811,12 +8942,14 @@ const GameDetailsScreen = ({ route }) => {
                             alignItems: "center",
                             gap: 8,
                             marginBottom: 6,
+                            width: "90%",
                           }}
                         >
                           {teamLogo ? (
                             <TeamLogoImage
                               team={teamLogo}
                               style={{ width: 28, height: 28 }}
+                              isDarkMode={isDarkMode}
                             />
                           ) : null}
                           <Text
@@ -8825,6 +8958,7 @@ const GameDetailsScreen = ({ route }) => {
                               fontWeight: "800",
                               color: theme.text,
                             }}
+                            numberOfLines={1}
                           >
                             {teamAbbr} - {play.type.text || "Play"}
                           </Text>
@@ -9734,30 +9868,49 @@ const GameDetailsScreen = ({ route }) => {
                           { borderTopColor: theme.border },
                         ]}
                       >
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            fontWeight: "800",
-                            color: theme.text,
-                          }}
-                        >
-                          W {winProbability.toFixed(1)}%
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            fontWeight: "800",
-                            letterSpacing: 0.4,
-                            color: theme.text,
-                          }}
-                        >
-                          SportsHeart{" "}
-                          <Ionicons
-                            name="heart"
-                            size={10}
-                            color={colors.primary}
-                          />
-                        </Text>
+                        <View style={styles.footerLeft}>
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              color: theme.text,
+                            }}
+                          >
+                            W {winProbability.toFixed(1)}%
+                          </Text>
+                        </View>
+
+                        <View style={styles.footerCenter}>
+                          {yac ? (
+                            <Text
+                              style={{
+                                fontSize: 9,
+                                fontWeight: "800",
+                                color: theme.text,
+                              }}
+                            >
+                              {yac} YAC
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.footerRight}>
+                          <Text
+                            style={{
+                              fontSize: 9,
+                              fontWeight: "800",
+                              letterSpacing: 0.4,
+                              color: theme.text,
+                            }}
+                          >
+                            SportsHeart{" "}
+                            <Ionicons
+                              name="heart"
+                              size={10}
+                              color={colors.primary}
+                            />
+                          </Text>
+                        </View>
                       </View>
                     </>
                   );
@@ -12191,8 +12344,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
+
+  footerLeft: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+
+  footerCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  footerRight: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+
   shareCardFooterText: {
     fontSize: 15,
     fontWeight: "800",

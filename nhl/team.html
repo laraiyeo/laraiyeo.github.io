@@ -139,12 +139,12 @@
 
         async function fetchAndRenderTeamGame(triCode) {
           const today = getAdjustedDateForNHL();
-          const url = `https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${today}`;
+          const url = `https://sportsheart-hockey.up.railway.app/nhl/scoreboard/${today}`;
 
           try {
             const res = await fetch(url);
             const data = await res.json();
-            const games = data.gameWeek?.[0]?.games || [];
+            const games = data?.games || [];
 
             const container = document.getElementById("gameBlockContainer");
             const game = games.find(
@@ -204,7 +204,7 @@
 
             setInterval(async () => {
               await fetchAndRenderTeamGame(teamTriCode);
-            }, 2000);
+            }, 10000);
           }
         };
       </script>

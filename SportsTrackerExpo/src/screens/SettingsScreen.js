@@ -645,12 +645,13 @@ const SettingsScreen = ({ navigation }) => {
       const code = (promoCodeInput || "").trim();
       if (!code) return setRedeemMessage("Enter a promo code");
       setRedeemLoading(true);
-      let token = await AsyncStorage.getItem("@bet_token");
+      let token = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        token = data?.session?.access_token || null;
+      } catch (e) {}
       if (!token) {
-        try {
-          const { data } = await supabase.auth.getSession();
-          token = data?.session?.access_token || null;
-        } catch (e) {}
+        try { token = await AsyncStorage.getItem("@bet_token"); } catch (e) {}
       }
 
       const base =

@@ -21,6 +21,7 @@ import {
   Dimensions,
   RefreshControl,
   Modal,
+  Platform,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import Svg, {
@@ -57,7 +58,13 @@ const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
       pointerEvents="none"
     >
       <Defs>
-        <LinearGradient id="championsLeagueHeaderGrad" x1="00%" y1="0%" x2="100%" y2="0%">
+        <LinearGradient
+          id="championsLeagueHeaderGrad"
+          x1="00%"
+          y1="0%"
+          x2="100%"
+          y2="0%"
+        >
           <Stop offset="0%" stopColor={homeColor} stopOpacity="0.3" />
           <Stop
             offset="40%"
@@ -72,7 +79,11 @@ const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
           <Stop offset="100%" stopColor={awayColor} stopOpacity="0.3" />
         </LinearGradient>
       </Defs>
-      <Rect width={width} height={height} fill="url(#championsLeagueHeaderGrad)" />
+      <Rect
+        width={width}
+        height={height}
+        fill="url(#championsLeagueHeaderGrad)"
+      />
     </Svg>
   </View>
 );
@@ -2253,8 +2264,12 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
     const homeShootoutScore = parseInt(homeTeamData.shootoutScore) || null;
     const awayShootoutScore = parseInt(awayTeamData.shootoutScore) || null;
 
-    const homeIsWinner = matchStatus.isPost && (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
-    const awayIsWinner = matchStatus.isPost && (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
+    const homeIsWinner =
+      matchStatus.isPost &&
+      (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
+    const awayIsWinner =
+      matchStatus.isPost &&
+      (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
 
     const homeIsLoser =
       !matchStatus.isLive && !matchStatus.isPre && !homeIsWinner;
@@ -2262,7 +2277,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       !matchStatus.isLive && !matchStatus.isPre && !awayIsWinner;
 
     // Format date for display
-    
+
     const gameDate = competition?.date || "";
     const formatDateLine = () => {
       if (!gameDate) return "";
@@ -2360,10 +2375,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
               numberOfLines={1}
             >
               {matchStatus.isPre
+                ? matchStatus.description
+                : matchStatus.isPost
                   ? matchStatus.description
-                  : matchStatus.isPost
-                    ? matchStatus.description
-                    : matchStatus.text}
+                  : matchStatus.text}
             </Text>
             <Text
               allowFontScaling={false}
@@ -2486,22 +2501,21 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       return null;
     }
 
-    return (
-      homeScorers.length > 0 || awayScorers.length > 0 ? (
+    return homeScorers.length > 0 || awayScorers.length > 0 ? (
       <View style={styles.headerScorersContainer}>
         {/* Home Scorers (Left) */}
         <View style={styles.headerScorersColumn}>
-          {homeScorers.length > 0 ? (
-            homeScorers.map((scorer, index) => (
-              <Text
-                allowFontScaling={false}
-                key={index}
-                style={[styles.headerScorerText, { color: theme.text }]}
-              >
-                {scorer.displayText}
-              </Text>
-            ))
-          ) : null}
+          {homeScorers.length > 0
+            ? homeScorers.map((scorer, index) => (
+                <Text
+                  allowFontScaling={false}
+                  key={index}
+                  style={[styles.headerScorerText, { color: theme.text }]}
+                >
+                  {scorer.displayText}
+                </Text>
+              ))
+            : null}
         </View>
 
         {/* Soccer Ball Separator */}
@@ -2513,21 +2527,20 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Away Scorers (Right) */}
         <View style={styles.headerScorersColumn}>
-          {awayScorers.length > 0 ? (
-            awayScorers.map((scorer, index) => (
-              <Text
-                allowFontScaling={false}
-                key={index}
-                style={[styles.headerScorerText, { color: theme.text }]}
-              >
-                {scorer.displayText}
-              </Text>
-            ))
-          ) : null }
+          {awayScorers.length > 0
+            ? awayScorers.map((scorer, index) => (
+                <Text
+                  allowFontScaling={false}
+                  key={index}
+                  style={[styles.headerScorerText, { color: theme.text }]}
+                >
+                  {scorer.displayText}
+                </Text>
+              ))
+            : null}
         </View>
       </View>
-        ) : null
-    );
+    ) : null;
   };
 
   // Memoized scorers data - use homeScorers/awayScorers from processGameData (details[] with scoringPlay)
@@ -2579,8 +2592,12 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
     const homeShootoutScore = parseInt(homeTeamData.shootoutScore) || null;
     const awayShootoutScore = parseInt(awayTeamData.shootoutScore) || null;
 
-    const homeIsWinner = matchStatus.isPost && (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
-    const awayIsWinner = matchStatus.isPost && (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
+    const homeIsWinner =
+      matchStatus.isPost &&
+      (homeShootoutScore > awayShootoutScore || homeScoreNum > awayScoreNum);
+    const awayIsWinner =
+      matchStatus.isPost &&
+      (awayShootoutScore > homeShootoutScore || awayScoreNum > homeScoreNum);
 
     const homeIsLoser =
       !matchStatus.isLive && !matchStatus.isPre && !homeIsWinner;
@@ -2595,13 +2612,12 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
     let awayColor =
       ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
         awayTeamData?.team,
-      ) ||
-      colors.secondary;
+      ) || colors.secondary;
 
     homeColor = homeColor.startsWith("#") ? homeColor : `#${homeColor}`;
     awayColor = awayColor.startsWith("#") ? awayColor : `#${awayColor}`;
 
-    console.log(matchStatus)
+    console.log(matchStatus);
 
     // Format date
     const gameDate = competition?.date || "";
@@ -2685,7 +2701,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 style={[
                   styles.simpleTeamName,
                   {
-                    color: isFavorite(homeTeamData?.team?.id, "champions league")
+                    color: isFavorite(
+                      homeTeamData?.team?.id,
+                      "champions league",
+                    )
                       ? colors.primary
                       : theme.text,
                     opacity: matchStatus.isPost ? (homeIsWinner ? 1 : 0.55) : 1,
@@ -2693,7 +2712,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 ]}
                 numberOfLines={2}
               >
-                {isFavorite(homeTeamData?.team?.id, "champions league") ? "★ " : ""}
+                {isFavorite(homeTeamData?.team?.id, "champions league")
+                  ? "★ "
+                  : ""}
                 {homeTeamData?.team?.displayName || "Home Team"}
               </Text>
             </View>
@@ -2702,19 +2723,19 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
           {/* Center Status */}
           <View style={styles.simpleStatusCenter}>
             <View style={styles.simpleStatusBadge}>
-                {homeShootoutScore !== null && awayShootoutScore !== null && (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.simpleStatusSecondary,
-                  {
-                    color: theme.text,
-                  },
-                ]}
-              >
-                Pen: {homeShootoutScore} - {awayShootoutScore}
-              </Text>
-                )}
+              {homeShootoutScore !== null && awayShootoutScore !== null && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.simpleStatusSecondary,
+                    {
+                      color: theme.text,
+                    },
+                  ]}
+                >
+                  Pen: {homeShootoutScore} - {awayShootoutScore}
+                </Text>
+              )}
               <Text
                 allowFontScaling={false}
                 style={[
@@ -2814,7 +2835,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 style={[
                   styles.simpleTeamName,
                   {
-                    color: isFavorite(awayTeamData?.team?.id, "champions league")
+                    color: isFavorite(
+                      awayTeamData?.team?.id,
+                      "champions league",
+                    )
                       ? colors.primary
                       : theme.text,
                     opacity: matchStatus.isPost ? (awayIsWinner ? 1 : 0.55) : 1,
@@ -2822,7 +2846,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 ]}
                 numberOfLines={2}
               >
-                {isFavorite(awayTeamData?.team?.id, "champions league") ? "★ " : ""}
+                {isFavorite(awayTeamData?.team?.id, "champions league")
+                  ? "★ "
+                  : ""}
                 {awayTeamData?.team?.displayName || "Away Team"}
               </Text>
             </View>
@@ -2995,11 +3021,13 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
 
     // Ensure colors are properly formatted with # prefix
     let homeColor =
-      ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) ||
-      "#007bff";
+      ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        homeTeam?.team,
+      ) || "#007bff";
     let awayColor =
-      ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) ||
-      "#28a745";
+      ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+        awayTeam?.team,
+      ) || "#28a745";
 
     // Add # prefix if missing
     homeColor = homeColor.startsWith("#") ? homeColor : `#${homeColor}`;
@@ -4096,7 +4124,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
             setTimeout(() => setPlayerShareVisible(true), 300);
           }
         }}
-            delayLongPress={250}
+        delayLongPress={250}
         activeOpacity={0.7}
       >
         <View style={styles.playerCircle}>
@@ -4264,7 +4292,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                     setTimeout(() => setPlayerShareVisible(true), 300);
                   }
                 }}
-            delayLongPress={250}
+                delayLongPress={250}
                 activeOpacity={0.7}
               >
                 <Text
@@ -4625,7 +4653,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         // Track scores from goal text
         // ESPN format: "Goal! HomeTeam X, AwayTeam Y. ..." — home team is ALWAYS listed first
         const text = play.text || "";
-        const goalMatch = text.match(/([A-Za-z\s]+)\s+(\d+),\s*([A-Za-z\s]+)\s+(\d+)/);
+        const goalMatch = text.match(
+          /([A-Za-z\s]+)\s+(\d+),\s*([A-Za-z\s]+)\s+(\d+)/,
+        );
         if (isGoalPlay && goalMatch) {
           const score1 = parseInt(goalMatch[2], 10);
           const score2 = parseInt(goalMatch[4], 10);
@@ -5708,9 +5738,12 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
     // Position info
     const posName = player.position?.displayName || "";
     const posAbbr = player.position?.abbreviation || "";
-    const isGK = posAbbr === "G" || posName.toLowerCase().includes("goalkeeper");
+    const isGK =
+      posAbbr === "G" || posName.toLowerCase().includes("goalkeeper");
     const isDEF =
-      posAbbr.includes("D") || posName.toLowerCase().includes("defender") || posName.toLowerCase().includes("back");
+      posAbbr.includes("D") ||
+      posName.toLowerCase().includes("defender") ||
+      posName.toLowerCase().includes("back");
     const isMF =
       posAbbr.includes("M") || posName.toLowerCase().includes("midfielder");
 
@@ -5728,10 +5761,19 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       shareStatItems = [
         { label: "SV", value: s("SV") ?? gs.saves ?? 0 },
         { label: "GA", value: s("GA") ?? gs.goalsConceded ?? 0 },
-        { label: "PASS", value: s("APP") != null ? (gs.totalPasses ?? "—") : "—" },
-        { label: "PASS %", value: gs.totalPasses > 0 ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%` : "—" },
+        {
+          label: "PASS",
+          value: s("APP") != null ? (gs.totalPasses ?? "—") : "—",
+        },
+        {
+          label: "PASS %",
+          value:
+            gs.totalPasses > 0
+              ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%`
+              : "—",
+        },
         { label: "CLR", value: gs.clearances ?? "—" },
-        { label: "MIN", value: s("APP") != null ? gs.minutes ?? "—" : "—" },
+        { label: "MIN", value: s("APP") != null ? (gs.minutes ?? "—") : "—" },
         { label: "YC", value: s("YC") ?? gs.yellowCards ?? 0 },
         { label: "RC", value: s("RC") ?? gs.redCards ?? 0 },
         { label: "OG", value: s("OG") ?? gs.ownGoals ?? 0 },
@@ -5745,7 +5787,13 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         { label: "TCKL", value: gs.tackles ?? "—" },
         { label: "CLR", value: gs.clearances ?? "—" },
         { label: "PASS", value: gs.totalPasses ?? "—" },
-        { label: "PASS %", value: gs.totalPasses > 0 ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%` : "—" },
+        {
+          label: "PASS %",
+          value:
+            gs.totalPasses > 0
+              ? `${Math.round((gs.accuratePasses / gs.totalPasses) * 100)}%`
+              : "—",
+        },
         { label: "MIN", value: gs.minutes ?? "—" },
         { label: "YC", value: s("YC") ?? gs.yellowCards ?? 0 },
         { label: "RC", value: s("RC") ?? gs.redCards ?? 0 },
@@ -5754,18 +5802,30 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
     }
 
     // Summary row (first 4 non-zero)
-    const summaryItems = shareStatItems.filter(
-      (i) => i.value != null && i.value !== 0 && i.value !== "—" && i.value !== "",
-    ).slice(0, 4);
+    const summaryItems = shareStatItems
+      .filter(
+        (i) =>
+          i.value != null && i.value !== 0 && i.value !== "—" && i.value !== "",
+      )
+      .slice(0, 4);
     const summaryFill = shareStatItems
       .filter((i) => !summaryItems.find((s) => s.label === i.label))
       .slice(0, 4 - summaryItems.length);
     const summaryStats = [...summaryItems, ...summaryFill].slice(0, 4);
 
-    const initials = [athlete.shortName?.[0], athlete.lastName?.[0]]
-      .filter(Boolean)
-      .join("")
-      .toUpperCase() || fullName.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "P";
+    const initials =
+      [athlete.shortName?.[0], athlete.lastName?.[0]]
+        .filter(Boolean)
+        .join("")
+        .toUpperCase() ||
+      fullName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0])
+        .join("")
+        .toUpperCase() ||
+      "P";
 
     console.log(athlete);
 
@@ -5774,7 +5834,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       initials,
       jersey,
       posAbbr: posAbbr || "—",
-      posName : posName || null,
+      posName: posName || null,
       teamType,
       teamColor,
       textOnBg,
@@ -5815,18 +5875,34 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
               style={{ overflow: "hidden" }}
             >
               <View
-                style={[styles.playerShareCard, { width: cardWidth, backgroundColor: theme.surface }]}
+                style={[
+                  styles.playerShareCard,
+                  { width: cardWidth, backgroundColor: theme.surface },
+                ]}
               >
                 {/* Header */}
                 <View
                   style={[
                     styles.playerShareHeader,
-                    { backgroundColor: `${d.teamColor}22`, borderBottomColor: d.teamColor },
+                    {
+                      backgroundColor: `${d.teamColor}22`,
+                      borderBottomColor: d.teamColor,
+                    },
                   ]}
                 >
                   <View style={styles.playerShareTopRow}>
-                    <View style={[styles.playerSharePosBadge, { backgroundColor: d.teamColor }]}>
-                      <Text style={[styles.playerSharePosBadgeText, { color: d.textOnBg }]}>
+                    <View
+                      style={[
+                        styles.playerSharePosBadge,
+                        { backgroundColor: d.teamColor },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.playerSharePosBadgeText,
+                          { color: d.textOnBg },
+                        ]}
+                      >
                         #{d.jersey || "?"} · {d.posName || d.posAbbr}
                       </Text>
                     </View>
@@ -5838,12 +5914,31 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                           isDarkMode={isDarkMode}
                         />
                       )}
-                      <Text style={[styles.playerShareScoreText, { color: theme.text }]}>
-                        <Text style={{ fontWeight: Number(d.homeScore) > Number(d.awayScore) ? "800" : "400" }}>
+                      <Text
+                        style={[
+                          styles.playerShareScoreText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            fontWeight:
+                              Number(d.homeScore) > Number(d.awayScore)
+                                ? "800"
+                                : "400",
+                          }}
+                        >
                           {d.homeScore}
                         </Text>
                         {" - "}
-                        <Text style={{ fontWeight: Number(d.awayScore) > Number(d.homeScore) ? "800" : "400" }}>
+                        <Text
+                          style={{
+                            fontWeight:
+                              Number(d.awayScore) > Number(d.homeScore)
+                                ? "800"
+                                : "400",
+                          }}
+                        >
                           {d.awayScore}
                         </Text>
                       </Text>
@@ -5861,21 +5956,43 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                     <View
                       style={[
                         styles.playerShareAvatar,
-                        { backgroundColor: `${d.teamColor}30`, borderColor: d.teamColor, borderWidth: 2 },
+                        {
+                          backgroundColor: `${d.teamColor}30`,
+                          borderColor: d.teamColor,
+                          borderWidth: 2,
+                        },
                       ]}
                     >
-                      <Text style={[styles.playerShareInitials, { color: d.textOnBg }]}>
+                      <Text
+                        style={[
+                          styles.playerShareInitials,
+                          { color: d.textOnBg },
+                        ]}
+                      >
                         {d.initials}
                       </Text>
                     </View>
                     <View style={styles.playerShareNameRight}>
                       <View style={styles.playerShareSummaryRow}>
                         {d.summaryStats.map(({ label, value }) => (
-                          <View key={label} style={styles.playerShareSummaryCell}>
-                            <Text style={[styles.playerShareSummaryVal, { color: theme.text }]}>
+                          <View
+                            key={label}
+                            style={styles.playerShareSummaryCell}
+                          >
+                            <Text
+                              style={[
+                                styles.playerShareSummaryVal,
+                                { color: theme.text },
+                              ]}
+                            >
                               {value != null ? String(value) : "0"}
                             </Text>
-                            <Text style={[styles.playerShareSummaryLbl, { color: theme.textSecondary }]}>
+                            <Text
+                              style={[
+                                styles.playerShareSummaryLbl,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
                               {label}
                             </Text>
                           </View>
@@ -5883,25 +6000,39 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       </View>
                       <View style={styles.playerShareMetaRow}>
                         <View style={styles.playerShareMetaLeft}>
-                          <Text style={[styles.playerSharePlayerName, { color: theme.text }]} numberOfLines={1}>
+                          <Text
+                            style={[
+                              styles.playerSharePlayerName,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
                             {d.fullName}
                           </Text>
                           <View style={styles.playerShareTeamRow}>
-                            {d.teamType === "home" && d.homeTeamData?.team?.id && (
-                              <TeamLogoImage
-                                teamId={d.homeTeamData.team.id}
-                                style={styles.playerShareTeamLogo}
-                                isDarkMode={isDarkMode}
-                              />
-                            )}
-                            {d.teamType === "away" && d.awayTeamData?.team?.id && (
-                              <TeamLogoImage
-                                teamId={d.awayTeamData.team.id}
-                                style={styles.playerShareTeamLogo}
-                                isDarkMode={isDarkMode}
-                              />
-                            )}
-                            <Text style={[styles.playerShareTeamName, { color: theme.textSecondary }]} numberOfLines={1}>
+                            {d.teamType === "home" &&
+                              d.homeTeamData?.team?.id && (
+                                <TeamLogoImage
+                                  teamId={d.homeTeamData.team.id}
+                                  style={styles.playerShareTeamLogo}
+                                  isDarkMode={isDarkMode}
+                                />
+                              )}
+                            {d.teamType === "away" &&
+                              d.awayTeamData?.team?.id && (
+                                <TeamLogoImage
+                                  teamId={d.awayTeamData.team.id}
+                                  style={styles.playerShareTeamLogo}
+                                  isDarkMode={isDarkMode}
+                                />
+                              )}
+                            <Text
+                              style={[
+                                styles.playerShareTeamName,
+                                { color: theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {d.teamType === "home"
                                 ? d.homeTeamData?.team?.displayName || "Home"
                                 : d.awayTeamData?.team?.displayName || "Away"}
@@ -5921,14 +6052,28 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       style={[
                         styles.playerShareStatCell,
                         { borderColor: theme.border },
-                        i % 3 !== 2 && { borderRightWidth: StyleSheet.hairlineWidth },
-                        i < Math.ceil(d.shareStatItems.length / 3) * 3 - 3 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                        i % 3 !== 2 && {
+                          borderRightWidth: StyleSheet.hairlineWidth,
+                        },
+                        i < Math.ceil(d.shareStatItems.length / 3) * 3 - 3 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                        },
                       ]}
                     >
-                      <Text style={[styles.playerShareStatVal, { color: theme.text }]}>
+                      <Text
+                        style={[
+                          styles.playerShareStatVal,
+                          { color: theme.text },
+                        ]}
+                      >
                         {value != null ? String(value) : "0"}
                       </Text>
-                      <Text style={[styles.playerShareStatLbl, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.playerShareStatLbl,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         {label}
                       </Text>
                     </View>
@@ -5936,8 +6081,18 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 </View>
 
                 {/* Footer */}
-                <View style={[styles.playerShareFooter, { borderTopColor: theme.border }]}>
-                  <Text style={[styles.playerShareFooterBrand, { color: theme.text }]}>
+                <View
+                  style={[
+                    styles.playerShareFooter,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.playerShareFooterBrand,
+                      { color: theme.text },
+                    ]}
+                  >
                     SportsHeart{" "}
                     <Ionicons name="heart" size={10} color={colors.primary} />
                   </Text>
@@ -5948,12 +6103,17 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
             {/* Action buttons outside ViewShot */}
             <View style={styles.playerShareActions}>
               <TouchableOpacity
-                style={[styles.playerShareActionBtn, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.playerShareActionBtn,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={handlePlayerShareCard}
                 disabled={sharingPlayerCard}
               >
                 {sharingPlayerCard ? (
-                  <Text style={styles.playerShareActionBtnText}>Sharing...</Text>
+                  <Text style={styles.playerShareActionBtnText}>
+                    Sharing...
+                  </Text>
                 ) : (
                   <>
                     <Ionicons name="share-outline" size={18} color="#fff" />
@@ -5962,10 +6122,20 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.playerShareActionBtn, { backgroundColor: theme.surfaceSecondary }]}
+                style={[
+                  styles.playerShareActionBtn,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
                 onPress={() => setPlayerShareVisible(false)}
               >
-                <Text style={[styles.playerShareActionBtnText, { color: theme.text }]}>Cancel</Text>
+                <Text
+                  style={[
+                    styles.playerShareActionBtnText,
+                    { color: theme.text },
+                  ]}
+                >
+                  Cancel
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -6138,7 +6308,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       setSelectedPlayer(null);
                     }}
                   >
-                    <Text allowFontScaling={false} style={styles.playerCloseText}>
+                    <Text
+                      allowFontScaling={false}
+                      style={styles.playerCloseText}
+                    >
                       ×
                     </Text>
                   </TouchableOpacity>
@@ -6826,12 +6999,26 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 )}
                 {currentStreamType && availableStreams[currentStreamType] && (
                   <WebView
-                    source={{ uri: availableStreams[currentStreamType] }}
+                    ref={(ref) => {
+                      if (ref) {
+                        ref.clearCache?.(true);
+                      }
+                    }}
+                    source={{
+                      uri:
+                        Platform.OS === "web"
+                          ? `${availableStreams[currentStreamType]}${availableStreams[currentStreamType].includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : availableStreams[currentStreamType],
+                    }}
+                    key={currentStreamType}
                     style={styles.streamWebView}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setStreamLoading(true)}
                     onLoadEnd={() => setStreamLoading(false)}
                     onError={() => setStreamLoading(false)}
@@ -8599,7 +8786,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "absolute", // Important for positioning
     marginLeft: 12.5,
-    marginTop: 3.5
+    marginTop: 3.5,
   },
   playerCircle: {
     width: 50, // Matches scoreboard.js exactly

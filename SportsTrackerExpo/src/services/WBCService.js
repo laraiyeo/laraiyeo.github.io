@@ -67,6 +67,38 @@ const TEAM_LOGO_MAP = {
   120: { abbr: "wsh", useMLB: true, color: "#AB0003" }, // Washington Nationals
   159: { abbr: "al", useMLB: true, color: "#134A8E" }, // American League All-Stars
   160: { abbr: "nl", useMLB: true, color: "#AB0003" }, // National League All-Stars
+
+    512: { useMLB: false, color: "#0C2340" }, // Toledo Mud Hens
+  1410: { useMLB: false, color: "#7A0019" }, // Lehigh Valley IronPigs
+  451: { useMLB: false, color: "#0E3386" }, // Iowa Cubs
+  2310: { useMLB: false, color: "#1D428A" }, // Reno Aces
+  400: { useMLB: false, color: "#002D62" }, // Las Vegas Aviators
+  529: { useMLB: false, color: "#003562" }, // Tacoma Rainiers
+  531: { useMLB: false, color: "#002C5D" }, // Scranton/Wilkes-Barre RailRiders
+  533: { useMLB: false, color: "#BD3039" }, // Worcester Red Sox
+  342: { useMLB: false, color: "#4B2E83" }, // Albuquerque Isotopes
+  534: { useMLB: false, color: "#EE2D24" }, // Rochester Red Wings
+  541: { useMLB: false, color: "#0057B8" }, // Omaha Storm Chasers
+  416: { useMLB: false, color: "#EC1C2C" }, // Louisville Bats
+  484: { useMLB: false, color: "#17202A" }, // Indianapolis Indians
+  102: { useMLB: false, color: "#091F40" }, // Round Rock Express
+  422: { useMLB: false, color: "#C8102E" }, // Buffalo Bisons
+  4904: { useMLB: false, color: "#BE0F34" }, // El Paso Chihuahuas
+  1960: { useMLB: false, color: "#000000" }, // St. Paul Saints
+  552: { useMLB: false, color: "#002D72" }, // Syracuse Mets
+  105: { useMLB: false, color: "#000000" }, // Sacramento River Cats
+  234: { useMLB: false, color: "#0055A5" }, // Durham Bulls
+  235: { useMLB: false, color: "#B01842" }, // Memphis Redbirds
+  556: { useMLB: false, color: "#002D62" }, // Nashville Sounds
+  494: { useMLB: false, color: "#0055A5" }, // Charlotte Knights
+  238: { useMLB: false, color: "#005A9C" }, // Oklahoma City Comets
+  431: { useMLB: false, color: "#002B5C" }, // Gwinnett Stripers
+  561: { useMLB: false, color: "#002D62" }, // Salt Lake Bees
+  564: { useMLB: false, color: "#041E42" }, // Jacksonville Jumbo Shrimp
+  568: { useMLB: false, color: "#28539C" }, // Norfolk Tides
+  5434: { useMLB: false, color: "#002D62" }, // Sugar Land Space Cowboys
+  445: { useMLB: false, color: "#0C2340" }, // Columbus Clippers
+
 };
 
 const COUNTRY_LOGO_URL = (abbr) =>
@@ -76,12 +108,23 @@ const MLB_LOGO_URL = (abbr, isDark) =>
 
 function _getTeamLogo(teamId, isDark = true) {
   if (!teamId) return null;
+
   const key = Number(teamId);
   const m = TEAM_LOGO_MAP[key];
-  if (m && m.abbr)
-    return m.useMLB ? MLB_LOGO_URL(m.abbr, isDark) : COUNTRY_LOGO_URL(m.abbr);
-  return null;
+
+  if (m?.useMLB && m.abbr) {
+    // MLB teams only
+    return MLB_LOGO_URL(m.abbr, isDark);
+  }
+
+  if (m?.abbr) {
+    return COUNTRY_LOGO_URL(m.abbr);
+  }
+
+  // MiLB fallback
+  return `https://www.mlbstatic.com/team-logos/${encodeURIComponent(String(key))}.svg`;
 }
+
 
 function _getTeamColor(teamId) {
   if (!teamId) return null;

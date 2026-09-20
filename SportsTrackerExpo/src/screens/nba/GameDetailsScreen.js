@@ -10145,7 +10145,18 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                   {streamUrl ? (
                     <WebView
-                      source={{ uri: streamUrl }}
+                      ref={(ref) => {
+                        if (ref) {
+                          ref.clearCache?.(true);
+                        }
+                      }}
+                      source={{
+                        uri:
+                          Platform.OS === "web"
+                            ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                            : streamUrl,
+                      }}
+                      key={streamUrl}
                       style={styles.streamWebView}
                       javaScriptEnabled={true}
                       domStorageEnabled={true}
@@ -10154,6 +10165,9 @@ const NBAGameDetailsScreen = ({ route }) => {
                       mixedContentMode="compatibility"
                       allowsInlineMediaPlayback={true}
                       mediaPlaybackRequiresUserAction={false}
+                      incognito={true}
+                      cacheEnabled={false}
+                      thirdPartyCookiesEnabled={false}
                       onLoadStart={() => setIsStreamLoading(true)}
                       onLoadEnd={() => setIsStreamLoading(false)}
                       onError={(error) => {

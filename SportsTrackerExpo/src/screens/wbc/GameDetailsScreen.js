@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Alert,
+  Platform,
 } from "react-native";
 import Svg, {
   Defs,
@@ -7522,7 +7523,18 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 )}
                 {streamUrl ? (
                   <WebView
-                    source={{ uri: streamUrl }}
+                    ref={(ref) => {
+                      if (ref) {
+                        ref.clearCache?.(true);
+                      }
+                    }}
+                    source={{
+                      uri:
+                        Platform.OS === "web"
+                          ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : streamUrl,
+                    }}
+                    key={streamUrl}
                     style={styles.webView}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
@@ -7531,6 +7543,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     mixedContentMode="compatibility"
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setIsStreamLoading(true)}
                     onLoadEnd={() => setIsStreamLoading(false)}
                     onError={(error) => {

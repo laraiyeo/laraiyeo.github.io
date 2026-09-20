@@ -14009,12 +14009,26 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 )}
                 {currentStreamType && availableStreams[currentStreamType] && (
                   <WebView
-                    source={{ uri: availableStreams[currentStreamType] }}
+                    ref={(ref) => {
+                      if (ref) {
+                        ref.clearCache?.(true);
+                      }
+                    }}
+                    source={{
+                      uri:
+                        Platform.OS === "web"
+                          ? `${availableStreams[currentStreamType]}${availableStreams[currentStreamType].includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : availableStreams[currentStreamType],
+                    }}
+                    key={currentStreamType}
                     style={styles.streamWebView}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setStreamLoading(true)}
                     onLoadEnd={() => setStreamLoading(false)}
                     onError={() => setStreamLoading(false)}

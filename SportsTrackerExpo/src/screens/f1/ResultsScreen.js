@@ -34,8 +34,13 @@ const { width } = Dimensions.get("window");
 
 const DATE_API_BASE =
   "https://sportsheart-motorsports.up.railway.app/racing/date";
-const DATE_CACHE_KEY = "racing_date_list:v1";
-const DATE_CACHE_TTL = 4 * 60 * 60 * 1000; // 3 hours
+const DATE_CACHE_KEY = "racing_date_list:v2";
+const DATE_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-cache, no-store, must-revalidate",
+  Pragma: "no-cache",
+};
 
 const DATE_ITEM_W = 90;
 const DATE_FADE_W = 50;
@@ -248,7 +253,7 @@ const resolveNascarLinkStatus = (dateStart, dateEnd, hasWinner = false) => {
   if (!startMs || Number.isNaN(startMs)) return "off";
   if (hasWinner) return "off";
   const nowMs = Date.now();
-  const liveUntilMs = endMs || startMs + 4 * 60 * 60 * 1000;
+  const liveUntilMs = endMs || startMs + 5 * 60 * 60 * 1000;
   return nowMs >= startMs && nowMs <= liveUntilMs ? "live" : "off";
 };
 
@@ -441,18 +446,18 @@ const F1EventRowCard = React.memo(
     const viewerStatus = isNascar
       ? {
           status:
-            hasWinner || (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
+            hasWinner || (startMs && nowMs > startMs + 5 * 60 * 60 * 1000)
               ? "finished"
               : startMs && nowMs >= startMs
                 ? "live"
                 : "scheduled",
           isCompleted: !!(
             hasWinner ||
-            (startMs && nowMs > startMs + 4 * 60 * 60 * 1000)
+            (startMs && nowMs > startMs + 5 * 60 * 60 * 1000)
           ),
           reason: hasWinner
             ? "Winner present"
-            : "Finished 3 hours after date start",
+            : "Finished 5 hours after date start",
         }
       : {
           status:
@@ -855,9 +860,22 @@ const ResultsScreen = () => {
         return status === "live";
       }
 
+      // F1: live if within time window
       const startMs = start ? Date.parse(start) : null;
       const endMs = end ? Date.parse(end) : null;
-      return startMs && endMs && nowMs >= startMs && nowMs <= endMs;
+      if (startMs && endMs && nowMs >= startMs && nowMs <= endMs) return true;
+
+      // F1: keep fetching if session has ended but no winner data yet
+      const winnerName =
+        event.winner || event.winner_name || event.meeting?.winner || "";
+      const winnerTeam =
+        event.winner_team ||
+        event.winnerTeam ||
+        event.meeting?.winner_team ||
+        "";
+      if (endMs && nowMs > endMs && !winnerName && !winnerTeam) return true;
+
+      return false;
     });
   }, []);
 
@@ -890,7 +908,8 @@ const ResultsScreen = () => {
             parsed &&
             parsed.fetchedAt &&
             Date.now() - parsed.fetchedAt < DATE_CACHE_TTL &&
-            Array.isArray(parsed.data)
+            Array.isArray(parsed.data) &&
+            parsed.data.length > 0
           ) {
             setAvailableDates(parsed.data);
             return parsed.data;
@@ -901,7 +920,10 @@ const ResultsScreen = () => {
       // ignore cache read errors
     }
 
-    const resp = await fetch(DATE_API_BASE);
+    const resp = await fetch(`${DATE_API_BASE}?_t=${Date.now()}`, {
+      headers: NO_CACHE_HEADERS,
+      cache: "no-store",
+    });
     const json = await resp.json();
     const rows = Array.isArray(json?.data) ? json.data : [];
     const dateStrs = Array.from(
@@ -926,7 +948,10 @@ const ResultsScreen = () => {
   }, []);
 
   const loadDateEvents = useCallback(async (dateStr) => {
-    const resp = await fetch(`${DATE_API_BASE}/${dateStr}`);
+    const resp = await fetch(`${DATE_API_BASE}/${dateStr}?_t=${Date.now()}`, {
+      headers: NO_CACHE_HEADERS,
+      cache: "no-store",
+    });
     const json = await resp.json();
     const rows = Array.isArray(json?.data) ? json.data : [];
     const sorted = rows.sort((a, b) => {
@@ -942,7 +967,8 @@ const ResultsScreen = () => {
     (async () => {
       setLoading(true);
       try {
-        const dateStrs = await loadAvailableDates(false);
+        // Always force-fetch fresh dates on initial load
+        const dateStrs = await loadAvailableDates(true);
         if (dateStrs && dateStrs.length > 0) {
           const todayStr = toDateStr(new Date());
           const next =
@@ -974,6 +1000,7 @@ const ResultsScreen = () => {
   }, [selectedDateStr, loadDateEvents]);
 
   // Polling for live events: update every 5 seconds if there are active sessions
+  // or if F1 sessions have ended but no winner data is shown yet
   useEffect(() => {
     const hasLive = checkLiveEvents(events);
 
@@ -1008,14 +1035,29 @@ const ResultsScreen = () => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Clear all cached data
+    setEvents([]);
+    setAvailableDates([]);
+    try {
+      await AsyncStorage.removeItem(DATE_CACHE_KEY);
+    } catch (e) {
+      // ignore
+    }
+    // Force fetch fresh data
     const dateStrs = await loadAvailableDates(true);
     if (dateStrs && dateStrs.length > 0) {
       const todayStr = toDateStr(new Date());
       const next = dateStrs.find((d) => d >= todayStr) || dateStrs.slice(-1)[0];
       setSelectedDateStr(next);
+      // Explicitly fetch events so it works even when date doesn't change
+      try {
+        await loadDateEvents(next);
+      } catch (e) {
+        setEvents([]);
+      }
     }
     setRefreshing(false);
-  }, [loadAvailableDates]);
+  }, [loadAvailableDates, loadDateEvents]);
 
   const getEventIdentityKey = useCallback((event, groupKey) => {
     const parts = [

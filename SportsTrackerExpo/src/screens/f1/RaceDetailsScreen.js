@@ -10,6 +10,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   Image,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -43,6 +44,11 @@ import ViewShot from "react-native-view-shot";
 
 const SERVER_BASE = "https://sportsheart-motorsports.up.railway.app/f1";
 const { width } = Dimensions.get("window");
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-cache, no-store, must-revalidate",
+  Pragma: "no-cache",
+};
 
 const BASE_TABS = [
   "Main",
@@ -1766,6 +1772,7 @@ const RaceDetailsScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState("Main");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [flowSelectedDrivers, setFlowSelectedDrivers] = useState(new Set());
   const [compareDrivers, setCompareDrivers] = useState([]);
   const [comparePickerOpen, setComparePickerOpen] = useState(false);
@@ -1826,11 +1833,15 @@ const RaceDetailsScreen = () => {
   const { viewerData, isJoined } = useGamePresence(sessionKey || meetingKey);
 
   const fetchSessionByKey = async (sKey, options = {}) => {
-    const { silent = false } = options;
+    const { silent = false, cacheBust } = options;
     if (!sKey) return;
     if (!silent) setLoading(true);
     try {
-      const resp = await fetch(`${SERVER_BASE}/session/${sKey}`);
+      const ts = cacheBust || Date.now();
+      const resp = await fetch(`${SERVER_BASE}/session/${sKey}?_t=${ts}`, {
+        headers: NO_CACHE_HEADERS,
+        cache: "no-store",
+      });
       const json = await resp.json();
       setData(json?.data ?? json);
       setSelectedSessionKey(sKey);
@@ -1848,7 +1859,14 @@ const RaceDetailsScreen = () => {
         if (sessionKey) {
           // Fetch meeting summary and session data
           try {
-            const resp = await fetch(`${SERVER_BASE}/meeting/${sessionKey}`);
+            const ts = Date.now();
+            const resp = await fetch(
+              `${SERVER_BASE}/meeting/${sessionKey}?_t=${ts}`,
+              {
+                headers: NO_CACHE_HEADERS,
+                cache: "no-store",
+              },
+            );
             const json = await resp.json();
             const meetingObj = json?.meeting ?? json?.data?.meeting ?? json;
             setMeetingInfo(meetingObj);
@@ -1863,7 +1881,14 @@ const RaceDetailsScreen = () => {
         } else if (meetingKey) {
           // Fetch meeting summary and session data
           try {
-            const resp = await fetch(`${SERVER_BASE}/meeting/${meetingKey}`);
+            const ts = Date.now();
+            const resp = await fetch(
+              `${SERVER_BASE}/meeting/${meetingKey}?_t=${ts}`,
+              {
+                headers: NO_CACHE_HEADERS,
+                cache: "no-store",
+              },
+            );
             const json = await resp.json();
             const meetingObj = json?.meeting ?? json?.data?.meeting ?? json;
             setMeetingInfo(meetingObj);
@@ -1889,11 +1914,26 @@ const RaceDetailsScreen = () => {
     load();
   }, [sessionKey, meetingKey]);
 
+  // Keep polling while session is live OR until winner data is shown
   useEffect(() => {
     if (!selectedSessionKey) return undefined;
 
+    const shouldPoll = () => {
+      // Always poll if session is live
+      if (sessionLiveRef.current) return true;
+      // F1: keep polling if session ended but no winner data yet
+      if (
+        Array.isArray(sessionResults) &&
+        sessionResults.length > 0 &&
+        !sessionResults.some((r) => Number(r.position) === 1)
+      ) {
+        return true;
+      }
+      return false;
+    };
+
     const pollSession = () => {
-      if (sessionLiveRef.current) {
+      if (shouldPoll()) {
         fetchSessionByKey(selectedSessionKeyRef.current || selectedSessionKey, {
           silent: true,
         });
@@ -1904,7 +1944,7 @@ const RaceDetailsScreen = () => {
     const intervalId = setInterval(pollSession, 5000);
 
     return () => clearInterval(intervalId);
-  }, [selectedSessionKey]);
+  }, [selectedSessionKey, sessionResults]);
 
   // Auto-select 1st and 2nd position drivers for Compare tab
   useEffect(() => {
@@ -4278,7 +4318,7 @@ const RaceDetailsScreen = () => {
           const altAdminSource = alternativeMatch.sources.find(
             (source) => source.source === "admin",
           );
-          const streamUrl = `https://embedsports.top/embed/admin/${altAdminSource.id}/1`;
+          const streamUrl = `https://embed.st/embed/admin/${altAdminSource.id}/2`;
           console.log("Found alternative Grand Prix stream:", streamUrl);
           return streamUrl;
         }
@@ -4287,7 +4327,7 @@ const RaceDetailsScreen = () => {
       }
 
       // Build the embed URL
-      const streamUrl = `https://embedsports.top/embed/admin/${adminSource.id}/1`;
+      const streamUrl = `https://embed.st/embed/admin/${adminSource.id}/2`;
       console.log("Grand Prix stream URL:", streamUrl);
       return streamUrl;
     } catch (error) {
@@ -4464,7 +4504,65 @@ const RaceDetailsScreen = () => {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              // Clear all cached data
+              setData(null);
+              setMeetingInfo(null);
+              setSessionsList([]);
+              // Re-fetch everything fresh with cache-busting
+              const ts = Date.now();
+              try {
+                if (sessionKey) {
+                  const resp = await fetch(
+                    `${SERVER_BASE}/meeting/${sessionKey}?_t=${ts}`,
+                    {
+                      headers: NO_CACHE_HEADERS,
+                      cache: "no-store",
+                    },
+                  );
+                  const json = await resp.json();
+                  const meetingObj =
+                    json?.meeting ?? json?.data?.meeting ?? json;
+                  setMeetingInfo(meetingObj);
+                  setSessionsList(json?.sessions ?? meetingObj?.sessions ?? []);
+                  await fetchSessionByKey(sessionKey, {
+                    silent: true,
+                    cacheBust: ts,
+                  });
+                } else if (meetingKey) {
+                  const resp = await fetch(
+                    `${SERVER_BASE}/meeting/${meetingKey}?_t=${ts}`,
+                    {
+                      headers: NO_CACHE_HEADERS,
+                      cache: "no-store",
+                    },
+                  );
+                  const json = await resp.json();
+                  const meetingObj =
+                    json?.meeting ?? json?.data?.meeting ?? json;
+                  setMeetingInfo(meetingObj);
+                  setSessionsList(json?.sessions ?? meetingObj?.sessions ?? []);
+                  await fetchSessionByKey(meetingKey, {
+                    silent: true,
+                    cacheBust: ts,
+                  });
+                }
+              } catch (e) {
+                console.warn("[RaceDetailsScreen] refresh failed", e);
+              }
+              setRefreshing(false);
+            }}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {activeTab === "Main" && (
           <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
             {/* New standalone container above circuit (winner / summary) */}
@@ -6735,12 +6833,26 @@ const RaceDetailsScreen = () => {
                 {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
                 {(selectedStream !== 3 || grandPrixStreamUrl) && (
                   <WebView
+                    ref={(ref) => {
+                      if (ref) {
+                        ref.clearCache?.(true);
+                      }
+                    }}
                     source={{
                       uri:
-                        selectedStream === 3 && grandPrixStreamUrl
-                          ? grandPrixStreamUrl
-                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`,
+                        Platform.OS === "web"
+                          ? (() => {
+                              const base =
+                                selectedStream === 3 && grandPrixStreamUrl
+                                  ? grandPrixStreamUrl
+                                  : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                              return `${base}${base.includes("?") ? "&" : "?"}_nocache=${Date.now()}`;
+                            })()
+                          : selectedStream === 3 && grandPrixStreamUrl
+                            ? grandPrixStreamUrl
+                            : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`,
                     }}
+                    key={selectedStream}
                     style={[
                       styles.streamWebView,
                       {
@@ -6758,6 +6870,9 @@ const RaceDetailsScreen = () => {
                     mixedContentMode="compatibility"
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
+                    incognito={true}
+                    cacheEnabled={false}
+                    thirdPartyCookiesEnabled={false}
                     onLoadStart={() => setIsStreamLoading(true)}
                     onLoadEnd={() => setIsStreamLoading(false)}
                     onError={(error) => {
@@ -6807,7 +6922,7 @@ const RaceDetailsScreen = () => {
                       const streamUrl =
                         selectedStream === 3 && grandPrixStreamUrl
                           ? grandPrixStreamUrl
-                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                          : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
                       if (request.url === streamUrl) {
                         return true;
                       }

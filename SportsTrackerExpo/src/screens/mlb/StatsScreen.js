@@ -6,14 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  FlatList,
 } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../services/ads";
+import WBCService from "../../services/WBCService";
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -26,9 +25,7 @@ const StatsScreen = ({ route }) => {
   const [hittingStats, setHittingStats] = useState({});
   const [pitchingStats, setPitchingStats] = useState({});
   const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalData, setModalData] = useState([]);
-  const [modalTitle, setModalTitle] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   const leagues = [
     { key: "ALL", name: "All MLB", id: null },
@@ -135,97 +132,148 @@ const StatsScreen = ({ route }) => {
     return teamMapping[teamId] || "MLB";
   };
 
-  const openModal = (leaders, categoryName) => {
-    setModalData(leaders);
-    setModalTitle(categoryName);
-    setModalVisible(true);
+  const navigateToPlayer = (playerId) => {
+    navigation.navigate("PlayerPage", {
+      playerId,
+      sport: "mlb",
+    });
   };
 
-  const renderLeaderRow = (leader, index, isFirst = false) => {
+  const getHeadshotUrl = (playerId) =>
+    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
+
+  const getTeamColor = (teamId) => {
+    return WBCService.getTeamColor(teamId) || colors.primary;
+  };
+
+  const renderPodiumPlayer = (leader, rank, barHeight, barColor) => {
+    const teamAbbr = getTeamAbbreviation(leader.team.id);
+    const teamColor = getTeamColor(leader.team.id);
+    const isFirst = rank === 1;
+
+    return (
+      <TouchableOpacity
+        key={leader.person.id}
+        style={styles.podiumPlayer}
+        onPress={() => navigateToPlayer(leader.person.id)}
+        activeOpacity={0.7}
+      >
+        {/* Headshot with logo overlay */}
+        <View style={styles.podiumHeadshotContainer}>
+          <Image
+            cachePolicy="memory-disk"
+            source={{ uri: getHeadshotUrl(leader.person.id) }}
+            style={[
+              styles.podiumHeadshot,
+              { borderColor: teamColor },
+              isFirst && styles.podiumHeadshotFirst,
+            ]}
+            defaultSource={{ uri: "https://via.placeholder.com/60x60?text=MLB" }}
+          />
+          <Image
+            cachePolicy="memory-disk"
+            source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
+            style={[
+              styles.podiumLogoOverlay,
+              { borderColor: teamColor },
+              isFirst && styles.podiumLogoOverlayFirst,
+            ]}
+          />
+        </View>
+
+        {/* Name */}
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={[styles.podiumName, { color: theme.text }, isFirst && styles.podiumNameFirst]}
+        >
+          {leader.person.fullName}
+        </Text>
+
+        {/* Bar with value */}
+        <View
+          style={[
+            styles.podiumBar,
+            {
+              height: barHeight,
+              backgroundColor: barColor,
+            },
+            isFirst && styles.podiumBarFirst,
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.podiumBarValue, isFirst && styles.podiumBarValueFirst]}
+          >
+            {leader.value}
+          </Text>
+        </View>
+
+        {/* Rank badge */}
+        <View style={[styles.podiumRankBadge, { backgroundColor: barColor }]}>
+          <Text allowFontScaling={false} style={styles.podiumRankText}>
+            {rank}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderRemainingPlayer = (leader) => {
     const teamAbbr = getTeamAbbreviation(leader.team.id);
 
-    if (isFirst) {
-      return (
-        <View
-          key={leader.person.id}
-          style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}
+    return (
+      <TouchableOpacity
+        key={leader.person.id}
+        style={[styles.remainingRow, { borderBottomColor: theme.border }]}
+        onPress={() => navigateToPlayer(leader.person.id)}
+        activeOpacity={0.7}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.remainingRank, { color: theme.textSecondary }]}
         >
-          <Image cachePolicy="memory-disk"
-            source={{
-              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${leader.person.id}/headshot/67/current`,
-            }}
-            style={styles.playerHeadshot}
-            defaultSource={{
-              uri: "https://via.placeholder.com/50x50?text=MLB",
-            }}
-          />
-          <View style={styles.firstLeaderInfo}>
-            <View style={styles.playerNameRow}>
-              <Image cachePolicy="memory-disk"
-                source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
-                style={styles.teamLogoSmall}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.playerName, { color: theme.text }]}
-              >
-                {leader.person.fullName}
-              </Text>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[styles.teamName, { color: theme.textSecondary }]}
-            >
-              {leader.team.name}
-            </Text>
-          </View>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statValue, { color: colors.primary }]}
-          >
-            {leader.value}
-          </Text>
-        </View>
-      );
-    } else {
-      return (
-        <View key={leader.person.id} style={styles.leaderRow}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.rank, { color: theme.textSecondary }]}
-          >
-            {leader.rank}
-          </Text>
-          <Image cachePolicy="memory-disk"
-            source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
-            style={styles.teamLogoSmall}
-          />
-          <Text
-            allowFontScaling={false}
-            style={[styles.playerNameCompact, { color: theme.text }]}
-          >
-            {leader.person.fullName}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statValueCompact, { color: colors.primary }]}
-          >
-            {leader.value}
-          </Text>
-        </View>
-      );
-    }
+          {leader.rank}
+        </Text>
+        <Image
+          cachePolicy="memory-disk"
+          source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
+          style={styles.remainingTeamLogo}
+        />
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={[styles.remainingName, { color: theme.text }]}
+        >
+          {leader.person.fullName}
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.remainingValue, { color: colors.primary }]}
+        >
+          {leader.value}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   const renderCategory = (categoryKey, categoryInfo, stats) => {
     const leaders = stats[categoryKey] || [];
-    const displayLeaders = leaders.slice(0, 5);
+    if (leaders.length === 0) return null;
+
+    const podiumLeaders = leaders.slice(0, 3);
+    const remainingLeaders = leaders.slice(3);
+    const isExpanded = expandedCategories[categoryKey] || false;
+
+    // Arrange podium: 2nd (left), 1st (center), 3rd (right)
+    const first = podiumLeaders.find((l) => l.rank === 1) || podiumLeaders[0];
+    const second = podiumLeaders.find((l) => l.rank === 2) || podiumLeaders[1];
+    const third = podiumLeaders.find((l) => l.rank === 3) || podiumLeaders[2];
 
     return (
-      <TouchableOpacity
+      <View
         key={categoryKey}
         style={[styles.categoryContainer, { backgroundColor: theme.surface }]}
-        onPress={() => openModal(leaders, categoryInfo.name)}
       >
         <Text
           allowFontScaling={false}
@@ -233,75 +281,52 @@ const StatsScreen = ({ route }) => {
         >
           {categoryInfo.name}
         </Text>
-        {displayLeaders.map((leader, index) =>
-          renderLeaderRow(leader, index, index === 0),
+
+        {/* Podium */}
+        <View style={styles.podiumContainer}>
+          {/* 2nd Place - Left */}
+          {second && renderPodiumPlayer(second, 2, 70, "#C0C0C0")}
+
+          {/* 1st Place - Center */}
+          {first && renderPodiumPlayer(first, 1, 100, "#FFD700")}
+
+          {/* 3rd Place - Right */}
+          {third && renderPodiumPlayer(third, 3, 55, "#CD7F32")}
+        </View>
+
+        {/* Remaining players (expandable) */}
+        {remainingLeaders.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={[styles.expandButton, { borderColor: colors.primary }]}
+              onPress={() =>
+                setExpandedCategories((prev) => ({
+                  ...prev,
+                  [categoryKey]: !prev[categoryKey],
+                }))
+              }
+              activeOpacity={0.7}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.expandButtonText, { color: colors.primary }]}
+              >
+                {isExpanded
+                  ? "▲ Collapse"
+                  : `▼ Expand to view ${remainingLeaders.length} more`}
+              </Text>
+            </TouchableOpacity>
+
+            {isExpanded && (
+              <View style={styles.remainingContainer}>
+                {remainingLeaders.map((leader) => renderRemainingPlayer(leader))}
+              </View>
+            )}
+          </>
         )}
-        {leaders.length > 5 && (
-          <Text
-            allowFontScaling={false}
-            style={[styles.viewMore, { color: colors.secondary }]}
-          >
-            Tap to view all {leaders.length} leaders
-          </Text>
-        )}
-      </TouchableOpacity>
+      </View>
     );
   };
-
-  const renderModalItem = ({ item, index }) => (
-    <TouchableOpacity
-      style={[styles.modalItem, { backgroundColor: theme.surface }]}
-      onPress={() => {
-        setModalVisible(false);
-        navigation.navigate("PlayerPage", {
-          playerId: item.person.id,
-          sport: "mlb",
-        });
-      }}
-    >
-      <Text
-        allowFontScaling={false}
-        style={[styles.modalRank, { color: theme.textSecondary }]}
-      >
-        {item.rank}
-      </Text>
-      <Image cachePolicy="memory-disk"
-        source={{
-          uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.person.id}/headshot/67/current`,
-        }}
-        style={styles.modalHeadshot}
-        defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
-      />
-      <View style={styles.modalPlayerInfo}>
-        <View style={styles.modalNameRow}>
-          <Image cachePolicy="memory-disk"
-            source={{
-              uri: getTeamLogoUrl("mlb", getTeamAbbreviation(item.team.id)),
-            }}
-            style={styles.modalTeamLogo}
-          />
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalPlayerName, { color: theme.text }]}
-          >
-            {item.person.fullName}
-          </Text>
-        </View>
-        <Text
-          allowFontScaling={false}
-          style={[styles.modalTeamName, { color: theme.textSecondary }]}
-        >
-          {item.team.name}
-        </Text>
-      </View>
-      <Text
-        allowFontScaling={false}
-        style={[styles.modalStatValue, { color: colors.primary }]}
-      >
-        {item.value}
-      </Text>
-    </TouchableOpacity>
-  );
 
   if (loading) {
     return (
@@ -390,52 +415,6 @@ const StatsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      {/* Modal for full top 10 */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View
-          style={[styles.modalContainer, { backgroundColor: theme.background }]}
-        >
-          <View
-            style={[
-              styles.modalHeader,
-              {
-                backgroundColor: theme.surface,
-                borderBottomColor: theme.border,
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalHeaderTitle, { color: theme.text }]}
-            >
-              {modalTitle} Leaders
-            </Text>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.modalCloseButton}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.modalCloseText, { color: colors.primary }]}
-              >
-                Close
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={modalData}
-            renderItem={renderModalItem}
-            keyExtractor={(item) => item.person.id.toString()}
-            style={styles.modalList}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          />
-        </View>
-      </Modal>
       {!isPro && (
         <View
           style={{
@@ -513,146 +492,139 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: "center",
   },
-  firstLeaderRow: {
+
+  // ── Podium ──
+  podiumContainer: {
     flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  podiumPlayer: {
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    marginBottom: 8,
-  },
-  playerHeadshot: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  firstLeaderInfo: {
+    marginHorizontal: 6,
     flex: 1,
+    maxWidth: 110,
   },
-  playerNameRow: {
-    flexDirection: "row",
+  podiumHeadshotContainer: {
+    position: "relative",
+    marginBottom: 6,
+  },
+  podiumHeadshot: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+  },
+  podiumHeadshotFirst: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 3,
+  },
+  podiumLogoOverlay: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    backgroundColor: "#ffffff42",
+  },
+  podiumLogoOverlayFirst: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  podiumName: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 6,
+    maxWidth: 100,
+  },
+  podiumNameFirst: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  podiumBar: {
+    width: "100%",
+    borderRadius: 6,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 4,
+    minHeight: 36,
   },
-  teamLogoSmall: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
+  podiumBarFirst: {
+    borderRadius: 8,
   },
-  playerName: {
+  podiumBarValue: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#333",
   },
-  teamName: {
-    fontSize: 14,
-  },
-  statValue: {
+  podiumBarValueFirst: {
     fontSize: 20,
-    fontWeight: "bold",
-    minWidth: 60,
-    textAlign: "right",
+    color: "#5a4a00",
   },
-  leaderRow: {
+  podiumRankBadge: {
+    marginTop: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  podiumRankText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
+  },
+
+  // ── Expand / Collapse ──
+  expandButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  expandButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  remainingContainer: {
+    marginTop: 8,
+  },
+  remainingRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rank: {
-    fontSize: 14,
+  remainingRank: {
+    fontSize: 13,
     fontWeight: "600",
-    width: 30,
+    width: 28,
     textAlign: "center",
   },
-  playerNameCompact: {
+  remainingTeamLogo: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  remainingName: {
     flex: 1,
     fontSize: 14,
-    marginLeft: 8,
   },
-  statValueCompact: {
+  remainingValue: {
     fontSize: 16,
     fontWeight: "bold",
     minWidth: 50,
-    textAlign: "right",
-  },
-  viewMore: {
-    textAlign: "center",
-    marginTop: 8,
-    fontSize: 12,
-    fontStyle: "italic",
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  modalHeaderTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  modalCloseButton: {
-    padding: 8,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalList: {
-    flex: 1,
-    padding: 16,
-  },
-  modalItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  modalRank: {
-    fontSize: 16,
-    fontWeight: "bold",
-    width: 30,
-    textAlign: "center",
-  },
-  modalHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginHorizontal: 12,
-  },
-  modalPlayerInfo: {
-    flex: 1,
-  },
-  modalNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  modalTeamLogo: {
-    width: 16,
-    height: 16,
-    marginRight: 6,
-  },
-  modalPlayerName: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  modalTeamName: {
-    fontSize: 12,
-  },
-  modalStatValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    minWidth: 60,
     textAlign: "right",
   },
 });
