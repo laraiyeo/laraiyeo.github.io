@@ -18,7 +18,8 @@ html::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
 }
 
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
 }
@@ -77,7 +78,9 @@ body {
   padding: 1rem;
   background-color: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .game-block:hover {
@@ -138,7 +141,9 @@ body {
   transform: rotate(45deg);
   opacity: 0.8;
   border: 2px solid #000000;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .base-second {
@@ -251,7 +256,9 @@ body {
   padding: 20px;
   width: 315px;
   background-color: #000000;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .team-section:hover {
@@ -289,7 +296,9 @@ body {
   transform: rotate(45deg);
   opacity: 0.8;
   border: 1px solid #797979;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .small-base-second {
@@ -396,17 +405,17 @@ body {
 }
 
 @media (max-width: 525px) {
-.nav-right {
-  display: none;
-}
+  .nav-right {
+    display: none;
+  }
 
-.nav-toggle {
-  display: flex;
-}
+  .nav-toggle {
+    display: flex;
+  }
 
-.dropdown-menu.active {
-  display: flex;
-}
+  .dropdown-menu.active {
+    display: flex;
+  }
 }
 
 /* AIO Page Section Styling */
@@ -420,7 +429,9 @@ body {
   padding-bottom: 10px;
 }
 
-#live-section, #scheduled-section, #finished-section {
+#live-section,
+#scheduled-section,
+#finished-section {
   margin-bottom: 40px;
 }
 

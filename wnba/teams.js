@@ -58,11 +58,17 @@ function darkenColor(hex, amount) {
   const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
   const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
   const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 // Build team-color gradient CSS string
-function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity, dir) {
+function getTeamGradientStr(
+  leftColor,
+  rightColor,
+  customBgColor,
+  opacity,
+  dir,
+) {
   const alpha = opacity / 100;
   const darkerLeft = darkenColor(leftColor);
   const darkerRight = darkenColor(rightColor);
@@ -76,10 +82,34 @@ function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity, dir) 
 
 // Get gradient style + data attrs as inline string
 function getGradientStyleAttrs(awayColor, homeColor, dir) {
-  var styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
-  var gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity, dir);
-  var dirAttr = dir ? ' data-dir="1"' : '';
-  return 'style="background:' + gradient + ';color:' + styles.textColor + ';" data-away-color="' + awayColor + '" data-home-color="' + homeColor + '"' + dirAttr;
+  var styles =
+    typeof window !== "undefined" && window.getCustomStyles
+      ? window.getCustomStyles()
+      : {
+          backgroundColor: "#000000",
+          backgroundOpacity: 100,
+          textColor: "#ffffff",
+        };
+  var gradient = getTeamGradientStr(
+    awayColor,
+    homeColor,
+    styles.backgroundColor,
+    styles.backgroundOpacity,
+    dir,
+  );
+  var dirAttr = dir ? ' data-dir="1"' : "";
+  return (
+    'style="background:' +
+    gradient +
+    ";color:" +
+    styles.textColor +
+    ';" data-away-color="' +
+    awayColor +
+    '" data-home-color="' +
+    homeColor +
+    '"' +
+    dirAttr
+  );
 }
 
 async function buildGameCard(game, team) {
@@ -149,8 +179,8 @@ async function buildGameCard(game, team) {
       homeTeam.shortDisplayName || "Unknown",
     );
 
-    const awayColor = awayTeam?.color ? '#' + awayTeam.color : '#000000';
-    const homeColor = homeTeam?.color ? '#' + homeTeam.color : '#000000';
+    const awayColor = awayTeam?.color ? "#" + awayTeam.color : "#000000";
+    const homeColor = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
     return `
       <div class="game-card scheduled-game-card" ${getGradientStyleAttrs(awayColor, homeColor)}>
@@ -215,8 +245,8 @@ async function buildGameCard(game, team) {
       homeTeam?.shortDisplayName || "Unknown",
     );
 
-    const awayColorFinal = awayTeam?.color ? '#' + awayTeam.color : '#000000';
-    const homeColorFinal = homeTeam?.color ? '#' + homeTeam.color : '#000000';
+    const awayColorFinal = awayTeam?.color ? "#" + awayTeam.color : "#000000";
+    const homeColorFinal = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
     return `
       <div class="game-card final-game-card" ${getGradientStyleAttrs(awayColorFinal, homeColorFinal)}>
@@ -303,8 +333,8 @@ async function buildGameCard(game, team) {
         ? `End of ${currentPeriod}`
         : currentPeriod;
 
-    const awayColorLive = awayTeam?.color ? '#' + awayTeam.color : '#000000';
-    const homeColorLive = homeTeam?.color ? '#' + homeTeam.color : '#000000';
+    const awayColorLive = awayTeam?.color ? "#" + awayTeam.color : "#000000";
+    const homeColorLive = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
     return `
       <div class="game-card in-progress-game-card" ${getGradientStyleAttrs(awayColorLive, homeColorLive)}>
@@ -335,10 +365,10 @@ async function buildGameCard(game, team) {
       </div>
     `;
   } else {
-    const awayColorNone = team?.color ? '#' + team.color : '#000000';
+    const awayColorNone = team?.color ? "#" + team.color : "#000000";
     const dir = true;
     return `
-      <div class="game-card no-game-card" ${getGradientStyleAttrs('#000000', awayColorNone, dir)}>
+      <div class="game-card no-game-card" ${getGradientStyleAttrs("#000000", awayColorNone, dir)}>
         <img src="${logoUrl}" alt="${team?.displayName || "Unknown"} logo" class="card-team-logo">
         <div class="no-game-text">No game scheduled <br> for today</div>
       </div>
@@ -507,7 +537,13 @@ function applyStylesToCards(styles) {
     const awayColor = card.getAttribute("data-away-color") || "#000000";
     const homeColor = card.getAttribute("data-home-color") || "#000000";
     const dir = card.getAttribute("data-dir") === "1";
-    const gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity, dir);
+    const gradient = getTeamGradientStr(
+      awayColor,
+      homeColor,
+      styles.backgroundColor,
+      styles.backgroundOpacity,
+      dir,
+    );
     card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
 

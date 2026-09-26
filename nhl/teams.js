@@ -553,7 +553,7 @@ function darkenColor(hex, amount) {
   const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
   const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
   const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 // Build team-color gradient CSS string
@@ -570,9 +570,31 @@ function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity) {
 
 // Get gradient style + data attrs as inline string
 function getGradientStyleAttrs(awayColor, homeColor) {
-  var styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
-  var gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
-  return 'style="background:' + gradient + ';color:' + styles.textColor + ';" data-away-color="' + awayColor + '" data-home-color="' + homeColor + '"';
+  var styles =
+    typeof window !== "undefined" && window.getCustomStyles
+      ? window.getCustomStyles()
+      : {
+          backgroundColor: "#000000",
+          backgroundOpacity: 100,
+          textColor: "#ffffff",
+        };
+  var gradient = getTeamGradientStr(
+    awayColor,
+    homeColor,
+    styles.backgroundColor,
+    styles.backgroundOpacity,
+  );
+  return (
+    'style="background:' +
+    gradient +
+    ";color:" +
+    styles.textColor +
+    ';" data-away-color="' +
+    awayColor +
+    '" data-home-color="' +
+    homeColor +
+    '"'
+  );
 }
 
 function getAdjustedDateForNHL() {
@@ -659,7 +681,7 @@ async function buildGameCard(game) {
   if (["PRE", "FUT"].includes(gameState)) {
     // Scheduled game card
     return `
-      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -683,7 +705,7 @@ async function buildGameCard(game) {
   } else if (["FINAL", "OFF"].includes(gameState)) {
     // Finished game card
     return `
-      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -710,7 +732,7 @@ async function buildGameCard(game) {
   } else {
     // Game in progress card
     return `
-      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -826,10 +848,26 @@ async function fetchGames() {
         noGameCard.className = "game-card no-game-card";
         noGameCard.setAttribute("data-away-color", "#000000");
         noGameCard.setAttribute("data-home-color", teamColorHex);
-        var noGameStyles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
-        var noGameGradient = getTeamGradientStr("#000000", teamColorHex, noGameStyles.backgroundColor, noGameStyles.backgroundOpacity);
+        var noGameStyles =
+          typeof window !== "undefined" && window.getCustomStyles
+            ? window.getCustomStyles()
+            : {
+                backgroundColor: "#000000",
+                backgroundOpacity: 100,
+                textColor: "#ffffff",
+              };
+        var noGameGradient = getTeamGradientStr(
+          "#000000",
+          teamColorHex,
+          noGameStyles.backgroundColor,
+          noGameStyles.backgroundOpacity,
+        );
         noGameCard.style.setProperty("background", noGameGradient, "important");
-        noGameCard.style.setProperty("color", noGameStyles.textColor, "important");
+        noGameCard.style.setProperty(
+          "color",
+          noGameStyles.textColor,
+          "important",
+        );
         noGameCard.style.display = "flex";
         noGameCard.style.alignItems = "center";
         noGameCard.style.gap = "35px";
@@ -936,7 +974,12 @@ function applyStylesToCards(styles) {
   gameCards.forEach((card) => {
     const awayColor = card.getAttribute("data-away-color") || "#000000";
     const homeColor = card.getAttribute("data-home-color") || "#000000";
-    const gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
+    const gradient = getTeamGradientStr(
+      awayColor,
+      homeColor,
+      styles.backgroundColor,
+      styles.backgroundOpacity,
+    );
     card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
   });
