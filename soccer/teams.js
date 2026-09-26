@@ -518,8 +518,10 @@ function buildNoGameCard(team) {
     : team.logos?.find((logo) => logo.rel.includes("dark"))?.href ||
       "soccer-ball-png-24.png";
 
+  const teamColorHex = team?.color ? '#' + team.color : '#000000';
+  const dir = true; // Use vertical gradient for no-game cards
   return `
-  <div class="game-card no-game-card">
+  <div class="game-card no-game-card" ${getGradientStyleAttrs('#000000', teamColorHex, dir)}>
     <img src="${logoUrl}" alt="${team.displayName} logo" class="card-team-logo">
     <div class="no-game-text">No game scheduled <br> this week</div>
   </div>
@@ -628,8 +630,11 @@ function buildGameCard(game, team, data) {
     // Scheduled game card
     const newTotal = total + 1;
 
+    const homeColorPre = homeTeam?.team?.color ? '#' + homeTeam.team.color : '#000000';
+    const awayColorPre = awayTeam?.team?.color ? '#' + awayTeam.team.color : '#000000';
+
     return `
-      <div class="game-card">
+      <div class="game-card" ${getGradientStyleAttrs(homeColorPre, awayColorPre)}>
         ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
@@ -649,8 +654,10 @@ function buildGameCard(game, team, data) {
     `;
   } else if (game.status.type.state === "post") {
     // Finished game card
+    const homeColorPost = homeTeam?.team?.color ? '#' + homeTeam.team.color : '#000000';
+    const awayColorPost = awayTeam?.team?.color ? '#' + awayTeam.team.color : '#000000';
     return `
-      <div class="game-card">
+      <div class="game-card" ${getGradientStyleAttrs(homeColorPost, awayColorPost)}>
         ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -677,8 +684,10 @@ function buildGameCard(game, team, data) {
   } else {
     // Live game card
     const newTotal = total + 1;
+    const homeColorLive = homeTeam?.team?.color ? '#' + homeTeam.team.color : '#000000';
+    const awayColorLive = awayTeam?.team?.color ? '#' + awayTeam.team.color : '#000000';
     return `
-        <div class="game-card">
+        <div class="game-card" ${getGradientStyleAttrs(homeColorLive, awayColorLive)}>
           ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="text-align: center;">
@@ -851,6 +860,37 @@ function hexToRgba(hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+// Darken a hex color for gradient transitions
+function darkenColor(hex, amount) {
+  amount = amount || 35;
+  const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
+  const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
+  const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// Build team-color gradient CSS string
+// dir=true means vertical (to bottom) for no-game cards; otherwise horizontal (to right)
+function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity, dir) {
+  const alpha = opacity / 100;
+  const darkerLeft = darkenColor(leftColor);
+  const darkerRight = darkenColor(rightColor);
+  const leftRgba = hexToRgba(leftColor, alpha);
+  const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
+  const darkerRightRgba = hexToRgba(darkerRight, alpha);
+  const rightRgba = hexToRgba(rightColor, alpha);
+  const direction = dir ? 'to bottom' : 'to right';
+  return `linear-gradient(${direction}, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
+}
+
+// Get gradient style + data attrs as inline string (SOCCER: flipped - home left, away right)
+function getGradientStyleAttrs(homeColor, awayColor, dir) {
+  var styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
+  var gradient = getTeamGradientStr(homeColor, awayColor, styles.backgroundColor, styles.backgroundOpacity, dir);
+  var dirAttr = dir ? ' data-dir="1"' : '';
+  return 'style="background:' + gradient + ';color:' + styles.textColor + ';" data-away-color="' + awayColor + '" data-home-color="' + homeColor + '"' + dirAttr;
+}
+
 const defaultStyles = {
   backgroundColor: "#000000",
   backgroundOpacity: 100,
@@ -897,14 +937,16 @@ function saveStyles(styles) {
   }
 }
 
-// Apply styles to all game cards
+// Apply styles to all game cards (SOCCER: home left, away right)
 function applyStylesToCards(styles) {
   const gameCards = document.querySelectorAll(".game-card");
   gameCards.forEach((card) => {
-    const opacity = styles.backgroundOpacity / 100;
-    const bgColor = hexToRgba(styles.backgroundColor, opacity);
-    card.style.backgroundColor = bgColor;
-    card.style.color = styles.textColor;
+    const homeColor = card.getAttribute("data-home-color") || "#000000";
+    const awayColor = card.getAttribute("data-away-color") || "#000000";
+    const dir = card.getAttribute("data-dir") === "1";
+    const gradient = getTeamGradientStr(homeColor, awayColor, styles.backgroundColor, styles.backgroundOpacity, dir);
+    card.style.setProperty("background", gradient, "important");
+    card.style.setProperty("color", styles.textColor, "important");
   });
 }
 

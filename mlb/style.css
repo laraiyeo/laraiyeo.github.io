@@ -99,8 +99,7 @@ body {
 }
 
 .game-card {
-  background-color: #000000;
-  border: 1px solid #444;
+  box-shadow: 0 0 5px rgb(0, 0, 0);
   border-radius: 10px;
   padding: 16px 20px;
   width: 275px;
@@ -108,7 +107,7 @@ body {
   color: white;
   text-align: center;
   position: relative;
-  box-shadow: 0 0 10px rgb(255, 255, 255);
+  background-color: #000000;
 }
 
 .game-card:hover {

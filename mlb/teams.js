@@ -30,6 +30,43 @@ const teamAbbrMap = {
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   }
+
+  // Darken a hex color for gradient transitions
+  function darkenColor(hex, amount) {
+    amount = amount || 35;
+    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
+    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
+    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
+  // Build team-color gradient for game cards
+  function getTeamGradient(leftColor, rightColor, customBgColor, opacity) {
+    const alpha = opacity / 100;
+    const darkerLeft = darkenColor(leftColor);
+    const darkerRight = darkenColor(rightColor);
+    const leftRgba = hexToRgba(leftColor, alpha);
+    const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
+    const darkerRightRgba = hexToRgba(darkerRight, alpha);
+    const rightRgba = hexToRgba(rightColor, alpha);
+    return `linear-gradient(to right, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
+  }
+
+  // Apply gradient + text color to a card DOM element
+  function applyCardGradient(card, awayColor, homeColor) {
+    const styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
+    const gradient = getTeamGradient(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
+    card.style.background = gradient;
+    card.style.color = styles.textColor;
+  }
+
+  // Apply gradient for a no-game card (left black, right = team color)
+  function applyNoGameGradient(card, teamColor) {
+    const styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
+    const gradient = getTeamGradient('#000000', teamColor, styles.backgroundColor, styles.backgroundOpacity);
+    card.style.background = gradient;
+    card.style.color = styles.textColor;
+  }
   
   async function getLogoUrl(teamName) {
     const abbr = teamAbbrMap[teamName];
@@ -116,16 +153,12 @@ const teamAbbrMap = {
     card.className = "game-card";
     card.setAttribute('data-game-pk', game.gamePk.toString());
     
-    // Apply custom styles if available
-    if (typeof window !== 'undefined' && window.getCustomStyles) {
-      const customStyles = window.getCustomStyles();
-      const opacity = customStyles.backgroundOpacity / 100;
-      const bgColor = hexToRgba(customStyles.backgroundColor, opacity);
-      card.style.backgroundColor = bgColor;
-      card.style.color = customStyles.textColor;
-    } else {
-      card.style.color = "#fff";
-    }
+    // Apply gradient using team colors (away left, home right)
+    const awayColor = teamColors[awayFull] || '#000000';
+    const homeColor = teamColors[homeFull] || '#000000';
+    card.setAttribute('data-away-color', awayColor);
+    card.setAttribute('data-home-color', homeColor);
+    applyCardGradient(card, awayColor, homeColor);
   
     if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
         const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
@@ -422,12 +455,11 @@ const teamAbbrMap = {
             noGameCard.style.gap = "35px";
             noGameCard.style.padding = "20px";
 
-            // Apply custom styles
-            const currentStyles = loadSavedStyles();
-            const opacity = currentStyles.backgroundOpacity / 100;
-            const bgColor = hexToRgba(currentStyles.backgroundColor, opacity);
-            noGameCard.style.backgroundColor = bgColor;
-            noGameCard.style.color = currentStyles.textColor;
+            // Apply gradient (left black, right = team color)
+            const teamColor = teamColors[team] || '#000000';
+            noGameCard.setAttribute('data-away-color', '#000000');
+            noGameCard.setAttribute('data-home-color', teamColor);
+            applyNoGameGradient(noGameCard, teamColor);
 
             noGameCard.innerHTML = `
               <img src="${logoUrl}" alt="${team} logo" style="width: 50px; height: 50px;">
@@ -487,24 +519,19 @@ const teamAbbrMap = {
     }
   }
 
-  // Apply styles to all game cards
+  // Apply styles to all game cards (re-build gradients with new colors/opacity)
   function applyStylesToCards(styles) {
     const gameCards = document.querySelectorAll('.game-card');
     gameCards.forEach(card => {
-      const opacity = styles.backgroundOpacity / 100;
-      const bgColor = hexToRgba(styles.backgroundColor, opacity);
-      card.style.setProperty('background-color', bgColor, 'important');
+      const awayColor = card.getAttribute('data-away-color') || '#000000';
+      const homeColor = card.getAttribute('data-home-color') || '#000000';
+      const gradient = getTeamGradient(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
+      card.style.setProperty('background', gradient, 'important');
       card.style.setProperty('color', styles.textColor, 'important');
     });
   }
 
-  // Convert hex color to rgba with opacity
-  function hexToRgba(hex, opacity) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  }
+  // (duplicate hexToRgba removed — using the one at the top of the file)
 
   // Validate hex color
   function isValidHex(hex) {

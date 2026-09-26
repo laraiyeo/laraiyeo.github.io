@@ -547,6 +547,34 @@ function hexToRgba(hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+// Darken a hex color for gradient transitions
+function darkenColor(hex, amount) {
+  amount = amount || 35;
+  const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
+  const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
+  const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// Build team-color gradient CSS string
+function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity) {
+  const alpha = opacity / 100;
+  const darkerLeft = darkenColor(leftColor);
+  const darkerRight = darkenColor(rightColor);
+  const leftRgba = hexToRgba(leftColor, alpha);
+  const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
+  const darkerRightRgba = hexToRgba(darkerRight, alpha);
+  const rightRgba = hexToRgba(rightColor, alpha);
+  return `linear-gradient(to right, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
+}
+
+// Get gradient style + data attrs as inline string
+function getGradientStyleAttrs(awayColor, homeColor) {
+  var styles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
+  var gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
+  return 'style="background:' + gradient + ';color:' + styles.textColor + ';" data-away-color="' + awayColor + '" data-home-color="' + homeColor + '"';
+}
+
 function getAdjustedDateForNHL() {
   const now = new Date();
   const estNow = new Date(
@@ -631,19 +659,19 @@ async function buildGameCard(game) {
   if (["PRE", "FUT"].includes(gameState)) {
     // Scheduled game card
     return `
-      <div class="game-card">
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-direction: column;">
               <span style="font-size: 0.9rem;">${awayRecord}</span>
+              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
             </div>
             <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(awayTeam.name)}</div>
           </div>
           <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-direction: column;">
               <span style="font-size: 0.9rem;">${homeRecord}</span>
               <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
             </div>
@@ -655,7 +683,7 @@ async function buildGameCard(game) {
   } else if (["FINAL", "OFF"].includes(gameState)) {
     // Finished game card
     return `
-      <div class="game-card">
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -682,7 +710,7 @@ async function buildGameCard(game) {
   } else {
     // Game in progress card
     return `
-      <div class="game-card">
+      <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || '#000000', teamColors[homeTeam.id] || '#000000')}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
@@ -793,8 +821,15 @@ async function fetchGames() {
         }
       } else {
         // No game scheduled card
+        const teamColorHex = teamColors[team.id] || "#000000";
         const noGameCard = document.createElement("div");
         noGameCard.className = "game-card no-game-card";
+        noGameCard.setAttribute("data-away-color", "#000000");
+        noGameCard.setAttribute("data-home-color", teamColorHex);
+        var noGameStyles = (typeof window !== 'undefined' && window.getCustomStyles) ? window.getCustomStyles() : { backgroundColor: '#000000', backgroundOpacity: 100, textColor: '#ffffff' };
+        var noGameGradient = getTeamGradientStr("#000000", teamColorHex, noGameStyles.backgroundColor, noGameStyles.backgroundOpacity);
+        noGameCard.style.setProperty("background", noGameGradient, "important");
+        noGameCard.style.setProperty("color", noGameStyles.textColor, "important");
         noGameCard.style.display = "flex";
         noGameCard.style.alignItems = "center";
         noGameCard.style.gap = "35px";
@@ -819,7 +854,7 @@ async function fetchGames() {
           bgOpacity: currentStyles.backgroundOpacity,
           textColor: currentStyles.textColor,
         });
-        const url = `https://sportsheart.ca/nhl/team.html?${styleParams.toString()}`;
+        const url = `http://127.0.0.1:5500/nhl/team.html?${styleParams.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.fullName}: ${url}`);
@@ -899,9 +934,10 @@ function saveStyles(styles) {
 function applyStylesToCards(styles) {
   const gameCards = document.querySelectorAll(".game-card");
   gameCards.forEach((card) => {
-    const opacity = styles.backgroundOpacity / 100;
-    const bgColor = hexToRgba(styles.backgroundColor, opacity);
-    card.style.setProperty("background-color", bgColor, "important");
+    const awayColor = card.getAttribute("data-away-color") || "#000000";
+    const homeColor = card.getAttribute("data-home-color") || "#000000";
+    const gradient = getTeamGradientStr(awayColor, homeColor, styles.backgroundColor, styles.backgroundOpacity);
+    card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
   });
 }

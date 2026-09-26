@@ -237,8 +237,7 @@ body {
 }
 
 .game-card {
-  background-color: #000000;
-  border: 1px solid #444;
+  box-shadow: 0 0 5px rgb(0, 0, 0);
   border-radius: 10px;
   padding: 16px 20px;
   width: 300px;

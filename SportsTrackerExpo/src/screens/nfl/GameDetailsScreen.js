@@ -3659,6 +3659,8 @@ const GameDetailsScreen = ({ route }) => {
     const awayStats = gameDetails.boxscore?.teams?.[0]?.statistics || [];
     const homeStats = gameDetails.boxscore?.teams?.[1]?.statistics || [];
 
+    const isScheduled = gameDetails.header?.competitions?.[0]?.status?.type?.state === "pre";
+
     // Parse a stat display value into a number for bar comparison
     const parseStatNum = (val) => {
       if (val == null) return 0;
@@ -3678,9 +3680,20 @@ const GameDetailsScreen = ({ route }) => {
       { key: "firstDowns", label: "First Downs" },
       { key: "thirdDownEff", label: "3rd Down Conv" },
       { key: "fourthDownEff", label: "4th Down Conv" },
-      { key: "turnovers", label: "Turnovers" },
-      { key: "totalPenaltiesYards", label: "Penalties" },
-      { key: "sacksYardsLost", label: "Sacks" },
+      { key: "turnovers", label: "Turnovers", opp: true },
+      { key: "totalPenaltiesYards", label: "Penalties", opp: true },
+      { key: "sacksYardsLost", label: "Sacks", opp: true},
+    ];
+
+    const schedBarStats = [
+      { key: "totalPointsPerGame", label: "Points Per Game" },
+      { key: "yardsPerGame", label: "Yards Per Game" },
+      { key: "passingYardsPerGame", label: "Passing Yards Per Game" },
+      { key: "rushingYardsPerGame", label: "Rushing Yards Per Game" },
+      { key: "totalPointsPerGameAllowed", label: "Points Per Game Allowed", opp: true },
+      { key: "yardsPerGameAllowed", label: "Yards Per Game Allowed", opp: true },
+      { key: "passingYardsPerGameAllowed", label: "Passing Yards Per Game Allowed", opp: true },
+      { key: "rushingYardsPerGameAllowed", label: "Rushing Yards Per Game Allowed", opp: true },
     ];
 
     const findStat = (stats, key) => stats.find((s) => s.name === key);
@@ -3819,14 +3832,17 @@ const GameDetailsScreen = ({ route }) => {
             )}
 
             {/* Bar Stats */}
-            {barStats.map((stat) => {
+            {(isScheduled ? schedBarStats : barStats).map((stat) => {
               const awayVal = findStat(awayStats, stat.key);
               const homeVal = findStat(homeStats, stat.key);
               const awayNum = parseStatNum(awayVal?.displayValue);
               const homeNum = parseStatNum(homeVal?.displayValue);
-              const total = awayNum + homeNum;
-              const awayShare = total > 0 ? awayNum / total : 0.5;
-              const homeShare = total > 0 ? homeNum / total : 0.5;
+              const displayAwayNum = stat.opp ? homeNum : awayNum;
+              const displayHomeNum = stat.opp ? awayNum : homeNum;
+
+              const total = displayAwayNum + displayHomeNum;
+              const awayShare = total > 0 ? displayAwayNum / total : 0.5;
+              const homeShare = total > 0 ? displayHomeNum / total : 0.5;
 
               return (
                 <View key={stat.key} style={nflStatsStyles.statRowWrap}>
@@ -3928,12 +3944,6 @@ const GameDetailsScreen = ({ route }) => {
           const homeWinChance = parseFloat(
             predictor.homeTeam?.gameProjection || "0",
           );
-          const awayTeamColor = awayTeam?.team?.color
-            ? `#${awayTeam.team.color}`
-            : colors.primary;
-          const homeTeamColor = homeTeam?.team?.color
-            ? `#${homeTeam.team.color}`
-            : colors.secondary;
 
           return (
             <View
@@ -4036,7 +4046,7 @@ const GameDetailsScreen = ({ route }) => {
                     style={{
                       height: "100%",
                       width: `${awayWinChance}%`,
-                      backgroundColor: awayTeamColor,
+                      backgroundColor: awayColor,
                       borderTopLeftRadius: 12,
                       borderBottomLeftRadius: 12,
                     }}
@@ -4045,7 +4055,7 @@ const GameDetailsScreen = ({ route }) => {
                     style={{
                       height: "100%",
                       width: `${homeWinChance}%`,
-                      backgroundColor: homeTeamColor,
+                      backgroundColor: homeColor,
                       borderTopRightRadius: 12,
                       borderBottomRightRadius: 12,
                     }}
