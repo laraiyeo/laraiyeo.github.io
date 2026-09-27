@@ -352,10 +352,10 @@ async function buildCard(game) {
     card.innerHTML = await buildFinalCardContent(
       awayFull,
       awayShort,
-      teams.away.score,
+      teams.away.score || 0,
       homeFull,
       homeShort,
-      teams.home.score,
+      teams.home.score || 0,
       inning,
       extraInning,
     );
@@ -584,7 +584,7 @@ async function fetchGames() {
 }
 
 fetchGames();
-setInterval(fetchGames, 2000);
+setInterval(fetchGames, 5000);
 
 // Game Card Customization functionality
 const defaultStyles = {
