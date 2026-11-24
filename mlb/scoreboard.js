@@ -1,2964 +1,2787 @@
-const BASE_URL = "https://statsapi.mlb.com";
+// ─── MLB Scoreboard ───────────────────────────────────────────────────────────
+// Split view: each panel has its own 5-tab bar (Main/Away/Home/Plays/Series)
+// Same tab cannot be open on both sides simultaneously
 
-const teamAbbrMap = {
-  "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
-  "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
-  "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
-  "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
-  "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
-  "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
-  "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
-  "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
-};
+(function () {
+  "use strict";
 
-const teamColors = {
-  "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#CE1141", "Baltimore Orioles": "#DF4601", "Boston Red Sox": "#BD3039",
-  "Chicago White Sox": "#27251F", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#E50022",
-  "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
-  "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#005A9C", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#FF5910", "Athletics": "#EFB21E",
-  "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#FDB827", "San Diego Padres": "#2F241D", "San Francisco Giants": "#FD5A1E",
-  "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
-  "Toronto Blue Jays": "#134A8E", "Washington Nationals": "#AB0003",
-  // Additional short name mappings
-  "Royals": "#004687", "Diamondbacks": "#A71930", "Braves": "#13274F", "Orioles": "#000000", "Red Sox": "#0C2340",
-  "White Sox": "#000000", "Cubs": "#0E3386", "Reds": "#C6011F", "Guardians": "#0F223E", "Rockies": "#333366",
-  "Tigers": "#0C2340", "Astros": "#002D62", "Angels": "#BA0021", "Dodgers": "#A5ACAF", "Marlins": "#00A3E0",
-  "Brewers": "#FFC52F", "Twins": "#002B5C", "Yankees": "#003087", "Mets": "#002D72", "Phillies": "#E81828",
-  "Pirates": "#27251F", "Padres": "#2F241D", "Giants": "#000000", "Mariners": "#005C5C", "Cardinals": "#C41E3A",
-  "Rays": "#092C5C", "Rangers": "#003278", "Blue Jays": "#1D2D5C", "Nationals": "#AB0003"
-};
+  const MLB_API = "https://sportsheart-baseball.up.railway.app";
+  const POLL_LIVE_MS = 5000;
+  const POLL_IDLE_MS = 30000;
 
-async function getLogoUrl(teamName) {
-  const abbr = teamAbbrMap[teamName];
-  if (!abbr) return "";
-  const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
-  const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(darkUrl);
-    img.onerror = () => resolve(lightUrl);
-    img.src = darkUrl;
-  });
-}
+  let gamePk = null,
+    gameData = null,
+    liveData = null,
+    pitchesData = null,
+    pollTimer = null;
+  // Track which tab each panel is on
+  let leftTab = "Main",
+    rightTab = "Away";
 
-function getQueryParam(param) {
-  return new URLSearchParams(window.location.search).get(param);
-}
+  // ─── Streaming state ────────────────────────────────────────────────────────
+  let streamModalVisible = false;
+  let currentStreamType = "";
+  let availableStreams = {};
+  let streamUrl = "";
 
-function ordinalSuffix(n) {
-  if (n > 3 && n < 21) return n + "th";
-  switch (n % 10) {
-    case 1: return n + "st";
-    case 2: return n + "nd";
-    case 3: return n + "rd";
-    default: return n + "th";
+  const $ = (s) => document.querySelector(s);
+  const sbHeader = $("#sbHeader");
+  const sbStickyHeader = $("#sbStickyHeader");
+  const sbLeftTabs = $("#sbLeftTabs");
+  const sbRightTabs = $("#sbRightTabs");
+  const sbLeftBody = $("#sbLeftBody");
+  const sbRightBody = $("#sbRightBody");
+
+  // ─── Render guard ───────────────────────────────────────────────────────────
+  // Polling re-renders every panel every few seconds. Rewriting innerHTML with
+  // identical markup reloads every headshot/logo and shows up as a flicker, so
+  // skip the DOM write when the generated markup is unchanged.
+  const lastPanelHtml = new WeakMap();
+  function setPanelHtml(el, html) {
+    if (!el) return false;
+    if (lastPanelHtml.get(el) === html) return false;
+    lastPanelHtml.set(el, html);
+    el.innerHTML = html;
+    return true;
   }
-}
 
-function renderBases(runners) {
-  return `
-    <div class="diamond">
-      <div class="base second ${runners.second ? "occupied" : ""}"></div>
-      <div class="base third ${runners.third ? "occupied" : ""}"></div>
-      <div class="base first ${runners.first ? "occupied" : ""}"></div>
-    </div>
-  `;
-}
-
-function renderCount(balls, strikes, outs) {
-  return `
-    <div class="count-display">
-      ${"🔴".repeat(outs)}${"⚪".repeat(3 - outs)} <br><br> Balls: ${balls} | Strikes: ${strikes}
-    </div>
-  `;
-}
-
-async function renderTopScoreboard(away, home, awayTeamData, homeTeamData, state, count, runners) {
-  const isSmallScreen = window.innerWidth <= 525;
-  let awayLogo, homeLogo;
-    
-    if (away.team.name === "American League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
-    } else if (away.team.name === "National League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
-    } else {
-      awayLogo = await getLogoUrl(away.team.name);
-      homeLogo = await getLogoUrl(home.team.name);
-    }
-  const isFinal = state.inning === "Final";
-  const inningText = isFinal
-    ? `<span style="font-size: ${isSmallScreen ? '0.9rem' : '1.5rem'};">Final</span>`
-    : `${state.isTopInning ? "Top" : "Bottom"} ${ordinalSuffix(state.inning)}`;
-
-  const awayRecord = awayTeamData.record?.leagueRecord;
-  const homeRecord = homeTeamData.record?.leagueRecord;
-
-  // Determine which team's score should be greyed out only if the game is final
-  const awayScore = away.teamStats.batting.runs;
-  const homeScore = home.teamStats.batting.runs;
-  const awayScoreColor = isFinal && awayScore < homeScore ? "grey" : "white";
-  const homeScoreColor = isFinal && homeScore < awayScore ? "grey" : "white";
-
-  document.getElementById("topScoreboard").innerHTML = `
-    <div class="team-block">
-      <div class="away-team-score" style="color: ${awayScoreColor};">${awayScore}</div>
-      <img class="team-logo" src="${awayLogo}" alt="${awayTeamData.teamName}">
-      <div class="team-abbr">${awayTeamData.teamName}</div>
-      <div class="team-record">${awayRecord ? `${awayRecord.wins}-${awayRecord.losses}` : "Record unavailable"}</div>
-    </div>
-
-    <div class="inning-center">
-      <div class="inning-status">${inningText}</div>
-      ${isFinal ? "" : renderBases(runners)}
-      ${isFinal ? "" : renderCount(count.balls, count.strikes, count.outs)}
-    </div>
-
-    <div class="team-block">
-      <div class="home-team-score" style="color: ${homeScoreColor};">${homeScore}</div>
-      <img class="team-logo" src="${homeLogo}" alt="${homeTeamData.teamName}">
-      <div class="team-abbr">${homeTeamData.teamName}</div>
-      <div class="team-record">${homeRecord ? `${homeRecord.wins}-${homeRecord.losses}` : "Record unavailable"}</div>
-    </div>
-  `;
-}
-
-function normalizeTeamName(teamName) {
-  // Convert team names to the format used in the streaming site URLs
-  const nameMap = {
-    "Arizona Diamondbacks": "arizona-diamondbacks",
-    "Atlanta Braves": "atlanta-braves", 
-    "Baltimore Orioles": "baltimore-orioles",
-    "Boston Red Sox": "boston-red-sox",
-    "Chicago White Sox": "chicago-white-sox",
-    "Chicago Cubs": "chicago-cubs",
-    "Cincinnati Reds": "cincinnati-reds",
-    "Cleveland Guardians": "cleveland-guardians",
-    "Colorado Rockies": "colorado-rockies",
-    "Detroit Tigers": "detroit-tigers",
-    "Houston Astros": "houston-astros",
-    "Kansas City Royals": "kansas-city-royals",
-    "Los Angeles Angels": "los-angeles-angels",
-    "Los Angeles Dodgers": "los-angeles-dodgers",
-    "Miami Marlins": "miami-marlins",
-    "Milwaukee Brewers": "milwaukee-brewers",
-    "Minnesota Twins": "minnesota-twins",
-    "New York Yankees": "new-york-yankees",
-    "New York Mets": "new-york-mets",
-    "Athletics": "athletics",
-    "Philadelphia Phillies": "philadelphia-phillies",
-    "Pittsburgh Pirates": "pittsburgh-pirates",
-    "San Diego Padres": "san-diego-padres",
-    "San Francisco Giants": "san-francisco-giants",
-    "Seattle Mariners": "seattle-mariners",
-    "St. Louis Cardinals": "st-louis-cardinals",
-    "Tampa Bay Rays": "tampa-bay-rays",
-    "Texas Rangers": "texas-rangers",
-    "Toronto Blue Jays": "toronto-blue-jays",
-    "Washington Nationals": "washington-nationals",
-    "American League All-Stars": "american-league-all-stars",
-    "National League All-Stars": "national-league-all-stars"
+  // ─── Team colors & abbr map (same as aio.js) ────────────────────────────────
+  const teamColors = {
+    "Arizona Diamondbacks": "#A71930",
+    "Atlanta Braves": "#CE1141",
+    "Baltimore Orioles": "#DF4601",
+    "Boston Red Sox": "#BD3039",
+    "Chicago White Sox": "#27251F",
+    "Chicago Cubs": "#0E3386",
+    "Cincinnati Reds": "#C6011F",
+    "Cleveland Guardians": "#E50022",
+    "Colorado Rockies": "#333366",
+    "Detroit Tigers": "#0C2340",
+    "Houston Astros": "#002D62",
+    "Kansas City Royals": "#004687",
+    "Los Angeles Angels": "#BA0021",
+    "Los Angeles Dodgers": "#005A9C",
+    "Miami Marlins": "#00A3E0",
+    "Milwaukee Brewers": "#FFC52F",
+    "Minnesota Twins": "#002B5C",
+    "New York Yankees": "#003087",
+    "New York Mets": "#FF5910",
+    Athletics: "#EFB21E",
+    "Philadelphia Phillies": "#E81828",
+    "Pittsburgh Pirates": "#FDB827",
+    "San Diego Padres": "#2F241D",
+    "San Francisco Giants": "#FD5A1E",
+    "Seattle Mariners": "#005C5C",
+    "St. Louis Cardinals": "#C41E3A",
+    "Tampa Bay Rays": "#092C5C",
+    "Texas Rangers": "#003278",
+    "Toronto Blue Jays": "#134A8E",
+    "Washington Nationals": "#AB0003",
   };
-  
-  // First check if we have a direct mapping
-  if (nameMap[teamName]) {
-    return nameMap[teamName];
+  const teamAbbrMap = {
+    "Arizona Diamondbacks": "ari",
+    "Atlanta Braves": "atl",
+    "Baltimore Orioles": "bal",
+    "Boston Red Sox": "bos",
+    "Chicago White Sox": "cws",
+    "Chicago Cubs": "chc",
+    "Cincinnati Reds": "cin",
+    "Cleveland Guardians": "cle",
+    "Colorado Rockies": "col",
+    "Detroit Tigers": "det",
+    "Houston Astros": "hou",
+    "Kansas City Royals": "kc",
+    "Los Angeles Angels": "laa",
+    "Los Angeles Dodgers": "lad",
+    "Miami Marlins": "mia",
+    "Milwaukee Brewers": "mil",
+    "Minnesota Twins": "min",
+    "New York Yankees": "nyy",
+    "New York Mets": "nym",
+    Athletics: "oak",
+    "Philadelphia Phillies": "phi",
+    "Pittsburgh Pirates": "pit",
+    "San Diego Padres": "sd",
+    "San Francisco Giants": "sf",
+    "Seattle Mariners": "sea",
+    "St. Louis Cardinals": "stl",
+    "Tampa Bay Rays": "tb",
+    "Texas Rangers": "tex",
+    "Toronto Blue Jays": "tor",
+    "Washington Nationals": "wsh",
+  };
+
+  function getTeamColor(team) {
+    if (!team) return "#1a1a2e";
+    if (typeof team === "string") return teamColors[team] || "#1a1a2e";
+    return teamColors[team.name] || teamColors[team.teamName] || "#1a1a2e";
   }
-  
-  // Convert team names to streaming format with proper special character handling
-  return teamName.toLowerCase()
-    .replace(/á/g, 'a')
-    .replace(/é/g, 'e')
-    .replace(/í/g, 'i')
-    .replace(/ó/g, 'o')
-    .replace(/ú/g, 'u')
-    .replace(/ü/g, 'u')
-    .replace(/ñ/g, 'n')
-    .replace(/ç/g, 'c')
-    .replace(/ß/g, 'ss')
-    .replace(/ë/g, 'e')
-    .replace(/ï/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ä/g, 'a')
-    .replace(/å/g, 'a')
-    .replace(/ø/g, 'o')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+  function getTeamLogo(team) {
+    if (!team) return "";
+    const name =
+      typeof team === "string" ? team : team.name || team.teamName || "";
+    const abbr = teamAbbrMap[name];
+    if (!abbr) return "";
+    return (
+      "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500-dark/" +
+      abbr +
+      ".png"
+    );
+  }
+  function getTeamAbbr(team) {
+    if (!team) return "";
+    if (team.abbreviation) return team.abbreviation.toUpperCase();
+    const name =
+      typeof team === "string" ? team : team.name || team.teamName || "";
+    const abbr = teamAbbrMap[name];
+    return abbr
+      ? abbr.toUpperCase()
+      : (name || "???").slice(0, 3).toUpperCase();
+  }
 
-async function extractVideoPlayerUrl(pageUrl) {
-  try {
-    console.log('Extracting video URL from:', pageUrl);
-
-    // Use a CORS proxy to fetch the page content with timeout
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-
-    const response = await fetch(proxyUrl, {
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.error('Proxy request failed:', response.status);
-      return null;
+  // ─── Init ───────────────────────────────────────────────────────────────────
+  function init() {
+    const params = new URLSearchParams(window.location.search);
+    gamePk = params.get("gamePk") || params.get("id");
+    if (!gamePk) {
+      sbHeader.innerHTML =
+        '<div class="sb-error">No game specified. <a href="aio.html">Back to games</a></div>';
+      return;
     }
-
-    const data = await response.json();
-
-    if (!data.contents) {
-      console.error('No content received from proxy');
-      return null;
+    fetchGameData();
+    setupScrollListener();
+    setupModalListeners();
+    setupStreamListeners();
+    setupSplitViewListeners();
+    // Record view + subscribe to count (matches app's useGamePresence)
+    if (typeof LiveTrackerViewer !== "undefined")
+      LiveTrackerViewer.startPollingAndRecord("mlb", gamePk);
+    // Auth button
+    var authContainer = document.getElementById("auth-button-container");
+    if (authContainer && typeof createAuthButton === "function") {
+      authContainer.appendChild(createAuthButton());
     }
+    // Re-render the header when auth state changes so the Stream button
+    // appears/disappears based on sign-in status.
+    if (typeof Auth !== "undefined" && Auth.onChange) {
+      Auth.onChange(function () {
+        renderHeader();
+      });
+    }
+  }
 
-    console.log('Received page content, length:', data.contents.length);
-
-    // More comprehensive regex patterns for different streaming providers
-    const patterns = [
-      // Original patterns
-      /src="([^"]*castweb\.xyz[^"]*)"/i,
-      /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
-
-      // Common streaming patterns
-      /src="([^"]*\.m3u8[^"]*)"/i,  // HLS streams
-      /src="([^"]*\.mp4[^"]*)"/i,   // MP4 streams
-      /src="([^"]*embed[^"]*\.php[^"]*)"/i,  // Embed PHP files
-      /iframe[^>]*src="([^"]*player[^"]*\.php[^"]*)"/i,  // Player PHP files
-      /src="([^"]*stream[^"]*\.php[^"]*)"/i,  // Stream PHP files
-
-      // Alternative streaming providers
-      /src="([^"]*vidplay[^"]*)"/i,
-      /src="([^"]*streamtape[^"]*)"/i,
-      /src="([^"]*doodstream[^"]*)"/i,
-      /src="([^"]*mixdrop[^"]*)"/i,
-      /src="([^"]*upstream[^"]*)"/i,
-
-      // Generic iframe sources
-      /<iframe[^>]*src="([^"]+)"/i,
-      /<embed[^>]*src="([^"]+)"/i,
-      /<video[^>]*src="([^"]+)"/i,
-
-      // Data attributes that might contain URLs
-      /data-src="([^"]+)"/i,
-      /data-url="([^"]+)"/i,
-      /data-stream="([^"]+)"/i
-    ];
-
-    for (let i = 0; i < patterns.length; i++) {
-      const pattern = patterns[i];
-      const match = data.contents.match(pattern);
-      if (match && match[1]) {
-        const extractedUrl = match[1];
-        console.log(`Pattern ${i} matched: ${extractedUrl}`);
-
-        // Validate the URL
-        try {
-          new URL(extractedUrl);
-          return extractedUrl;
-        } catch (urlError) {
-          console.log(`Invalid URL format: ${extractedUrl}, trying next pattern`);
-          continue;
-        }
+  // ── Split View: collapse panels to single tab ───────────────────────────
+  var splitViewActive = false;
+  function isInIframe() {
+    try {
+      return window !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+  function setupSplitViewListeners() {
+    window.addEventListener("sh-split-activated", function () {
+      splitViewActive = true;
+      // Collapse to single panel: hide right panel, left panel shows all tabs
+      var rightPanel = document.getElementById("sbRightPanel");
+      if (rightPanel) rightPanel.style.display = "none";
+      // Re-render left tabs with all options (no mutual exclusion)
+      renderTabBars();
+      renderPanel("left");
+      var leftPanel = document.getElementById("sh-left-panel");
+      if (leftPanel && !leftPanel.dataset.sbScrollBound) {
+        leftPanel.dataset.sbScrollBound = "1";
+        leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
       }
+    });
+    window.addEventListener("sh-split-deactivated", function () {
+      splitViewActive = false;
+      var rightPanel = document.getElementById("sbRightPanel");
+      if (rightPanel) rightPanel.style.display = "";
+      renderTabBars();
+      renderPanel("left");
+      renderPanel("right");
+    });
+    // Check initial state
+    if (document.getElementById("sh-split-wrapper")) {
+      splitViewActive = true;
+      var rp = document.getElementById("sbRightPanel");
+      if (rp) rp.style.display = "none";
     }
+    // Inside the 2nd screen iframe: collapse to a single panel too
+    if (isInIframe()) {
+      splitViewActive = true;
+      var rp2 = document.getElementById("sbRightPanel");
+      if (rp2) rp2.style.display = "none";
+    }
+  }
 
-    console.log('No video URLs found with any pattern');
-
-    // Log a sample of the content for debugging
-    const contentSample = data.contents.substring(0, 500);
-    console.log('Page content sample:', contentSample);
-
-    return null;
-
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.log('Request timeout for:', pageUrl);
+  function onSbScroll() {
+    var rect = sbHeader.getBoundingClientRect();
+    if (rect.bottom < 0) {
+      if (sbStickyHeader.style.display !== "flex") {
+        sbStickyHeader.style.display = "flex";
+        renderStickyHeader();
+      }
     } else {
-      console.error('Error extracting video player URL:', error);
-    }
-    return null;
-  }
-}
-
-// Global variables for stream functionality
-let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo', 'charlie')
-let currentAwayTeam = ''; // Store current away team name
-let currentHomeTeam = ''; // Store current home team name
-let isMuted = true; // Start muted to prevent autoplay issues
-let availableStreams = {}; // Store available streams from API
-let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
-
-// API functions for streamed.pk
-const STREAM_API_BASE = 'https://streamed.pk/api';
-
-// Cache for API responses to reduce data transfer
-let liveMatchesCache = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 seconds cache
-
-// Function to clear cache (useful for debugging or forcing fresh data)
-function clearStreamCache() {
-  liveMatchesCache = null;
-  cacheTimestamp = 0;
-  console.log('Stream cache cleared');
-}
-
-// Make cache clearing function available globally
-window.clearStreamCache = clearStreamCache;
-
-async function fetchLiveMatches() {
-  try {
-    // Check cache first
-    const now = Date.now();
-    if (liveMatchesCache && (now - cacheTimestamp) < CACHE_DURATION) {
-      console.log('Using cached live matches data');
-      return liveMatchesCache;
-    }
-
-    console.log('Fetching live matches from API...');
-    const response = await fetch(`${STREAM_API_BASE}/matches/live`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const allMatches = await response.json();
-    console.log(`Found ${allMatches.length} total live matches`);
-
-    // Debug: Check what sport values are in the API response
-    if (allMatches.length > 0) {
-      const uniqueSports = [...new Set(allMatches.map(match => match.sport || match.category).filter(sport => sport))];
-      console.log('Available sports in API:', uniqueSports);
-
-      // Show sample of matches with their sport values
-      console.log('Sample matches with sport values:');
-      for (let i = 0; i < Math.min(5, allMatches.length); i++) {
-        const match = allMatches[i];
-        const sportValue = match.sport || match.category || 'unknown';
-        console.log(`  ${i+1}. "${match.title}" - Sport: "${sportValue}"`);
+      if (sbStickyHeader.style.display !== "none") {
+        sbStickyHeader.style.display = "none";
       }
     }
+  }
 
-    // Filter matches by baseball
-    const matches = allMatches.filter(match => {
-      const matchSport = match.sport || match.category;
-      return matchSport === 'baseball';
+  function setupScrollListener() {
+    window.addEventListener("scroll", onSbScroll, { passive: true });
+    // In split view the left panel is the scroll container, not the window.
+    var leftPanel = document.getElementById("sh-left-panel");
+    if (leftPanel)
+      leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
+  }
+
+  function setupModalListeners() {
+    $("#sbPlayerModalClose").addEventListener(
+      "click",
+      () => ($("#sbPlayerModal").style.display = "none"),
+    );
+    $("#sbPlayModalClose").addEventListener(
+      "click",
+      () => ($("#sbPlayModal").style.display = "none"),
+    );
+    $("#sbPlayerModal").addEventListener("click", (e) => {
+      if (e.target === $("#sbPlayerModal"))
+        $("#sbPlayerModal").style.display = "none";
     });
-    console.log(`Filtered to ${matches.length} MLB matches`);
-
-    // Cache the response
-    liveMatchesCache = matches;
-    cacheTimestamp = now;
-    
-    return matches;
-  } catch (error) {
-    console.error('Error fetching live matches:', error);
-    return null;
-  }
-}
-
-async function fetchStreamsForSource(source, sourceId) {
-  try {
-    console.log(`Fetching streams for ${source}/${sourceId}...`);
-    const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
-
-    if (!response.ok) {
-      throw new Error(`Stream API request failed: ${response.status}`);
-    }
-
-    const streams = await response.json();
-    console.log(`Found ${streams.length} streams for ${source}`);
-    return streams;
-  } catch (error) {
-    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
-    return [];
-  }
-}
-
-async function findMatchStreams(homeTeamName, awayTeamName) {
-  try {
-    console.log(`Finding streams for: ${awayTeamName} vs ${homeTeamName}`);
-
-    const liveMatches = await fetchLiveMatches();
-    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
-      console.log('No live matches data available');
-      return {};
-    }
-
-    // Try to find our match
-    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
-    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-
-    console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
-
-    // Check if both teams have the same first word (city name) - this causes confusion
-    const homeFirstWord = homeNormalized.split('-')[0];
-    const awayFirstWord = awayNormalized.split('-')[0];
-    const hasSameCity = homeFirstWord === awayFirstWord;
-
-    console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
-
-    let bestMatch = null;
-    let bestScore = 0;
-
-    // Quick pre-filter to reduce processing - look for obvious matches first
-    const quickMatches = liveMatches.slice(0, Math.min(liveMatches.length, 100)).filter(match => {
-      const title = match.title.toLowerCase();
-
-      if (hasSameCity) {
-        // If teams have same city, require BOTH full team names to be present
-        const hasHomeTeam = title.includes(homeNormalized) ||
-                           (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
-        const hasAwayTeam = title.includes(awayNormalized) ||
-                           (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
-        return hasHomeTeam && hasAwayTeam;
-      } else {
-        // Normal case: require BOTH teams to have some match, not just one
-        const homeHasMatch = title.includes(homeNormalized.split('-')[0]) ||
-                            title.includes(homeNormalized.split('-')[1] || '') ||
-                            (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0]));
-        const awayHasMatch = title.includes(awayNormalized.split('-')[0]) ||
-                            title.includes(awayNormalized.split('-')[1] || '') ||
-                            (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
-
-        // Require BOTH teams to match, not just one
-        return homeHasMatch && awayHasMatch;
-      }
+    $("#sbPlayModal").addEventListener("click", (e) => {
+      if (e.target === $("#sbPlayModal"))
+        $("#sbPlayModal").style.display = "none";
     });
+  }
 
-    // If we found quick matches, prioritize them
-    const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, Math.min(liveMatches.length, 100));
+  // ─── Streaming ──────────────────────────────────────────────────────────────
+  function setupStreamListeners() {
+    // The Stream button lives inside the header, which is re-rendered on every
+    // poll, so use event delegation on the header container.
+    sbHeader.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "sbStreamOpen") openStreamModal();
+    });
+    $("#sbStreamClose").addEventListener("click", closeStreamModal);
+    $("#sbStreamModal").addEventListener("click", (e) => {
+      if (e.target === $("#sbStreamModal")) closeStreamModal();
+    });
+  }
 
-    console.log(`Processing ${matchesToProcess.length} matches (${quickMatches.length > 0 ? 'pre-filtered' : 'full set'})`);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STREAMING — StreamFree (streamfree.top) via /assets/stream-service.js
+  // ═══════════════════════════════════════════════════════════════════════════
+  const STREAM_SPORT = "mlb";
 
-    // Debug: Show first few matches to understand API format
-    if (liveMatches.length > 0) {
-      console.log('Sample matches from API:');
-      for (let i = 0; i < Math.min(5, liveMatches.length); i++) {
-        const match = liveMatches[i];
-        console.log(`  ${i+1}. Title: "${match.title}"`);
-        if (match.teams) {
-          console.log(`     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`);
-        }
-        if (match.sources) {
-          console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
-        }
-      }
+  function normalizeTeamName(teamName) {
+    return StreamService.normalizeTeamName(teamName);
+  }
+
+  // Returns { sources, match } where sources is a label -> { url, ... } map.
+  async function findMatchStreams(homeTeamName, awayTeamName) {
+    try {
+      return await StreamService.findMatchStreams({
+        homeTeamName,
+        awayTeamName,
+        sport: STREAM_SPORT,
+      });
+    } catch (error) {
+      console.error("Error in findMatchStreams:", error);
+      return { sources: {}, match: null };
+    }
+  }
+
+  function renderStreamButtons() {
+    const container = $("#sbStreamButtons");
+    if (!container) return;
+    const keys = Object.keys(availableStreams);
+    if (keys.length === 0) {
+      container.innerHTML =
+        '<span class="sb-stream-no-streams">No live streams found for this game</span>';
+      return;
+    }
+    container.innerHTML = keys
+      .map((key) => {
+        const entry = availableStreams[key] || {};
+        const label = entry.label || key;
+        const quality = entry.quality ? ` · ${entry.quality}` : "";
+        return `<button class="sb-stream-btn${currentStreamType === key ? " active" : ""}" data-stream="${key}">${label}${quality}</button>`;
+      })
+      .join("");
+    container.querySelectorAll(".sb-stream-btn").forEach((btn) => {
+      btn.addEventListener("click", () => switchStream(btn.dataset.stream));
+    });
+  }
+
+  function setStreamFrame(url) {
+    const frame = $("#sbStreamFrame");
+    const loading = $("#sbStreamLoading");
+    if (!frame) return;
+    if (loading) loading.hidden = false;
+    frame.style.display = "none";
+    // Cache-bust so switching streams always reloads a clean session.
+    frame.src =
+      url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
+    frame.onload = () => {
+      if (loading) loading.hidden = true;
+      frame.style.display = "block";
+    };
+  }
+
+  async function openStreamModal() {
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    if (!away?.name || !home?.name) return;
+
+    streamModalVisible = true;
+    // Pause background polling while streaming.
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+    $("#sbStreamModal").style.display = "flex";
+    $("#sbStreamButtons").innerHTML =
+      '<span class="sb-stream-no-streams">Finding streams…</span>';
+    $("#sbStreamFrame").style.display = "none";
+    $("#sbStreamLoading").hidden = false;
+
+    const { sources } = await findMatchStreams(home.name, away.name);
+    availableStreams = sources || {};
+
+    const streamKeys = Object.keys(availableStreams);
+    if (streamKeys.length > 0) {
+      currentStreamType = streamKeys[0];
+      streamUrl = availableStreams[currentStreamType].url;
+    } else {
+      currentStreamType = "";
+      streamUrl = "";
     }
 
-    // Process the filtered matches
-    for (let i = 0; i < matchesToProcess.length; i++) {
-      const match = matchesToProcess[i];
+    renderStreamButtons();
+    if (streamUrl) setStreamFrame(streamUrl);
+    else if ($("#sbStreamLoading")) $("#sbStreamLoading").hidden = true;
+  }
 
-      if (!match.sources || match.sources.length === 0) continue;
+  function switchStream(streamType) {
+    const entry = availableStreams[streamType];
+    if (!entry) return;
+    currentStreamType = streamType;
+    streamUrl = entry.url;
+    renderStreamButtons();
+    setStreamFrame(streamUrl);
+  }
 
-      const matchTitle = match.title.toLowerCase();
-      let totalScore = 0;
+  function closeStreamModal() {
+    streamModalVisible = false;
+    $("#sbStreamModal").style.display = "none";
+    const frame = $("#sbStreamFrame");
+    if (frame) {
+      frame.src = "about:blank";
+      frame.style.display = "none";
+    }
+    streamUrl = "";
+    currentStreamType = "";
+    availableStreams = {};
+    // Resume background polling.
+    schedulePoll();
+  }
 
-      // Multiple matching strategies with rough/fuzzy matching
-      const strategies = [
-        // Strategy 1: Rough name matching in title (more flexible)
-        () => {
-          let score = 0;
-          const titleWords = matchTitle.split(/[\s\-]+/);
+  // ─── Data ───────────────────────────────────────────────────────────────────
+  async function fetchGameData() {
+    try {
+      const url = `${MLB_API}/wbc/gameFeed/${gamePk}?_=${Date.now()}`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      gameData = json.data.gameData;
+      liveData = json.data.liveData;
+      pitchesData = json.data.pitches || null;
+      renderAll();
+      schedulePoll();
+    } catch (err) {
+      console.error(err);
+      sbHeader.innerHTML =
+        '<div class="sb-error">Failed to load game data. <button onclick="location.reload()">Retry</button></div>';
+    }
+  }
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    // Pause background fetching while the stream modal is open (matches app).
+    if (streamModalVisible) return;
+    pollTimer = setTimeout(
+      function () {
+        fetchGameDataQuiet();
+      },
+      isGameLive() ? POLL_LIVE_MS : POLL_IDLE_MS,
+    );
+  }
+  async function fetchGameDataQuiet() {
+    try {
+      const url = `${MLB_API}/wbc/gameFeed/${gamePk}?_=${Date.now()}`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      gameData = json.data.gameData;
+      liveData = json.data.liveData;
+      pitchesData = json.data.pitches || null;
+      renderAllQuiet();
+      schedulePoll();
+    } catch (err) {
+      console.error(err);
+      schedulePoll();
+    }
+  }
+  function isGameFinished() {
+    const c =
+      gameData?.status?.codedGameState || gameData?.status?.statusCode || "";
+    return ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(String(c));
+  }
+  function isGameScheduled() {
+    const c =
+      gameData?.status?.codedGameState || gameData?.status?.statusCode || "";
+    return ["S", "P"].includes(String(c));
+  }
+  function isGameLive() {
+    return !isGameFinished() && !isGameScheduled();
+  }
 
-          if (hasSameCity) {
-            // For same-city teams, require both full team names to be present
-            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
-              score += 1.0; // High score for exact matches
-            } else {
-              // Check for partial matches but be more strict
-              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+  function renderAll() {
+    renderHeader();
+    renderTabBars();
+    renderPanel("left");
+    renderPanel("right");
+  }
 
-              let homeMatches = 0;
-              let awayMatches = 0;
+  // ── Non-flickering update: re-render header + panels, not tabs ──
+  function renderAllQuiet() {
+    renderHeader();
+    renderPanel("left");
+    renderPanel("right");
+  }
 
-              homeParts.forEach(part => {
-                if (titleWords.some(word => word.includes(part))) homeMatches++;
-              });
-              awayParts.forEach(part => {
-                if (titleWords.some(word => word.includes(part))) awayMatches++;
-              });
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEADER — mirrors app's TeamColumn + StatusBadge + venue
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderHeader() {
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayScore = liveData?.linescore?.teams?.away?.runs;
+    const homeScore = liveData?.linescore?.teams?.home?.runs;
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+    const live = isGameLive(),
+      finished = isGameFinished();
+    const showScores =
+      (live || finished) && awayScore != null && homeScore != null;
+    const awayLogo = getTeamLogo(away),
+      homeLogo = getTeamLogo(home);
+    const awayAbbr = getTeamAbbr(away),
+      homeAbbr = getTeamAbbr(home);
+    const venueName = gameData?.venue?.name || "";
+    const linescore = liveData?.linescore || {};
+    const inning = linescore?.currentInning,
+      isTop = linescore?.isTopInning !== false;
 
-              // Require at least 2 parts to match for each team when they have same city
-              if (homeMatches >= 2 && awayMatches >= 2) {
-                score += 0.8;
-              } else if (homeMatches >= 1 && awayMatches >= 1) {
-                score += 0.4;
-              }
+    const challenges = gameData?.absChallenges?.hasChallenges
+      ? gameData?.absChallenges
+      : {};
+    const awayFailed = Math.min(Number(challenges?.away?.usedFailed) || 0, 2);
+    const homeFailed = Math.min(Number(challenges?.home?.usedFailed) || 0, 2);
+
+    let statusTop = "",
+      statusBottom = "";
+    if (live && inning) {
+      statusTop = `${isTop ? "Top" : "Bot"} ${ordinal(inning)}`;
+      const b = linescore?.balls,
+        s = linescore?.strikes,
+        o = linescore?.outs;
+      if (b != null && s != null && o != null)
+        statusBottom = `${b}-${s}, ${o} out${o === 1 ? "" : "s"}`;
+    } else if (finished) {
+      statusTop = `Final${inning && inning !== 9 ? `/${inning}` : ""}`;
+      statusBottom =
+        fmtGameTime(
+          gameData?.datetime?.dateTime ||
+            gameData?.gameData?.datetime?.dateTime,
+        ) || "";
+    } else {
+      statusTop = "Scheduled";
+      statusBottom =
+        fmtGameTime(
+          gameData?.datetime?.dateTime ||
+            gameData?.gameData?.datetime?.dateTime,
+        ) || "";
+    }
+
+    const teamCol = (
+      team,
+      score,
+      isWinner,
+      side,
+      color,
+      logo,
+      abbr,
+      failedCount,
+      challenges,
+    ) => {
+      const scoreOnLeft = side === "home",
+        scoreOnRight = side === "away";
+      const logoEl = logo
+        ? `<img src="${logo}" class="sb-team-logo" alt="${team.name || ""}" onerror="this.parentElement.innerHTML='<div class=\\'sb-team-logo-fallback\\' style=\\'background:${color}\\'>${abbr[0]}</div>'">`
+        : `<div class="sb-team-logo-fallback" style="background:${color}">${abbr[0]}</div>`;
+      const scoreEl = showScores
+        ? `<span class="sb-team-score" style="color:${live ? "var(--text-primary)" : isWinner ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${live || isWinner ? "800" : "400"}">${score}</span>`
+        : "";
+      const logoScoreRow = `<div class="sb-logo-score-row">${scoreOnLeft ? scoreEl : ""}<div class="sb-team-logo-wrap">${logoEl}</div>${scoreOnRight ? scoreEl : ""}</div>`;
+      const nameEl = `<div class="sb-team-name" style="opacity:${finished && !isWinner ? "0.55" : "1"}">${team.name || (side === "away" ? "Away" : "Home")}</div>`;
+      const challengeDots = challenges?.hasChallenges
+        ? `<div class="sb-challenge-row">${[0, 1]
+            .map((i) => {
+              const isFailed =
+                side === "away" ? failedCount >= 2 - i : failedCount >= i + 1;
+              return `<span class="sb-challenge-dot" style="border-color:${color};background:${isFailed ? "#ffffff3b" : "#fff"}"></span>`;
+            })
+            .join("")}</div>`
+        : "";
+      return `<div class="sb-team-col">${logoScoreRow}${nameEl}${challengeDots}</div>`;
+    };
+
+    setPanelHtml(
+      sbHeader,
+      `
+      <div class="sb-header-inner">
+        <div class="sb-header-gradient" style="background:linear-gradient(90deg,${awayColor}33 0%,transparent 40%,transparent 60%,${homeColor}33 100%)"></div>
+        ${venueName ? `<div class="sb-venue">${venueName}<span id="sbLiveBadge" style="margin-left:8px;vertical-align:middle"></span></div>` : ""}
+        <div class="sb-teams-row">
+          ${teamCol(away, awayScore, showScores && awayScore > homeScore, "away", awayColor, awayLogo, awayAbbr, awayFailed, challenges)}
+          <div class="sb-status-center">
+            <div class="sb-status-top" style="color:${live ? "var(--accent-success)" : "var(--text-secondary)"}">${statusTop}</div>
+            ${statusBottom ? `<div class="sb-status-bottom">${statusBottom}</div>` : ""}
+            ${live && typeof Auth !== "undefined" && Auth.isLoggedIn ? `<button class="sb-stream-btn" id="sbStreamOpen" style="margin-top:10px">▶ Stream</button>` : ""}
+          </div>
+          ${teamCol(home, homeScore, showScores && homeScore > awayScore, "home", homeColor, homeLogo, homeAbbr, homeFailed, challenges)}
+        </div>
+      </div>`,
+    );
+  }
+
+  function renderStickyHeader() {
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayScore = liveData?.linescore?.teams?.away?.runs;
+    const homeScore = liveData?.linescore?.teams?.home?.runs;
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+    const live = isGameLive(),
+      finished = isGameFinished();
+    const showScores =
+      (live || finished) && awayScore != null && homeScore != null;
+    const awayLogo = getTeamLogo(away),
+      homeLogo = getTeamLogo(home);
+    const awayAbbr = getTeamAbbr(away),
+      homeAbbr = getTeamAbbr(home);
+    const linescore = liveData?.linescore || {};
+    const inning = linescore?.currentInning,
+      isTop = linescore?.isTopInning !== false;
+    const b = linescore?.balls,
+      s = linescore?.strikes,
+      o = linescore?.outs;
+    var statusLine, statusSub;
+    if (live && inning) {
+      statusLine = `${isTop ? "Top" : "Bot"} ${ordinal(inning)}`;
+      statusSub =
+        b != null && s != null && o != null
+          ? `${b}-${s}, ${o} out${o === 1 ? "" : "s"}`
+          : "";
+    } else if (finished) {
+      statusLine = `Final${inning && inning !== 9 ? `/${inning}` : ""}`;
+      statusSub =
+        fmtGameTime(
+          gameData?.datetime?.dateTime ||
+            gameData?.gameData?.datetime?.dateTime,
+        ) || "";
+    } else {
+      statusLine = "Scheduled";
+      statusSub =
+        fmtGameTime(
+          gameData?.datetime?.dateTime ||
+            gameData?.gameData?.datetime?.dateTime,
+        ) || "";
+    }
+
+    sbStickyHeader.innerHTML = `
+      <div class="sb-sticky-inner">
+        <div class="sb-sticky-gradient" style="background:linear-gradient(90deg,${awayColor}33,transparent 30%,transparent 70%,${homeColor}33)"></div>
+        <div class="sb-sticky-side">${awayLogo ? `<img src="${awayLogo}" class="sb-sticky-logo" onerror="this.style.display='none'">` : ""}<span class="sb-sticky-abbr">${awayAbbr}</span>${showScores ? `<span class="sb-sticky-score" style="font-weight:${awayScore > homeScore ? "800" : "400"}">${awayScore}</span>` : ""}</div>
+        <div class="sb-sticky-status-block"><div class="sb-sticky-status-line">${statusLine}</div>${statusSub ? `<div class="sb-sticky-status-sub">${statusSub}</div>` : ""}</div>
+        <div class="sb-sticky-side sb-sticky-right">${showScores ? `<span class="sb-sticky-score" style="font-weight:${homeScore > awayScore ? "800" : "400"}">${homeScore}</span>` : ""}<span class="sb-sticky-abbr">${homeAbbr}</span>${homeLogo ? `<img src="${homeLogo}" class="sb-sticky-logo" onerror="this.style.display='none'">` : ""}</div>
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB BARS — each panel gets its own 5-tab bar
+  // Same tab cannot be open on both sides
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderTabBars() {
+    const sched = isGameScheduled();
+    const allTabs = sched
+      ? ["Main", "Away", "Home", "Series"]
+      : ["Main", "Away", "Home", "Plays", "Series"];
+    if (splitViewActive) {
+      // Single tab bar — all tabs enabled, no mutual exclusion
+      renderOneTabBar(sbLeftTabs, "left", allTabs, true);
+      return;
+    }
+    renderOneTabBar(sbLeftTabs, "left", allTabs);
+    renderOneTabBar(sbRightTabs, "right", allTabs);
+  }
+
+  function renderOneTabBar(container, side, allTabs, noDisable) {
+    const currentTab = side === "left" ? leftTab : rightTab;
+    const tabsHtml = allTabs
+      .map((t) => {
+        const disabled = noDisable
+          ? false
+          : (side === "left" && t === rightTab) ||
+            (side === "right" && t === leftTab);
+        return `<button class="sb-tab${t === currentTab ? " active" : ""}${disabled ? " disabled" : ""}" data-tab="${t}"${disabled ? " disabled" : ""}>${t}</button>`;
+      })
+      .join("");
+
+    if (!setPanelHtml(container, tabsHtml)) return;
+
+    container.querySelectorAll(".sb-tab:not(.disabled)").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        if (side === "left") leftTab = tab;
+        else rightTab = tab;
+        renderTabBars(); // re-render both to update disabled states
+        renderPanel(side);
+      });
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PANEL RENDERING
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderPanel(side) {
+    const tab = side === "left" ? leftTab : rightTab;
+    const body = side === "left" ? sbLeftBody : sbRightBody;
+
+    switch (tab) {
+      case "Main":
+        renderMainPanel(body);
+        break;
+      case "Away":
+        renderTeamPanel(body, "away");
+        break;
+      case "Home":
+        renderTeamPanel(body, "home");
+        break;
+      case "Plays":
+        renderPlaysPanel(body, side);
+        break;
+      case "Series":
+        renderSeriesPanel(body);
+        break;
+    }
+  }
+
+  // ─── Main Panel ─────────────────────────────────────────────────────────────
+  function renderMainPanel(body) {
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+    const awayAbbr = getTeamAbbr(away),
+      homeAbbr = getTeamAbbr(home);
+    const sched = isGameScheduled(),
+      live = isGameLive();
+
+    let html = renderLinescoreBubble(
+      away,
+      home,
+      awayColor,
+      homeColor,
+      awayAbbr,
+      homeAbbr,
+    );
+    if (sched) html += renderProbablePitchers(awayColor, homeColor);
+    // At-bat bubble sits under the linescore and above team stats (live only)
+    if (live) html += renderCurrentAtBat(away, home, awayColor, homeColor);
+    html += renderLastPlayBubble(
+      away,
+      home,
+      awayColor,
+      homeColor,
+      awayAbbr,
+      homeAbbr,
+    );
+    html += renderTeamStats(
+      away,
+      home,
+      awayColor,
+      homeColor,
+      awayAbbr,
+      homeAbbr,
+      sched,
+    );
+    if (live)
+      html += renderWinProbability(
+        away,
+        home,
+        awayColor,
+        homeColor,
+        awayAbbr,
+        homeAbbr,
+      );
+    html += renderGameInfoBubble();
+    html += renderSeriesSummary(awayColor, homeColor);
+    setPanelHtml(body, html);
+  }
+
+  // ─── Team Panel (Away/Home) ─────────────────────────────────────────────────
+  function renderTeamPanel(body, teamSide) {
+    const teamData =
+      teamSide === "away"
+        ? gameData?.teams?.away?.team || gameData?.teams?.away || {}
+        : gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const bsTeams = liveData?.boxscore?.teams || {};
+    const bsTeamData = teamSide === "away" ? bsTeams?.away : bsTeams?.home;
+    const playersMap = gameData?.players || {};
+    const teamColor = getTeamColor(teamData);
+    const sched = isGameScheduled(),
+      fin = isGameFinished(),
+      live = isGameLive();
+    if (!bsTeamData) {
+      setPanelHtml(body, '<div class="sb-empty">No box score data</div>');
+      return;
+    }
+
+    const bsPlayers = bsTeamData?.players || {};
+    const battingOrder = bsTeamData?.battingOrder || [];
+    const allBsPlayers = {
+      ...(bsTeams?.away?.players || {}),
+      ...(bsTeams?.home?.players || {}),
+    };
+    const sBatterIds = bsTeamData?.batters || [],
+      sPitcherIds = bsTeamData?.pitchers || [],
+      sBenchIds = bsTeamData?.bench || [];
+    const hasScheduledLineup =
+      sched && (sBatterIds.length > 0 || sPitcherIds.length > 0);
+
+    const batterIds = battingOrder.length
+      ? battingOrder
+      : Object.keys(bsPlayers)
+          .map((k) => Number(k.replace("ID", "")))
+          .filter(
+            (id) =>
+              Object.keys(bsPlayers[`ID${id}`]?.stats?.batting || {}).length >
+              0,
+          );
+    let pitcherIds = Object.keys(bsPlayers)
+      .map((k) => Number(k.replace("ID", "")))
+      .filter(
+        (id) =>
+          Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching || {}).length > 0,
+      );
+    const teamPitchers = bsTeamData?.pitchers;
+    if (Array.isArray(teamPitchers) && teamPitchers.length > 0) {
+      const o = teamPitchers
+        .map(Number)
+        .filter((id) => pitcherIds.includes(id));
+      if (o.length > 0) pitcherIds = o.reverse();
+      else pitcherIds = pitcherIds.reverse();
+    } else pitcherIds = pitcherIds.reverse();
+
+    const activeSets = new Set([
+      ...batterIds.map(Number),
+      ...pitcherIds.map(Number),
+    ]);
+    const rawBenchIds = Object.keys(bsPlayers)
+      .map((k) => Number(k.replace("ID", "")))
+      .filter((id) => !activeSets.has(id));
+    const benchGetAB = (id) =>
+      bsPlayers[`ID${id}`]?.stats?.batting?.atBats || 0;
+    const benchGetIP = (id) =>
+      parseFloat(bsPlayers[`ID${id}`]?.stats?.pitching?.inningsPitched || 0);
+    const benchHasBat = (id) => benchGetAB(id) > 0;
+    const benchHasPit = (id) =>
+      !benchHasBat(id) &&
+      Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching || {}).length > 0;
+    const benchBatters = rawBenchIds
+      .filter(benchHasBat)
+      .sort((a, b) => benchGetAB(b) - benchGetAB(a));
+    const benchPitchers = rawBenchIds
+      .filter(benchHasPit)
+      .sort((a, b) => benchGetIP(b) - benchGetIP(a));
+    const benchOthers = rawBenchIds.filter(
+      (id) => !benchHasBat(id) && !benchHasPit(id),
+    );
+    const benchIds =
+      fin || !sched
+        ? [...benchBatters, ...benchPitchers]
+        : [...benchBatters, ...benchPitchers, ...benchOthers];
+
+    let html = "";
+    if (!sched || hasScheduledLineup) {
+      html += `<div class="sb-bs-tabs" data-side="${teamSide}"><button class="sb-bs-tab active" data-section="batting">Batting</button><button class="sb-bs-tab" data-section="pitching">Pitching</button><button class="sb-bs-tab" data-section="bench">Bench</button></div>`;
+    }
+    html += `<div class="sb-bs-section" id="sbBsSection-${teamSide}"></div>`;
+    var renderedTabs = setPanelHtml(body, html);
+    var activeSection = "batting";
+    if (!renderedTabs) {
+      var activeTab = body.querySelector(".sb-bs-tab.active");
+      if (activeTab) activeSection = activeTab.dataset.section;
+    }
+
+    renderPlayerCards(
+      teamSide,
+      activeSection,
+      batterIds,
+      pitcherIds,
+      benchIds,
+      bsPlayers,
+      playersMap,
+      allBsPlayers,
+      teamColor,
+      teamData,
+      sched,
+      fin,
+      live,
+      sBatterIds,
+      sPitcherIds,
+      sBenchIds,
+      hasScheduledLineup,
+    );
+
+    if (!renderedTabs)
+      body.querySelectorAll(".sb-bs-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          body
+            .querySelectorAll(".sb-bs-tab")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          renderPlayerCards(
+            teamSide,
+            btn.dataset.section,
+            batterIds,
+            pitcherIds,
+            benchIds,
+            bsPlayers,
+            playersMap,
+            allBsPlayers,
+            teamColor,
+            teamData,
+            sched,
+            fin,
+            live,
+            sBatterIds,
+            sPitcherIds,
+            sBenchIds,
+            hasScheduledLineup,
+          );
+        });
+      });
+  }
+
+  function renderPlayerCards(
+    teamSide,
+    section,
+    batterIds,
+    pitcherIds,
+    benchIds,
+    bsPlayers,
+    playersMap,
+    allBsPlayers,
+    teamColor,
+    teamData,
+    sched,
+    fin,
+    live,
+    sBatterIds,
+    sPitcherIds,
+    sBenchIds,
+    hasScheduledLineup,
+  ) {
+    const container = document.getElementById(`sbBsSection-${teamSide}`);
+    if (!container) return;
+    let ids;
+    if (sched) {
+      if (hasScheduledLineup) {
+        if (section === "batting") ids = sBatterIds;
+        else if (section === "pitching") ids = sPitcherIds;
+        else ids = sBenchIds;
+      } else ids = sBenchIds.length > 0 ? sBenchIds : benchIds;
+    } else
+      ids =
+        section === "batting"
+          ? batterIds
+          : section === "pitching"
+            ? pitcherIds
+            : benchIds;
+    const currentId =
+      section === "pitching" ? (ids.length ? ids[0] : null) : null;
+    if (!ids.length) {
+      setPanelHtml(
+        container,
+        `<div class="sb-empty">No ${section} data available.</div>`,
+      );
+      return;
+    }
+
+    const cardsHtml = ids
+      .map((id) => {
+        const bsPlayer = bsPlayers[`ID${id}`] || null;
+        const playerInfo = resolvePlayer(playersMap, id);
+        const pos = bsPlayer?.position?.abbreviation || "";
+        const position = bsPlayer?.position?.name || "";
+        const isPitcher = pos === "P" || pos === "SP" || pos === "RP";
+        const batting = bsPlayer?.stats?.batting || {},
+          pitching = bsPlayer?.stats?.pitching || {};
+        const fullName = playerInfo?.fullName || `Player ${id}`;
+        const number = bsPlayer?.jerseyNumber
+          ? `#${bsPlayer.jerseyNumber}`
+          : "";
+        const isCurrent = live && currentId != null && id === currentId;
+        let outLabel = "";
+        // Compute OUT label matching app's PlayerCard logic
+        if (bsPlayer?.gameStatus?.isSubstitute && (live || fin)) {
+          var battersArr = teamData?.batters || [];
+          var order = teamData?.battingOrder || [];
+          if (battersArr.length > 0) {
+            var lastOrderId = order.length ? order[order.length - 1] : null;
+            var lastBoundIdx = battersArr.length - 1;
+            if (lastOrderId != null) {
+              var lidx = battersArr.indexOf(lastOrderId);
+              if (lidx !== -1) lastBoundIdx = lidx;
             }
-          } else {
-            // Normal case: check if major parts of team names appear in title
-            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-            homeParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
-            });
-            awayParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
-            });
-          }
-
-          return score;
-        },
-        // Strategy 2: Check team objects if available (rough matching)
-        () => {
-          let score = 0;
-          if (match.teams) {
-            const homeApiName = match.teams.home?.name?.toLowerCase() || '';
-            const awayApiName = match.teams.away?.name?.toLowerCase() || '';
-
-            if (hasSameCity) {
-              // For same-city teams, require both API team names to match our normalized names
-              if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
-                score += 1.2; // Very high score for exact API matches
-              } else {
-                // Check for partial matches but be more strict
-                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-                let homeMatches = 0;
-                let awayMatches = 0;
-
-                homeParts.forEach(part => {
-                  if (homeApiName.includes(part)) homeMatches++;
-                });
-                awayParts.forEach(part => {
-                  if (awayApiName.includes(part)) awayMatches++;
-                });
-
-                // Require at least 2 parts to match for each team when they have same city
-                if (homeMatches >= 2 && awayMatches >= 2) {
-                  score += 0.9;
-                } else if (homeMatches >= 1 && awayMatches >= 1) {
-                  score += 0.5;
+            var myIdx = battersArr.indexOf(id);
+            if (myIdx > 0 && myIdx <= lastBoundIdx) {
+              var prevId = battersArr[myIdx - 1];
+              if (prevId) {
+                var myOrderIdx = order.indexOf(id);
+                var expectedPrev =
+                  myOrderIdx > 0 ? order[myOrderIdx - 1] : null;
+                if (myOrderIdx === -1 || expectedPrev !== prevId) {
+                  var prevInfo = resolvePlayer(playersMap, prevId);
+                  var prevName = prevInfo?.fullName || "";
+                  if (prevName) {
+                    var parts = prevName.split(" ");
+                    var first = parts.shift();
+                    var rest = parts.join(" ");
+                    outLabel = "OUT " + (first ? first[0] + ". " : "") + rest;
+                  } else {
+                    outLabel = "OUT " + prevId;
+                  }
                 }
               }
-            } else {
-              // Normal case: rough matching against API team names
-              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-              homeParts.forEach(part => {
-                if (homeApiName.includes(part)) score += 0.6;
-              });
-              awayParts.forEach(part => {
-                if (awayApiName.includes(part)) score += 0.6;
-              });
             }
           }
-          return score;
-        },
-        // Strategy 3: MLB-specific abbreviations and common names
-        () => {
-          const abbreviations = {
-            'arizona': ['arizona', 'diamondbacks', 'arizona-diamondbacks'],
-            'atlanta': ['atlanta', 'braves', 'atlanta-braves'],
-            'baltimore': ['baltimore', 'orioles', 'baltimore-orioles'],
-            'boston': ['boston', 'red-sox', 'boston-red-sox'],
-            'chicago': ['chicago', 'white-sox', 'cubs', 'chicago-white-sox', 'chicago-cubs'],
-            'cincinnati': ['cincinnati', 'reds', 'cincinnati-reds'],
-            'cleveland': ['cleveland', 'guardians', 'cleveland-guardians'],
-            'colorado': ['colorado', 'rockies', 'colorado-rockies'],
-            'detroit': ['detroit', 'tigers', 'detroit-tigers'],
-            'houston': ['houston', 'astros', 'houston-astros'],
-            'kansas': ['kansas', 'royals', 'kansas-city-royals'],
-            'los-angeles': ['los-angeles', 'angels', 'dodgers', 'los-angeles-angels', 'los-angeles-dodgers'],
-            'miami': ['miami', 'marlins', 'miami-marlins'],
-            'milwaukee': ['milwaukee', 'brewers', 'milwaukee-brewers'],
-            'minnesota': ['minnesota', 'twins', 'minnesota-twins'],
-            'new-york': ['new-york', 'yankees', 'mets', 'new-york-yankees', 'new-york-mets'],
-            'oakland': ['oakland', 'athletics', 'oakland-athletics'],
-            'philadelphia': ['philadelphia', 'phillies', 'philadelphia-phillies'],
-            'pittsburgh': ['pittsburgh', 'pirates', 'pittsburgh-pirates'],
-            'san-diego': ['san-diego', 'padres', 'san-diego-padres'],
-            'san-francisco': ['san-francisco', 'giants', 'san-francisco-giants'],
-            'seattle': ['seattle', 'mariners', 'seattle-mariners'],
-            'st-louis': ['st-louis', 'cardinals', 'st-louis-cardinals'],
-            'tampa': ['tampa', 'rays', 'tampa-bay-rays'],
-            'texas': ['texas', 'rangers', 'texas-rangers'],
-            'toronto': ['toronto', 'blue-jays', 'toronto-blue-jays'],
-            'washington': ['washington', 'nationals', 'washington-nationals']
-          };
-
-          let score = 0;
-          const titleWords = matchTitle.split(/[\s\-]+/);
-
-          // Check home team abbreviations
-          const homeParts = homeNormalized.split('-');
-          homeParts.forEach(part => {
-            if (abbreviations[part]) {
-              abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
-              });
-            }
-          });
-
-          // Check away team abbreviations
-          const awayParts = awayNormalized.split('-');
-          awayParts.forEach(part => {
-            if (abbreviations[part]) {
-              abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
-              });
-            }
-          });
-
-          return score;
         }
-      ];
+        const statMode = isPitcher ? "pitching" : "batting";
+        const cols =
+          statMode === "pitching"
+            ? [
+                { key: "inningsPitched", label: "IP" },
+                { key: "hits", label: "H" },
+                { key: "runs", label: "R" },
+                { key: "baseOnBalls", label: "BB" },
+                { key: "strikeOuts", label: "K" },
+                { key: "numberOfPitches", label: "NP" },
+              ]
+            : [
+                { key: "atBats", label: "AB" },
+                { key: "hits", label: "H" },
+                { key: "runs", label: "R" },
+                { key: "rbi", label: "RBI" },
+                { key: "homeRuns", label: "HR" },
+                { key: "baseOnBalls", label: "BB" },
+              ];
+        const stats = statMode === "pitching" ? pitching : batting;
+        return `<div class="sb-player-card" style="border-color:${teamColor}" data-player-id="${id}" data-side="${teamSide}">
+        <div class="sb-pc-top"><img src="${headshotUrl(id)}" class="sb-pc-headshot" loading="lazy" onerror="this.style.display='none'"><div class="sb-pc-info"><div class="sb-pc-name-row"><span class="sb-pc-name">${fullName}</span>${isCurrent ? '<span class="sb-pc-current">CURRENT</span>' : ""}${outLabel && !isCurrent ? `<span class="sb-pc-out">${outLabel}</span>` : ""}</div><div class="sb-pc-meta">${[number, position].filter(Boolean).join(" • ")}</div></div></div>
+        <div class="sb-pc-stats">${cols.map(({ key, label }) => `<div class="sb-pc-stat"><div class="sb-pc-stat-val">${stats[key] ?? "—"}</div><div class="sb-pc-stat-lbl">${label}</div></div>`).join("")}</div>
+      </div>`;
+      })
+      .join("");
 
-      // Apply all strategies and sum scores
-      strategies.forEach(strategy => {
-        totalScore += strategy();
+    if (!setPanelHtml(container, cardsHtml)) return;
+
+    container.querySelectorAll(".sb-player-card").forEach((card) => {
+      card.addEventListener("click", () =>
+        openPlayerModal(parseInt(card.dataset.playerId), card.dataset.side),
+      );
+    });
+  }
+
+  // ─── Plays Panel ────────────────────────────────────────────────────────────
+  function renderPlaysPanel(body, side) {
+    const allPlays = liveData?.plays?.allPlays || [];
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+    const awayAbbr = getTeamAbbr(away),
+      homeAbbr = getTeamAbbr(home);
+    const playersMap = gameData?.players || {};
+    if (!allPlays.length) {
+      setPanelHtml(body, '<div class="sb-empty">No plays available.</div>');
+      return;
+    }
+
+    const playersInPlays = buildPlayerFilterList(allPlays, playersMap);
+    const innings = [
+      ...new Set(allPlays.map((p) => p?.about?.inning).filter(Boolean)),
+    ].sort((a, b) => b - a);
+    const activeInning = innings[0];
+    const scoringMap = new Map();
+    allPlays.forEach((p) => {
+      if (p?.about?.isScoringPlay !== true) return;
+      const inn = p?.about?.inning;
+      if (inn == null) return;
+      const ex = scoringMap.get(inn) || {
+        awayScored: false,
+        homeScored: false,
+      };
+      if (p?.about?.isTopInning !== false) ex.awayScored = true;
+      else ex.homeScored = true;
+      scoringMap.set(inn, ex);
+    });
+
+    let html = `<div class="sb-plays-player-filter"><span class="sb-plays-filter-label">Player Filter</span><select class="sb-plays-player-select" id="sbPlaysPlayerFilter-${side}"><option value="">None</option>${playersInPlays.map((p) => `<option value="${p.id}">${p.name}</option>`).join("")}</select></div>`;
+    html += '<div class="sb-plays-filter">';
+    innings.forEach((inn) => {
+      const scoring = scoringMap.get(inn);
+      const awayScored = !!scoring?.awayScored,
+        homeScored = !!scoring?.homeScored;
+      let style = "";
+      if (awayScored && homeScored)
+        style = `background:linear-gradient(90deg,${awayColor},${homeColor});color:#fff`;
+      else if (awayScored) style = `background:${awayColor};color:#fff`;
+      else if (homeScored) style = `background:${homeColor};color:#fff`;
+      html += `<button class="sb-plays-chip${inn === activeInning ? " active" : ""}" data-inning="${inn}" style="${style}">Inn. ${inn}</button>`;
+    });
+    html += `</div><div class="sb-plays-list" id="sbPlaysList-${side}"></div>`;
+    var renderedChips = setPanelHtml(body, html);
+
+    var activeChip = renderedChips
+      ? null
+      : body.querySelector(".sb-plays-chip.active");
+    var activeInn = activeChip ? parseInt(activeChip.dataset.inning) : null;
+
+    renderPlaysList(
+      side,
+      allPlays,
+      activeInn != null ? activeInn : activeInning,
+      away,
+      home,
+      awayColor,
+      homeColor,
+      awayAbbr,
+      homeAbbr,
+      playersMap,
+    );
+
+    if (!renderedChips) return;
+
+    body.querySelectorAll(".sb-plays-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        body
+          .querySelectorAll(".sb-plays-chip")
+          .forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        const pf =
+          document.getElementById(`sbPlaysPlayerFilter-${side}`)?.value || "";
+        renderPlaysList(
+          side,
+          allPlays,
+          parseInt(chip.dataset.inning),
+          away,
+          home,
+          awayColor,
+          homeColor,
+          awayAbbr,
+          homeAbbr,
+          playersMap,
+          pf,
+        );
+      });
+    });
+    const pfSelect = document.getElementById(`sbPlaysPlayerFilter-${side}`);
+    if (pfSelect)
+      pfSelect.addEventListener("change", () => {
+        const activeChip = body.querySelector(".sb-plays-chip.active");
+        renderPlaysList(
+          side,
+          allPlays,
+          activeChip ? parseInt(activeChip.dataset.inning) : activeInning,
+          away,
+          home,
+          awayColor,
+          homeColor,
+          awayAbbr,
+          homeAbbr,
+          playersMap,
+          pfSelect.value,
+        );
+      });
+  }
+
+  function buildPlayerFilterList(allPlays, playersMap) {
+    const ids = new Set();
+    allPlays.forEach((p) => {
+      const bid = p?.matchup?.batter?.id,
+        pid = p?.matchup?.pitcher?.id;
+      if (bid) ids.add(bid);
+      if (pid) ids.add(pid);
+    });
+    return [...ids]
+      .map((id) => ({
+        id,
+        name: resolvePlayer(playersMap, id)?.fullName || `Player ${id}`,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function renderPlaysList(
+    side,
+    allPlays,
+    inning,
+    away,
+    home,
+    awayColor,
+    homeColor,
+    awayAbbr,
+    homeAbbr,
+    playersMap,
+    playerFilter,
+  ) {
+    const listEl = document.getElementById(`sbPlaysList-${side}`);
+    if (!listEl) return;
+    let plays = [...allPlays].filter((p) => p?.about?.inning === inning);
+    if (playerFilter) {
+      const pfId = parseInt(playerFilter);
+      plays = plays.filter(
+        (p) =>
+          p?.matchup?.batter?.id === pfId || p?.matchup?.pitcher?.id === pfId,
+      );
+    }
+    plays = plays.reverse();
+    if (!plays.length) {
+      setPanelHtml(
+        listEl,
+        '<div class="sb-empty">No plays in this inning.</div>',
+      );
+      return;
+    }
+
+    const playsHtml = plays
+      .map((play, idx) => {
+        const isTop = play?.about?.isTopInning !== false;
+        const teamColor = isTop ? awayColor : homeColor,
+          teamAbbr = isTop ? awayAbbr : homeAbbr;
+        const event = play?.result?.event || "",
+          desc = play?.result?.description || "";
+        const isScoring = play?.about?.isScoringPlay === true;
+        const aScore = play?.result?.awayScore,
+          hScore = play?.result?.homeScore;
+        const balls = play?.count?.balls || 0,
+          strikes = play?.count?.strikes || 0,
+          outs = play?.count?.outs;
+        const cardBg = isScoring ? teamColor : "var(--bg-surface)";
+        const textColor = isScoring ? "#fff" : "var(--text-primary)",
+          secColor = isScoring
+            ? "rgba(255,255,255,0.8)"
+            : "var(--text-secondary)";
+        return `<div class="sb-play-card" style="background:${cardBg};border-left:4px solid ${teamColor};${isScoring ? "border-color:" + teamColor : ""}" data-inning="${inning}" data-play-idx="${idx}">
+        <div class="sb-play-header"><div class="sb-play-meta"><span class="sb-play-inning" style="color:${textColor}">${isTop ? "▲" : "▼"} ${ordinal(inning)}</span>${teamAbbr ? `<span class="sb-play-team" style="color:${secColor}">${teamAbbr}</span>` : ""}</div><div class="sb-play-right">${isScoring ? `<span class="sb-play-scores" style="color:${textColor}">SCORES</span>` : ""}${outs != null ? `<span class="sb-play-outs" style="color:${secColor}">${outs} out${outs === 1 ? "" : "s"}</span>` : ""}</div></div>
+        ${event ? `<div class="sb-play-event" style="color:${textColor}">${event}</div>` : ""}
+        ${desc ? `<div class="sb-play-desc" style="color:${secColor}">${desc}</div>` : ""}
+        <div class="sb-play-bottom">${aScore != null && hScore != null ? `<div class="sb-play-score-block"><div class="sb-play-score-row"><span style="color:${isScoring ? "rgba(255,255,255,0.7)" : awayColor}">${awayAbbr}</span> <span style="color:${textColor}">${aScore}</span></div><div class="sb-play-score-row"><span style="color:${isScoring ? "rgba(255,255,255,0.7)" : homeColor}">${homeAbbr}</span> <span style="color:${textColor}">${hScore}</span></div></div>` : ""}<div class="sb-play-bases"><div class="sb-play-base${play?.matchup?.postOnSecond ? " occupied" : ""}" style="${play?.matchup?.postOnSecond ? "background:" + teamColor : ""}"></div><div class="sb-play-bases-row"><div class="sb-play-base${play?.matchup?.postOnThird ? " occupied" : ""}" style="${play?.matchup?.postOnThird ? "background:" + teamColor : ""}"></div><div class="sb-play-base${play?.matchup?.postOnFirst ? " occupied" : ""}" style="${play?.matchup?.postOnFirst ? "background:" + teamColor : ""}"></div></div></div><div class="sb-play-count"><div class="sb-play-count-row"><span>B</span>${[0, 1, 2, 3].map((i) => `<span class="sb-count-dot${i < balls ? " filled" : ""}" style="border-color:#4CAF50;${i < balls ? "background:#4CAF50" : ""}"></span>`).join("")}</div><div class="sb-play-count-row"><span>S</span>${[0, 1, 2].map((i) => `<span class="sb-count-dot${i < strikes ? " filled" : ""}" style="border-color:#f44336;${i < strikes ? "background:#f44336" : ""}"></span>`).join("")}</div></div></div>
+      </div>`;
+      })
+      .join("");
+
+    if (!setPanelHtml(listEl, playsHtml)) return;
+
+    listEl.querySelectorAll(".sb-play-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const inn = parseInt(card.dataset.inning),
+          pidx = parseInt(card.dataset.playIdx);
+        const filtered = [...allPlays]
+          .filter((p) => p?.about?.inning === inn)
+          .reverse();
+        openPlayModal(filtered[pidx]);
+      });
+    });
+  }
+
+  // ─── Series Panel ───────────────────────────────────────────────────────────
+  var seriesHomeOnly = false;
+  var seriesGamesCache = [];
+  var seriesCtx = null;
+
+  function renderSeriesPanel(body) {
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+
+    // The panel re-renders on every poll. When the matchup and markup are
+    // already on screen, reuse the cached games instead of resetting the tab
+    // to a loading spinner and refetching each time.
+    var sameMatchup =
+      seriesCtx &&
+      seriesGamesCache.length > 0 &&
+      Number(seriesCtx.away?.id) === Number(away?.id) &&
+      Number(seriesCtx.home?.id) === Number(home?.id);
+    if (sameMatchup && body.querySelector("#sbSeriesGames")) {
+      seriesCtx = { away, home, awayColor, homeColor };
+      renderSeriesSummaryBubble();
+      renderSeriesGamesList();
+      return;
+    }
+
+    seriesHomeOnly = false;
+    seriesGamesCache = [];
+    seriesCtx = { away, home, awayColor, homeColor };
+
+    setPanelHtml(
+      body,
+      '<div id="sbSeriesSummary"></div>' +
+        '<div class="sb-series-games" id="sbSeriesGames"><div class="loading"><div class="loading-spinner"></div></div></div>',
+    );
+
+    renderSeriesSummaryBubble();
+    fetchSeriesGames(away, home, awayColor, homeColor);
+  }
+
+  // Compute wins across finished series games and render the summary bubble.
+  // Respects the HOME filter — when active, only counts games at the home team's park.
+  function renderSeriesSummaryBubble() {
+    const el = document.getElementById("sbSeriesSummary");
+    if (!el || !seriesCtx) return;
+    const { away, home, awayColor, homeColor } = seriesCtx;
+    const homeId = Number(home?.id),
+      awayId = Number(away?.id);
+    let homeWins = 0,
+      awayWins = 0;
+    seriesGamesCache.forEach((m) => {
+      // When filtering to home games, only count games where our home team hosted
+      if (seriesHomeOnly && Number(m?.teams?.home?.team?.id) !== homeId) return;
+      const status = m?.status || {};
+      const code = String(status?.codedGameState || status?.statusCode || "");
+      if (!["D", "C", "O", "F", "Q", "R"].includes(code)) return;
+      const hId = Number(m?.teams?.home?.team?.id),
+        aId = Number(m?.teams?.away?.team?.id);
+      const hs = Number(m?.teams?.home?.score),
+        as = Number(m?.teams?.away?.score);
+      if (!isFinite(hs) || !isFinite(as) || hs === as) return;
+      const winner = hs > as ? hId : aId;
+      if (winner === homeId) homeWins++;
+      else if (winner === awayId) awayWins++;
+    });
+    const total = homeWins + awayWins;
+    const homeFlex = total > 0 ? homeWins : 1;
+    const awayFlex = total > 0 ? awayWins : 1;
+    const awayLogo = getTeamLogo(away),
+      homeLogo = getTeamLogo(home);
+    const summaryHtml = `<div class="sb-series"><div class="sb-series-header"><span>SEASON SERIES</span><button class="sb-series-filter${seriesHomeOnly ? " active" : ""}" id="sbSeriesHomeFilter" style="border-color:${homeColor};${seriesHomeOnly ? "background:" + homeColor + "1A" : ""}">${homeLogo ? `<img src="${homeLogo}" class="sb-series-filter-logo">` : ""}<span>HOME</span></button></div><div class="sb-series-body"><div class="sb-series-side">${awayLogo ? `<img src="${awayLogo}" class="sb-series-logo">` : ""}<span class="sb-series-wins">${awayWins}</span></div><div class="sb-series-vs">VS</div><div class="sb-series-side sb-series-side-right"><span class="sb-series-wins">${homeWins}</span>${homeLogo ? `<img src="${homeLogo}" class="sb-series-logo">` : ""}</div></div><div class="sb-series-bar"><div style="flex:${awayFlex};background:${awayColor};height:6px;border-right:2.5px solid var(--bg-surface)"></div><div style="flex:${homeFlex};background:${homeColor};height:6px"></div></div></div>`;
+    if (!setPanelHtml(el, summaryHtml)) return;
+    const btn = document.getElementById("sbSeriesHomeFilter");
+    if (btn)
+      btn.addEventListener("click", function () {
+        seriesHomeOnly = !seriesHomeOnly;
+        renderSeriesSummaryBubble();
+        renderSeriesGamesList();
+      });
+  }
+
+  function renderSeriesGamesList() {
+    const container = document.getElementById("sbSeriesGames");
+    if (!container || !seriesCtx) return;
+    const { away, home, awayColor, homeColor } = seriesCtx;
+    const homeId = Number(home?.id);
+    let games = seriesGamesCache;
+    if (seriesHomeOnly)
+      games = games.filter((m) => Number(m?.teams?.home?.team?.id) === homeId);
+    if (!games.length) {
+      setPanelHtml(
+        container,
+        '<div class="sb-empty">No series games found.</div>',
+      );
+      return;
+    }
+    setPanelHtml(
+      container,
+      games
+        .map((match) => {
+          const mHome = match?.teams?.home || {},
+            mAway = match?.teams?.away || {};
+          const mHomeTeam = mHome?.team || {},
+            mAwayTeam = mAway?.team || {};
+          const mHSraw = mHome?.score,
+            mASraw = mAway?.score;
+          const hasScores =
+            mHSraw != null &&
+            mASraw != null &&
+            isFinite(Number(mHSraw)) &&
+            isFinite(Number(mASraw));
+          const mHS = Number(mHSraw),
+            mAS = Number(mASraw);
+          const mHW = hasScores && mHS > mAS,
+            mAW = hasScores && mAS > mHS;
+          const status = match?.status || {};
+          const coded = String(
+            status?.codedGameState || status?.statusCode || "",
+          );
+          const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+            coded,
+          );
+          const isFinished = ["D", "C", "O", "F", "Q", "R"].includes(coded);
+          const inning = match?.linescore?.currentInning,
+            isTop = match?.linescore?.isTopInning !== false;
+          const statusShort =
+            isLive && inning
+              ? `${isTop ? "T" : "B"}${inning}`
+              : isFinished
+                ? "FINAL"
+                : coded === "S" || coded === "P"
+                  ? ""
+                  : String(status?.detailedState || "").toUpperCase();
+          const extraInnings =
+            hasScores && !isLive && inning !== 9 ? `/${inning}` : "";
+          const dateStr = fmtGameDate(match?.gameDate);
+          const gameTypeDesc =
+            match?.gameType === "S"
+              ? "Spring Training"
+              : match?.gameType === "R"
+                ? "Regular Season"
+                : match?.gameType === "P"
+                  ? "Postseason"
+                  : "MLB";
+          const topLine = dateStr
+            ? `${dateStr} \u00B7 ${gameTypeDesc}`
+            : gameTypeDesc;
+          const venueLine =
+            match?.venue?.name || match?.seriesDescription || "";
+          const opacity = hasScores && isFinished;
+          const mHL = getTeamLogo(mHomeTeam),
+            mAL = getTeamLogo(mAwayTeam);
+          const isCurrent = String(match?.gamePk) === String(gamePk);
+          const aWins = mAway?.leagueRecord?.wins ?? "W",
+            aLosses = mAway?.leagueRecord?.losses ?? "L";
+          const hWins = mHome?.leagueRecord?.wins ?? "W",
+            hLosses = mHome?.leagueRecord?.losses ?? "L";
+          const leftColor =
+            Number(mAwayTeam?.id) === Number(away?.id) ? awayColor : homeColor;
+          const rightColor =
+            Number(mHomeTeam?.id) === Number(home?.id) ? homeColor : awayColor;
+          const scoreHtml = hasScores
+            ? `<div class="sb-sgc-score-row"><span class="sb-sgc-score-num" style="color:${isLive ? "var(--accent-error)" : mAW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mAW ? "800" : "500"};opacity:${!opacity ? 1 : mAW ? 1 : 0.55}">${mAS}</span><span class="sb-sgc-score-dash">-</span><span class="sb-sgc-score-num" style="color:${isLive ? "var(--accent-error)" : mHW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mHW ? "800" : "500"};opacity:${!opacity ? 1 : mHW ? 1 : 0.55}">${mHS}</span></div>`
+            : `<div class="sb-sgc-time">${fmtGameTimeOnly(match?.gameDate)}</div><div class="sb-sgc-ampm">${fmtGameAmPm(match?.gameDate)}</div>`;
+          return `<div class="sb-series-game-card${isCurrent ? " current" : ""}" onclick="window.location.href='scoreboard.html?gamePk=${match.gamePk}'">
+          <div class="sb-sgc-top">${topLine}</div>
+          <div class="sb-sgc-body" style="background:var(--bg-surface-secondary)"><div class="sb-sgc-gradient" style="background:linear-gradient(90deg,${leftColor}59 0%,transparent 35%,transparent 65%,${rightColor}59 100%)"></div>
+            <div class="sb-sgc-inner">
+              <div class="sb-sgc-side">${mAL ? `<img src="${mAL}" class="sb-sgc-logo" style="opacity:${!opacity ? 1 : mAW ? 1 : 0.55}">` : ""}<div class="sb-sgc-team"><div class="sb-sgc-name" style="color:${mAW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mAW ? "700" : "500"};opacity:${!opacity ? 1 : mAW ? 1 : 0.55}">${mAwayTeam?.name || "Away"}</div><div class="sb-sgc-record" style="opacity:${!opacity ? 1 : mAW ? 1 : 0.55}">${aWins} - ${aLosses}</div></div></div>
+              <div class="sb-sgc-score">${statusShort ? `<div class="sb-sgc-status" style="color:${isLive ? "var(--accent-error)" : "var(--text-secondary)"}">${statusShort}${extraInnings}</div>` : ""}${scoreHtml}</div>
+              <div class="sb-sgc-side sb-sgc-side-right"><div class="sb-sgc-team sb-sgc-team-right"><div class="sb-sgc-name" style="color:${mHW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mHW ? "700" : "500"};opacity:${!opacity ? 1 : mHW ? 1 : 0.55}">${mHomeTeam?.name || "Home"}</div><div class="sb-sgc-record" style="opacity:${!opacity ? 1 : mHW ? 1 : 0.55}">${hWins} - ${hLosses}</div></div>${mHL ? `<img src="${mHL}" class="sb-sgc-logo" style="opacity:${!opacity ? 1 : mHW ? 1 : 0.55}">` : ""}</div>
+            </div>
+          </div>
+          <div class="sb-sgc-bottom">${venueLine}</div>
+        </div>`;
+        })
+        .join(""),
+    );
+  }
+
+  async function fetchSeriesGames(away, home, awayColor, homeColor) {
+    const container = document.getElementById("sbSeriesGames");
+    if (!container) return;
+    try {
+      const homeId = home?.id,
+        awayId = away?.id;
+      const rawDate =
+        gameData?.datetime?.originalDate || gameData?.datetime?.dateTime;
+      const year =
+        String(rawDate || "").slice(0, 4) || new Date().getFullYear();
+      const fields =
+        "dates,games,linescore,currentInning,isTopInning,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,abbreviation,leagueRecord,wins,losses,score,home,team,id,name,abbreviation,leagueRecord,wins,losses,score,venue,name,seriesDescription";
+      const url = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${year}-01-01&endDate=${year}-12-31&teamId=${homeId}&opponentId=${awayId}&hydrate=linescore&fields=${fields}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      seriesGamesCache = (data?.dates || [])
+        .flatMap((d) => d?.games || [])
+        .sort(
+          (a, b) => new Date(b?.gameDate || 0) - new Date(a?.gameDate || 0),
+        );
+      renderSeriesSummaryBubble();
+      renderSeriesGamesList();
+    } catch (err) {
+      setPanelHtml(
+        container,
+        '<div class="sb-error">Failed to load series games.</div>',
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUBBLES
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderLinescoreBubble(
+    away,
+    home,
+    awayColor,
+    homeColor,
+    awayAbbr,
+    homeAbbr,
+  ) {
+    const innings = liveData?.linescore?.innings || [];
+    if (!innings.length) return "";
+    const at = liveData?.linescore?.teams?.away || {},
+      ht = liveData?.linescore?.teams?.home || {};
+    return `<div class="sb-linescore"><div class="sb-ls-header"><div class="sb-ls-label-col"></div><div class="sb-ls-innings">${innings.map((inn) => `<div class="sb-ls-inning-num">${inn.num}</div>`).join("")}</div><div class="sb-ls-totals"><span>R</span><span>H</span><span>E</span></div></div><div class="sb-ls-row" style="border-bottom:2px solid ${awayColor}"><div class="sb-ls-label-col"><span class="sb-ls-abbr">${awayAbbr}</span></div><div class="sb-ls-innings">${innings.map((inn) => `<div class="sb-ls-run">${inn.away?.runs ?? "-"}</div>`).join("")}</div><div class="sb-ls-totals"><span>${at.runs ?? "-"}</span><span>${at.hits ?? "-"}</span><span>${at.errors ?? "-"}</span></div></div><div class="sb-ls-row" style="border-bottom:2px solid ${homeColor}"><div class="sb-ls-label-col"><span class="sb-ls-abbr">${homeAbbr}</span></div><div class="sb-ls-innings">${innings.map((inn) => `<div class="sb-ls-run">${inn.home?.runs ?? "-"}</div>`).join("")}</div><div class="sb-ls-totals"><span>${ht.runs ?? "-"}</span><span>${ht.hits ?? "-"}</span><span>${ht.errors ?? "-"}</span></div></div></div>`;
+  }
+
+  function renderProbablePitchers(awayColor, homeColor) {
+    const prob = gameData?.probablePitchers || {};
+    const aid = prob?.away?.id,
+      hid = prob?.home?.id;
+    if (!aid && !hid) return "";
+    const pm = gameData?.players || {};
+    const bsTeams = liveData?.boxscore?.teams || {};
+    const allBs = {
+      ...(bsTeams?.away?.players || {}),
+      ...(bsTeams?.home?.players || {}),
+    };
+    const card = function (id, color, bsTeamData) {
+      if (!id) return "";
+      var info = resolvePlayer(pm, id);
+      var bsPitcher = allBs["ID" + id] || null;
+      // App uses seasonStats.pitching first, then stats.pitching
+      var pitStats =
+        bsPitcher?.seasonStats?.pitching || bsPitcher?.stats?.pitching || {};
+      var era = pitStats.era != null ? pitStats.era : "—";
+      var wins = pitStats.wins != null ? pitStats.wins : "—";
+      var losses = pitStats.losses != null ? pitStats.losses : "—";
+      var wlStr = wins !== "—" && losses !== "—" ? wins + "-" + losses : "—";
+      var ip = pitStats.inningsPitched || "—";
+      return (
+        '<div class="sb-pitcher-card" style="border-color:' +
+        color +
+        '"><div class="sb-pitcher-label" style="color:' +
+        color +
+        '">Probable Pitcher</div><img src="' +
+        headshotUrl(id) +
+        '" class="sb-pitcher-headshot" style="border-color:' +
+        color +
+        '" onerror="this.style.display=\'none\'"><div class="sb-pitcher-name">' +
+        (info?.fullName || "TBD") +
+        '</div><div class="sb-pitcher-stats"><div class="sb-pitcher-stat"><span>' +
+        wlStr +
+        '</span><span>W-L</span></div><div class="sb-pitcher-stat"><span>' +
+        era +
+        '</span><span>ERA</span></div><div class="sb-pitcher-stat"><span>' +
+        ip +
+        "</span><span>IP</span></div></div></div>"
+      );
+    };
+    return (
+      '<div class="sb-prob-pitchers">' +
+      card(aid, awayColor, bsTeams?.away) +
+      card(hid, homeColor, bsTeams?.home) +
+      "</div>"
+    );
+  }
+
+  function renderTeamStats(
+    away,
+    home,
+    awayColor,
+    homeColor,
+    awayAbbr,
+    homeAbbr,
+    sched,
+  ) {
+    const ba = liveData?.boxscore?.teams?.away || {},
+      bh = liveData?.boxscore?.teams?.home || {};
+    const ats = ba?.teamStats || {},
+      hts = bh?.teamStats || {};
+    const sections = sched
+      ? [
+          {
+            key: "batting",
+            label: "BATTING",
+            stats: [
+              { key: "avg", label: "AVG" },
+              { key: "obp", label: "OBP" },
+              { key: "slg", label: "SLG" },
+              { key: "ops", label: "OPS" },
+            ],
+          },
+          {
+            key: "pitching",
+            label: "PITCHING",
+            stats: [
+              { key: "era", label: "ERA", lowerBetter: true },
+              { key: "whip", label: "WHIP", lowerBetter: true },
+            ],
+          },
+        ]
+      : [
+          {
+            key: "batting",
+            label: "BATTING",
+            stats: [
+              { key: "hits", label: "Hits" },
+              { key: "runs", label: "Runs" },
+              { key: "homeRuns", label: "HR" },
+              { key: "rbi", label: "RBI" },
+              { key: "strikeOuts", label: "K", lowerBetter: true },
+              { key: "baseOnBalls", label: "BB" },
+            ],
+          },
+          {
+            key: "pitching",
+            label: "PITCHING",
+            stats: [
+              { key: "strikeOuts", label: "K" },
+              { key: "baseOnBalls", label: "BB", lowerBetter: true },
+              { key: "hits", label: "Hits", lowerBetter: true },
+            ],
+          },
+          {
+            key: "fielding",
+            label: "FIELDING",
+            stats: [
+              { key: "errors", label: "Errors", lowerBetter: true },
+              { key: "assists", label: "Assists" },
+              { key: "putOuts", label: "PO" },
+            ],
+          },
+        ];
+    const active = sections
+      .map((sec) => {
+        const aw = ats[sec.key] || {},
+          hm = hts[sec.key] || {};
+        const rows = sec.stats.filter(
+          (s) => aw[s.key] != null || hm[s.key] != null,
+        );
+        return { ...sec, rows, aw, hm };
+      })
+      .filter((sec) => sec.rows.length > 0);
+    if (!active.length) return "";
+    let h = '<div class="sb-team-stats">';
+    active.forEach((sec, si) => {
+      if (si > 0) h += '<div class="sb-ts-divider"></div>';
+      h += `<div class="sb-ts-header"><span style="color:${awayColor}">${awayAbbr}</span><span class="sb-ts-label">${sec.label}</span><span style="color:${homeColor}">${homeAbbr}</span></div>`;
+      sec.rows.forEach((s) => {
+        const aN = parseFloat(sec.aw[s.key]) || 0,
+          hN = parseFloat(sec.hm[s.key]) || 0,
+          total = aN + hN;
+        let af = total === 0 ? 0.5 : s.lowerBetter ? hN / total : aN / total;
+        af = Math.max(0, Math.min(1, af));
+        h += `<div class="sb-ts-row"><span class="sb-ts-val">${sec.aw[s.key] ?? "—"}</span><div class="sb-ts-bar-wrap"><div class="sb-ts-bar"><div style="flex:${af};background:${awayColor};height:8px;border-radius:4px 0 0 4px"></div>${af > 0 && af < 1 ? '<div style="width:3px;background:var(--bg-border)"></div>' : ""}<div style="flex:${1 - af};background:${homeColor};height:8px;border-radius:0 4px 4px 0"></div></div><div class="sb-ts-bar-label">${s.label}</div></div><span class="sb-ts-val">${sec.hm[s.key] ?? "—"}</span></div>`;
+      });
+    });
+    h += "</div>";
+    return h;
+  }
+
+  function renderLastPlayBubble(
+    away,
+    home,
+    awayColor,
+    homeColor,
+    awayAbbr,
+    homeAbbr,
+  ) {
+    const allPlays = liveData?.plays?.allPlays || [];
+    let lp = null;
+    for (let i = allPlays.length - 1; i >= 0; i--) {
+      if (allPlays[i]?.result?.event) {
+        lp = allPlays[i];
+        break;
+      }
+    }
+    if (!lp) return "";
+    const isTop = lp?.about?.isTopInning !== false,
+      tc = isTop ? awayColor : homeColor,
+      ba = isTop ? awayAbbr : homeAbbr;
+    const inning = lp?.about?.inning,
+      event = lp?.result?.event || "",
+      desc = lp?.result?.description || "";
+    const isScoring = lp?.about?.isScoringPlay === true,
+      aS = lp?.result?.awayScore,
+      hS = lp?.result?.homeScore;
+    const pm = gameData?.players || {};
+    const bid = lp?.matchup?.batter?.id,
+      pid = resolvePitcherIdFromPlay(
+        lp,
+        liveData?.linescore?.offense?.pitcher?.id,
+      );
+    const bi = resolvePlayer(pm, bid),
+      pi = resolvePlayer(pm, pid);
+    const btc = isTop ? awayColor : homeColor,
+      ptc = isTop ? homeColor : awayColor;
+    let matchup = "";
+    if (bi || pi) {
+      matchup =
+        '<div class="sb-lp-matchup">' +
+        (bi
+          ? `<div class="sb-lp-mu-side">${bid != null ? `<img src="${headshotUrl(bid)}" class="sb-lp-mu-headshot" style="border-color:${btc}" onerror="this.style.visibility='hidden'">` : ""}<div class="sb-lp-mu-text"><div class="sb-lp-mu-name">${bi.fullName || "—"}</div><div class="sb-lp-mu-role">Batter</div></div></div>`
+          : '<div class="sb-lp-mu-side"></div>') +
+        (pi
+          ? `<div class="sb-lp-mu-side sb-lp-mu-right"><div class="sb-lp-mu-text sb-lp-mu-text-right"><div class="sb-lp-mu-name">${pi.fullName || "—"}</div><div class="sb-lp-mu-role">Pitcher</div></div>${pid != null ? `<img src="${headshotUrl(pid)}" class="sb-lp-mu-headshot" style="border-color:${ptc}" onerror="this.style.visibility='hidden'">` : ""}</div>`
+          : "") +
+        "</div>";
+    }
+    return `<div class="sb-last-play" style="border-color:${tc}"><div class="sb-lp-header" style="background:${tc}18;border-bottom-color:var(--bg-border)"><div class="sb-lp-header-left"><span class="sb-lp-badge" style="background:${tc}">${ba}</span><span>${isTop ? "▲" : "▼"} ${ordinal(inning)}</span>${isScoring ? `<span class="sb-lp-scoring" style="border-color:${tc};color:${tc}">SCORING PLAY</span>` : ""}</div>${aS != null && hS != null ? `<span>${awayAbbr} ${aS} - ${hS} ${homeAbbr}</span>` : ""}</div><div class="sb-lp-body"><div class="sb-lp-event" style="color:${tc}">${event}</div>${desc ? `<div class="sb-lp-desc">${desc}</div>` : ""}${matchup}</div></div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CURRENT AT-BAT — mirrors app's CurrentAtBatBubble + StrikeZoneView
+  // ═══════════════════════════════════════════════════════════════════════════
+  var SB_CALL_COLORS = {
+    B: "#4CAF50",
+    "*B": "#492300",
+    C: "#E53935",
+    S: "#E53935",
+    T: "#E53935",
+    W: "#E53935",
+    F: "#FF9800",
+    X: "#2196F3",
+    E: "#2196F3",
+    D: "#2196F3",
+    H: "#9C27B0",
+  };
+  var SB_CALL_LABELS = {
+    B: "Ball",
+    "*B": "Ball",
+    C: "Called Strike",
+    S: "Swinging Strike",
+    T: "Foul Tip",
+    F: "Foul",
+    X: "In Play",
+    E: "In Play",
+    D: "In Play",
+    H: "HBP",
+  };
+
+  function sbPitchColor(cc) {
+    var c = String(cc || "").toUpperCase();
+    if (["X", "E", "H", "D"].indexOf(c) >= 0) return "#2196F3";
+    if (["B", "*B"].indexOf(c) >= 0) return "#4CAF50";
+    return "#f44336";
+  }
+
+  // Pitcher id sometimes only lives on a playEvent, not on play.matchup
+  function resolvePitcherIdFromPlay(play, fallbackPitcherId) {
+    if (play?.matchup?.pitcher?.id != null) return play.matchup.pitcher.id;
+    const events = play?.playEvents || [];
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i]?.matchup?.pitcher?.id != null)
+        return events[i].matchup.pitcher.id;
+    }
+    return fallbackPitcherId ?? null;
+  }
+
+  function getPlayPitches(play) {
+    return (play?.playEvents || []).filter(function (e) {
+      return e?.pitchData?.coordinates?.pX != null;
+    });
+  }
+
+  // Current at-bat play — the feed exposes it directly as plays.currentPlay
+  function getCurrentAtBatPlay() {
+    const cp = liveData?.plays?.currentPlay;
+    if (cp) return cp;
+    const allPlays = liveData?.plays?.allPlays || [];
+    if (!allPlays.length) return null;
+    for (let i = allPlays.length - 1; i >= 0; i--) {
+      if (allPlays[i]?.about?.isCurrentInning) return allPlays[i];
+    }
+    return allPlays[allPlays.length - 1] || null;
+  }
+
+  // Strike-zone SVG (identical math to the app's StrikeZoneView projection)
+  function renderStrikeZoneSVG(pitches) {
+    const chartSize = 160;
+    const containerW = chartSize,
+      containerH = Math.round(chartSize * 1.16);
+    const strikeW = Math.round(containerW * 0.52);
+    const strikeH = Math.round(containerH * 0.5);
+    const strikeLeft = Math.round((containerW - strikeW) / 2);
+    const strikeTop = Math.round(containerH * 0.15);
+    const dotSize = Math.max(14, Math.round(chartSize * 0.125));
+    const dotR = dotSize / 2;
+
+    let avgTop =
+      pitches.reduce(function (s, p) {
+        return s + ((p.pitchData && p.pitchData.strikeZoneTop) || 3.5);
+      }, 0) / pitches.length;
+    let avgBot =
+      pitches.reduce(function (s, p) {
+        return s + ((p.pitchData && p.pitchData.strikeZoneBottom) || 1.5);
+      }, 0) / pitches.length;
+    let zoneHeightFt = avgTop - avgBot;
+    if (zoneHeightFt <= 0) zoneHeightFt = 2;
+    const PLATE_WIDTH_FT = 20 / 12;
+
+    function finalPoint(pitch) {
+      const d = pitch.pitchData;
+      if (!d || !d.coordinates) return null;
+      const t = d.plateTime;
+      if (t == null) return null;
+      const c = d.coordinates;
+      if (
+        [c.x0, c.z0, c.vX0, c.vY0, c.vZ0, c.aX, c.aY, c.aZ].some(function (v) {
+          return v == null;
+        })
+      )
+        return null;
+      return {
+        x: c.x0 + c.vX0 * t + 0.5 * c.aX * t * t,
+        y: c.vY0 * t + 0.5 * c.aY * t * t,
+        z: c.z0 + c.vZ0 * t + 0.5 * c.aZ * t * t,
+      };
+    }
+
+    function project(p) {
+      if (!p) return null;
+      const depthScale = 1 - (p.y / 60) * 0.5;
+      const zRatio = (p.z - avgBot) / zoneHeightFt;
+      const y = strikeTop + strikeH - zRatio * strikeH * 0.6 * depthScale - 25;
+      const xRatio = p.x / (PLATE_WIDTH_FT / 2);
+      const x =
+        strikeLeft + strikeW / 2 + xRatio * (strikeW / 2) * 0.75 * depthScale;
+      return {
+        x: Math.max(2, Math.min(containerW - dotSize, x - dotR)),
+        y: Math.max(2, Math.min(containerH - dotSize, y - dotR)),
+      };
+    }
+
+    const dots = pitches
+      .map(function (p, i) {
+        const pos = project(finalPoint(p));
+        if (!pos) return "";
+        const cc = (p.details && p.details.call && p.details.call.code) || "";
+        const color = sbPitchColor(cc);
+        const cx = pos.x + dotR,
+          cy = pos.y + dotR;
+        return (
+          '<g class="sb-sz-pitch"><circle cx="' +
+          cx +
+          '" cy="' +
+          cy +
+          '" r="' +
+          dotR +
+          '" fill="' +
+          color +
+          '" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/><text x="' +
+          cx +
+          '" y="' +
+          (cy + 4.5) +
+          '" text-anchor="middle" font-size="' +
+          Math.max(8, Math.round(dotSize * 0.5)) +
+          '" font-weight="800" fill="#fff" pointer-events="none">' +
+          (i + 1) +
+          "</text></g>"
+        );
+      })
+      .join("");
+
+    const grid =
+      '<line x1="' +
+      (strikeLeft + strikeW / 3) +
+      '" y1="' +
+      strikeTop +
+      '" x2="' +
+      (strikeLeft + strikeW / 3) +
+      '" y2="' +
+      (strikeTop + strikeH) +
+      '" style="stroke:var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+      '<line x1="' +
+      (strikeLeft + (strikeW * 2) / 3) +
+      '" y1="' +
+      strikeTop +
+      '" x2="' +
+      (strikeLeft + (strikeW * 2) / 3) +
+      '" y2="' +
+      (strikeTop + strikeH) +
+      '" style="stroke:var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+      '<line x1="' +
+      strikeLeft +
+      '" y1="' +
+      (strikeTop + strikeH / 3) +
+      '" x2="' +
+      (strikeLeft + strikeW) +
+      '" y2="' +
+      (strikeTop + strikeH / 3) +
+      '" style="stroke:var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+      '<line x1="' +
+      strikeLeft +
+      '" y1="' +
+      (strikeTop + (strikeH * 2) / 3) +
+      '" x2="' +
+      (strikeLeft + strikeW) +
+      '" y2="' +
+      (strikeTop + (strikeH * 2) / 3) +
+      '" style="stroke:var(--text-tertiary)" stroke-width="1" opacity="0.45"/>';
+
+    return (
+      '<svg width="' +
+      containerW +
+      '" height="' +
+      containerH +
+      '" viewBox="0 0 ' +
+      containerW +
+      " " +
+      containerH +
+      '" class="sb-sz-svg">' +
+      '<rect x="' +
+      strikeLeft +
+      '" y="' +
+      strikeTop +
+      '" width="' +
+      strikeW +
+      '" height="' +
+      strikeH +
+      '" fill="rgba(128,128,128,0.06)" style="stroke:var(--text-tertiary)" stroke-width="2" rx="3"/>' +
+      grid +
+      dots +
+      "</svg>"
+    );
+  }
+
+  function renderCurrentAtBat(away, home, awayColor, homeColor) {
+    const play = getCurrentAtBatPlay();
+    if (!play) return "";
+
+    const pm = gameData?.players || {};
+    const isTop = play?.about?.isTopInning !== false;
+    const teamColor = isTop ? awayColor : homeColor;
+    const batterTeamColor = isTop ? awayColor : homeColor;
+    const pitcherTeamColor = isTop ? homeColor : awayColor;
+    const inning = play?.about?.inning;
+
+    const bid = play?.matchup?.batter?.id;
+    const pid = resolvePitcherIdFromPlay(
+      play,
+      liveData?.linescore?.offense?.pitcher?.id,
+    );
+    const bi = resolvePlayer(pm, bid),
+      pi = resolvePlayer(pm, pid);
+
+    const bsTeams = liveData?.boxscore?.teams || {};
+    const allBs = {
+      ...(bsTeams?.away?.players || {}),
+      ...(bsTeams?.home?.players || {}),
+    };
+    const bBs = bid != null ? allBs[`ID${bid}`] || null : null;
+    const pBs = pid != null ? allBs[`ID${pid}`] || null : null;
+    const bBat = bBs?.stats?.batting || bBs?.seasonStats?.batting || {};
+    const pPit = pBs?.stats?.pitching || pBs?.seasonStats?.pitching || {};
+
+    const allPitches = getPlayPitches(play);
+
+    const counts = play?.count || {};
+    const balls = counts?.balls || 0,
+      strikes = counts?.strikes || 0,
+      outs = counts?.outs || 0;
+
+    // Most recent event carrying a call code
+    let lastEv = null;
+    const evs = play?.playEvents || [];
+    for (let i = evs.length - 1; i >= 0; i--) {
+      if (evs[i]?.details?.call?.code != null) {
+        lastEv = evs[i];
+        break;
+      }
+    }
+    const lastCode = lastEv?.details?.call?.code ?? null;
+    const lastLabel = lastCode ? SB_CALL_LABELS[lastCode] || lastCode : null;
+    const lastColor = lastCode
+      ? SB_CALL_COLORS[lastCode] || "var(--text-secondary)"
+      : null;
+    const lastDesc = lastEv?.details?.description || "";
+    const lastType = lastEv?.details?.type?.description || null;
+    const lastSpeed =
+      lastEv?.pitchData?.startSpeed != null
+        ? Math.round(lastEv.pitchData.startSpeed)
+        : null;
+
+    // Bases
+    const baseSrc = play?.matchup || {};
+
+    // On deck / in hole from the batting team's offense block
+    const offense = liveData?.linescore?.offense || {};
+    const onDeckId = offense?.onDeck?.id ?? null;
+    const inHoleId = offense?.inHole?.id ?? offense?.onHole?.id ?? null;
+    const onDeckInfo = onDeckId != null ? resolvePlayer(pm, onDeckId) : null;
+    const inHoleInfo = inHoleId != null ? resolvePlayer(pm, inHoleId) : null;
+
+    const countItem = (label, value, color) =>
+      `<div class="sb-cab-count-item"><span class="sb-cab-count-val" style="color:${color}">${value}</span><span class="sb-cab-count-label">${label}</span></div>`;
+    const miniStat = (label, val) =>
+      `<div class="sb-cab-ministat"><span class="sb-cab-ministat-val">${val ?? "—"}</span><span class="sb-cab-ministat-label">${label}</span></div>`;
+    const baseDiamond = (occupied) =>
+      occupied
+        ? `<div class="sb-cab-base occupied" style="background:${teamColor};box-shadow:0 0 6px ${teamColor}"></div>`
+        : '<div class="sb-cab-base"></div>';
+
+    let html = `<div class="sb-atbat" style="border-color:${teamColor}">`;
+
+    // Header — inning + B/S/O
+    html += `<div class="sb-cab-header"><span class="sb-cab-title" style="color:${teamColor}">${isTop ? "Top" : "Bot"} ${inning != null ? ordinal(inning) : "—"}</span><div class="sb-cab-count">${countItem("B", balls, "#4CAF50")}${countItem("S", strikes, "#f44336")}${countItem("O", outs, "var(--text-secondary)")}</div></div>`;
+
+    // Last pitch event
+    if (lastLabel) {
+      const meta = [lastType, lastSpeed != null ? `${lastSpeed} mph` : null]
+        .filter(Boolean)
+        .join(" · ");
+      html += `<div class="sb-cab-lastev"><span class="sb-cab-call-badge" style="background:${lastColor}">${lastCode}</span><div class="sb-cab-lastev-main">${lastDesc ? `<div class="sb-cab-lastev-desc">${lastDesc}</div>` : ""}${meta ? `<div class="sb-cab-lastev-meta">${meta}</div>` : ""}</div></div>`;
+    }
+
+    // Matchup — batter | bases | pitcher
+    const batterImg =
+      bid != null
+        ? `<img src="${headshotUrl(bid)}" class="sb-cab-headshot" style="border-color:${batterTeamColor}" onerror="this.style.visibility='hidden'">`
+        : "";
+    const pitcherImg =
+      pid != null
+        ? `<img src="${headshotUrl(pid)}" class="sb-cab-headshot" style="border-color:${pitcherTeamColor}" onerror="this.style.visibility='hidden'">`
+        : "";
+    html += `<div class="sb-cab-matchup">`;
+    html += `<div class="sb-cab-player">${batterImg}<div class="sb-cab-name">${shortName(bi?.fullName) || "—"}</div><div class="sb-cab-role" style="color:${batterTeamColor}">Batter</div><div class="sb-cab-ministats">${miniStat("AB", bBat.atBats)}${miniStat("H", bBat.hits)}${miniStat("K", bBat.strikeOuts)}</div></div>`;
+    html += `<div class="sb-cab-bases">${baseDiamond(!!baseSrc.postOnSecond)}<div class="sb-cab-bases-row">${baseDiamond(!!baseSrc.postOnThird)}${baseDiamond(!!baseSrc.postOnFirst)}</div></div>`;
+    html += `<div class="sb-cab-player sb-cab-player-right">${pitcherImg}<div class="sb-cab-name">${shortName(pi?.fullName) || "—"}</div><div class="sb-cab-role" style="color:${pitcherTeamColor}">Pitcher</div><div class="sb-cab-ministats">${miniStat("IP", pPit.inningsPitched)}${miniStat("K", pPit.strikeOuts)}${miniStat("BB", pPit.baseOnBalls)}</div></div>`;
+    html += `</div>`;
+
+    // Pitch locations
+    if (allPitches.length > 0) {
+      const legend = [
+        ["Ball", "#4CAF50"],
+        ["Strike / Foul", "#f44336"],
+        ["In Play", "#2196F3"],
+      ]
+        .map(
+          ([l, c]) =>
+            `<span class="sb-cab-legend-item"><span class="sb-cab-legend-dot" style="background:${c}"></span>${l}</span>`,
+        )
+        .join("");
+      html += `<div class="sb-cab-zone"><div class="sb-cab-zone-label">Pitch Locations</div>${renderStrikeZoneSVG(allPitches, allPitches.length - 1)}<div class="sb-cab-legend">${legend}</div></div>`;
+    }
+
+    // On deck / in hole
+    if (onDeckId != null || inHoleId != null) {
+      html += `<div class="sb-cab-next">`;
+      [
+        { id: onDeckId, info: onDeckInfo, label: "On Deck" },
+        { id: inHoleId, info: inHoleInfo, label: "In Hole" },
+      ].forEach((n, i) => {
+        const img =
+          n.id != null
+            ? `<img src="${headshotUrl(n.id)}" class="sb-cab-next-headshot" style="border-color:${batterTeamColor}" onerror="this.style.visibility='hidden'">`
+            : "";
+        html += `<div class="sb-cab-next-player${i === 0 ? " sb-cab-next-divider" : ""}">${img}<div class="sb-cab-next-text"><div class="sb-cab-next-name">${shortName(n.info?.fullName) || "—"}</div><div class="sb-cab-next-label">${n.label}</div></div></div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+  }
+
+  function renderWinProbability(
+    away,
+    home,
+    awayColor,
+    homeColor,
+    awayAbbr,
+    homeAbbr,
+  ) {
+    const wp = pitchesData?.probability;
+    if (!wp?.home || !wp?.away) return "";
+    const ha = wp.home.split(",").map(Number),
+      aa = wp.away.split(",").map(Number);
+    if (!ha.length) return "";
+    const n = Math.min(ha.length, 100),
+      step = ha.length / n;
+    const s = [];
+    for (let i = 0; i < n; i++) {
+      s.push({ h: ha[Math.floor(i * step)], a: aa[Math.floor(i * step)] });
+    }
+    const hp = s
+      .map(
+        (pt, i) => `${i === 0 ? "M" : "L"}${(i / (n - 1)) * 100},${100 - pt.h}`,
+      )
+      .join(" ");
+    const ap = s
+      .map(
+        (pt, i) => `${i === 0 ? "M" : "L"}${(i / (n - 1)) * 100},${100 - pt.a}`,
+      )
+      .join(" ");
+    return `<div class="sb-winprob"><div class="sb-winprob-title">Win Probability</div><div class="sb-winprob-legend"><span style="color:${awayColor}">■ ${awayAbbr}</span><span style="color:${homeColor}">■ ${homeAbbr}</span></div><div class="sb-winprob-chart"><svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%">${s
+      .map((pt, i) => {
+        if (i === 0) return "";
+        const p = s[i - 1],
+          x1 = ((i - 1) / (n - 1)) * 100,
+          x2 = (i / (n - 1)) * 100,
+          hY1 = 100 - p.h,
+          hY2 = 100 - pt.h,
+          aY1 = 100 - p.a,
+          aY2 = 100 - pt.a;
+        if (aY1 < hY1)
+          return `<path d="M${x1},100 L${x1},${hY1} L${x2},${hY2} L${x2},100 Z" fill="${homeColor}" fill-opacity="0.3"/><path d="M${x1},${hY1} L${x1},${aY1} L${x2},${aY2} L${x2},${hY2} Z" fill="${awayColor}" fill-opacity="0.3"/>`;
+        return `<path d="M${x1},100 L${x1},${aY1} L${x2},${aY2} L${x2},100 Z" fill="${awayColor}" fill-opacity="0.3"/><path d="M${x1},${aY1} L${x1},${hY1} L${x2},${hY2} L${x2},${aY2} Z" fill="${homeColor}" fill-opacity="0.3"/>`;
+      })
+      .join(
+        "",
+      )}<path d="${hp}" fill="none" stroke="${homeColor}" stroke-width="0.5"/><path d="${ap}" fill="none" stroke="${awayColor}" stroke-width="0.5"/></svg></div></div>`;
+  }
+
+  function renderGameInfoBubble() {
+    const venue = gameData?.venue || {},
+      weather = gameData?.weather || {},
+      gi = gameData?.gameInfo || {};
+    const vn = venue?.name,
+      fi = venue?.fieldInfo || {};
+    const hv = !!(vn || Object.keys(fi).length),
+      hw = !!(weather?.condition || weather?.temp || weather?.wind),
+      hg = !!(
+        gi?.firstPitch ||
+        gi?.gameDurationMinutes != null ||
+        gi?.attendance != null
+      );
+    if (!hv && !hw && !hg) return "";
+    let h =
+      '<div class="sb-gameinfo"><div class="sb-gi-header">Game Info</div>';
+    if (hv) {
+      h +=
+        '<div class="sb-gi-section"><div class="sb-gi-section-title">VENUE</div>';
+      if (vn) h += `<div class="sb-gi-venue-name">${vn}</div>`;
+      if (fi.capacity != null || fi.turfType || fi.roofType) {
+        h += '<div class="sb-gi-row">';
+        if (fi.capacity != null)
+          h += `<div class="sb-gi-cell"><span>${fi.capacity.toLocaleString()}</span><span>Capacity</span></div>`;
+        if (fi.turfType)
+          h += `<div class="sb-gi-cell"><span>${fi.turfType}</span><span>Surface</span></div>`;
+        if (fi.roofType)
+          h += `<div class="sb-gi-cell"><span>${fi.roofType}</span><span>Roof</span></div>`;
+        h += "</div>";
+      }
+      if (
+        fi.leftLine != null ||
+        fi.left != null ||
+        fi.center != null ||
+        fi.right != null ||
+        fi.rightLine != null
+      ) {
+        h += '<div class="sb-gi-row">';
+        if (fi.leftLine != null)
+          h += `<div class="sb-gi-cell"><span>${fi.leftLine}ft</span><span>LF Line</span></div>`;
+        if (fi.left != null)
+          h += `<div class="sb-gi-cell"><span>${fi.left}ft</span><span>LF</span></div>`;
+        if (fi.center != null)
+          h += `<div class="sb-gi-cell"><span>${fi.center}ft</span><span>CF</span></div>`;
+        if (fi.right != null)
+          h += `<div class="sb-gi-cell"><span>${fi.right}ft</span><span>RF</span></div>`;
+        if (fi.rightLine != null)
+          h += `<div class="sb-gi-cell"><span>${fi.rightLine}ft</span><span>RF Line</span></div>`;
+        h += "</div>";
+      }
+      h += "</div>";
+    }
+    if (hw) {
+      h +=
+        '<div class="sb-gi-section"><div class="sb-gi-section-title">WEATHER</div><div class="sb-gi-row">';
+      if (weather.condition)
+        h += `<div class="sb-gi-cell"><span>${weather.condition}</span><span>Condition</span></div>`;
+      if (weather.temp)
+        h += `<div class="sb-gi-cell"><span>${weather.temp}°F</span><span>Temp</span></div>`;
+      if (weather.wind)
+        h += `<div class="sb-gi-cell"><span>${weather.wind}</span><span>Wind</span></div>`;
+      h += "</div></div>";
+    }
+    if (hg) {
+      h +=
+        '<div class="sb-gi-section"><div class="sb-gi-section-title">GAME</div>';
+      if (gi.firstPitch)
+        h += `<div class="sb-gi-first-pitch">${utcToEastern(gi.firstPitch)}</div>`;
+      h += '<div class="sb-gi-row">';
+      if (gi.gameDurationMinutes != null)
+        h += `<div class="sb-gi-cell"><span>${fmtDuration(gi.gameDurationMinutes)}</span><span>Duration</span></div>`;
+      if (gi.attendance != null)
+        h += `<div class="sb-gi-cell"><span>${gi.attendance.toLocaleString()}</span><span>Attendance</span></div>`;
+      h += "</div></div>";
+    }
+    h += "</div>";
+    return h;
+  }
+
+  function renderSeriesSummary(awayColor, homeColor) {
+    const ss = gameData?.seriesSummary || {};
+    if (ss?.homeWins == null && ss?.awayWins == null) return "";
+    const hw = Number(ss.homeWins || 0),
+      aw = Number(ss.awayWins || 0),
+      total = hw + aw;
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayLogo = getTeamLogo(away),
+      homeLogo = getTeamLogo(home);
+    return `<div class="sb-series"><div class="sb-series-header"><span>SEASON SERIES</span></div><div class="sb-series-body"><div class="sb-series-side">${awayLogo ? `<img src="${awayLogo}" class="sb-series-logo">` : ""}<span class="sb-series-wins">${aw}</span></div><div class="sb-series-vs">VS</div><div class="sb-series-side sb-series-side-right"><span class="sb-series-wins">${hw}</span>${homeLogo ? `<img src="${homeLogo}" class="sb-series-logo">` : ""}</div></div><div class="sb-series-bar"><div style="flex:${total > 0 ? aw : 1};background:${awayColor};height:6px;border-right:2.5px solid var(--bg-surface)"></div><div style="flex:${total > 0 ? hw : 1};background:${homeColor};height:6px"></div></div></div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLAYER MODAL
+  // ═══════════════════════════════════════════════════════════════════════════
+  function openPlayerModal(playerId, side) {
+    const pm = gameData?.players || {},
+      bsTeams = liveData?.boxscore?.teams || {};
+    const bsTD = side === "away" ? bsTeams?.away : bsTeams?.home;
+    const bsP = bsTD?.players?.[`ID${playerId}`] || null;
+    const pI = resolvePlayer(pm, playerId);
+    const td =
+      side === "away"
+        ? gameData?.teams?.away?.team || gameData?.teams?.away || {}
+        : gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const tc = getTeamColor(td),
+      tn = td?.name || "";
+    if (!pI && !bsP) return;
+    const fn = pI?.fullName || `Player ${playerId}`;
+    const jn = bsP?.jerseyNumber ? `#${bsP.jerseyNumber}` : "";
+    const pa =
+      bsP?.position?.abbreviation || pI?.primaryPosition?.abbreviation || "—";
+    const pn = bsP?.position?.name || pI?.primaryPosition?.name || "";
+    const bat = bsP?.stats?.batting || {},
+      pit = bsP?.stats?.pitching || {};
+    const hb = Object.keys(bat).length > 0,
+      hp = Object.keys(pit).length > 0;
+    const isP = pa === "P" || pa === "SP" || pa === "RP";
+    const rh = pI?.height || "";
+    const height = rh.replace(/\\/g, "") || "—";
+    const bc = pI?.batSide?.code || null,
+      pc = pI?.pitchHand?.code || null;
+    let hv = "—",
+      hl = "Bats";
+    if (hb && hp) {
+      hv = `${bc || "—"} / ${pc || "—"}`;
+      hl = "Bat / Pitch";
+    } else if (hp && pc) {
+      hv = pc;
+      hl = "Throws";
+    } else if (bc) {
+      hv = bc;
+      hl = "Bats";
+    }
+    const sm = isP ? "pitching" : "batting";
+    const cols =
+      sm === "pitching"
+        ? [
+            { key: "inningsPitched", label: "IP" },
+            { key: "hits", label: "H" },
+            { key: "runs", label: "R" },
+            { key: "baseOnBalls", label: "BB" },
+            { key: "strikeOuts", label: "K" },
+            { key: "homeRuns", label: "HR" },
+            { key: "strikePercentage", label: "K%" },
+            { key: "numberOfPitches", label: "NP" },
+            { key: "battersFaced", label: "BF" },
+          ]
+        : [
+            { key: "atBats", label: "AB" },
+            { key: "hits", label: "H" },
+            { key: "runs", label: "R" },
+            { key: "rbi", label: "RBI" },
+            { key: "homeRuns", label: "HR" },
+            { key: "baseOnBalls", label: "BB" },
+            { key: "strikeOuts", label: "K" },
+            { key: "stolenBases", label: "SB" },
+            { key: "leftOnBase", label: "LOB" },
+          ];
+    const stats = sm === "pitching" ? pit : bat;
+    $("#sbPlayerModalBody").innerHTML = `
+      <div class="sb-pm-header" style="border-bottom-color:${tc}">
+        <div class="sb-pm-headshot-wrap"><img src="${headshotUrl(playerId)}" class="sb-pm-headshot" style="border-color:${tc}"><div class="sb-pm-pos-badge">${pa}</div></div>
+        <div class="sb-pm-name">${fn}</div><div class="sb-pm-meta">${[jn, tn].filter(Boolean).join(" • ")}</div>
+        <div class="sb-pm-tri-row"><div class="sb-pm-tri-cell"><span>${pa}</span><span>${pn}</span></div><div class="sb-pm-tri-cell sb-pm-tri-mid"><span>${height}</span><span>Height</span></div><div class="sb-pm-tri-cell"><span>${hv}</span><span>${hl}</span></div></div>
+      </div>
+      <div class="sb-pm-stats">${cols.map(({ key, label }) => `<div class="sb-pm-stat-row"><span class="sb-pm-stat-val">${stats[key] ?? "—"}</span><span class="sb-pm-stat-lbl">${label}</span></div>`).join("")}</div>`;
+    $("#sbPlayerModal").style.display = "flex";
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLAY MODAL
+  // ═══════════════════════════════════════════════════════════════════════════
+  function openPlayModal(play) {
+    if (!play) return;
+    const away = gameData?.teams?.away?.team || gameData?.teams?.away || {};
+    const home = gameData?.teams?.home?.team || gameData?.teams?.home || {};
+    const awayColor = getTeamColor(away),
+      homeColor = getTeamColor(home);
+    const awayAbbr = getTeamAbbr(away),
+      homeAbbr = getTeamAbbr(home);
+    const pm = gameData?.players || {};
+    const isTop = play?.about?.isTopInning !== false;
+    const tc = isTop ? awayColor : homeColor,
+      ta = isTop ? awayAbbr : homeAbbr;
+    const inning = play?.about?.inning,
+      event = play?.result?.event || "",
+      desc = play?.result?.description || "";
+    const isScoring = play?.about?.isScoringPlay === true;
+    const aS = play?.result?.awayScore,
+      hS = play?.result?.homeScore;
+    const bid = play?.matchup?.batter?.id,
+      pid = play?.matchup?.pitcher?.id;
+    const bi = resolvePlayer(pm, bid),
+      pi = resolvePlayer(pm, pid);
+    const btc = isTop ? awayColor : homeColor,
+      ptc = isTop ? homeColor : awayColor;
+    const playEvents = play?.playEvents || [];
+    const pitches = playEvents.filter(
+      (e) => e?.pitchData?.coordinates?.pX != null,
+    );
+
+    const allBs = {
+      ...(liveData?.boxscore?.teams?.away?.players || {}),
+      ...(liveData?.boxscore?.teams?.home?.players || {}),
+    };
+    const bBs = allBs[`ID${bid}`] || null,
+      pBs = allBs[`ID${pid}`] || null;
+    const bBat = bBs?.stats?.batting || {},
+      pPit = pBs?.stats?.pitching || {};
+
+    // ── Pitch colors (matches app's getPitchColor) ──
+    function getPitchColor(cc) {
+      var c = String(cc || "").toUpperCase();
+      if (["X", "E", "H", "D"].indexOf(c) >= 0) return "#2196F3";
+      if (["B", "*B"].indexOf(c) >= 0) return "#4CAF50";
+      return "#f44336";
+    }
+
+    // ── Build pitch section ──
+    var pitchSectionHtml = "";
+    if (pitches.length > 0) {
+      // Strike zone dimensions (matches app's StrikeZoneView)
+      var chartSize = 160;
+      var containerW = chartSize,
+        containerH = Math.round(chartSize * 1.16); // 186
+      var strikeW = Math.round(containerW * 0.52); // 83
+      var strikeH = Math.round(containerH * 0.5); // 93
+      var strikeLeft = Math.round((containerW - strikeW) / 2); // 39
+      var strikeTop = Math.round(containerH * 0.15); // 28
+      var dotSize = Math.max(14, Math.round(chartSize * 0.125)); // 20
+      var dotR = dotSize / 2; // 10
+
+      // Average strike zone top/bottom
+      var avgTop =
+        pitches.reduce(function (s, p) {
+          return s + (p.pitchData ? p.pitchData.strikeZoneTop || 3.5 : 3.5);
+        }, 0) / pitches.length;
+      var avgBot =
+        pitches.reduce(function (s, p) {
+          return s + (p.pitchData ? p.pitchData.strikeZoneBottom || 1.5 : 1.5);
+        }, 0) / pitches.length;
+      var zoneHeightFt = avgTop - avgBot;
+      if (zoneHeightFt <= 0) zoneHeightFt = 2;
+      var PLATE_WIDTH_FT = 20 / 12; // 1.67 ft
+
+      // Physics-based final point (matches app's getFinalPoint)
+      function getFinalPoint(pitch) {
+        var d = pitch.pitchData;
+        if (!d || !d.coordinates) return null;
+        var pt = d.plateTime;
+        if (pt == null) return null;
+        var c = d.coordinates;
+        var x0 = c.x0,
+          z0 = c.z0,
+          vX0 = c.vX0,
+          vY0 = c.vY0,
+          vZ0 = c.vZ0,
+          aX = c.aX,
+          aY = c.aY,
+          aZ = c.aZ;
+        if (
+          [x0, z0, vX0, vY0, vZ0, aX, aY, aZ].some(function (v) {
+            return v == null;
+          })
+        )
+          return null;
+        var t = pt;
+        return {
+          x: x0 + vX0 * t + 0.5 * aX * t * t,
+          y: vY0 * t + 0.5 * aY * t * t,
+          z: z0 + vZ0 * t + 0.5 * aZ * t * t,
+        };
+      }
+
+      // Project 3D point to strike zone 2D (matches app's projectToStrikeZone)
+      function projectToStrikeZone(p) {
+        if (!p) return null;
+        var depthScale = 1 - (p.y / 60) * 0.5;
+        var zRatio = (p.z - avgBot) / zoneHeightFt;
+        var VERTICAL_TUNE = 0.6,
+          Y_OFFSET = -25;
+        var y =
+          strikeTop +
+          strikeH -
+          zRatio * strikeH * VERTICAL_TUNE * depthScale +
+          Y_OFFSET;
+        var xRatio = p.x / (PLATE_WIDTH_FT / 2);
+        var x =
+          strikeLeft + strikeW / 2 + xRatio * (strikeW / 2) * 0.75 * depthScale;
+        // Clamp
+        x = Math.max(2, Math.min(containerW - dotSize, x - dotR));
+        y = Math.max(2, Math.min(containerH - dotSize, y - dotR));
+        return { x: x, y: y };
+      }
+
+      // Compute all pitch positions
+      var pitchPositions = pitches.map(function (pitch) {
+        var fp = getFinalPoint(pitch);
+        return projectToStrikeZone(fp);
       });
 
-      console.log(`Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
+      // SVG pitch dots
+      var pitchDotsHtml = pitches
+        .map(function (p, i) {
+          var pos = pitchPositions[i];
+          if (!pos) return "";
+          var cc = (p.details && p.details.call && p.details.call.code) || "";
+          var color = getPitchColor(cc);
+          var num = i + 1;
+          var cx = pos.x + dotR,
+            cy = pos.y + dotR;
+          return (
+            '<circle cx="' +
+            cx +
+            '" cy="' +
+            cy +
+            '" r="' +
+            dotR +
+            '" fill="' +
+            color +
+            '" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/><text x="' +
+            cx +
+            '" y="' +
+            (cy + 4.5) +
+            '" text-anchor="middle" font-size="' +
+            Math.max(8, Math.round(dotSize * 0.5)) +
+            '" font-weight="800" fill="#fff" pointer-events="none">' +
+            num +
+            "</text>"
+          );
+        })
+        .join("");
 
-      if (totalScore > bestScore) {
-        bestScore = totalScore;
-        bestMatch = match;
+      // ── Pitch filter chips (matches app's pitchFilterOptions) ──
+      var counters = { ball: 0, strike: 0, inPlay: 0, pitch: 0 };
+      var filterChipsHtml =
+        '<div class="sb-pm-filter-scroll"><div class="sb-pm-filter-row">';
+      filterChipsHtml +=
+        '<button class="sb-pm-filter-chip active" data-pitch="all"><span class="sb-pm-filter-num" style="background:var(--bg-border);color:var(--text-primary)">A</span><span class="sb-pm-filter-label">All</span></button>';
+      pitches.forEach(function (p, i) {
+        var cc = (p.details && p.details.call && p.details.call.code) || "";
+        var color = getPitchColor(cc);
+        var outcome =
+          ["X", "E", "H", "D"].indexOf(String(cc).toUpperCase()) >= 0
+            ? "inPlay"
+            : ["B", "*B"].indexOf(String(cc).toUpperCase()) >= 0
+              ? "ball"
+              : ["C", "S", "F", "T", "L", "W"].indexOf(
+                    String(cc).toUpperCase(),
+                  ) >= 0
+                ? "strike"
+                : "other";
+        var label;
+        if (outcome === "ball") {
+          counters.ball++;
+          label = "Ball " + counters.ball;
+        } else if (outcome === "strike") {
+          counters.strike++;
+          label = "Strike " + counters.strike;
+        } else if (outcome === "inPlay") {
+          counters.inPlay++;
+          label = "In Play";
+        } else {
+          counters.pitch++;
+          label = "Pitch " + counters.pitch;
+        }
+        filterChipsHtml +=
+          '<button class="sb-pm-filter-chip" data-pitch="' +
+          i +
+          '"><span class="sb-pm-filter-num" style="background:' +
+          color +
+          ';color:#fff">' +
+          (i + 1) +
+          '</span><span class="sb-pm-filter-label">' +
+          label +
+          "</span></button>";
+      });
+      filterChipsHtml += "</div></div>";
 
-        // Early exit if we find a very good match (score >= 1.0 for rough matching)
-        if (bestScore >= 1.0) {
-          console.log(`Found excellent match with score ${bestScore}, stopping search early`);
+      // ── Hit data panel (matches app) ──
+      var hitEv = null;
+      for (var hi = 0; hi < playEvents.length; hi++) {
+        if (
+          playEvents[hi] &&
+          playEvents[hi].hitData &&
+          playEvents[hi].hitData.launchSpeed != null
+        ) {
+          hitEv = playEvents[hi];
           break;
         }
       }
-    }
-
-    if (!bestMatch || bestScore < 0.3) {
-      console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
-      console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`);
-      return {};
-    }
-
-    console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
-
-    // Validate that the matched game actually contains both team names
-    const matchTitle = bestMatch.title.toLowerCase();
-    const homeApiName = bestMatch.teams?.home?.name?.toLowerCase() || '';
-    const awayApiName = bestMatch.teams?.away?.name?.toLowerCase() || '';
-
-    const titleHasHome = matchTitle.includes(homeNormalized) || homeApiName.includes(homeNormalized);
-    const titleHasAway = matchTitle.includes(awayNormalized) || awayApiName.includes(awayNormalized);
-
-    if (!titleHasHome || !titleHasAway) {
-      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both team names!`);
-      console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Found: ${homeApiName} vs ${awayApiName}`);
-
-      // Try to find a better match by being more strict
-      let betterMatch = null;
-      let betterScore = 0;
-
-      for (const match of matchesToProcess) {
-        if (match === bestMatch) continue; // Skip the one we already found
-
-        const mTitle = match.title.toLowerCase();
-        const mHomeApi = match.teams?.home?.name?.toLowerCase() || '';
-        const mAwayApi = match.teams?.away?.name?.toLowerCase() || '';
-
-        const mTitleHasHome = mTitle.includes(homeNormalized) || mHomeApi.includes(homeNormalized);
-        const mTitleHasAway = mTitle.includes(awayNormalized) || mAwayApi.includes(awayNormalized);
-
-        if (mTitleHasHome && mTitleHasAway) {
-          // This match has both teams, calculate its score
-          let score = 0;
-          if (mTitle.includes(homeNormalized) && mTitle.includes(awayNormalized)) score += 2.0;
-          if (mHomeApi.includes(homeNormalized) && mAwayApi.includes(awayNormalized)) score += 2.0;
-
-          if (score > betterScore) {
-            betterMatch = match;
-            betterScore = score;
-          }
-        }
+      var hitDataHtml = "";
+      if (hitEv) {
+        var hd = hitEv.hitData;
+        hitDataHtml =
+          '<div class="sb-pm-hitdata"><div class="sb-pm-section-title">Hit Data</div><div class="sb-pm-hitdata-row"><span>💨</span><div><div class="sb-pm-hitdata-val">' +
+          Math.round(hd.launchSpeed) +
+          ' mph</div><div class="sb-pm-hitdata-lbl">Speed</div></div></div><div class="sb-pm-hitdata-row"><span>📐</span><div><div class="sb-pm-hitdata-val">' +
+          Math.round(hd.launchAngle) +
+          '°</div><div class="sb-pm-hitdata-lbl">Angle</div></div></div><div class="sb-pm-hitdata-row"><span>📏</span><div><div class="sb-pm-hitdata-val">' +
+          Math.round(hd.totalDistance) +
+          ' ft</div><div class="sb-pm-hitdata-lbl">Dist</div></div></div></div>';
       }
 
-      if (betterMatch && betterScore > 0) {
-        console.log(`Found better match: ${betterMatch.title} (score: ${betterScore})`);
-        bestMatch = betterMatch;
-        bestScore = betterScore;
-      }
-    }
-
-    // Fetch streams for each source
-    const streams = {};
-
-    for (const source of bestMatch.sources) {
-      const sourceStreams = await fetchStreamsForSource(source.source, source.id);
-
-      // Store the first stream for each source (usually the best quality)
-      if (sourceStreams.length > 0) {
-        streams[source.source] = sourceStreams[0];
-        console.log(`Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`);
-      }
-    }
-
-    return streams;
-
-  } catch (error) {
-    console.error('Error finding match streams:', error);
-
-    // Fallback: try to create a basic embed URL using the match ID
-    console.log('Trying fallback stream URL construction');
-    try {
-      const homeNormalized = normalizeTeamName(homeTeamName);
-      const awayNormalized = normalizeTeamName(awayTeamName);
-      const fallbackUrl = `https://streamed.pk/embed/${homeNormalized}-vs-${awayNormalized}`;
-
-      return {
-        alpha: fallbackUrl,
-        fallback: true
-      };
-    } catch (fallbackError) {
-      console.error('Fallback URL construction failed:', fallbackError);
-      return {};
-    }
-  }
-}
-
-// Enhanced video control functions matching the iframe pattern
-window.toggleMute = function() {
-  const iframe = document.getElementById('streamIframe');
-  const muteButton = document.getElementById('muteButton');
-  
-  if (!iframe || !muteButton) return;
-  
-  // Toggle muted state
-  isMuted = !isMuted;
-  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-  
-  // Multiple approaches to control video muting
-  try {
-    // Method 1: Direct iframe manipulation
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    if (iframeDoc) {
-      const videos = iframeDoc.querySelectorAll('video');
-      videos.forEach(video => {
-        video.muted = isMuted;
-        // Also try to control volume
-        video.volume = isMuted ? 0 : 1;
-      });
-      
-      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
-    }
-  } catch (e) {
-    console.log('Direct video access blocked by CORS');
-  }
-  
-  // Method 2: Enhanced PostMessage to iframe
-  try {
-    iframe.contentWindow.postMessage({
-      action: 'toggleMute',
-      muted: isMuted,
-      volume: isMuted ? 0 : 1
-    }, '*');
-    
-    // Also send autoplay and mute parameters
-    iframe.contentWindow.postMessage({
-      action: 'setVideoParams',
-      autoplay: 1,
-      mute: isMuted ? 1 : 0
-    }, '*');
-    
-    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
-  } catch (e) {
-    console.log('PostMessage failed');
-  }
-  
-  // Method 3: Simulate key events
-  try {
-    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
-    iframe.contentWindow.dispatchEvent(keyEvent);
-    console.log('Mute key event sent to iframe');
-  } catch (e) {
-    console.log('Key event failed');
-  }
-  
-  // Method 4: Try to modify iframe src with mute parameter
-  if (iframe.src && !iframe.src.includes('mute=')) {
-    const separator = iframe.src.includes('?') ? '&' : '?';
-    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
-    // Don't reload unless necessary
-    if (iframe.src !== newSrc) {
-      iframe.src = newSrc;
-      console.log('Updated iframe src with mute parameter');
-    }
-  }
-};
-
-window.toggleFullscreen = function() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    try {
-      // For iOS Safari and other WebKit browsers
-      if (iframe.webkitEnterFullscreen) {
-        iframe.webkitEnterFullscreen();
-        console.log('iOS/WebKit fullscreen requested');
-      }
-      // Standard fullscreen API
-      else if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-        console.log('Standard fullscreen requested');
-      } 
-      // Chrome/Safari prefixed version
-      else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-        console.log('WebKit fullscreen requested');
-      } 
-      // IE/Edge prefixed version
-      else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-        console.log('MS fullscreen requested');
-      }
-      // Mozilla prefixed version
-      else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-        console.log('Mozilla fullscreen requested');
-      }
-      else {
-        console.log('Fullscreen API not supported on this device');
-        // Fallback: try to make the iframe larger on unsupported devices
-        if (iframe.style.position !== 'fixed') {
-          iframe.style.position = 'fixed';
-          iframe.style.top = '0';
-          iframe.style.left = '0';
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-          iframe.style.zIndex = '9999';
-          iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
-        } else {
-          // Exit fullscreen-like mode
-          iframe.style.position = '';
-          iframe.style.top = '';
-          iframe.style.left = '';
-          iframe.style.width = '100%';
-          iframe.style.height = '700px';
-          iframe.style.zIndex = '';
-          iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
-        }
-      }
-    } catch (e) {
-      console.log('Fullscreen request failed:', e);
-      // Additional fallback for cases where even the API calls fail
-      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
-    }
-  }
-};
-
-window.handleStreamError = function() {
-  console.log('Stream error occurred');
-  const connectingDiv = document.getElementById('streamConnecting');
-  if (connectingDiv) {
-    connectingDiv.innerHTML = '<p>Stream unavailable. Please try another stream option.</p>';
-  }
-};
-
-window.handleStreamLoad = function() {
-  const iframe = document.getElementById('streamIframe');
-  const connectingDiv = document.getElementById('streamConnecting');
-
-  if (iframe && connectingDiv) {
-    iframe.style.display = 'block';
-    connectingDiv.style.display = 'none';
-  }
-};
-
-function checkStreamContent(iframe) {
-  const connectingDiv = document.getElementById('streamConnecting');
-
-  console.log('Checking stream content for iframe:', iframe.src);
-
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
-    // Simple video detection
-    const hasVideo = iframeDoc.querySelector('video') ||
-                    iframeDoc.querySelector('.video-js') ||
-                    iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-
-    if (hasVideo) {
-      console.log('Video content detected in iframe');
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      return;
-    }
-  } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-    return;
-  }
-
-  // If no video detected, still show the iframe (external stream)
-  console.log('No video detected or cross-origin, showing iframe anyway');
-  iframe.style.display = 'block';
-  if (connectingDiv) {
-    connectingDiv.style.display = 'none';
-  }
-}
-
-
-function renderLinescoreTable(linescore, awayName, homeName) {
-  const table = document.getElementById("linescoreTable");
-
-  // Determine the innings to display based on screen size
-  const isSmallScreen = window.innerWidth <= 475;
-  const currentInning = linescore.currentInning || 1;
-
-  const innings = isSmallScreen
-    ? currentInning <= 3
-      ? Array.from({ length: 3 }, (_, i) => linescore.innings[i] || { num: i + 1, away: {}, home: {} }) // Always show innings 1-3
-      : Array.from({ length: 3 }, (_, i) => linescore.innings[currentInning - 3 + i] || { num: currentInning - 2 + i, away: {}, home: {} }) // Show previous 3 innings
-    : Array.from({ length: 9 }, (_, i) => linescore.innings[i] || { num: i + 1, away: {}, home: {} });
-
-  // Generate inning headers
-  const inningHeaders = innings.map(inning => `<th>${inning.num}</th>`).join("");
-
-  // Generate away team scores
-  const awayScores = innings.map(inning => `<td>${inning.away?.runs ?? "-"}</td>`).join("");
-
-  // Generate home team scores
-  const homeScores = innings.map(inning => `<td>${inning.home?.runs ?? "-"}</td>`).join("");
-
-  // Render the linescore table
-  table.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th></th>
-          ${inningHeaders}
-          <th></th> <!-- Break between innings and totals -->
-          <th>R</th>
-          <th>H</th>
-          <th>E</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>${awayName}</td>
-          ${awayScores}
-          <td></td> <!-- Break between innings and totals -->
-          <td>${linescore.teams.away.runs || 0}</td>
-          <td>${linescore.teams.away.hits || 0}</td>
-          <td>${linescore.teams.away.errors || 0}</td>
-        </tr>
-        <tr>
-          <td>${homeName}</td>
-          ${homeScores}
-          <td></td> <!-- Break between innings and totals -->
-          <td>${linescore.teams.home.runs || 0}</td>
-          <td>${linescore.teams.home.hits || 0}</td>
-          <td>${linescore.teams.home.errors || 0}</td>
-        </tr>
-      </tbody>
-    </table>
-  `;
-}
-
-async function renderPlayerStats(title, headers, players, isPitching = false, battingOrder = [], teamType = "") {
-  // Adjust headers for small screens
-  const isSmallScreen = window.innerWidth <= 475;
-  const filteredHeaders = isSmallScreen
-    ? headers.filter(h => (isPitching ? ["IP", "BB", "K"].includes(h.label) : ["AB", "R", "H"].includes(h.label)))
-    : headers;
-
-  const cols = filteredHeaders.map(h => `<th>${h.label}</th>`).join("");
-  const rows = players.map(p => {
-    const isSubbedOut = !isPitching && !battingOrder.includes(p.person.id);
-    const rowClass = isSubbedOut ? "subbed-out" : "";
-
-    // Handle position abbreviation
-    const position = isPitching
-      ? `<span style="color: rgb(97, 97, 97);">${p.stats.pitching.note && /^(?:\(L|\(W|\(S)/.test(p.stats.pitching.note) ? `${p.stats.pitching.note}` : ""}</span>` // Style for pitchers
-      : `<span style="color: rgb(97, 97, 97);">${p.position.abbreviation}</span>`; // Style position for batters
-
-    const name = `<td>${p.person.fullName} ${position}</td>`;
-    const stats = filteredHeaders.map(h => {
-      let value;
-      if (h.key === "era" || h.key === "avg") {
-        value = p.seasonStats?.[isPitching ? "pitching" : "batting"]?.[h.key];
-      } else {
-        value = p.stats?.[isPitching ? "pitching" : "batting"]?.[h.key];
-      }
-      return `<td>${value ?? "-"}</td>`;
-    }).join("");
-
-    return `<tr class="${rowClass}">${name}${stats}</tr>`;
-  }).join("");
-
-  return `
-    <div class="stat-section">
-      <h3>${title}</h3>
-      <table>
-        <thead><tr><th>Player</th>${cols}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
-}
-
-let lastScoreboardHash = null;
-
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const chr = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + chr;
-    hash |= 0;
-  }
-  return hash;
-}
-
-
-async function renderStreamEmbed(awayTeamName, homeTeamName) {
-  console.log('MLB renderStreamEmbed called with:', { awayTeamName, homeTeamName });
-  
-  // Check if stream is already properly initialized and iframe exists
-  const existingIframe = document.getElementById('streamIframe');
-  if (existingIframe && streamInitialized) {
-    console.log('MLB Stream already initialized with existing iframe, preventing recreation to avoid mobile pause');
-    return streamContainer.innerHTML; // Return existing content
-  }
-  
-  const streamContainer = document.getElementById('streamEmbed');
-
-  if (!streamContainer) {
-    console.error('MLB Stream container not found! Cannot render stream.');
-    return;
-  }
-
-  console.log('MLB Stream container found, proceeding with stream rendering...');
-
-  // Store current team names for toggle function
-  currentAwayTeam = awayTeamName;
-  currentHomeTeam = homeTeamName;
-
-  console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
-  console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
-
-  const isSmallScreen = window.innerWidth < 525;
-  const screenHeight = isSmallScreen ? 250 : 700;
-
-  // Try to fetch streams from API first
-  console.log('Attempting to fetch streams from API...');
-  availableStreams = await findMatchStreams(awayTeamName, homeTeamName);
-
-  // Generate embed URL based on stream type and available streams
-  let embedUrl = '';
-
-  console.log('Requested stream type:', currentStreamType);
-  console.log('Available streams:', Object.keys(availableStreams));
-
-  // First, try to use the exact requested stream type
-  if (availableStreams[currentStreamType]) {
-    embedUrl = availableStreams[currentStreamType].embedUrl;
-    console.log(`Using requested stream type: ${currentStreamType}`);
-  } else {
-    // If exact type not available, fallback with preference order but don't override currentStreamType
-    console.log(`Requested stream type '${currentStreamType}' not available, trying fallbacks...`);
-    
-    if (availableStreams.alpha1) {
-      embedUrl = availableStreams.alpha1.embedUrl;
-      if (currentStreamType === 'alpha1') {
-        console.log('Using alpha1 as requested');
-      } else {
-        console.log('Falling back to alpha1 (requested type not available)');
-      }
-    } else if (availableStreams.alpha2) {
-      embedUrl = availableStreams.alpha2.embedUrl;
-      if (currentStreamType === 'alpha2') {
-        console.log('Using alpha2 as requested');
-      } else {
-        console.log('Falling back to alpha2 (requested type not available)');
-      }
-    } else if (availableStreams.bravo) {
-      embedUrl = availableStreams.bravo.embedUrl;
-      if (currentStreamType === 'bravo') {
-        console.log('Using bravo as requested');
-      } else {
-        console.log('Falling back to bravo (requested type not available)');
-      }
-    } else if (availableStreams.charlie) {
-      embedUrl = availableStreams.charlie.embedUrl;
-      if (currentStreamType === 'charlie') {
-        console.log('Using charlie as requested');
-      } else {
-        console.log('Falling back to charlie (requested type not available)');
-      }
-    } else {
-      // Use any available stream if alpha1, alpha2, bravo, charlie don't exist
-      const streamKeys = Object.keys(availableStreams);
-      if (streamKeys.length > 0) {
-        const fallbackKey = streamKeys[0];
-        embedUrl = availableStreams[fallbackKey].embedUrl;
-        console.log(`Using fallback stream: ${fallbackKey}`);
-        // Update currentStreamType to the actual stream being used
-        currentStreamType = fallbackKey;
-      }
-    }
-  }
-
-  // Fallback to manual URL construction if API doesn't have the stream
-  if (!embedUrl) {
-    console.log('No streams available from API');
-    // Return message that no streams are available
-    return `
-      <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
-        <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-          <h3 style="color: white; margin: 0;">Live Stream</h3>
-        </div>
-        <div style="color: white; padding: 20px; background: #333; border-radius: 8px; text-align: center;">
-          <p>No streams available at this time. Please try again later.</p>
-        </div>
-      </div>
-    `;
-  } else {
-    console.log('Using API stream URL:', embedUrl);
-  }
-
-  // Determine which buttons to show based on current stream type and available streams
-  let button1Text = '';
-  let button2Text = '';
-  let button1Action = '';
-  let button2Action = '';
-
-  // Get all available stream types except the current one
-  const availableStreamTypes = Object.keys(availableStreams).filter(type => type !== currentStreamType);
-  
-  console.log('Available streams:', Object.keys(availableStreams));
-  console.log('Current stream type:', currentStreamType);
-  console.log('Alternative stream types:', availableStreamTypes);
-
-  if (currentStreamType === 'alpha1') {
-    if (availableStreams.alpha2) {
-      button1Text = 'Alpha2';
-      button1Action = "switchToStream('alpha2')";
-    }
-    if (availableStreams.charlie) {
-      button2Text = 'Charlie';
-      button2Action = "switchToStream('charlie')";
-    } else if (availableStreams.bravo) {
-      button2Text = 'Bravo';
-      button2Action = "switchToStream('bravo')";
-    }
-    // If alpha2 or charlie/bravo not available, show any other available stream
-    if (!button1Text && availableStreamTypes.length > 0) {
-      const altStream = availableStreamTypes[0];
-      button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button1Action = `switchToStream('${altStream}')`;
-    }
-    if (!button2Text && availableStreamTypes.length > 1) {
-      const altStream = availableStreamTypes[1];
-      button2Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button2Action = `switchToStream('${altStream}')`;
-    }
-  } else if (currentStreamType === 'alpha2') {
-    if (availableStreams.alpha1) {
-      button1Text = 'Alpha1';
-      button1Action = "switchToStream('alpha1')";
-    }
-    if (availableStreams.charlie) {
-      button2Text = 'Charlie';
-      button2Action = "switchToStream('charlie')";
-    } else if (availableStreams.bravo) {
-      button2Text = 'Bravo';
-      button2Action = "switchToStream('bravo')";
-    }
-    // If alpha1 or charlie/bravo not available, show any other available stream
-    if (!button1Text && availableStreamTypes.length > 0) {
-      const altStream = availableStreamTypes[0];
-      button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button1Action = `switchToStream('${altStream}')`;
-    }
-    if (!button2Text && availableStreamTypes.length > 1) {
-      const altStream = availableStreamTypes[1];
-      button2Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button2Action = `switchToStream('${altStream}')`;
-    }
-  } else if (currentStreamType === 'bravo') {
-    if (availableStreams.alpha1) {
-      button1Text = 'Alpha1';
-      button1Action = "switchToStream('alpha1')";
-    }
-    if (availableStreams.charlie) {
-      button2Text = 'Charlie';
-      button2Action = "switchToStream('charlie')";
-    } else if (availableStreams.alpha2) {
-      button2Text = 'Alpha2';
-      button2Action = "switchToStream('alpha2')";
-    }
-    // If alpha1 or charlie/alpha2 not available, show any other available stream
-    if (!button1Text && availableStreamTypes.length > 0) {
-      const altStream = availableStreamTypes[0];
-      button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button1Action = `switchToStream('${altStream}')`;
-    }
-    if (!button2Text && availableStreamTypes.length > 1) {
-      const altStream = availableStreamTypes[1];
-      button2Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button2Action = `switchToStream('${altStream}')`;
-    }
-  } else if (currentStreamType === 'charlie') {
-    if (availableStreams.alpha1) {
-      button1Text = 'Alpha1';
-      button1Action = "switchToStream('alpha1')";
-    }
-    if (availableStreams.alpha2) {
-      button2Text = 'Alpha2';
-      button2Action = "switchToStream('alpha2')";
-    } else if (availableStreams.bravo) {
-      button2Text = 'Bravo';
-      button2Action = "switchToStream('bravo')";
-    }
-    // If alpha1 or alpha2/bravo not available, show any other available stream
-    if (!button1Text && availableStreamTypes.length > 0) {
-      const altStream = availableStreamTypes[0];
-      button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button1Action = `switchToStream('${altStream}')`;
-    }
-    if (!button2Text && availableStreamTypes.length > 1) {
-      const altStream = availableStreamTypes[1];
-      button2Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
-      button2Action = `switchToStream('${altStream}')`;
-    }
-  } else {
-    // For any other stream types, always show available alternatives with preference for alpha1, alpha2, bravo, charlie
-    if (availableStreams.alpha1) {
-      button1Text = 'Alpha1';
-      button1Action = "switchToStream('alpha1')";
-    } else if (availableStreams.alpha2) {
-      button1Text = 'Alpha2';
-      button1Action = "switchToStream('alpha2')";
-    } else if (availableStreamTypes.length > 0) {
-      const firstAlternative = availableStreamTypes[0];
-      button1Text = firstAlternative.charAt(0).toUpperCase() + firstAlternative.slice(1);
-      button1Action = `switchToStream('${firstAlternative}')`;
-    }
-
-    if (availableStreams.charlie) {
-      button2Text = 'Charlie';
-      button2Action = "switchToStream('charlie')";
-    } else if (availableStreams.bravo) {
-      button2Text = 'Bravo';
-      button2Action = "switchToStream('bravo')";
-    } else if (availableStreams.alpha2 && button1Text !== 'Alpha2') {
-      button2Text = 'Alpha2';
-      button2Action = "switchToStream('alpha2')";
-    } else if (availableStreams.alpha1 && button1Text !== 'Alpha1') {
-      button2Text = 'Alpha1';
-      button2Action = "switchToStream('alpha1')";
-    } else if (availableStreamTypes.length > 1) {
-      const secondAlternative = availableStreamTypes[1];
-      button2Text = secondAlternative.charAt(0).toUpperCase() + secondAlternative.slice(1);
-      button2Action = `switchToStream('${secondAlternative}')`;
-    }
-  }
-
-  const streamHTML = `
-    <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
-      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
-        <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-          ${button1Text ? `<button id="streamButton1" onclick="${button1Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button1Text}</button>` : ''}
-          ${button2Text ? `<button id="streamButton2" onclick="${button2Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button2Text}</button>` : ''}
-        </div>
-      </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
-        <p>Loading stream... <span id="streamStatus"></span></p>
-      </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden; isolation: isolate;">
-        <iframe
-          id="streamIframe"
-          src="${embedUrl}"
-          width="100%"
-          height="${screenHeight}"
-          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px; isolation: isolate; will-change: auto; backface-visibility: hidden; transform: translateZ(0);"
-          frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          referrerpolicy="no-referrer-when-downgrade"
-          onload="handleStreamLoad()"
-          onerror="handleStreamError()"
-          title="${homeTeamName} vs ${awayTeamName} Player">
-        </iframe>
-      </div>
-    </div>
-  `;
-
-  // Show the iframe after a delay
-  setTimeout(() => {
-    const iframe = document.getElementById('streamIframe');
-    if (iframe) {
-      iframe.style.display = 'block';
-      
-      // Add mobile-specific optimizations to prevent pausing
-      iframe.style.isolation = 'isolate';
-      iframe.style.willChange = 'auto';
-      iframe.style.backfaceVisibility = 'hidden';
-      iframe.style.transform = 'translateZ(0)';
-      iframe.setAttribute('data-mobile-optimized', 'true');
-      
-      const connectingDiv = document.getElementById('streamConnecting');
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      
-      console.log('MLB iframe optimized for mobile streaming');
-    }
-  }, 1000);
-
-  // Return the HTML content
-  console.log('MLB renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
-  return streamHTML;
-}
-
-window.switchToStream = function(streamType) {
-  console.log('Switching to stream type:', streamType);
-  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
-
-  // Update current stream type
-  currentStreamType = streamType;
-
-  // If team names are not available, try to get them from other sources
-  if (!currentAwayTeam || !currentHomeTeam) {
-    console.error('Team names not available for stream switching');
-    return;
-  }
-
-  // Generate new embed URL using renderStreamEmbed and set the HTML
-  if (currentAwayTeam && currentHomeTeam) {
-    streamInitialized = false; // Reset flag to allow stream switching
-    renderStreamEmbed(currentAwayTeam, currentHomeTeam)
-      .then(streamHTML => {
-        const streamContainer = document.getElementById('streamEmbed');
-        if (streamContainer && streamHTML) {
-          streamContainer.innerHTML = streamHTML;
-          streamInitialized = true; // Set flag after successful switch
-          console.log('MLB Stream switched successfully to:', streamType);
-        } else {
-          console.error('Failed to switch stream: no container or HTML');
-        }
-      })
-      .catch(error => {
-        console.error('Error switching stream:', error);
-      });
-  } else {
-    console.error('Cannot switch streams: team names not available');
-  }
-};
-
-// Helper function to update button texts based on current stream type
-function updateStreamButtons(currentType) {
-  const button1 = document.getElementById('streamButton1');
-  const button2 = document.getElementById('streamButton2');
-
-  if (currentType === 'alpha1') {
-    if (button1) button1.textContent = 'Alpha2';
-    if (button2) button2.textContent = 'Bravo';
-  } else if (currentType === 'alpha2') {
-    if (button1) button1.textContent = 'Alpha1';
-    if (button2) button2.textContent = 'Bravo';
-  } else if (currentType === 'bravo') {
-    if (button1) button1.textContent = 'Alpha1';
-    if (button2) button2.textContent = 'Alpha2';
-  } else {
-    // For other stream types, try to show alternatives
-    if (button1) button1.textContent = 'Alpha1';
-    if (button2) button2.textContent = 'Bravo';
-  }
-}
-
-// Stream testing functionality
-let streamTestTimeout = null;
-let isStreamTesting = false;
-
-async function testStream(url) {
-  return new Promise((resolve) => {
-    const testIframe = document.createElement('iframe');
-    testIframe.src = url;
-    testIframe.style.display = 'none';
-    testIframe.style.width = '1px';
-    testIframe.style.height = '1px';
-
-    let hasLoaded = false;
-    let hasError = false;
-
-    const cleanup = () => {
-      if (testIframe.parentNode) {
-        testIframe.parentNode.removeChild(testIframe);
-      }
-      if (streamTestTimeout) {
-        clearTimeout(streamTestTimeout);
-        streamTestTimeout = null;
-      }
-    };
-
-    testIframe.onload = () => {
-      hasLoaded = true;
-      console.log('Stream test: iframe loaded successfully');
-      cleanup();
-      resolve(true);
-    };
-
-    testIframe.onerror = () => {
-      hasError = true;
-      console.log('Stream test: iframe failed to load');
-      cleanup();
-      resolve(false);
-    };
-
-    // Add to DOM to start loading
-    document.body.appendChild(testIframe);
-
-    // Timeout after 10 seconds
-    streamTestTimeout = setTimeout(() => {
-      if (!hasLoaded && !hasError) {
-        console.log('Stream test: timeout after 10 seconds');
-        cleanup();
-        resolve(false);
-      }
-    }, 10000);
-  });
-}
-
-async function tryNextStream() {
-  if (isStreamTesting) return;
-  isStreamTesting = true;
-
-  console.log('Trying next available stream...');
-
-  const streamOrder = ['alpha1', 'alpha2', 'bravo'];
-  const currentIndex = streamOrder.indexOf(currentStreamType);
-
-  // Try streams in order: current -> next -> next -> back to first
-  for (let i = 1; i <= streamOrder.length; i++) {
-    const nextIndex = (currentIndex + i) % streamOrder.length;
-    const nextStreamType = streamOrder[nextIndex];
-
-    if (availableStreams[nextStreamType]) {
-      console.log(`Testing stream: ${nextStreamType}`);
-
-      let testUrl = '';
-      if (availableStreams[nextStreamType].embedUrl) {
-        testUrl = availableStreams[nextStreamType].embedUrl;
-      } else {
-        // Fallback URL construction
-        const homeNormalized = normalizeTeamName(currentHomeTeam);
-        const awayNormalized = normalizeTeamName(currentAwayTeam);
-
-        if (nextStreamType === 'alpha1') {
-          testUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/1`;
-        } else if (nextStreamType === 'alpha2') {
-          testUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/2`;
-        } else if (nextStreamType === 'bravo') {
-          const timestamp = Date.now();
-          testUrl = `https://embedsports.top/embed/bravo/${timestamp}-${awayNormalized}-${homeNormalized}-english-/1`;
-        }
-      }
-
-      const isWorking = await testStream(testUrl);
-      if (isWorking) {
-        console.log(`Stream ${nextStreamType} is working, switching to it`);
-        switchToStream(nextStreamType);
-        isStreamTesting = false;
-        return;
-      }
-    }
-  }
-
-  console.log('No working streams found');
-  isStreamTesting = false;
-}
-
-function startStreamTesting() {
-  if (isStreamTesting) return;
-
-  console.log('Starting automatic stream testing...');
-
-  // Test current stream first
-  const currentIframe = document.getElementById('streamIframe');
-  if (currentIframe && currentIframe.src) {
-    testStream(currentIframe.src).then(isWorking => {
-      if (!isWorking) {
-        console.log('Current stream not working, trying next stream...');
-        tryNextStream();
-      } else {
-        console.log('Current stream is working');
-      }
-    });
-  } else {
-    // No current stream, try to find a working one
-    tryNextStream();
-  }
-}
-
-// Make stream testing functions available globally
-window.testStream = testStream;
-window.tryNextStream = tryNextStream;
-window.startStreamTesting = startStreamTesting;
-
-async function fetchAndUpdateScoreboard(gamePk) {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
-    const text = await res.text();
-    const newHash = hashString(text);
-
-    if (newHash === lastScoreboardHash) {
-      return; // No changes, skip update
-    }
-    lastScoreboardHash = newHash;
-
-    const data = JSON.parse(text);
-
-    // Ensure required data exists
-    if (!data || !data.liveData || !data.gameData) {
-      throw new Error("Incomplete game data");
-    }
-
-    const { boxscore } = data.liveData;
-    const { linescore } = data.liveData;
-    const currentPlay = data.liveData.plays?.currentPlay || {};
-    const baseState = linescore?.offense || {};
-    const count = currentPlay.count || { balls: 0, strikes: 0, outs: 0 };
-
-    const away = boxscore?.teams?.away || {};
-    const home = boxscore?.teams?.home || {};
-
-    const awayTeamData = data.gameData.teams?.away || {};
-    const homeTeamData = data.gameData.teams?.home || {};
-
-    const detailedState = data.gameData.status?.detailedState || "Unknown";
-    const codedGameState = data.gameData.status?.codedGameState || "";
-
-    // Determine if the game is in progress
-    const isInProgress = ["In Progress", "Manager challenge"].includes(detailedState) || codedGameState === "M";
-    const isGameOver = ["Final", "Game Over", "Completed Early"].includes(detailedState) || codedGameState === "F";
-
-    // Fetch small team logos
-    let awayLogo, homeLogo;
-    
-    if (away.team.name === "American League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
-    } else if (away.team.name === "National League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
-    } else {
-      awayLogo = await getLogoUrl(away.team?.name || "Unknown");
-      homeLogo = await getLogoUrl(home.team?.name || "Unknown");
-    }
-
-    // Render the top scoreboard
-    await renderTopScoreboard(
-      away,
-      home,
-      awayTeamData,
-      homeTeamData,
-      isInProgress ? currentPlay.about : { inning: "Final", isTopInning: false },
-      isInProgress ? count : { balls: 0, strikes: 0, outs: 0 },
-      isInProgress
-        ? { first: !!baseState.first, second: !!baseState.second, third: !!baseState.third }
-        : { first: false, second: false, third: false }
-    );
-
-    // Render the linescore table
-    renderLinescoreTable(linescore || {}, awayTeamData.abbreviation || "AWAY", homeTeamData.abbreviation || "HOME");
-
-    // Add stream embed (only render once and only for in-progress games)
-    // This is done asynchronously to not block the box score rendering
-    const streamContainer = document.getElementById("streamEmbed");
-    console.log('MLB Stream check:', { streamContainer: !!streamContainer, isInProgress, streamInitialized, awayTeam: away.team?.name, homeTeam: home.team?.name });
-    
-    if (streamContainer && isInProgress && !streamInitialized) {
-      console.log('MLB Game is in progress, initializing stream...');
-      // Don't await - render stream asynchronously to avoid blocking box score
-      renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown")
-        .then(streamHTML => {
-          streamContainer.innerHTML = streamHTML;
-          streamInitialized = true; // Set flag after successful initialization
-          console.log('MLB Stream initialized successfully');
-          
-          console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
-          console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
-          
-          // Ensure team names are stored
-          if (away.team?.name && home.team?.name) {
-            currentAwayTeam = away.team.name;
-            currentHomeTeam = home.team.name;
-            console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
-          }
+      // ── Legend ──
+      var legendHtml =
+        '<div class="sb-pm-legend"><div class="sb-pm-legend-item"><span class="sb-pm-legend-dot" style="background:#4CAF50"></span><span>Ball</span></div><div class="sb-pm-legend-item"><span class="sb-pm-legend-dot" style="background:#f44336"></span><span>Strike / Foul</span></div><div class="sb-pm-legend-item"><span class="sb-pm-legend-dot" style="background:#2196F3"></span><span>In Play</span></div></div>';
+
+      // ── Pitch text events list ──
+      var pitchTextList = []
+        .concat(playEvents)
+        .reverse()
+        .map(function (ev) {
+          var hasPitch = !!ev.pitchData;
+          if (!hasPitch) return "";
+          var label = buildPitchText(ev, bi, pi);
+          if (!label) return "";
+          var speed =
+            ev.pitchData && ev.pitchData.startSpeed
+              ? Math.round(ev.pitchData.startSpeed) + " mph"
+              : null;
+          var pType =
+            ev.details && ev.details.type ? ev.details.type.description : null;
+          var cc =
+            ev.details && ev.details.call && ev.details.call.code
+              ? ev.details.call.code.toUpperCase()
+              : null;
+          var bc = getPitchColor(cc);
+          var sub =
+            hasPitch && (speed || pType)
+              ? '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">' +
+                [pType, speed].filter(Boolean).join(" · ") +
+                "</div>"
+              : "";
+          return (
+            '<div class="sb-pm-pitch-bubble" style="border-left-color:' +
+            bc +
+            '"><div>' +
+            label +
+            "</div>" +
+            sub +
+            "</div>"
+          );
         })
-        .catch(error => {
-          console.error('Error rendering stream embed:', error);
+        .join("");
+
+      pitchSectionHtml =
+        '<div class="sb-pm-pitches"><div class="sb-pm-section-title" style="text-align:center;margin-bottom:20px">Pitch Locations</div>' +
+        filterChipsHtml +
+        '<div class="sb-pm-zone-row"><div class="sb-pm-strike-zone-wrap"><svg width="' +
+        containerW +
+        '" height="' +
+        containerH +
+        '" viewBox="0 0 ' +
+        containerW +
+        " " +
+        containerH +
+        '" class="sb-pm-strike-zone-svg" style="border:1.5px solid var(--bg-border);border-radius:10px;background:var(--bg-primary)">' +
+        '<rect x="' +
+        strikeLeft +
+        '" y="' +
+        strikeTop +
+        '" width="' +
+        strikeW +
+        '" height="' +
+        strikeH +
+        '" fill="rgba(128,128,128,0.06)" stroke="var(--text-tertiary)" stroke-width="2" rx="3"/>' +
+        '<line x1="' +
+        (strikeLeft + strikeW / 3) +
+        '" y1="' +
+        strikeTop +
+        '" x2="' +
+        (strikeLeft + strikeW / 3) +
+        '" y2="' +
+        (strikeTop + strikeH) +
+        '" stroke="var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+        '<line x1="' +
+        (strikeLeft + (strikeW * 2) / 3) +
+        '" y1="' +
+        strikeTop +
+        '" x2="' +
+        (strikeLeft + (strikeW * 2) / 3) +
+        '" y2="' +
+        (strikeTop + strikeH) +
+        '" stroke="var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+        '<line x1="' +
+        strikeLeft +
+        '" y1="' +
+        (strikeTop + strikeH / 3) +
+        '" x2="' +
+        (strikeLeft + strikeW) +
+        '" y2="' +
+        (strikeTop + strikeH / 3) +
+        '" stroke="var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+        '<line x1="' +
+        strikeLeft +
+        '" y1="' +
+        (strikeTop + (strikeH * 2) / 3) +
+        '" x2="' +
+        (strikeLeft + strikeW) +
+        '" y2="' +
+        (strikeTop + (strikeH * 2) / 3) +
+        '" stroke="var(--text-tertiary)" stroke-width="1" opacity="0.45"/>' +
+        pitchDotsHtml +
+        "</svg></div>" +
+        hitDataHtml +
+        "</div>" +
+        legendHtml +
+        '<div class="sb-pm-pitch-list">' +
+        pitchTextList +
+        "</div></div>";
+    }
+
+    const batterStatsHtml = bid
+      ? `<div class="sb-pm-player-stats">${[
+          { l: "AB", v: bBat.atBats },
+          { l: "H", v: bBat.hits },
+          { l: "RBI", v: bBat.rbi },
+        ]
+          .map(
+            (s) =>
+              `<div class="sb-pm-ps-cell"><span>${s.v ?? "—"}</span><span>${s.l}</span></div>`,
+          )
+          .join("")}</div>`
+      : "";
+    const pitcherStatsHtml = pid
+      ? `<div class="sb-pm-player-stats">${[
+          { l: "IP", v: pPit.inningsPitched },
+          { l: "K", v: pPit.strikeOuts },
+          { l: "BB", v: pPit.baseOnBalls },
+        ]
+          .map(
+            (s) =>
+              `<div class="sb-pm-ps-cell"><span>${s.v ?? "—"}</span><span>${s.l}</span></div>`,
+          )
+          .join("")}</div>`
+      : "";
+
+    $("#sbPlayModalBody").innerHTML = `
+      <div class="sb-pm-header" style="border-bottom-color:${isScoring ? tc : "var(--bg-border)"}">
+        <div class="sb-pm-title-row"><div><span style="font-size:12px;font-weight:800">${isTop ? "▲" : "▼"} ${ordinal(inning)}${ta ? ` · ${ta}` : ""}</span>${event ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${event}</div>` : ""}${isScoring && aS != null && hS != null ? `<div style="font-size:13px;font-weight:700;color:${tc};margin-top:4px">${awayAbbr} ${aS} – ${hS} ${homeAbbr}</div>` : ""}</div></div>
+        ${desc ? `<div style="font-size:13px;color:var(--text-secondary);line-height:1.4">${desc}</div>` : ""}
+      </div>
+      <div class="sb-pm-matchup">
+        <div class="sb-pm-matchup-player">${bid ? `<img src="${headshotUrl(bid)}" class="sb-pm-matchup-headshot" style="border-color:${btc}">` : ""}<div style="font-size:13px;font-weight:700">${shortName(bi?.fullName) || "—"}</div><div style="font-size:11px;font-weight:600;color:${btc}">Batter</div>${batterStatsHtml}</div>
+        <div class="sb-pm-bases"><div class="sb-pm-base${play?.matchup?.postOnSecond ? " occupied" : ""}" style="${play?.matchup?.postOnSecond ? "background:" + tc : ""}"></div><div class="sb-pm-bases-row"><div class="sb-pm-base${play?.matchup?.postOnThird ? " occupied" : ""}" style="${play?.matchup?.postOnThird ? "background:" + tc : ""}"></div><div class="sb-pm-base${play?.matchup?.postOnFirst ? " occupied" : ""}" style="${play?.matchup?.postOnFirst ? "background:" + tc : ""}"></div></div></div>
+        <div class="sb-pm-matchup-player" style="align-items:flex-end">${pid ? `<img src="${headshotUrl(pid)}" class="sb-pm-matchup-headshot" style="border-color:${ptc}">` : ""}<div style="font-size:13px;font-weight:700">${shortName(pi?.fullName) || "—"}</div><div style="font-size:11px;font-weight:600;color:${ptc}">Pitcher</div>${pitcherStatsHtml}</div>
+      </div>
+      ${pitchSectionHtml}`;
+    $("#sbPlayModal").style.display = "flex";
+
+    // ── Filter chip click handlers ──
+    var filterChips =
+      $("#sbPlayModalBody").querySelectorAll(".sb-pm-filter-chip");
+    var pitchDots = $("#sbPlayModalBody").querySelectorAll(
+      ".sb-pm-strike-zone-svg circle",
+    );
+    var pitchLabels = $("#sbPlayModalBody").querySelectorAll(
+      ".sb-pm-strike-zone-svg text",
+    );
+    filterChips.forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        filterChips.forEach(function (c) {
+          c.classList.remove("active");
         });
-    } else if (streamContainer && !isInProgress && streamInitialized) {
-      console.log('MLB Game is not in progress, clearing stream...');
-      // Clear stream container if game is no longer in progress and reset flag
-      streamContainer.innerHTML = '';
-      streamInitialized = false; // Reset flag when game is no longer in progress
-      console.log('MLB Stream container cleared and flag reset');
-    } else {
-      console.log('MLB Stream conditions not met or already initialized');
-    }
-
-    // Hide bases, outs, and count if the game is not in progress
-    const inningCenter = document.querySelector(".inning-center");
-    const isSmallScreen = window.innerWidth <= 525;
-    if (!isInProgress && inningCenter) {
-      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '1.75rem' : '3.5rem'};"> ${isGameOver ? "Final" : "Scheduled"}</div>`; // Replace with "Final"
-    }
-
-    // Render player stats
-    const playerStatsDiv = document.getElementById("playerStats");
-
-    // Filter out pitchers from batters
-    const awayBatters = (away.batters || [])
-      .map(id => away.players?.[`ID${id}`])
-      .filter(player => player && player.position?.abbreviation !== "P");
-    const homeBatters = (home.batters || [])
-      .map(id => home.players?.[`ID${id}`])
-      .filter(player => player && player.position?.abbreviation !== "P");
-
-    const awayPitchers = (away.pitchers || []).map(id => away.players?.[`ID${id}`]).filter(Boolean);
-    const homePitchers = (home.pitchers || []).map(id => home.players?.[`ID${id}`]).filter(Boolean);
-
-    playerStatsDiv.innerHTML = `
-    <div class="stat-section">
-      <h3><img src="${awayLogo}" alt="Away Team Logo" class="small-team-logo"> ${awayTeamData.teamName || "Away Team"} Hitting</h3>
-      ${await renderPlayerStats("", [
-        { label: "AB", key: "atBats" },
-        { label: "R", key: "runs" },
-        { label: "H", key: "hits" },
-        { label: "RBI", key: "rbi" },
-        { label: "HR", key: "homeRuns" },
-        { label: "BB", key: "baseOnBalls" },
-        { label: "K", key: "strikeOuts" },
-        { label: "AVG", key: "avg" }
-      ], awayBatters, false, away.battingOrder || [])}
-
-      <h3><img src="${awayLogo}" alt="Away Team Logo" class="small-team-logo"> ${awayTeamData.teamName || "Away Team"} Pitching</h3>
-      ${await renderPlayerStats("", [
-        { label: "IP", key: "inningsPitched" },
-        { label: "H", key: "hits" },
-        { label: "R", key: "runs" },
-        { label: "ER", key: "earnedRuns" },
-        { label: "BB", key: "baseOnBalls" },
-        { label: "HR", key: "homeRuns" },
-        { label: "K", key: "strikeOuts" },
-        { label: "ERA", key: "era" }
-      ], awayPitchers, true)}
-      <br><br><br><br>
-      <h3><img src="${homeLogo}" alt="Home Team Logo" class="small-team-logo"> ${homeTeamData.teamName || "Home Team"} Hitting</h3>
-      ${await renderPlayerStats("", [
-        { label: "AB", key: "atBats" },
-        { label: "R", key: "runs" },
-        { label: "H", key: "hits" },
-        { label: "RBI", key: "rbi" },
-        { label: "HR", key: "homeRuns" },
-        { label: "BB", key: "baseOnBalls" },
-        { label: "K", key: "strikeOuts" },
-        { label: "AVG", key: "avg" }
-      ], homeBatters, false, home.battingOrder || [])}
-
-      <h3><img src="${homeLogo}" alt="Home Team Logo" class="small-team-logo"> ${homeTeamData.teamName || "Home Team"} Pitching</h3>
-      ${await renderPlayerStats("", [
-        { label: "IP", key: "inningsPitched" },
-        { label: "H", key: "hits" },
-        { label: "R", key: "runs" },
-        { label: "ER", key: "earnedRuns" },
-        { label: "BB", key: "baseOnBalls" },
-        { label: "HR", key: "homeRuns" },
-        { label: "K", key: "strikeOuts" },
-        { label: "ERA", key: "era" }
-      ], homePitchers, true)}
-    </div>
-    `;
-
-    // Update play-by-play if it's currently visible
-    const playsContent = document.getElementById('playsContent');
-    if (playsContent && playsContent.classList.contains('active')) {
-      await renderPlayByPlay(gamePk, data);
-    }
-
-    // Update momentum chart if team stats tab is currently visible
-    const teamStatsContent = document.getElementById('teamStatsContent');
-    if (teamStatsContent && teamStatsContent.classList.contains('active')) {
-      const awayColor = teamColors[away.team?.name] || '#f44336';
-      const homeColor = teamColors[home.team?.name] || '#4CAF50';
-      await renderWinProbabilityChart(gamePk, awayColor, homeColor, away.team?.name || 'Away', home.team?.name || 'Home');
-    }
-
-    // Return true if game is over to stop further updates
-    return isGameOver;
-  } catch (error) {
-    console.error("Failed to load scoreboard:", error);
-    document.getElementById("scoreboardContainer").innerHTML = "<p>Error loading game data.</p>";
-    return true; // Stop fetching on error
-  }
-}
-
-window.showStats = function() {
-  const teamStatsBtn = document.getElementById('teamStatsBtn');
-  const statsBtn = document.getElementById('statsBtn');
-  const playsBtn = document.getElementById('playsBtn');
-  const teamStatsContent = document.getElementById('teamStatsContent');
-  const statsContent = document.getElementById('statsContent');
-  const playsContent = document.getElementById('playsContent');
-  const streamEmbed = document.getElementById('streamEmbed');
-
-  teamStatsBtn.classList.remove('active');
-  statsBtn.classList.add('active');
-  playsBtn.classList.remove('active');
-  teamStatsContent.classList.remove('active');
-  statsContent.classList.add('active');
-  playsContent.classList.remove('active');
-  
-  // Show stream embed when on player stats
-  if (streamEmbed) {
-    streamEmbed.style.display = 'block';
-  }
-};
-
-window.showTeamStats = function() {
-  const teamStatsBtn = document.getElementById('teamStatsBtn');
-  const statsBtn = document.getElementById('statsBtn');
-  const playsBtn = document.getElementById('playsBtn');
-  const teamStatsContent = document.getElementById('teamStatsContent');
-  const statsContent = document.getElementById('statsContent');
-  const playsContent = document.getElementById('playsContent');
-  const streamEmbed = document.getElementById('streamEmbed');
-
-  teamStatsBtn.classList.add('active');
-  statsBtn.classList.remove('active');
-  playsBtn.classList.remove('active');
-  teamStatsContent.classList.add('active');
-  statsContent.classList.remove('active');
-  playsContent.classList.remove('active');
-  
-  // Hide stream embed when on team stats
-  if (streamEmbed) {
-    streamEmbed.style.display = 'none';
-  }
-
-  // Render team stats if not already loaded
-  const gamePk = getQueryParam("gamePk");
-  if (gamePk) {
-    renderTeamStats(gamePk);
-  }
-};
-
-window.showPlays = function() {
-  const teamStatsBtn = document.getElementById('teamStatsBtn');
-  const statsBtn = document.getElementById('statsBtn');
-  const playsBtn = document.getElementById('playsBtn');
-  const teamStatsContent = document.getElementById('teamStatsContent');
-  const statsContent = document.getElementById('statsContent');
-  const playsContent = document.getElementById('playsContent');
-  const streamEmbed = document.getElementById('streamEmbed');
-
-  teamStatsBtn.classList.remove('active');
-  statsBtn.classList.remove('active');
-  playsBtn.classList.add('active');
-  teamStatsContent.classList.remove('active');
-  statsContent.classList.remove('active');
-  playsContent.classList.add('active');
-  
-  // Hide stream embed when on plays
-  if (streamEmbed) {
-    streamEmbed.style.display = 'none';
-  }
-
-  // Fetch and render plays when switching to plays tab
-  const gamePk = getQueryParam("gamePk");
-  if (gamePk) {
-    renderPlayByPlay(gamePk);
-  }
-};
-
-// Global variables for preserving play-by-play state
-let openPlays = new Set(); // Track which plays are open
-let playsScrollPosition = 0; // Track scroll position
-
-window.togglePlay = function(index) {
-  const playDetails = document.getElementById(`play-${index}`);
-  const toggleIcon = document.getElementById(`toggle-${index}`);
-  
-  if (playDetails.style.display === 'none' || playDetails.style.display === '') {
-    playDetails.style.display = 'block';
-    toggleIcon.textContent = '▲';
-    openPlays.add(index); // Track that this play is open
-  } else {
-    playDetails.style.display = 'none';
-    toggleIcon.textContent = '▼';
-    openPlays.delete(index); // Track that this play is closed
-  }
-};
-
-function renderPitchVisualization(pitchData, details) {
-  if (!pitchData || !pitchData.coordinates) {
-    return '';
-  }
-
-  // Strike zone is 17 inches wide and extends from knees to chest
-  // The coordinate system: pX = 0 is center of plate, pZ = strike zone middle
-  const plateWidth = 17; // inches
-  
-  // Convert plate coordinates to percentage within expanded visualization area
-  // pX ranges roughly from -0.83 to +0.83 (feet) for the strike zone width
-  // We'll expand the visualization to show pitches outside the zone
-  // Map pX from -2.0 to +2.0 feet to 0-100% (giving more space around strike zone)
-  const xPercent = ((pitchData.coordinates.pX + 2.0) / 4.0) * 100;
-  const yPercent = pitchData.strikeZoneTop && pitchData.strikeZoneBottom ? 
-    ((pitchData.strikeZoneTop - pitchData.coordinates.pZ) / 
-     (pitchData.strikeZoneTop - pitchData.strikeZoneBottom)) * 60 + 20 : 50; // 60% for zone, 20% padding top/bottom
-
-  // Constrain to visualization area but allow outside strike zone
-  const finalXPercent = Math.max(5, Math.min(95, xPercent));
-  const finalYPercent = Math.max(5, Math.min(95, yPercent));
-
-  // Determine pitch color based on call
-  let pitchClass = 'ball-pitch';
-  if (details.isStrike) {
-    pitchClass = 'strike-pitch';
-  } else if (details.isInPlay) {
-    pitchClass = 'in-play-pitch';
-  }
-
-  return `
-    <div class="pitch-visualization">
-      <div class="strike-zone-container">
-        <div class="strike-zone-outline"></div>
-        <div class="pitch-location ${pitchClass}" style="left: ${finalXPercent}%; top: ${finalYPercent}%;"></div>
-      </div>
-      <div class="pitch-data">
-        <div>Speed: ${pitchData.startSpeed?.toFixed(1) || 'N/A'} mph</div>
-        <div>Type: ${details.type?.description || 'Unknown'}</div>
-        <div>Zone: ${pitchData.zone || 'N/A'}</div>
-        ${pitchData.breaks ? `<div>Spin: ${pitchData.breaks.spinRate || 'N/A'} rpm</div>` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function renderPlayBases(runners) {
-  if (!runners) {
-    return '';
-  }
-  
-  return `
-    <div class="play-bases">
-      <div class="diamond-small">
-        <div class="base-small second ${runners.second ? "occupied" : ""}"></div>
-        <div class="base-small third ${runners.third ? "occupied" : ""}"></div>
-        <div class="base-small first ${runners.first ? "occupied" : ""}"></div>
-      </div>
-    </div>
-  `;
-}
-
-async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, gameData) {
-  // Extract score and inning information
-  const awayScore = play.result?.awayScore || 0;
-  const homeScore = play.result?.homeScore || 0;
-  const inning = play.about?.inning || 0;
-  const halfInning = play.about?.halfInning || '';
-  
-  // Format inning display (e.g., "Top 1st", "Bot 1st")
-  const inningDisplay = inning > 0 ? 
-    `${isTopInning ? 'Top' : 'Bot'} ${ordinalSuffix(inning)}` : 
-    '';
-  
-  // Get team logos for score display
-  const homeTeamLogo = homeTeam?.logo || `https://www.mlbstatic.com/team-logos/${homeTeam?.id}.svg`;
-  const awayTeamLogo = awayTeam?.logo || `https://www.mlbstatic.com/team-logos/${awayTeam?.id}.svg`;
-  // Get all pitches for this at-bat (in original order, not reversed)
-  // Filter to only include actual pitches (events with pitch data and speed)
-  const pitchEvents = [...(play.playEvents || [])].filter(event => 
-    event.pitchData && 
-    event.pitchData.startSpeed && 
-    event.pitchData.startSpeed > 0
-  );
-  
-  // Get the batter and pitcher information from matchup
-  const batterFromMatchup = play.matchup?.batter || {};
-  const pitcherFromMatchup = play.matchup?.pitcher || {};
-  
-  // Find the full player objects from the box score data to get their season stats
-  let batterFullData = batterFromMatchup;
-  let pitcherFullData = pitcherFromMatchup;
-  
-  if (gameData && gameData.liveData && gameData.liveData.boxscore) {
-    const { boxscore } = gameData.liveData;
-    
-    // Look for batter in the appropriate team's players
-    const batterTeamPlayers = isTopInning ? boxscore.teams?.away?.players : boxscore.teams?.home?.players;
-    if (batterTeamPlayers && batterFromMatchup.id) {
-      const batterKey = `ID${batterFromMatchup.id}`;
-      if (batterTeamPlayers[batterKey]) {
-        batterFullData = batterTeamPlayers[batterKey];
-      }
-    }
-    
-    // Look for pitcher in the appropriate team's players (opposite team from batter)
-    const pitcherTeamPlayers = isTopInning ? boxscore.teams?.home?.players : boxscore.teams?.away?.players;
-    if (pitcherTeamPlayers && pitcherFromMatchup.id) {
-      const pitcherKey = `ID${pitcherFromMatchup.id}`;
-      if (pitcherTeamPlayers[pitcherKey]) {
-        pitcherFullData = pitcherTeamPlayers[pitcherKey];
-      }
-    }
-  }
-  
-  // Get player headshots using ESPN athlete API format
-  // Get headshots using MLB official URLs (same as team-page.js)
-  const batterHeadshot = batterFromMatchup.id ? 
-    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${batterFromMatchup.id}/headshot/67/current` : null;
-  const pitcherHeadshot = pitcherFromMatchup.id ? 
-    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcherFromMatchup.id}/headshot/67/current` : null;
-  
-  // Get hit data from the last pitch (the one that resulted in the hit)
-  const lastPitch = pitchEvents[pitchEvents.length - 1];
-  const hitData = lastPitch?.hitData || {};
-  
-  // Get team color for background
-  const teamNameForColor = isTopInning ? awayTeam.teamName : homeTeam.teamName;
-  const fullTeamNameForColor = isTopInning ? awayTeam.name : homeTeam.name;
-  
-  // Get team abbreviations for batter and pitcher
-  const batterTeamName = isTopInning ? awayTeam.name : homeTeam.name;
-  const pitcherTeamName = isTopInning ? homeTeam.name : awayTeam.name;
-  const batterTeamAbbr = getTeamAbbreviation(batterTeamName);
-  const pitcherTeamAbbr = getTeamAbbreviation(pitcherTeamName);
-  const scoringTeamColor = teamColors[teamNameForColor] || teamColors[fullTeamNameForColor] || '#1a472a';
-  
-  // Create unified pitch visualization with all pitches in one strike zone
-  const createUnifiedPitchVisualization = (pitches) => {
-    if (!pitches || pitches.length === 0) {
-      return '<div class="unified-pitch-box">No pitch data available</div>';
-    }
-
-    // Generate all pitch dots for the unified strike zone
-    const pitchDots = pitches.map((pitch, index) => {
-      if (!pitch.pitchData || !pitch.pitchData.coordinates) {
-        return '';
-      }
-
-      const plateWidth = 17; // inches
-      const xPercent = ((pitch.pitchData.coordinates.pX + 2.0) / 4.0) * 100;
-      const yPercent = pitch.pitchData.strikeZoneTop && pitch.pitchData.strikeZoneBottom ? 
-        ((pitch.pitchData.strikeZoneTop - pitch.pitchData.coordinates.pZ) / 
-         (pitch.pitchData.strikeZoneTop - pitch.pitchData.strikeZoneBottom)) * 60 + 20 : 50;
-
-      const finalXPercent = Math.max(5, Math.min(95, xPercent));
-      const finalYPercent = Math.max(5, Math.min(95, yPercent));
-
-      // Determine pitch color
-      let pitchClass = 'ball-pitch';
-      if (pitch.details?.isStrike) {
-        pitchClass = 'strike-pitch';
-      } else if (pitch.details?.isInPlay) {
-        pitchClass = 'in-play-pitch';
-      }
-
-      return `
-        <div class="pitch-location-numbered ${pitchClass}" 
-             style="left: ${finalXPercent}%; top: ${finalYPercent}%;"
-             title="Pitch ${index + 1}: ${pitch.details?.type?.description || 'Unknown'} ${pitch.pitchData?.startSpeed?.toFixed(1) || 'N/A'} mph">
-          ${index + 1}
-        </div>
-      `;
-    }).join('');
-
-    return `
-      <div class="unified-pitch-visualization">
-        <div class="unified-strike-zone-container">
-          <div class="strike-zone-outline"></div>
-          ${pitchDots}
-        </div>
-      </div>
-    `;
-  };
-
-  // Create pitch descriptions list
-  const pitchDescriptionsList = pitchEvents.map((pitch, index) => {
-    const count = pitch.count || {};
-    const pitchType = pitch.details?.type?.description || 'Unknown';
-    const speed = pitch.pitchData?.startSpeed || 0;
-    const description = pitch.details?.description || '';
-    
-    let pitchColor = '#4CAF50'; // ball (green)
-    if (pitch.details?.isStrike) pitchColor = '#f44336'; // strike (red)
-    else if (pitch.details?.isInPlay) pitchColor = '#2196F3'; // in play (blue)
-    
-    return `
-      <div class="pitch-description-item" style="display: flex; align-items: flex-start; margin-bottom: 8px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border-left: 3px solid ${pitchColor};">
-        <span style="color: white; font-weight: bold; min-width: 20px;">${index + 1}.</span>
-        <span style="flex: 1; line-height: 1.3;">
-          ${pitchType} ${speed > 0 ? speed.toFixed(0) : 'N/A'} mph - ${description}
-          <span style="color: #ccc; font-size: 0.85em; margin-left: 8px;">(${count.balls || 0}-${count.strikes || 0})</span>
-        </span>
-      </div>
-    `;
-  }).join('');
-  
-  // Get runners on base
-  let runners = {
-    first: false,
-    second: false,
-    third: false
-  };
-  
-  if (play.matchup) {
-    if (play.matchup.postOnFirst && play.matchup.postOnFirst.id) {
-      runners.first = true;
-    }
-    if (play.matchup.postOnSecond && play.matchup.postOnSecond.id) {
-      runners.second = true;
-    }
-    if (play.matchup.postOnThird && play.matchup.postOnThird.id) {
-      runners.third = true;
-    }
-  }
-  
-  // Generate unique ID for this enhanced scoring play
-  const enhancedPlayId = `enhancedPlay_${play.atBatIndex || Math.random().toString(36).substr(2, 9)}`;
-  
-  return `
-    <div id="${enhancedPlayId}" class="enhanced-scoring-play">
-      <!-- Clipboard Icon -->
-      <div style="position: absolute; top: 12px; right: 12px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 6px; transition: background-color 0.2s ease; z-index: 10;" onclick="copyEnhancedPlayAsImage('${enhancedPlayId}')" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.2)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" title="Copy enhanced play as image">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-          <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
-        </svg>
-      </div>
-      
-      <div class="enhanced-play-header">
-        <div class="score-and-inning" style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${homeTeamLogo}" alt="Home" style="width: 20px; height: 20px;" onerror="this.style.display='none';">
-            <span style="font-size: 16px; font-weight: bold; color: white;">${homeScore}</span>
-            <span style="color: rgba(255,255,255,0.8);">-</span>
-            <span style="font-size: 16px; font-weight: bold; color: white;">${awayScore}</span>
-            <img src="${awayTeamLogo}" alt="Away" style="width: 20px; height: 20px;" onerror="this.style.display='none';">
-          </div>
-          ${inningDisplay ? `
-            <div style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white;">
-              ${inningDisplay}
-            </div>
-          ` : ''}
-        </div>
-        <h3>🏆 SCORING PLAY</h3>
-        <div class="play-result-summary">${play.result?.description || play.result?.event || 'Scoring Play'}</div>
-      </div>
-      
-      <div class="enhanced-play-content">
-        <div class="batter-section">
-          <div class="player-info">
-            <div class="player-header">
-              ${batterHeadshot ? `
-                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative;">
-                  <img src="${batterHeadshot}" 
-                       alt="${batterFromMatchup.fullName}" 
-                       style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" 
-                       onerror="this.src='icon.png';" 
-                       crossorigin="anonymous">
-                </div>
-              ` : ''}
-              <div class="player-name">${batterFromMatchup.fullName || 'Unknown'} (${batterTeamAbbr})</div>
-            </div>
-            <div class="player-stats">${batterFullData.stats?.batting?.summary || 0}</div>
-          </div>
-        </div>
-        
-        <div class="pitcher-section">
-          <div class="player-info">
-            <div class="player-header">
-              ${pitcherHeadshot ? `
-                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative;">
-                  <img src="${pitcherHeadshot}" 
-                       alt="${pitcherFromMatchup.fullName}" 
-                       style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" 
-                       onerror="this.src='icon.png';" 
-                       crossorigin="anonymous">
-                </div>
-              ` : ''}
-              <div class="player-name">${pitcherFromMatchup.fullName || 'Unknown'} (${pitcherTeamAbbr}, P)</div>
-            </div>
-            <div class="player-stats">${pitcherFullData.stats?.pitching?.summary || 0}</div>
-          </div>
-        </div>
-        
-        <div class="pitch-sequence-box">
-          <h4>At-Bat Pitches (${pitchEvents.length} pitches)</h4>
-          <div class="unified-pitch-container">
-            <div class="unified-pitch-left">
-              ${createUnifiedPitchVisualization(pitchEvents)}
-            </div>
-            <div class="unified-pitch-right">
-              <div class="pitch-descriptions-list">
-                ${pitchDescriptionsList || '<div style="color: #ccc; text-align: center; padding: 20px;">No pitch data available</div>'}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        ${hitData.launchSpeed ? `
-        <div class="hit-details">
-          <div class="hit-stat">Exit Velocity: ${hitData.launchSpeed} mph</div>
-          <div class="hit-stat">Launch Angle: ${hitData.launchAngle}°</div>
-          <div class="hit-stat">Distance: ${hitData.totalDistance} ft</div>
-        </div>
-        ` : ''}
-        
-        <div class="bases-section">
-          <h4 style="margin-bottom: -12.75px;">Runners on Base</h4>
-          ${renderPlayBases(runners)}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function renderPlayByPlay(gamePk, gameData = null) {
-  try {
-    let data = gameData;
-    if (!data) {
-      const response = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
-      data = await response.json();
-    }
-
-    const allPlays = data.liveData?.plays?.allPlays || [];
-    
-    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
-    if (!playsDiv) {
-      console.error("Error: 'plays-placeholder' element not found.");
-      return;
-    }
-
-    // Check if we have valid plays data
-    if (allPlays.length === 0) {
-      playsDiv.innerHTML = `
-        <h2>Plays</h2>
-        <div style="color: white; text-align: center; padding: 20px;">No play data available for this game.</div>
-      `;
-      return;
-    }
-
-    // Get team information
-    const awayTeam = data.gameData.teams?.away || {};
-    const homeTeam = data.gameData.teams?.home || {};
-    
-    let awayLogo, homeLogo;
-    if (awayTeam.name === "American League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
-    } else if (awayTeam.name === "National League All-Stars") {
-      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
-      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
-    } else {
-      awayLogo = await getLogoUrl(awayTeam.name || "Unknown");
-      homeLogo = await getLogoUrl(homeTeam.name || "Unknown");
-    }
-
-    const playsHtml = await Promise.all(allPlays.reverse().map(async (play, index) => {
-      const isTopInning = play.about?.isTopInning;
-      const teamName = isTopInning ? awayTeam.teamName : homeTeam.teamName;
-      const teamLogo = isTopInning ? awayLogo : homeLogo;
-      
-      // Check if this play scored a run using isScoringEvent
-      let isScoring = false;
-      let scoringTeamColor = '';
-      
-      if (play.runners) {
-        const hasScoring = play.runners.some(runner => {
-          const isScoringEvent = runner.details?.isScoringEvent === true;
-          return isScoringEvent;
-        });
-        
-        if (hasScoring) {
-          isScoring = true;
-          // Use the team color of the team that's batting (the team that scored)
-          const teamName = isTopInning ? awayTeam.teamName : homeTeam.teamName;
-          const fullTeamName = isTopInning ? awayTeam.name : homeTeam.name;
-          
-          // Try both teamName and full name to find the color
-          scoringTeamColor = teamColors[teamName] || teamColors[fullTeamName];
-        }
-      }
-      
-      // Show matchup info if no result, otherwise show play result
-      let displayText;
-      if (!play.result?.description && !play.result?.event) {
-        const batter = play.matchup?.batter?.fullName || 'Unknown Batter';
-        const pitcher = play.matchup?.pitcher?.fullName || 'Unknown Pitcher';
-        displayText = `${batter} vs ${pitcher}`;
-      } else {
-        displayText = play.result?.description || play.result?.event || 'No Result';
-      }
-      
-      const awayScore = play.result?.awayScore || 0;
-      const homeScore = play.result?.homeScore || 0;
-      const inning = play.about?.inning || 0;
-      const halfInning = play.about?.halfInning || '';
-      
-      // Format inning display (e.g., "Top 1st", "Bot 1st")
-      const inningDisplay = inning > 0 ? 
-        `${isTopInning ? 'Top' : 'Bot'} ${ordinalSuffix(inning)}` : 
-        '';
-      
-      // Get runners on base for this play
-      let runners = {
-        first: false,
-        second: false,
-        third: false
-      };
-      
-      // Check if we have matchup data with base runners
-      if (play.matchup) {
-        if (play.matchup.postOnFirst && play.matchup.postOnFirst.id) {
-          runners.first = true;
-        }
-        if (play.matchup.postOnSecond && play.matchup.postOnSecond.id) {
-          runners.second = true;
-        }
-        if (play.matchup.postOnThird && play.matchup.postOnThird.id) {
-          runners.third = true;
-        }
-      }
-      
-      // If matchup data isn't available, fall back to runner movement start positions
-      if (!play.matchup && play.runners) {
-        const runnerStartingPositions = new Map();
-        
-        play.runners.forEach(runner => {
-          const playerId = runner.details?.runner?.id;
-          if (playerId && runner.movement && runner.movement.start) {
-            runnerStartingPositions.set(playerId, runner.movement.start);
-          }
-        });
-        
-        // Create runners object based on starting positions
-        const startingPositions = Array.from(runnerStartingPositions.values());
-        runners = {
-          first: startingPositions.includes("1B"),
-          second: startingPositions.includes("2B"),
-          third: startingPositions.includes("3B")
-        };
-      }
-      
-      // Generate pitch events HTML for this play (reverse order for most recent first)
-      const pitchEvents = play.playEvents || [];
-      const pitchesHtml = [...pitchEvents].reverse().map((pitch, pitchIndex) => {
-        const pitchDescription = pitch.details?.description || 'Unknown pitch';
-        const pitchSpeed = pitch.pitchData?.startSpeed;
-        const count = pitch.count || {};
-        const pitchType = pitch.details?.type?.description || 'Unknown';
-        
-        const pitchVisualization = renderPitchVisualization(pitch.pitchData, pitch.details);
-        
-        return `
-          <div class="pitch-container">
-            <div class="pitch-header">
-              <span class="pitch-count">B: ${count.balls || 0} S: ${count.strikes || 0} O: ${count.outs || 0}</span>
-              <span class="pitch-speed">${pitchSpeed ? `${pitchSpeed.toFixed(0)} mph` : 'N/A'}</span>
-              <span class="pitch-type">${pitchType}</span>
-            </div>
-            <div class="pitch-description">${pitchDescription}</div>
-            ${pitchVisualization}
-          </div>
-        `;
-      }).join('');
-
-      // Generate the enhanced scoring play content if this is a scoring play (for inside the dropdown)
-      const enhancedContent = isScoring ? await renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, data) : '';
-
-      return `
-        <div class="play-container" ${scoringTeamColor ? `style="background-color: ${scoringTeamColor}; border-left: 4px solid ${scoringTeamColor};"` : ''}>
-          <div class="play-header" onclick="togglePlay(${index})">
-            <div class="play-info">
-              ${teamLogo ? `<img src="${teamLogo}" alt="${teamName}" class="play-team-logo">` : ''}
-              <div class="play-summary">
-                <span class="play-team-name">${teamName}</span>
-                <div class="play-result">${displayText}</div>
-                ${renderPlayBases(runners)}
-              </div>
-            </div>
-            <div class="play-score-section">
-              ${inningDisplay ? `<div class="play-inning">${inningDisplay}</div>` : ''}
-              <div class="play-score">${awayScore} - ${homeScore}</div>
-            </div>
-            <div class="play-toggle">
-              <span class="toggle-icon" id="toggle-${index}">${openPlays.has(index) ? '▲' : '▼'}</span>
-            </div>
-          </div>
-          <div class="play-details" id="play-${index}" style="display: ${openPlays.has(index) ? 'block' : 'none'};">
-            ${enhancedContent}
-            ${pitchesHtml}
-          </div>
-        </div>
-      `;
-    })).then(plays => plays.join(''));
-
-    // Store current scroll position before updating
-    const playsContainer = playsDiv.querySelector('.plays-container');
-    if (playsContainer) {
-      playsScrollPosition = playsContainer.scrollTop;
-    }
-
-    playsDiv.innerHTML = `
-      <h2>Play by Play</h2>
-      <div class="plays-container">
-        ${playsHtml}
-      </div>
-    `;
-
-    // Restore scroll position after updating
-    setTimeout(() => {
-      const newPlaysContainer = playsDiv.querySelector('.plays-container');
-      if (newPlaysContainer && playsScrollPosition > 0) {
-        newPlaysContainer.scrollTop = playsScrollPosition;
-      }
-    }, 0);
-  } catch (error) {
-    console.error("Error fetching MLB play-by-play data:", error);
-    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
-    if (playsDiv) {
-      playsDiv.innerHTML = `
-        <h2>Plays</h2>
-        <div style="color: white; text-align: center; padding: 20px;">Error loading play data.</div>
-      `;
-    }
-  }
-}
-
-let updateInterval;
-
-function startScoreboardUpdates(gamePk) {
-  const updateScoreboard = async () => {
-    const gameOver = await fetchAndUpdateScoreboard(gamePk);
-    if (gameOver && updateInterval) {
-      clearInterval(updateInterval);
-      console.log("Game is over. Stopped fetching updates.");
-    }
-  };
-
-  updateScoreboard(); // Initial fetch
-  
-  // Use different update intervals based on whether stream is active
-  // Reduce frequency when stream is playing to minimize mobile interruptions
-  const getUpdateInterval = () => {
-    const streamIframe = document.getElementById('streamIframe');
-    const isStreamActive = streamIframe && streamInitialized && streamIframe.style.display !== 'none';
-    console.log('MLB Update interval check:', { isStreamActive, streamInitialized, iframeExists: !!streamIframe });
-    return isStreamActive ? 8000 : 2000; // 8 seconds if stream active, 2 seconds otherwise
-  };
-  
-  updateInterval = setInterval(updateScoreboard, getUpdateInterval());
-  
-  // Dynamically adjust interval based on stream status
-  setInterval(() => {
-    if (updateInterval) {
-      const currentInterval = getUpdateInterval();
-      clearInterval(updateInterval);
-      updateInterval = setInterval(updateScoreboard, currentInterval);
-      console.log('MLB Update interval adjusted to:', currentInterval, 'ms');
-    }
-  }, 15000); // Check every 15 seconds if we need to adjust frequency
-}
-
-// Utility function to get team abbreviations
-function getTeamAbbreviation(teamName) {
-  const teamAbbrMap = {
-    "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL", "Boston Red Sox": "BOS",
-    "Chicago White Sox": "CWS", "Chicago Cubs": "CHC", "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE",
-    "Colorado Rockies": "COL", "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
-    "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA", "Milwaukee Brewers": "MIL",
-    "Minnesota Twins": "MIN", "New York Yankees": "NYY", "New York Mets": "NYM", "Athletics": "ATH",
-    "Philadelphia Phillies": "PHI", "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "San Francisco Giants": "SF",
-    "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB", "Texas Rangers": "TEX",
-    "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH"
-  };
-  
-  return teamAbbrMap[teamName] || teamName.substring(0, 3).toUpperCase();
-}
-
-// Function to copy enhanced scoring play as image
-async function copyEnhancedPlayAsImage(playId) {
-  try {
-    const playElement = document.getElementById(playId);
-    if (!playElement) {
-      console.error('Enhanced scoring play not found');
-      return;
-    }
-
-    // Import html2canvas dynamically
-    if (!window.html2canvas) {
-      // Load html2canvas library
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-      script.onload = () => {
-        captureAndCopyEnhancedPlay(playElement);
-      };
-      document.head.appendChild(script);
-    } else {
-      captureAndCopyEnhancedPlay(playElement);
-    }
-  } catch (error) {
-    console.error('Error copying enhanced play as image:', error);
-    showEnhancedPlayFeedback('Error copying image', 'error');
-  }
-}
-
-async function captureAndCopyEnhancedPlay(element) {
-  try {
-    showEnhancedPlayFeedback('Capturing image...', 'loading');
-    
-    // Replace all external images with base64 versions or remove them
-    const images = element.querySelectorAll('img');
-
-    for (const img of images) {
-      try {
-        // For MLB headshots and logos, convert to base64 for html2canvas compatibility
-        if (img.src.includes('mlbstatic.com') || img.src.includes('http')) {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Create a new image for loading
-          const tempImg = new Image();
-          tempImg.crossOrigin = 'anonymous';
-          
-          await new Promise((resolve, reject) => {
-            tempImg.onload = () => {
-              try {
-                canvas.width = tempImg.width;
-                canvas.height = tempImg.height;
-                ctx.drawImage(tempImg, 0, 0);
-                
-                // Try to convert to base64
-                try {
-                  const dataURL = canvas.toDataURL('image/png');
-                  img.src = dataURL;
-                } catch (e) {
-                  // If conversion fails, use a placeholder
-                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
-                }
-                resolve();
-              } catch (e) {
-                // Fallback to placeholder
-                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
-                resolve();
-              }
-            };
-            
-            tempImg.onerror = () => {
-              // Use placeholder on error
-              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
-              resolve();
-            };
-            
-            // Start loading
-            tempImg.src = img.src;
+        chip.classList.add("active");
+        var val = chip.dataset.pitch;
+        if (val === "all") {
+          pitchDots.forEach(function (d) {
+            d.style.display = "";
+          });
+          pitchLabels.forEach(function (t) {
+            t.style.display = "";
+          });
+        } else {
+          var idx = parseInt(val);
+          pitchDots.forEach(function (d, i) {
+            d.style.display = i === idx ? "" : "none";
+          });
+          pitchLabels.forEach(function (t, i) {
+            t.style.display = i === idx ? "" : "none";
           });
         }
-      } catch (e) {
-        console.log('Error processing image:', e);
-        // Use placeholder on any error
-        img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
-      }
-    }
-    
-    // Wait a bit for images to process
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const isSmallScreen = window.innerWidth < 525;
-    
-    // Height adjustment for enhanced scoring play (similar to team-page.js approach)
-    // Count the number of pitches in the at-bat to adjust height for longer sequences
-    const pitchElements = element.querySelectorAll('.pitch-description-item');
-    const pitchCount = pitchElements.length;
-    
-    // Base height adjustment
-    let heightAdjustment = 30;
-    
-    // Add 20px for every pitch above 4
-    if (pitchCount > 4) {
-      const extraPitches = pitchCount - 4;
-      heightAdjustment += extraPitches * 20;
-    }
-
-    // Capture the element with html2canvas using exact element dimensions
-    const canvas = await html2canvas(element, {
-      backgroundColor: '#333333', // Set the actual background color to match enhanced scoring play
-      scale: 3, // Use scale 3 to avoid logo scaling issues
-      useCORS: true,
-      allowTaint: false, // Allow tainted canvas for better compatibility
-      logging: false,
-      width: isSmallScreen ? element.clientWidth : element.clientWidth,
-      height: isSmallScreen ? element.clientHeight : element.clientHeight + heightAdjustment,
-      scrollX: 0,
-      scrollY: 0,
-      ignoreElements: (element) => {
-        try {
-          // Ignore the clipboard icon itself
-          if (element && element.getAttribute && element.getAttribute('onclick') && 
-              element.getAttribute('onclick').includes('copyEnhancedPlayAsImage')) {
-            return true;
-          }
-          return false;
-        } catch (e) {
-          return false;
-        }
-      }
+      });
     });
-    
-    // Convert to blob
-    canvas.toBlob(async (blob) => {
-      if (!blob) {
-        showEnhancedPlayFeedback('Failed to create image', 'error');
-        return;
-      }
-
-      // Check if device is mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                      ('ontouchstart' in window) || 
-                      (navigator.maxTouchPoints > 0);
-
-      try {
-        if (isMobile) {
-          // On mobile, download the image
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `enhanced-scoring-play-${new Date().getTime()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          showEnhancedPlayFeedback('Enhanced play downloaded!', 'success');
-        } else {
-          // On desktop, try to copy to clipboard using modern API
-          if (navigator.clipboard && window.ClipboardItem) {
-            const clipboardItem = new ClipboardItem({
-              'image/png': blob
-            });
-            await navigator.clipboard.write([clipboardItem]);
-            showEnhancedPlayFeedback('Enhanced play copied to clipboard!', 'success');
-          } else {
-            showEnhancedPlayFeedback('Could not copy to clipboard. Try again', 'error');
-          }
-        }
-      } catch (clipboardError) {
-        showEnhancedPlayFeedback('Could not copy to clipboard. Try again', 'error');
-      }
-    }, 'image/png', 0.95);
-    
-  } catch (error) {
-    console.error('Error capturing enhanced play:', error);
-    showEnhancedPlayFeedback('Failed to capture image: ' + error.message, 'error');
-  }
-}
-
-function showEnhancedPlayFeedback(message, type) {
-  // Remove existing feedback
-  const existingFeedback = document.getElementById('enhancedPlayFeedback');
-  if (existingFeedback) {
-    existingFeedback.remove();
   }
 
-  // Create feedback element
-  const feedback = document.createElement('div');
-  feedback.id = 'enhancedPlayFeedback';
-  feedback.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    color: white;
-    font-weight: 500;
-    z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: opacity 0.3s ease;
-  `;
-
-  // Set colors based on type
-  switch (type) {
-    case 'success':
-      feedback.style.backgroundColor = '#4CAF50';
-      break;
-    case 'error':
-      feedback.style.backgroundColor = '#f44336';
-      break;
-    case 'loading':
-      feedback.style.backgroundColor = '#2196F3';
-      break;
-    default:
-      feedback.style.backgroundColor = '#333';
+  function buildPitchText(ev, bi, pi) {
+    const d = ev.details || {};
+    const desc = d.description || "";
+    const bn = shortName(bi?.fullName) || "Batter",
+      pn = shortName(pi?.fullName) || "Pitcher";
+    const speed = ev.pitchData?.startSpeed || null;
+    const pt = d.type?.description || "";
+    const balls = ev.count?.balls || "",
+      strikes = ev.count?.strikes || "";
+    const cc = d.call?.code ? String(d.call.code).toUpperCase() : null;
+    if (cc === "F")
+      return `${bn} fouls off ${speed ? Math.round(speed) + " mph " : ""}${pt} from ${pn}. Strike ${strikes}`.trim();
+    if (cc === "B")
+      return `${pn} throws ${speed ? Math.round(speed) + " mph " : ""}${pt}. Ball ${balls}`.trim();
+    if (cc === "*B") return `Wild pitch. Ball ${balls}`.trim();
+    if (cc === "C")
+      return `${bn} takes strike ${strikes} looking from ${pn}`.trim();
+    if (cc === "S")
+      return `${bn} swings at ${speed ? Math.round(speed) + " mph " : ""}${pt} from ${pn}. Strike ${strikes}`.trim();
+    if (["X", "E", "H", "D"].includes(cc || "")) return desc || "In play";
+    return desc || d.event || "";
   }
 
-  feedback.textContent = message;
-  document.body.appendChild(feedback);
-
-  // Auto remove after 3 seconds (except for loading)
-  if (type !== 'loading') {
-    setTimeout(() => {
-      if (feedback && feedback.parentNode) {
-        feedback.style.opacity = '0';
-        setTimeout(() => {
-          if (feedback && feedback.parentNode) {
-            feedback.remove();
-          }
-        }, 300);
-      }
-    }, 3000);
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+  function headshotUrl(id) {
+    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current`;
   }
-}
-
-// Team Stats Functions
-async function renderTeamStats(gamePk) {
-  try {
-    console.log('Fetching team stats for game:', gamePk);
-    
-    // Fetch game data with boxscore
-    const gameResponse = await fetch(`${BASE_URL}/api/v1/game/${gamePk}/boxscore`);
-    const gameData = await gameResponse.json();
-    
-    const awayTeam = gameData.teams.away;
-    const homeTeam = gameData.teams.home;
-    
-    console.log('Away team stats:', awayTeam);
-    console.log('Home team stats:', homeTeam);
-    
-    const teamStatsDisplay = document.getElementById('teamStatsDisplay');
-    if (!teamStatsDisplay) return;
-    
-    // Get team colors
-    const awayColor = teamColors[awayTeam.team.name] || '#f44336';
-    const homeColor = teamColors[homeTeam.team.name] || '#4CAF50';
-    
-    // Get team logos
-    const awayLogo = await getLogoUrl(awayTeam.team.name);
-    const homeLogo = await getLogoUrl(homeTeam.team.name);
-    
-    // Helper function to render stats row with bars (like soccer)
-    const renderStatsRow = (label, awayValue, homeValue, isPercentage = false) => {
-      const awayNum = typeof awayValue === 'number' ? awayValue : parseFloat(awayValue) || 0;
-      const homeNum = typeof homeValue === 'number' ? homeValue : parseFloat(homeValue) || 0;
-      const total = awayNum + homeNum;
-      const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
-      const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
-
-      return `
-        <div class="stats-row">
-          <div class="stats-value away">${awayValue}${isPercentage ? '%' : ''}</div>
-          <div class="stats-bar-container">
-            <div class="stats-bar">
-              <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: ${awayColor};"></div>
-            </div>
-            <div class="stats-bar">
-              <div class="stats-bar-fill home" style="width: ${homePercent}%; background: ${homeColor};"></div>
-            </div>
-          </div>
-          <div class="stats-value home">${homeValue}${isPercentage ? '%' : ''}</div>
-        </div>
-        <div class="stats-label">${label}</div>
-      `;
-    };
-    
-    // Create team stats HTML matching soccer layout
-    const teamStatsHtml = `
-      <div class="match-stats-container">
-        <!-- Win Probability Chart (moved to top) -->
-        <div id="winProbabilityChart"></div>
-        
-        <div class="stats-teams">
-          <div class="stats-team away">
-            <img src="${awayLogo}" alt="${awayTeam.team.name}" class="stats-team-logo">
-            <span class="stats-team-name">${awayTeam.team.name}</span>
-          </div>
-          <div class="stats-team home">
-            <span class="stats-team-name home">${homeTeam.team.name}</span>
-            <img src="${homeLogo}" alt="${homeTeam.team.name}" class="stats-team-logo">
-          </div>
-        </div>
-        
-        <div class="stats-section">
-          <div class="stats-section-title">Team Statistics</div>
-          ${renderStatsRow('Hits', awayTeam.teamStats.batting.hits || 0, homeTeam.teamStats.batting.hits || 0)}
-          ${renderStatsRow('At Bats', awayTeam.teamStats.batting.atBats || 0, homeTeam.teamStats.batting.atBats || 0)}
-          ${renderStatsRow('Batting Avg', parseFloat(awayTeam.teamStats.batting.avg || 0).toFixed(3), parseFloat(homeTeam.teamStats.batting.avg || 0).toFixed(3))}
-          ${renderStatsRow('OPS', parseFloat(awayTeam.teamStats.batting.ops || 0).toFixed(3), parseFloat(homeTeam.teamStats.batting.ops || 0).toFixed(3))}
-          ${renderStatsRow('Strikeouts', awayTeam.teamStats.batting.strikeOuts || 0, homeTeam.teamStats.batting.strikeOuts || 0)}
-          ${renderStatsRow('Walks', awayTeam.teamStats.batting.baseOnBalls || 0, homeTeam.teamStats.batting.baseOnBalls || 0)}
-          ${renderStatsRow('Left on Base', awayTeam.teamStats.batting.leftOnBase || 0, homeTeam.teamStats.batting.leftOnBase || 0)}
-          ${renderStatsRow('Home Runs', awayTeam.teamStats.batting.homeRuns || 0, homeTeam.teamStats.batting.homeRuns || 0)}
-          ${renderStatsRow('Stolen Bases', awayTeam.teamStats.batting.stolenBases || 0, homeTeam.teamStats.batting.stolenBases || 0)}
-          ${renderStatsRow('Earned Runs', awayTeam.teamStats.pitching.earnedRuns || 0, homeTeam.teamStats.pitching.earnedRuns || 0)}
-          ${renderStatsRow('Pitching Ks', awayTeam.teamStats.pitching.strikeOuts || 0, homeTeam.teamStats.pitching.strikeOuts || 0)}
-        </div>
-      </div>
-    `;
-    
-    teamStatsDisplay.innerHTML = teamStatsHtml;
-    
-    // Render momentum chart with team colors
-    await renderWinProbabilityChart(gamePk, awayColor, homeColor, awayTeam.team.name, homeTeam.team.name);
-    
-  } catch (error) {
-    console.error('Error rendering team stats:', error);
-    const teamStatsDisplay = document.getElementById('teamStatsDisplay');
-    if (teamStatsDisplay) {
-      teamStatsDisplay.innerHTML = '<div class="error-message">Unable to load team statistics</div>';
-    }
+  function resolvePlayer(pm, id) {
+    if (!pm || id == null) return null;
+    return pm[`ID${id}`] || pm[String(id)] || pm[id] || null;
   }
-}
-
-async function renderWinProbabilityChart(gamePk, awayColor, homeColor, awayTeamName, homeTeamName) {
-  try {
-    // Get linescore data for inning-by-inning momentum
-    const gameResponse = await fetch(`${BASE_URL}/api/v1/game/${gamePk}/linescore`);
-    const gameData = await gameResponse.json();
-    
-    const winProbContainer = document.getElementById('winProbabilityChart');
-    if (!winProbContainer || !gameData.innings) return;
-    
-    const innings = gameData.innings;
-    
-    // Calculate momentum for each inning
-    let momentumPoints = [];
-    let cumulativeAwayRuns = 0;
-    let cumulativeHomeRuns = 0;
-    let cumulativeAwayHits = 0;
-    let cumulativeHomeHits = 0;
-    
-    // Starting at balanced (50%)
-    momentumPoints.push(50);
-    
-    innings.forEach((inning, index) => {
-      const awayRuns = inning.away?.runs || 0;
-      const homeRuns = inning.home?.runs || 0;
-      const awayHits = inning.away?.hits || 0;
-      const homeHits = inning.home?.hits || 0;
-      
-      cumulativeAwayRuns += awayRuns;
-      cumulativeHomeRuns += homeRuns;
-      cumulativeAwayHits += awayHits;
-      cumulativeHomeHits += homeHits;
-      
-      // Calculate momentum based on runs and hits
-      // Runs are weighted more heavily than hits
-      const runDiff = cumulativeHomeRuns - cumulativeAwayRuns;
-      const hitDiff = cumulativeHomeHits - cumulativeAwayHits;
-      
-      // Momentum calculation: runs worth 3x hits, with diminishing returns
-      const momentumScore = (runDiff * 3) + (hitDiff * 1);
-      
-      // Convert to percentage (0-100, where 50 is balanced)
-      // Use sigmoid-like function for smooth transitions
-      let momentum = 50 + (momentumScore * 5);
-      
-      // Add some recent inning bias (what happened this inning affects momentum more)
-      const recentRunDiff = homeRuns - awayRuns;
-      const recentHitDiff = homeHits - awayHits;
-      const recentMomentum = (recentRunDiff * 2) + (recentHitDiff * 0.5);
-      momentum += recentMomentum * 3;
-      
-      // Cap between 10-90% for visual appeal
-      momentum = Math.max(10, Math.min(90, momentum));
-      
-      momentumPoints.push(momentum);
-    });
-    
-    // Ensure we have at least 9 innings for proper display
-    const totalInnings = Math.max(9, innings.length);
-    
-    // Calculate individual inning data for both teams
-    let inningData = [];
-    
-    for (let i = 0; i < totalInnings; i++) {
-      if (i < innings.length) {
-        const inning = innings[i];
-        const awayRuns = inning.away?.runs || 0;
-        const homeRuns = inning.home?.runs || 0;
-        const awayHits = inning.away?.hits || 0;
-        const homeHits = inning.home?.hits || 0;
-        
-        // Calculate combined activity for each team (runs worth more than hits)
-        const awayActivity = (awayRuns * 3) + awayHits;
-        const homeActivity = (homeRuns * 3) + homeHits;
-        
-        inningData.push({
-          inning: i + 1,
-          awayRuns: awayRuns,
-          homeRuns: homeRuns,
-          awayHits: awayHits,
-          homeHits: homeHits,
-          awayActivity: awayActivity,
-          homeActivity: homeActivity
-        });
-      } else {
-        // For innings beyond current game, show no activity
-        inningData.push({
-          inning: i + 1,
-          awayRuns: 0,
-          homeRuns: 0,
-          awayHits: 0,
-          homeHits: 0,
-          awayActivity: 0,
-          homeActivity: 0
-        });
-      }
-    }
-    
-    // Find max activity for scaling bars
-    const maxActivity = Math.max(...inningData.map(d => Math.max(d.awayActivity, d.homeActivity)), 1);
-    
-    // Helper function for ordinal suffixes
-    const ordinalSuffix = (num) => {
-      const j = num % 10;
-      const k = num % 100;
-      if (j === 1 && k !== 11) return num + "st";
-      if (j === 2 && k !== 12) return num + "nd";
-      if (j === 3 && k !== 13) return num + "rd";
-      return num + "th";
-    };
-    
-    let chartHtml = `
-      <div class="win-prob-container">
-        <h3 class="win-prob-title">Momentum</h3>
-        <div class="win-prob-chart-wrapper">
-          <div class="team-labels">
-            <div class="team-label away" style="color: ${awayColor}">
-              ${awayTeamName}
-            </div>
-            <div class="team-label home" style="color: ${homeColor}">
-              ${homeTeamName}
-            </div>
-          </div>
-          
-          <div class="chart-container">
-            <svg width="600" height="280" viewBox="0 0 600 280" class="win-prob-svg">
-              <!-- Center line (balanced) -->
-              <line x1="0" y1="140" x2="600" y2="140" 
-                    stroke="#666" 
-                    stroke-width="1" 
-                    stroke-dasharray="3,3"/>
-              
-              <!-- Inning momentum bars -->
-    `;
-    
-    // Add momentum bars for each inning - stacked vertically
-    const barWidth = 50; // Wider bars for bigger chart
-    const barSpacing = 60; // More spacing between bars
-    
-    inningData.forEach((data, index) => {
-      const baseX = (index * barSpacing) + 25;
-      const centerY = 140; // Updated center Y for bigger chart
-      const maxBarHeight = 100; // Taller bars for bigger chart
-      
-      // Away team bar (extends upward from center)
-      if (data.awayActivity > 0) {
-        const awayBarHeight = (data.awayActivity / maxActivity) * maxBarHeight;
-        chartHtml += `
-          <rect x="${baseX}" y="${centerY - awayBarHeight}" 
-                width="${barWidth}" height="${awayBarHeight}" 
-                fill="${awayColor}" 
-                opacity="0.8"
-                rx="3"/>
-        `;
-        
-        // Add stats text for away team (above the bar)
-        if (data.awayRuns > 0 || data.awayHits > 0) {
-          chartHtml += `
-            <text x="${baseX + barWidth/2}" y="${centerY - awayBarHeight - 5}" 
-                  fill="white" 
-                  font-size="9" 
-                  font-weight="bold"
-                  text-anchor="middle">${data.awayRuns}R ${data.awayHits}H</text>
-          `;
-        }
-      }
-      
-      // Home team bar (extends downward from center) - same X position as away team
-      if (data.homeActivity > 0) {
-        const homeBarHeight = (data.homeActivity / maxActivity) * maxBarHeight;
-        chartHtml += `
-          <rect x="${baseX}" y="${centerY}" 
-                width="${barWidth}" height="${homeBarHeight}" 
-                fill="${homeColor}" 
-                opacity="0.8"
-                rx="3"/>
-        `;
-        
-        // Add stats text for home team (below the bar)
-        if (data.homeRuns > 0 || data.homeHits > 0) {
-          chartHtml += `
-            <text x="${baseX + barWidth/2}" y="${centerY + homeBarHeight + 15}" 
-                  fill="white" 
-                  font-size="9" 
-                  font-weight="bold"
-                  text-anchor="middle">${data.homeRuns}R ${data.homeHits}H</text>
-          `;
-        }
-      }
-      
-      // Add inning label below the home team bar
-      chartHtml += `
-        <text x="${baseX + barWidth/2}" y="270" 
-              fill="#ccc" 
-              font-size="12" 
-              text-anchor="middle">${ordinalSuffix(data.inning)}</text>
-      `;
-      
-      // Add vertical separator line between innings
-      if (index < totalInnings - 1) {
-        chartHtml += `
-          <line x1="${baseX + barWidth + 15}" y1="30" x2="${baseX + barWidth + 15}" y2="250" 
-                stroke="#444" 
-                stroke-width="1" 
-                opacity="0.3"/>
-        `;
-      }
-    });
-    
-    chartHtml += `
-            </svg>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    winProbContainer.innerHTML = chartHtml;
-    
-  } catch (error) {
-    console.error('Error rendering momentum chart:', error);
+  function ordinal(n) {
+    if (n === 1) return "1st";
+    if (n === 2) return "2nd";
+    if (n === 3) return "3rd";
+    return `${n}th`;
   }
-}
-const gamePk = getQueryParam("gamePk");
-if (gamePk) {
-  startScoreboardUpdates(gamePk);
-} else {
-  document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
-}
+  function shortName(fn) {
+    if (!fn) return "";
+    const p = fn.trim().split(" ");
+    if (p.length === 1) return p[0];
+    return `${p[0][0]}. ${p.slice(1).join(" ")}`;
+  }
+  function fmtGameTime(iso) {
+    if (!iso) return null;
+    let s = iso;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00Z";
+    else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) s += "Z";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    return (
+      d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+      " · " +
+      d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    );
+  }
+  function utcToEastern(iso) {
+    if (!iso) return null;
+    let s = iso;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00Z";
+    else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) s += "Z";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    return (
+      d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }) +
+      " @ " +
+      d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    );
+  }
+  function fmtGameDate(iso) {
+    if (!iso) return "";
+    let s = iso;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00Z";
+    else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) s += "Z";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "";
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  function parseIsoDate(iso) {
+    if (!iso) return null;
+    let s = iso;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00Z";
+    else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) s += "Z";
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function fmtGameTimeOnly(iso) {
+    const d = parseIsoDate(iso);
+    if (!d) return "--:--";
+    const parts = d
+      .toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .replace(/\u202f|\u00a0/g, " ");
+    return parts.replace(/\s?(AM|PM)$/i, "");
+  }
+  function fmtGameAmPm(iso) {
+    const d = parseIsoDate(iso);
+    if (!d) return "";
+    const parts = d
+      .toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .replace(/\u202f|\u00a0/g, " ");
+    const m = parts.match(/(AM|PM)$/i);
+    return m ? m[1].toUpperCase() : "";
+  }
+  function fmtDuration(mins) {
+    if (mins == null) return null;
+    const h = Math.floor(mins / 60),
+      m = mins % 60;
+    return h > 0 ? `${h}hr ${m}m` : `${m}m`;
+  }
+
+  init();
+})();

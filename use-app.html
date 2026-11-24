@@ -224,55 +224,59 @@
       </div>
     </main>
 
-<script src="/assets/analytics.js"></script>
-<script>
-  const INVITE_ENDPOINT =
-    "https://sportsheart-main.up.railway.app/api/invite";
+    <script src="/assets/analytics.js"></script>
+    <script src="/assets/split-screen.js"></script>
+    <script>
+      const INVITE_ENDPOINT =
+        "https://sportsheart-main.up.railway.app/api/invite";
 
-  const GROUP_URL =
-    "https://groups.google.com/g/sportsheart-testers";
+      const GROUP_URL = "https://groups.google.com/g/sportsheart-testers";
 
-  const PLAY_URL =
-    "https://play.google.com/store/apps/details?id=com.sportsheart.app";
+      const PLAY_URL =
+        "https://play.google.com/store/apps/details?id=com.sportsheart.app";
 
-  function sendGAEvent(action, label) {
-    try {
-      if (window.gtag) {
-        gtag("event", action, {
-          event_category: "engagement",
-          event_label: label,
-        });
+      function sendGAEvent(action, label) {
+        try {
+          if (window.gtag) {
+            gtag("event", action, {
+              event_category: "engagement",
+              event_label: label,
+            });
+          }
+        } catch (e) {
+          console.warn(e);
+        }
       }
-    } catch (e) {
-      console.warn(e);
-    }
-  }
 
-  // Apple button
-  document.getElementById("appleBtn").addEventListener("click", function (e) {
-    e.preventDefault();
+      // Apple button
+      document
+        .getElementById("appleBtn")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
 
-    sendGAEvent("apple_click", "apple_button");
+          sendGAEvent("apple_click", "apple_button");
 
-    window.open(
-      "https://apps.apple.com/app/sportsheart/id6754208862",
-      "_blank"
-    );
-  });
+          window.open(
+            "https://apps.apple.com/app/sportsheart/id6754208862",
+            "_blank",
+          );
+        });
 
-    document.getElementById("googleBtn").addEventListener("click", function (e) {
-    e.preventDefault();
+      document
+        .getElementById("googleBtn")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
 
-    sendGAEvent("google_click", "google_button");
+          sendGAEvent("google_click", "google_button");
 
-    window.open(
-      "https://play.google.com/store/apps/details?id=com.sportsheart.app",
-      "_blank"
-    );
-  });
+          window.open(
+            "https://play.google.com/store/apps/details?id=com.sportsheart.app",
+            "_blank",
+          );
+        });
 
-  // Google button
-  /* 
+      // Google button
+      /* 
   const googleBtn = document.getElementById("googleBtn");
 
   googleBtn.addEventListener("click", function () {
@@ -283,37 +287,38 @@
     document.getElementById("inviteEmail").focus();
   });
   */
-  
-  const googleForm = document.getElementById("googleForm");
 
-  async function handleInviteSubmit(e) {
-    e.preventDefault();
+      const googleForm = document.getElementById("googleForm");
 
-    const email = document.getElementById("inviteEmail").value.trim().toLowerCase();
+      async function handleInviteSubmit(e) {
+        e.preventDefault();
 
-    const message = document.getElementById("inviteMessage");
+        const email = document
+          .getElementById("inviteEmail")
+          .value.trim()
+          .toLowerCase();
 
-    if (!email) return false;
+        const message = document.getElementById("inviteMessage");
 
-    sendGAEvent("invite_submit", "google_invite");
+        if (!email) return false;
 
-    message.innerHTML = "Checking...";
+        sendGAEvent("invite_submit", "google_invite");
 
-    try {
+        message.innerHTML = "Checking...";
 
-      // Get current invite list
-      const listResponse = await fetch(INVITE_ENDPOINT);
+        try {
+          // Get current invite list
+          const listResponse = await fetch(INVITE_ENDPOINT);
 
-      if (!listResponse.ok) {
-        throw new Error("Unable to retrieve invite list.");
-      }
+          if (!listResponse.ok) {
+            throw new Error("Unable to retrieve invite list.");
+          }
 
-      const inviteList = await listResponse.json();
+          const inviteList = await listResponse.json();
 
-      // Already exists?
-      if (inviteList[email]) {
-
-        message.innerHTML = `
+          // Already exists?
+          if (inviteList[email]) {
+            message.innerHTML = `
           <div style="margin-top:10px;padding:12px;border-radius:8px;background:#fff8e5;border:1px solid #ffd86a;">
             <strong>You're already on the tester list!</strong>
 
@@ -350,26 +355,26 @@
           </div>
         `;
 
-        return false;
-      }
+            return false;
+          }
 
-      // Save email
-      const saveResponse = await fetch(INVITE_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          ts: Date.now(),
-        }),
-      });
+          // Save email
+          const saveResponse = await fetch(INVITE_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email,
+              ts: Date.now(),
+            }),
+          });
 
-      if (!saveResponse.ok) {
-        throw new Error("Unable to save invite.");
-      }
+          if (!saveResponse.ok) {
+            throw new Error("Unable to save invite.");
+          }
 
-      message.innerHTML = `
+          message.innerHTML = `
         <div style="margin-top:10px;padding:12px;border-radius:8px;background:#ecfdf3;border:1px solid #34d399;">
 
           <strong>✅ You're on the tester list!</strong>
@@ -419,43 +424,41 @@
         </div>
       `;
 
-      document.getElementById("inviteEmail").value = "";
+          document.getElementById("inviteEmail").value = "";
+        } catch (err) {
+          console.error(err);
 
-    } catch (err) {
-
-      console.error(err);
-
-      message.innerHTML = `
+          message.innerHTML = `
         <div style="color:red;">
           Unable to contact the server right now.
           Please try again in a few moments.
         </div>
       `;
-    }
+        }
 
-    return false;
-  }
+        return false;
+      }
 
-  // Track closing page
-  let closedTracked = false;
+      // Track closing page
+      let closedTracked = false;
 
-  function trackClose() {
-    if (closedTracked) return;
+      function trackClose() {
+        if (closedTracked) return;
 
-    closedTracked = true;
+        closedTracked = true;
 
-    sendGAEvent("close_tab", "user_left");
-  }
+        sendGAEvent("close_tab", "user_left");
+      }
 
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
-      trackClose();
-    }
-  });
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+          trackClose();
+        }
+      });
 
-  window.addEventListener("beforeunload", function () {
-    trackClose();
-  });
-</script>
+      window.addEventListener("beforeunload", function () {
+        trackClose();
+      });
+    </script>
   </body>
 </html>

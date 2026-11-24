@@ -26,6 +26,7 @@ import { WebView } from "react-native-webview";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { NFLService } from "../../services/NFLService";
+import StreamService from "../../services/StreamService";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import ChatComponent from "../../components/ChatComponent";
@@ -1087,279 +1088,24 @@ const GameDetailsScreen = ({ route }) => {
   const [linescoreAvailableW, setLinescoreAvailableW] = useState(0);
   const [teamPositionFilter, setTeamPositionFilter] = useState("ALL");
 
-  // Stream API functions (adapted from MLB)
-  const STREAM_API_BASE = "https://streamed.pk/api";
-  let liveMatchesCache = null;
-  let cacheTimestamp = 0;
-  const CACHE_DURATION = 30000; // 30 seconds cache
-
-  const fetchLiveMatches = async () => {
-    try {
-      const now = Date.now();
-      if (liveMatchesCache && now - cacheTimestamp < CACHE_DURATION) {
-        return liveMatchesCache;
-      }
-
-      const response = await fetch(
-        `${STREAM_API_BASE}/matches/american-football`,
-      );
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-
-      const allMatches = await response.json();
-
-      // Filter matches by american football / nfl
-      const matches = allMatches.filter((match) => {
-        const matchSport = match.sport || match.category;
-        return (
-          matchSport === "american-football" ||
-          matchSport === "nfl" ||
-          (match.title &&
-            (match.title.toLowerCase().includes("nfl") ||
-              match.title.toLowerCase().includes("football")))
-        );
-      });
-
-      liveMatchesCache = matches;
-      cacheTimestamp = now;
-
-      return matches;
-    } catch (error) {
-      console.error("Error fetching live matches:", error);
-      return [];
-    }
-  };
-
-  const fetchStreamsForSource = async (source, sourceId) => {
-    try {
-      const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch streams: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error(`Error fetching streams for ${source}:`, error);
-      return [];
-    }
-  };
+  // Stream API functions (StreamFree)
+  const STREAM_SPORT = "nfl";
 
   // Team name normalization for NFL
-  const normalizeNFLTeamName = (teamName) => {
-    if (!teamName) return "";
-
-    // NFL-specific team name mappings and normalizations
-    const nflTeamMappings = {
-      "New York Giants": "new-york-giants",
-      "New York Jets": "new-york-jets",
-      "Los Angeles Rams": "los-angeles-rams",
-      "Los Angeles Chargers": "los-angeles-chargers",
-      "Las Vegas Raiders": "las-vegas-raiders",
-      "San Francisco 49ers": "san-francisco-49ers",
-      "Tampa Bay Buccaneers": "tampa-bay-buccaneers",
-      "Green Bay Packers": "green-bay-packers",
-      "New England Patriots": "new-england-patriots",
-      "Kansas City Chiefs": "kansas-city-chiefs",
-    };
-
-    // Check for direct mapping first
-    if (nflTeamMappings[teamName]) {
-      return nflTeamMappings[teamName];
-    }
-
-    return teamName
-      .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9\-]/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  };
+  const normalizeNFLTeamName = (teamName) =>
+    StreamService.normalizeTeamName(teamName);
 
   const findNFLMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      const liveMatches = await fetchLiveMatches();
-      if (
-        !liveMatches ||
-        !Array.isArray(liveMatches) ||
-        liveMatches.length === 0
-      ) {
-        return {};
-      }
-
-      // Try to find our match
-      const homeNormalized = normalizeNFLTeamName(homeTeamName).toLowerCase();
-      const awayNormalized = normalizeNFLTeamName(awayTeamName).toLowerCase();
-
-      let bestMatch = null;
-      let bestScore = 0;
-
-      // Process matches to find the best NFL game match
-      for (let i = 0; i < Math.min(liveMatches.length, 100); i++) {
-        const match = liveMatches[i];
-
-        if (!match.sources || match.sources.length === 0) continue;
-
-        const matchTitle = match.title.toLowerCase();
-        let totalScore = 0;
-
-        // NFL-specific matching strategies
-        const strategies = [
-          // Strategy 1: Direct team name matching in title
-          () => {
-            let score = 0;
-            const titleWords = matchTitle.split(/[\s\-]+/);
-
-            // Check for full team name matches
-            if (
-              matchTitle.includes(homeNormalized) &&
-              matchTitle.includes(awayNormalized)
-            ) {
-              score += 1.0;
-            } else {
-              // Check for partial matches with NFL team parts
-              const homeParts = homeNormalized
-                .split("-")
-                .filter((word) => word.length > 2);
-              const awayParts = awayNormalized
-                .split("-")
-                .filter((word) => word.length > 2);
-
-              let homeMatches = 0;
-              let awayMatches = 0;
-
-              homeParts.forEach((part) => {
-                if (
-                  titleWords.some(
-                    (word) => word.includes(part) || part.includes(word),
-                  )
-                )
-                  homeMatches++;
-              });
-              awayParts.forEach((part) => {
-                if (
-                  titleWords.some(
-                    (word) => word.includes(part) || part.includes(word),
-                  )
-                )
-                  awayMatches++;
-              });
-
-              if (homeMatches >= 1 && awayMatches >= 1) {
-                score += 0.8;
-              }
-            }
-
-            return score;
-          },
-          // Strategy 2: Check team objects if available
-          () => {
-            let score = 0;
-            if (match.teams) {
-              const homeTeamMatch = match.teams.home?.name?.toLowerCase();
-              const awayTeamMatch = match.teams.away?.name?.toLowerCase();
-
-              if (homeTeamMatch && awayTeamMatch) {
-                if (
-                  homeTeamMatch.includes(homeNormalized.split("-")[0]) &&
-                  awayTeamMatch.includes(awayNormalized.split("-")[0])
-                ) {
-                  score += 0.9;
-                }
-              }
-            }
-            return score;
-          },
-        ];
-
-        // Apply all strategies and sum scores
-        strategies.forEach((strategy) => {
-          totalScore += strategy();
-        });
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestMatch = match;
-
-          // Early exit if we find a very good match
-          if (bestScore >= 1.0) {
-            break;
-          }
-        }
-      }
-
-      if (!bestMatch || bestScore < 0.3) {
-        return {};
-      }
-
-      // Collect only the first stream from each source (like soccer does)
-      const allStreams = {};
-      for (const source of bestMatch.sources) {
-        try {
-          const sourceStreams = await fetchStreamsForSource(
-            source.source,
-            source.id,
-          );
-
-          if (sourceStreams && sourceStreams.length > 0) {
-            // Only use the first stream from each source type
-            const firstStream = sourceStreams[0];
-            const sourceKey = source.source; // Use clean source name as key (admin, alpha, bravo, etc.)
-            allStreams[sourceKey] = {
-              url: firstStream.embedUrl || firstStream.url,
-              embedUrl: firstStream.embedUrl || firstStream.url,
-              source: source.source,
-              title: `${
-                source.source.charAt(0).toUpperCase() + source.source.slice(1)
-              } Stream`,
-            };
-          }
-        } catch (error) {
-          console.error(
-            `Error fetching NFL streams for ${source.source}:`,
-            error,
-          );
-        }
-      }
-
-      return allStreams;
+      return await StreamService.findMatchStreams({
+        homeTeamName,
+        awayTeamName,
+        sport: STREAM_SPORT,
+      });
     } catch (error) {
       console.error("Error in findNFLMatchStreams:", error);
-      return {};
+      return { sources: {}, match: null };
     }
-  };
-
-  const generateNFLStreamUrl = (
-    awayTeamName,
-    homeTeamName,
-    streamType = "alpha",
-  ) => {
-    const normalizedAway = normalizeNFLTeamName(awayTeamName);
-    const normalizedHome = normalizeNFLTeamName(homeTeamName);
-
-    const streamUrls = {
-      alpha: `https://weakstreams.com/nfl-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
-      bravo: `https://sportsurge.club/nfl/${normalizedAway}-vs-${normalizedHome}`,
-      charlie: `https://sportshd.me/nfl/${normalizedAway}-${normalizedHome}`,
-    };
-
-    return streamUrls[streamType] || streamUrls.alpha;
   };
 
   // Stream modal functions
@@ -1435,7 +1181,7 @@ const GameDetailsScreen = ({ route }) => {
       // Show modal immediately so user sees something while we fetch
       setAvailableStreams({});
       setStreamUrl("");
-      setCurrentStreamType("alpha");
+      setCurrentStreamType("");
       setStreamModalVisible(true);
       setIsStreamLoading(true);
 
@@ -1453,35 +1199,18 @@ const GameDetailsScreen = ({ route }) => {
         awayTeam.abbreviation ||
         "";
 
-      const streams = await findNFLMatchStreams(homeName, awayName);
-      setAvailableStreams(streams || {});
+      const { sources } = await findNFLMatchStreams(homeName, awayName);
+      setAvailableStreams(sources || {});
 
-      // Generate initial stream URL - use first available stream
-      let initialUrl = "";
-      let initialStreamType = "";
-
-      const streamKeys = Object.keys(streams || {});
+      const streamKeys = Object.keys(sources || {});
       if (streamKeys.length > 0) {
-        // Prioritize certain stream types if available
-        const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
-        initialStreamType =
-          preferredOrder.find((type) => streamKeys.includes(type)) ||
-          streamKeys[0];
-
-        const streamData = streams[initialStreamType];
-        initialUrl = streamData?.embedUrl || streamData?.url || streamData;
+        const initialStreamType = streamKeys[0];
         setCurrentStreamType(initialStreamType);
+        setStreamUrl(sources[initialStreamType].url);
       } else {
-        // Fallback to manual URL construction
-        initialStreamType = "alpha";
-        initialUrl = generateNFLStreamUrl(
-          awayName,
-          homeName,
-          initialStreamType,
-        );
-        setCurrentStreamType(initialStreamType);
+        setCurrentStreamType("");
+        setStreamUrl("");
       }
-      setStreamUrl(initialUrl);
       setIsStreamLoading(false);
     } catch (err) {
       console.error("openStreamModal: caught error", err);
@@ -1491,36 +1220,18 @@ const GameDetailsScreen = ({ route }) => {
   };
 
   const switchStream = (streamType) => {
+    const entry = availableStreams[streamType];
+    if (!entry) return;
     setCurrentStreamType(streamType);
     setIsStreamLoading(true);
-
-    let newUrl = "";
-    if (availableStreams[streamType]) {
-      const streamData = availableStreams[streamType];
-      newUrl = streamData.embedUrl || streamData.url || streamData;
-    } else {
-      // Fallback to manual URL construction
-      const awayTeam = gameDetails?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away",
-      )?.team;
-      const homeTeam = gameDetails?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home",
-      )?.team;
-      newUrl = generateNFLStreamUrl(
-        awayTeam?.displayName || awayTeam?.name,
-        homeTeam?.displayName || homeTeam?.name,
-        streamType,
-      );
-    }
-
-    setStreamUrl(newUrl);
+    setStreamUrl(entry.url);
     setTimeout(() => setIsStreamLoading(false), 1000);
   };
 
   const closeStreamModal = () => {
     setStreamModalVisible(false);
     setStreamUrl("");
-    setCurrentStreamType("alpha");
+    setCurrentStreamType("");
     setAvailableStreams({});
   };
 
@@ -8900,9 +8611,9 @@ const GameDetailsScreen = ({ route }) => {
                               gap: 6,
                             }}
                           >
-                            {homeTeamLogo ? (
+                            {awayTeamLogo ? (
                               <TeamLogoImage
-                                team={play.homeTeam?.team}
+                                team={play.awayTeam?.team}
                                 style={{ width: 18, height: 18 }}
                                 isDarkMode={isDarkMode}
                               />
@@ -8911,11 +8622,11 @@ const GameDetailsScreen = ({ route }) => {
                               style={{
                                 fontSize: 14,
                                 fontWeight:
-                                  homeScore > awayScore ? "800" : "500",
+                                  awayScore > homeScore ? "800" : "500",
                                 color: theme.text,
                               }}
                             >
-                              {homeScore}
+                              {awayScore}
                             </Text>
                             <Text
                               style={{
@@ -8930,15 +8641,15 @@ const GameDetailsScreen = ({ route }) => {
                               style={{
                                 fontSize: 14,
                                 fontWeight:
-                                  awayScore > homeScore ? "800" : "500",
+                                  homeScore > awayScore ? "800" : "500",
                                 color: theme.text,
                               }}
                             >
-                              {awayScore}
+                              {homeScore}
                             </Text>
-                            {awayTeamLogo ? (
+                            {homeTeamLogo ? (
                               <TeamLogoImage
-                                team={play.awayTeam?.team}
+                                team={play.homeTeam?.team}
                                 style={{ width: 18, height: 18 }}
                                 isDarkMode={isDarkMode}
                               />
@@ -10052,10 +9763,11 @@ const GameDetailsScreen = ({ route }) => {
                   contentContainerStyle={styles.streamButtonsContent}
                 >
                   {Object.keys(availableStreams).map((streamKey, index) => {
-                    // Use the clean source name (admin, alpha, bravo, etc.)
-                    const sourceName = streamKey;
-                    const capitalizedName =
-                      sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
+                    const entry = availableStreams[streamKey] || {};
+                    const label = entry.label || streamKey;
+                    const quality = entry.quality
+                      ? ` · ${entry.quality}`
+                      : "";
 
                     return (
                       <TouchableOpacity
@@ -10084,7 +9796,8 @@ const GameDetailsScreen = ({ route }) => {
                             },
                           ]}
                         >
-                          {capitalizedName}
+                          {label}
+                          {quality}
                         </Text>
                       </TouchableOpacity>
                     );

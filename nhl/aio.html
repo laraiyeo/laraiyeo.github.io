@@ -1,65 +1,57 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-  <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-    <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>All Games - NHL Live Tracker</title>
-    <link rel="icon" href="icon.png" type="image/png" />
-    <link rel="stylesheet" href="style.css" />
-    <script src="../assets/analytics.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL - SportsHeart</title>
+    <link rel="icon" href="/assets/33115791.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/dark-mode.css" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="/assets/analytics.js"></script>
 </head>
-  <body>
-    <div id="navbar-container"></div>
-
-    <div id="scoreboard">
-      <h2>All Games Today</h2>
-      
-      <!-- Live Games Section -->
-      <div id="live-section">
-        <h3 class="section-header">🔴 Live Games</h3>
-        <div id="liveGamesContainer" class="games-container"></div>
-        <div id="no-live-games" class="no-games" style="display: none;">
-          No live games at the moment
-        </div>
-      </div>
-
-      <!-- Scheduled Games Section -->
-      <div id="scheduled-section">
-        <h3 class="section-header">📅 Scheduled Games</h3>
-        <div id="scheduledGamesContainer" class="games-container"></div>
-        <div id="no-scheduled-games" class="no-games" style="display: none;">
-          No scheduled games today
-        </div>
-      </div>
-
-      <!-- Finished Games Section -->
-      <div id="finished-section">
-        <h3 class="section-header">✅ Finished Games</h3>
-        <div id="finishedGamesContainer" class="games-container"></div>
-        <div id="no-finished-games" class="no-games" style="display: none;">
-          No finished games today
-        </div>
-      </div>
+<body>
+  <div class="screen-size-warning">
+    <div class="screen-size-warning-icon">📱</div>
+    <h2>Desktop Only</h2>
+    <p>SportsHeart is optimized for desktop viewing (1366px+). Download our app for mobile.</p>
+    <div class="store-buttons">
+      <a href="https://apps.apple.com/app/id6754208862" class="store-btn" target="_blank" rel="noopener">App Store</a>
+      <a href="https://play.google.com/store/apps/details?id=com.sportsheart.app" class="store-btn" target="_blank" rel="noopener">Google Play</a>
     </div>
+  </div>
 
-    <script src="navbarLoader.js"></script>
-    <script src="navbar.js"></script>
-    <script src="aio.js"></script>
-    <div id="footer-container"></div>
-    <script>
-      fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
-          document.getElementById("footer-container").innerHTML = html;
-        });
-    </script>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="/" class="navbar-logo"><img style="margin-top: 5px;" src="/assets/33115791.png" alt="SportsHeart" onerror="this.style.display='none'"><span>SportsHeart</span></a>
+    </div>
+    <div class="navbar-center">
+      <a href="/mlb/aio.html" class="nav-link">MLB</a>
+      <a href="/nhl/aio.html" class="nav-link active">NHL</a>
+      <a href="/nba/aio.html" class="nav-link">NBA</a>
+      <a href="/nfl/aio.html" class="nav-link">NFL</a>
+      <a href="/wnba/aio.html" class="nav-link">WNBA</a>
+    </div>
+    <div class="navbar-right"><div id="auth-button-container"></div></div>
+  </nav>
+
+  <div class="date-picker-row">
+    <div class="date-picker-bar" id="datePickerBar"></div>
+    <a href="teams.html" class="to-teams-btn">To Teams Page</a>
+  </div>
+
+  <div id="mlbGrid" style="padding:0 20px 40px;">
+    <div class="loading"><div class="loading-spinner"></div></div>
+  </div>
+
+  <script src="/assets/sports-data-service.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/assets/auth.js"></script>
+  <script src="/assets/split-screen.js"></script>
+  <script src="/assets/live-tracker.js"></script>
+  <script src="aio.js"></script>
+</body>
+</html>
   </body>
 </html>
 

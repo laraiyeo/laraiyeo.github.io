@@ -1,40 +1,57 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
+    <!-- BEGIN AUTO REDIRECT TO /use-app.html -->
+    <meta http-equiv="refresh" content="0;url=/use-app.html" />
+    <script>
+      if (location.pathname !== "/use-app.html") {
+        location.replace("/use-app.html");
+      }
+    </script>
+    <!-- END AUTO REDIRECT -->
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soccer Game Scoreboard</title>
     <link rel="icon" href="soccer-ball-png-24.png" type="image/png" />
     <link rel="stylesheet" href="style-1.css" />
     <script src="../assets/analytics.js"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-</head>
+    <script src="../assets/split-screen.js"></script>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
+      crossorigin="anonymous"
+    ></script>
+  </head>
   <body>
     <div id="scoreboardContainer">
       <!-- Top Scoreboard -->
       <div id="topScoreboard" class="top-scoreboard"></div>
-      
+
       <!-- Scorers Box will be dynamically inserted here -->
       <div class="scorers-container"></div>
 
       <!-- Content Slider -->
       <div id="contentSlider" class="content-slider">
-        <button id="lineupBtn" class="slider-btn active" onclick="showLineup()">Lineup</button>
-        <button id="statsBtn" class="slider-btn" onclick="showStats()">Stats</button>
-        <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
+        <button id="lineupBtn" class="slider-btn active" onclick="showLineup()">
+          Lineup
+        </button>
+        <button id="statsBtn" class="slider-btn" onclick="showStats()">
+          Stats
+        </button>
+        <button id="playsBtn" class="slider-btn" onclick="showPlays()">
+          Plays
+        </button>
       </div>
 
       <!-- Line-Up Content (formerly Stats Content) -->
       <div id="lineupContent" class="content-section active">
         <!-- Stream Embed -->
         <div id="streamEmbed"></div>
-        
+
         <!-- Formation/Lineup Display -->
         <div id="formationDisplay"></div>
       </div>
@@ -56,4 +73,3 @@
     <script src="scoreboard.js"></script>
   </body>
 </html>
-

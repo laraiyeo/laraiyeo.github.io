@@ -557,7 +557,13 @@ function darkenColor(hex, amount) {
 }
 
 // Build team-color gradient CSS string
-function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity) {
+function getTeamGradientStr(
+  leftColor,
+  rightColor,
+  customBgColor,
+  opacity,
+  dir,
+) {
   const alpha = opacity / 100;
   const darkerLeft = darkenColor(leftColor);
   const darkerRight = darkenColor(rightColor);
@@ -565,7 +571,8 @@ function getTeamGradientStr(leftColor, rightColor, customBgColor, opacity) {
   const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
   const darkerRightRgba = hexToRgba(darkerRight, alpha);
   const rightRgba = hexToRgba(rightColor, alpha);
-  return `linear-gradient(to right, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
+  const direction = dir === "top" ? "to top" : "to right";
+  return `linear-gradient(${direction}, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
 }
 
 // Get gradient style + data attrs as inline string
@@ -683,21 +690,20 @@ async function buildGameCard(game) {
     return `
       <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 4px; flex-direction: column;">
-              <span style="font-size: 0.9rem;">${awayRecord}</span>
-              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(awayTeam.name)}</div>
+        <div class="game-content">
+          <div class="team away-team">
+            <img src="${awayLogo}" alt="${awayTeam.name}" class="card-team-logo-nhl">
+            <div class="card-team-name">${wrapTeamName(awayTeam.name)}</div>
+            <div class="card-team-record">${awayRecord}</div>
           </div>
-          <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 4px; flex-direction: column;">
-              <span style="font-size: 0.9rem;">${homeRecord}</span>
-              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(homeTeam.name)}</div>
+          <div class="game-info">
+            <div class="game-status">Scheduled</div>
+            <div class="game-time">${startTime}</div>
+          </div>
+          <div class="team home-team">
+            <img src="${homeLogo}" alt="${homeTeam.name}" class="card-team-logo-nhl">
+            <div class="card-team-name">${wrapTeamName(homeTeam.name)}</div>
+            <div class="card-team-record">${homeRecord}</div>
           </div>
         </div>
       </div>
@@ -707,24 +713,24 @@ async function buildGameCard(game) {
     return `
       <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
-              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+        <div class="game-content">
+          <div class="team away-team">
+            <div class="card-score-cell">
+              <span class="card-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+              <img src="${awayLogo}" alt="${awayTeam.name}" class="card-score-logo-nhl">
             </div>
-            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
+            <div class="card-team-name" style="${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
           </div>
-          <div style="text-align: center;">
-            <div style="font-size: 1.1rem; font-weight: bold;">${periodDescriptor?.periodType === "OT" ? "Final/OT" : "Final"}</div>
-            <div style="font-size: 0.9rem; color: grey; margin-top: 8px;">${gameSeriesInfo}</div>
+          <div class="game-info">
+            <div class="game-status">${periodDescriptor?.periodType === "OT" ? "Final/OT" : "Final"}</div>
+            <div class="game-time">${gameSeriesInfo}</div>
           </div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
-              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
+          <div class="team home-team">
+            <div class="card-score-cell">
+              <span class="card-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+              <img src="${homeLogo}" alt="${homeTeam.name}" class="card-score-logo-nhl">
             </div>
-            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
+            <div class="card-team-name" style="${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
           </div>
         </div>
       </div>
@@ -734,25 +740,25 @@ async function buildGameCard(game) {
     return `
       <div class="game-card" ${getGradientStyleAttrs(teamColors[awayTeam.id] || "#000000", teamColors[homeTeam.id] || "#000000")}>
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayTeam.name}" style="width: 60px; height: 40px;">
-              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+        <div class="game-content">
+          <div class="team away-team">
+            <div class="card-score-cell">
+              <span class="card-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+              <img src="${awayLogo}" alt="${awayTeam.name}" class="card-score-logo-nhl">
             </div>
-            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
+            <div class="card-team-name" style="${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.name)}</div>
           </div>
-          <div style="text-align: center;">
-            <div style="font-size: 1.3rem; font-weight: bold; margin-top: 12px;">${timeRemaining}</div>
-            <div style="font-size: 0.8rem; color: grey; margin-top: 8px;">${currentPeriod}</div>
-            <div style="font-size: 0.6rem; color: grey; margin-top: 4px;">${gameSeriesInfo}</div>
+          <div class="game-info">
+            <div class="game-status">${timeRemaining}</div>
+            <div class="game-period">${currentPeriod}</div>
+            <div class="game-time">${gameSeriesInfo}</div>
           </div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
-              <img src="${homeLogo}" alt="${homeTeam.name}" style="width: 60px; height: 40px;">
+          <div class="team home-team">
+            <div class="card-score-cell">
+              <span class="card-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+              <img src="${homeLogo}" alt="${homeTeam.name}" class="card-score-logo-nhl">
             </div>
-            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
+            <div class="card-team-name" style="${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.name)}</div>
           </div>
         </div>
       </div>
@@ -821,7 +827,7 @@ async function fetchGames() {
       const logoUrl = await getLogoUrl(team.triCode);
       teamCard.innerHTML = `
         <div class="team-header">
-          <img src="${logoUrl}" alt="${team.fullName}" class="team-logo">
+          <img src="${logoUrl}" alt="${team.fullName}" class="team-logo" style="width: 80px; height: 50px;">
           <h2>${team.fullName}</h2>
         </div>
         <div class="team-games"></div>
@@ -861,7 +867,9 @@ async function fetchGames() {
           teamColorHex,
           noGameStyles.backgroundColor,
           noGameStyles.backgroundOpacity,
+          "top",
         );
+        noGameCard.setAttribute("data-dir", "top");
         noGameCard.style.setProperty("background", noGameGradient, "important");
         noGameCard.style.setProperty(
           "color",
@@ -874,7 +882,7 @@ async function fetchGames() {
         noGameCard.style.padding = "20px";
 
         noGameCard.innerHTML = `
-          <img src="${logoUrl}" alt="${team.fullName} logo" style="width: 80px; height: 70px;">
+          <img src="${logoUrl}" alt="${team.fullName} logo" style="width: 100px; height: 70px;">
           <div style="font-weight: bold; font-size: 1.2rem;">No game scheduled <br> for today</div>
         `;
 
@@ -885,12 +893,8 @@ async function fetchGames() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const currentStyles = loadSavedStyles();
         const styleParams = new URLSearchParams({
           team: team.triCode,
-          bgColor: currentStyles.backgroundColor,
-          bgOpacity: currentStyles.backgroundOpacity,
-          textColor: currentStyles.textColor,
         });
         const url = `https://sportsheart.ca/nhl/team.html?${styleParams.toString()}`;
         try {
@@ -974,11 +978,13 @@ function applyStylesToCards(styles) {
   gameCards.forEach((card) => {
     const awayColor = card.getAttribute("data-away-color") || "#000000";
     const homeColor = card.getAttribute("data-home-color") || "#000000";
+    const dir = card.getAttribute("data-dir") === "top" ? "top" : undefined;
     const gradient = getTeamGradientStr(
       awayColor,
       homeColor,
       styles.backgroundColor,
       styles.backgroundOpacity,
+      dir,
     );
     card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
@@ -1147,3 +1153,10 @@ if (document.readyState === "loading") {
 // Make functions available globally for the team.html page
 window.getCustomStyles = loadSavedStyles;
 window.applyCustomStyles = applyStylesToCards;
+
+// Auth button in the navbar
+(function () {
+  var c = document.getElementById("auth-button-container");
+  if (c && typeof createAuthButton === "function")
+    c.appendChild(createAuthButton());
+})();

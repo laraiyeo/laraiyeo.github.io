@@ -348,7 +348,7 @@ const NBAStandingsScreen = () => {
             </Text>
           </View>
         )}
-        {teams.map((teamEntry, teamIndex) =>
+        {teams.slice().reverse().map((teamEntry, teamIndex) =>
           renderTeamRow(teamEntry, teamIndex),
         )}
       </View>

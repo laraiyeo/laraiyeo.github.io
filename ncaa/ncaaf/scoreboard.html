@@ -1,20 +1,31 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
+    <!-- BEGIN AUTO REDIRECT TO /use-app.html -->
+    <meta http-equiv="refresh" content="0;url=/use-app.html" />
+    <script>
+      if (location.pathname !== "/use-app.html") {
+        location.replace("/use-app.html");
+      }
+    </script>
+    <!-- END AUTO REDIRECT -->
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NCAA Football Game Scoreboard</title>
     <link rel="icon" href="football.png" type="image/png" />
     <link rel="stylesheet" href="style-1.css" />
     <script src="../../assets/analytics.js"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-</head>
+    <script src="../../assets/split-screen.js"></script>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
+      crossorigin="anonymous"
+    ></script>
+  </head>
   <body>
     <div id="scoreboardContainer">
       <!-- Game Header, Inning State, Bases, Count -->
@@ -25,8 +36,12 @@
 
       <!-- Content Toggle Slider -->
       <div id="contentSlider" class="content-slider">
-        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Stats</button>
-        <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
+        <button id="statsBtn" class="slider-btn active" onclick="showStats()">
+          Stats
+        </button>
+        <button id="playsBtn" class="slider-btn" onclick="showPlays()">
+          Plays
+        </button>
       </div>
 
       <!-- Stats Content (Live Stream and Box Score) -->
@@ -39,7 +54,7 @@
       </div>
 
       <!-- Plays Content -->
-      <div id="playsContent" class="content-section" style="display: none;">
+      <div id="playsContent" class="content-section" style="display: none">
         <div class="plays-placeholder">
           <h2>Plays</h2>
         </div>
@@ -52,5 +67,3 @@
     <script src="scoreboard.js"></script>
   </body>
 </html>
-
-

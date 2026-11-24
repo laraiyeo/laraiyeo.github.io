@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Song Tournament — Spotify Bracket Builder</title>
+    <meta
+      name="description"
+      content="Build a knockout bracket from up to 10 artists, listen to each matchup and vote song by song until one champion is left."
+    />
+    <link rel="icon" href="/assets/icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css?v=16" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">♪</span>
+        <div>
+          <h1>Song Tournament</h1>
+          <p>Turn artists into a knockout bracket, one listen at a time.</p>
+        </div>
+      </div>
+      <div class="conn">
+        <span id="connDot" class="conn-dot" aria-hidden="true"></span>
+        <span id="connStatus">Not connected</span>
+        <button id="logoutBtn" class="btn btn-ghost btn-sm" hidden>
+          Disconnect
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ── 1. SETUP ───────────────────────────────────────────────────── -->
+      <section id="setupScreen" class="screen">
+        <!-- Shown instead of the connect panel when an API proxy is configured,
+             i.e. visitors need no Spotify login at all. -->
+        <div id="publicPanel" class="panel connection-panel" hidden>
+          <div class="panel-head">
+            <h2>Ready to play</h2>
+            <p>
+              Song data is served by a small catalogue service, so
+              <strong>no Spotify login is needed</strong>. Pick your artists and
+              build a bracket.
+            </p>
+          </div>
+          <div class="callout">
+            <p>
+              <strong>About playback:</strong> the players below are Spotify's
+              own embeds, and they use <em>your browser's</em> Spotify session.
+              If this browser is signed in to Spotify you'll hear full tracks;
+              if it isn't, you'll get Spotify's official 30-second preview.
+              Nothing about signing in <em>here</em> changes that.
+            </p>
+          </div>
+          <p id="publicHint" class="hint" role="status"></p>
+        </div>
+
+        <div id="connectPanel" class="panel connection-panel">
+          <div class="panel-head">
+            <h2>1. Connect to Spotify</h2>
+            <p>
+              This page talks to the Spotify Web API directly from your browser
+              using PKCE, so there is no secret and no server involved. Every
+              visitor needs an account on this app's allowlist.
+            </p>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Spotify Client ID</span>
+            <input
+              id="clientIdInput"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste the Client ID from your Spotify dashboard app"
+            />
+          </label>
+
+          <div class="row">
+            <button id="saveClientIdBtn" class="btn btn-secondary">
+              Save Client ID
+            </button>
+            <button id="connectBtn" class="btn btn-primary">
+              Connect to Spotify
+            </button>
+          </div>
+
+          <div class="callout">
+            <p>
+              In your Spotify app settings, add this exact
+              <strong>Redirect URI</strong> to the allowlist:
+            </p>
+            <div class="copy-row">
+              <code id="redirectUriText">…</code>
+              <button id="copyRedirectBtn" class="btn btn-ghost btn-sm">
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <p id="connHint" class="hint" role="status"></p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>2. Choose the tournament format</h2>
+            <p>Both formats are decided by you, one head-to-head at a time.</p>
+          </div>
+
+          <div class="mode-grid">
+            <label class="mode-card">
+              <input type="radio" name="format" value="bracket" checked />
+              <span class="mode-body">
+                <strong>Knockout bracket</strong>
+                <em>Pure single elimination, with byes if needed.</em>
+                <span class="mode-note">2–16 artists</span>
+              </span>
+            </label>
+
+            <label class="mode-card">
+              <input type="radio" name="format" value="league" />
+              <span class="mode-body">
+                <strong>Group + Knockout</strong>
+                <em
+                  >A round-robin group stage, then a knockout bracket — like
+                  the Champions League.</em
+                >
+                <span id="leagueFormatNote" class="mode-note"
+                  >2, 4 or 8 groups — the artist count must divide
+                  evenly</span
+                >
+              </span>
+            </label>
+          </div>
+
+          <div id="leagueNotice" class="callout" hidden>
+            <p id="leagueNoticeText"></p>
+            <p id="leagueNoticeCount" class="league-count"></p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>3. Choose how songs are picked</h2>
+            <p id="songModeSubhead">Same rules apply to every artist.</p>
+          </div>
+
+          <div class="mode-grid">
+            <label class="mode-card">
+              <input type="radio" name="songMode" value="top" checked />
+              <span class="mode-body">
+                <strong id="topModeTitle">Top 10 songs</strong>
+                <em>Each artist's most-searched tracks in your market.</em>
+                <span class="mode-note">Ranked by how well they match the artist search.</span>
+              </span>
+            </label>
+
+            <label class="mode-card">
+              <input type="radio" name="songMode" value="random" />
+              <span class="mode-body">
+                <strong id="randomModeTitle">10 random songs</strong>
+                <em>Pulled from across the artist's full discography.</em>
+                <span class="mode-note"
+                  >Scans albums, singles &amp; compilations — takes a few
+                  seconds.</span
+                >
+              </span>
+            </label>
+          </div>
+
+          <label class="toggle">
+            <input id="includeFeatured" type="checkbox" checked />
+            <span>
+              Allow songs where the artist is only <strong>featured</strong>
+              <em
+                >Uncheck this to keep songs where they are a primary
+                artist.</em
+              >
+            </span>
+          </label>
+
+          <label class="toggle">
+            <input id="shuffleSeeds" type="checkbox" checked />
+            <span>
+              <strong>Shuffle matchups</strong>
+              <em
+                >Randomly draw who plays whom, and who receives byes in a
+                knockout bracket.</em
+              >
+            </span>
+          </label>
+
+          <label class="toggle">
+            <span class="toggle-label">
+              <strong>Listening length</strong>
+              <em
+                >30-second clip stops and rewinds after 30 seconds; full song
+                plays the whole track. Spotify's player chooses the audio — if
+                you're signed in to Spotify it plays the real track either way,
+                so the 30-second clip cuts it short rather than serving
+                Spotify's own preview.</em
+              >
+            </span>
+            <select id="playLength" class="select-sm">
+              <option value="preview" selected>30-second clip</option>
+              <option value="full">Full song</option>
+            </select>
+          </label>
+
+          <!-- League only: how many groups the artists are split into. -->
+          <label id="groupsRow" class="toggle" hidden>
+            <span class="toggle-label">
+              <strong>Number of groups</strong>
+              <em id="groupsNote"
+                >Every group needs at least 2 artists, since a song is drawn
+                against a different artist's song.</em
+              >
+            </span>
+            <select id="groupCount" class="select-sm">
+              <option value="2" selected>2 groups</option>
+              <option value="4">4 groups</option>
+              <option value="8">8 groups</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Random mode only: restrict which albums songs are drawn from. -->
+        <div id="albumPanel" class="panel" hidden>
+          <div class="panel-head">
+            <h2>3b. Choose albums (optional)</h2>
+            <p>
+              Tick the albums to draw random songs from. Leave everything
+              unticked to use the artist's whole discography.
+            </p>
+          </div>
+          <div id="albumPanelBody" class="album-panel-body"></div>
+          <div class="row">
+            <button id="loadAlbumsBtn" class="btn btn-secondary btn-sm">
+              Load albums for my artists
+            </button>
+            <button id="clearAlbumsBtn" class="btn btn-ghost btn-sm" hidden>
+              Clear all album choices
+            </button>
+          </div>
+          <p id="albumStatus" class="hint" role="status"></p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>4. Pick your artists</h2>
+            <p id="artistRequirement">
+              <span id="artistReqPrefix">Search and add up to</span>
+              <strong id="maxArtistsText">10</strong>
+              <span id="artistReqSuffix">artists.</span>
+            </p>
+          </div>
+
+          <!-- Genre sits ABOVE the name search on purpose: `.search-results` is
+               an absolutely-positioned dropdown anchored under the search input,
+               so anything placed after it would be covered and unclickable. -->
+          <div class="genre-row">
+            <label class="genre-label" for="genreSearchInput">Genre</label>
+            <input
+              id="genreSearchInput"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="e.g. indie rock, ambient techno…"
+              disabled
+            />
+            <button id="genreSearchBtn" class="btn btn-sm btn-secondary" type="button" disabled>
+              Find artists
+            </button>
+          </div>
+
+          <div class="or-divider"><span>or search by name</span></div>
+
+          <div class="search-wrap">
+            <input
+              id="artistSearchInput"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Search for an artist…"
+              disabled
+            />
+            <span id="searchSpinner" class="spinner" hidden></span>
+            <div id="searchResults" class="search-results" hidden></div>
+          </div>
+
+          <div class="selected-head">
+            <h3>Selected artists</h3>
+            <span id="artistCount" class="pill">0 / 10</span>
+          </div>
+          <ul id="selectedArtists" class="selected-list"></ul>
+          <p id="artistHint" class="hint">
+            Add at least 2 artists to build a bracket.
+          </p>
+        </div>
+
+        <div class="actions-bar">
+          <button id="buildBtn" class="btn btn-primary btn-lg" disabled>
+            Build bracket
+          </button>
+          <p id="buildStatus" class="hint" role="status"></p>
+        </div>
+      </section>
+
+      <!-- ── 2. TOURNAMENT ──────────────────────────────────────────────── -->
+      <section id="tournamentScreen" class="screen" hidden>
+        <div class="tourney-head">
+          <div class="tourney-meta">
+            <span id="roundLabel" class="pill pill-accent">Round</span>
+            <span id="progressText" class="muted">0 / 0 decided</span>
+          </div>
+          <div class="tourney-actions">
+            <button id="undoBtn" class="btn btn-secondary btn-sm" disabled>
+              Undo pick
+            </button>
+            <button id="resetBtn" class="btn btn-ghost btn-sm">
+              New tournament
+            </button>
+          </div>
+        </div>
+
+        <div class="progress-track"><div id="progressBarInner"></div></div>
+        <div id="stageProgress" class="stage-progress" hidden>
+          <span id="stageLabel" class="stage-label">Group stage</span>
+          <div class="progress-track"><div id="stageBarInner"></div></div>
+          <span id="stageText" class="muted">0 / 0</span>
+        </div>
+
+        <div id="matchup" class="matchup"></div>
+
+        <!-- Knockout sits ABOVE the group tables, and is shown as soon as the
+             knockout starts rather than staying empty during the group stage. -->
+        <details id="bracketDetails" class="bracket-details" open hidden>
+          <summary id="summaryLabel">Full bracket</summary>
+          <div class="bracket-scroll">
+            <div id="bracket" class="bracket"></div>
+          </div>
+        </details>
+
+        <div id="standingsWrap" class="standings-wrap" hidden></div>
+      </section>
+
+      <!-- ── 3. CHAMPION ────────────────────────────────────────────────── -->
+      <section id="championScreen" class="screen" hidden>
+        <div class="champion-hero">
+          <span class="trophy">🏆</span>
+          <p class="champion-kicker">Your champion</p>
+          <h2 id="championTitle">—</h2>
+          <p id="championArtist" class="champion-artist">—</p>
+          <div id="championEmbed" class="embed-slot embed-hero"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Podium</h2>
+            <p>Songs that made it deepest in the bracket.</p>
+          </div>
+          <div id="podiumStage" class="podium-stage" aria-hidden="true"></div>
+          <ol id="podiumList" class="podium"></ol>
+        </div>
+
+        <div class="actions-bar center">
+          <button id="championUndoBtn" class="btn btn-ghost">
+            Undo last pick
+          </button>
+          <button id="playAgainBtn" class="btn btn-primary">
+            Run it again (same songs)
+          </button>
+          <button id="newTournamentBtn" class="btn btn-secondary">
+            Start over with new artists
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Song data and playback come from Spotify. This is an unofficial fan tool
+        and is not affiliated with Spotify.
+      </p>
+    </footer>
+
+    <script src="js/config.js?v=16"></script>
+    <script src="js/auth.js?v=16"></script>
+    <script src="js/api.js?v=16"></script>
+    <script src="js/bracket.js?v=16"></script>
+    <script src="js/league.js?v=16"></script>
+    <script src="js/colors.js?v=16"></script>
+    <script src="js/player.js?v=16"></script>
+    <script src="js/app.js?v=16"></script>
+  </body>
+</html>

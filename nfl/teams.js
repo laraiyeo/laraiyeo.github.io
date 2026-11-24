@@ -1,15 +1,28 @@
 const ESPN_TEAMS_URL =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
 
-async function fetchTeamsJson() {
+// Fetch a URL as text, falling back to the r.jina.ai proxy when the direct
+// request is blocked (e.g. CORS). Returns the raw JSON text.
+async function fetchJsonText(url) {
   try {
-    const res = await fetch(ESPN_TEAMS_URL);
-    return await res.json();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.text();
   } catch (e) {
-    const res = await fetch("https://r.jina.ai/" + ESPN_TEAMS_URL);
+    const res = await fetch("https://r.jina.ai/" + url);
     const text = await res.text();
-    return JSON.parse(text.slice(text.indexOf("{")));
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    return start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
   }
+}
+
+// Teams list is static — fetch it once and reuse it for the life of the page.
+let teamsCache = null;
+async function fetchTeamsJson() {
+  if (teamsCache) return teamsCache;
+  teamsCache = JSON.parse(await fetchJsonText(ESPN_TEAMS_URL));
+  return teamsCache;
 }
 
 // Convert hex color to rgba with opacity
@@ -44,7 +57,7 @@ function getTeamGradientStr(
   const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
   const darkerRightRgba = hexToRgba(darkerRight, alpha);
   const rightRgba = hexToRgba(rightColor, alpha);
-  const direction = !dir ? "to right" : "to bottom";
+  const direction = !dir ? "to right" : "to top";
   return `linear-gradient(${direction}, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
 }
 
@@ -116,7 +129,7 @@ let lastScheduleHash = null;
 async function buildGameCard(game, team) {
   const logoUrl =
     team.logos?.find((logo) =>
-      logo.rel.includes(["19", "20"].includes(team.id) ? "dark" : "default"),
+      logo.rel.includes(["14", "19", "20"].includes(team.id) ? "dark" : "default"),
     )?.href ||
     `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`;
 
@@ -180,7 +193,7 @@ async function buildGameCard(game, team) {
       homeTeam.shortDisplayName || "Unknown",
     );
 
-    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+    const noHeadline = headline === "";
 
     const awayColor = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColor = homeTeam?.color ? "#" + homeTeam.color : "#000000";
@@ -251,16 +264,16 @@ async function buildGameCard(game, team) {
     const awayColorFinal = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColorFinal = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
-    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+    const noHeadline = headline === "";
 
     return `
       <div class="game-card final-game-card" ${getGradientStyleAttrs(awayColorFinal, homeColorFinal)}>
         ${noHeadline ? "" : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-              <span class="card-team-score">${awayTeamScore}</span>
+            <div class="card-score-cell">
+              <span class="card-score">${awayTeamScore}</span>
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
@@ -270,9 +283,9 @@ async function buildGameCard(game, team) {
             <div class="game-status">Final</div>
           </div>
           <div class="team home-team">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <div class="card-score-cell">
+              <span class="card-score">${homeTeamScore}</span>
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
@@ -348,7 +361,7 @@ async function buildGameCard(game, team) {
         ? "Kickoff"
         : game?.competitions[0]?.situation?.shortDownDistanceText || "";
 
-    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+    const noHeadline = headline === "";
 
     const awayColorLive = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColorLive = homeTeam?.color ? "#" + homeTeam.color : "#000000";
@@ -358,9 +371,9 @@ async function buildGameCard(game, team) {
         ${noHeadline ? "" : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-              <span class="card-team-score">${awayTeamScore}</span>
+            <div class="card-score-cell">
+              <span class="card-score">${awayTeamScore}</span>
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
@@ -373,9 +386,9 @@ async function buildGameCard(game, team) {
             <div class="game-period" style="color: white; margin-top: -15px;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
           </div>
           <div class="team home-team">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <div class="card-score-cell">
+              <span class="card-score">${homeTeamScore}</span>
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation.toLowerCase()}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
@@ -406,8 +419,7 @@ async function fetchAndDisplayTeams() {
       (teamData) => teamData.team,
     );
 
-    const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-    const scoreboardText = await scoreboardResponse.text();
+    const scoreboardText = await fetchJsonText(SCOREBOARD_API_URL);
     const newHash = hashString(scoreboardText);
 
     if (newHash === lastScheduleHash) {
@@ -434,7 +446,7 @@ async function fetchAndDisplayTeams() {
         const logoUrl =
           team.logos?.find((logo) =>
             logo.rel.includes(
-              ["19", "20"].includes(team.id) ? "dark" : "default",
+              ["14", "19", "20"].includes(team.id) ? "dark" : "default",
             ),
           )?.href ||
           `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`;
@@ -464,12 +476,8 @@ async function fetchAndDisplayTeams() {
 
         // Add OBS link copying functionality
         teamCard.addEventListener("click", async () => {
-          const currentStyles = loadSavedStyles();
           const styleParams = new URLSearchParams({
             team: team.abbreviation,
-            bgColor: currentStyles.backgroundColor,
-            bgOpacity: currentStyles.backgroundOpacity,
-            textColor: currentStyles.textColor,
           });
           const url = `https://sportsheart.ca/nfl/team.html?${styleParams.toString()}`;
           try {
@@ -563,14 +571,6 @@ function applyStylesToCards(styles) {
     );
     card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
-
-    // Apply text color to all text elements within the card
-    const textElements = card.querySelectorAll(
-      ".card-team-name, .card-team-record, .game-status, .game-time, .game-headline, .game-info, .period-info, .team-score, .no-game-text",
-    );
-    textElements.forEach((element) => {
-      element.style.setProperty("color", styles.textColor, "important");
-    });
   });
 }
 
@@ -727,3 +727,10 @@ if (document.readyState === "loading") {
 // Make functions available globally for the team.html page
 window.getCustomStyles = loadSavedStyles;
 window.applyCustomStyles = applyStylesToCards;
+
+// Auth button in the navbar
+(function () {
+  var c = document.getElementById("auth-button-container");
+  if (c && typeof createAuthButton === "function")
+    c.appendChild(createAuthButton());
+})();

@@ -29,6 +29,8 @@ import Svg, {
   Rect,
   Path,
   G,
+  Circle,
+  Text as SvgText,
   SvgUri,
 } from "react-native-svg";
 import {
@@ -40,6 +42,7 @@ import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import StreamService from "../../services/StreamService";
 import ViewShot from "react-native-view-shot";
 
 const SERVER_BASE = "https://sportsheart-motorsports.up.railway.app/f1";
@@ -203,6 +206,41 @@ const buildCircuitTransform = (circuitKey, w, h) => {
   return parts.join(" ");
 };
 
+// Apply the same circuit transform to a single point so overlays (driver
+// markers) can be drawn outside the transformed group and keep a constant
+// size regardless of the circuit's scale.
+const applyCircuitTransformToPoint = (circuitKey, w, h, pt) => {
+  const cfg = circuitTransforms?.[Number(circuitKey)];
+  if (!cfg || !pt) return pt;
+  const cx = (w || 0) / 2;
+  const cy = (h || 0) / 2;
+  let { x, y } = pt;
+  // translate(tx, ty)
+  x += cfg.translateX || 0;
+  y += cfg.translateY || 0;
+  // translate(-cx, -cy)
+  x -= cx;
+  y -= cy;
+  // scale
+  const s = typeof cfg.scale === "number" ? cfg.scale : 1;
+  x *= s;
+  y *= s;
+  // rotate (degrees)
+  if (typeof cfg.rotate === "number") {
+    const rad = (cfg.rotate * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const rx = x * cos - y * sin;
+    const ry = x * sin + y * cos;
+    x = rx;
+    y = ry;
+  }
+  // translate(cx, cy)
+  x += cx;
+  y += cy;
+  return { x, y };
+};
+
 const mapSessionNameToAbbrev = (name) => {
   if (!name) return "S";
   const n = name.toString().toLowerCase();
@@ -218,6 +256,23 @@ const mapSessionNameToAbbrev = (name) => {
     .map((w) => w[0]?.toUpperCase() || "")
     .join("")
     .slice(0, 3);
+};
+
+// Practice and qualifying sessions are ranked by each driver's fastest lap,
+// not by their last/segment time.
+const isPracticeOrQualifyingSession = (session) => {
+  if (!session) return false;
+  const raw = `${session.session_type || ""} ${session.session_name || ""}`
+    .toLowerCase()
+    .trim();
+  if (!raw) return false;
+  if (raw.includes("race")) return false;
+  return (
+    raw.includes("practice") ||
+    raw.includes("qualifying") ||
+    raw.includes("qual") ||
+    /\bp\d\b/.test(raw)
+  );
 };
 
 const isSessionLive = (session) => {
@@ -331,6 +386,39 @@ const findDriverInMaps = (maps, driverNumber) => {
   }
 
   return null;
+};
+
+// Normalize the `location` payload (object keyed by driver number, or an
+// array of records) into a map of driverNumber -> latest { x, y }.
+const normalizeLocationMap = (location) => {
+  const out = {};
+  if (!location) return out;
+  const consider = (rec) => {
+    if (!rec) return;
+    const dn = rec.driver_number ?? rec.driverNumber ?? rec.number;
+    if (dn == null) return;
+    if (rec.x == null || rec.y == null) return;
+    const key = String(dn);
+    const prev = out[key];
+    const recDate = rec.date ? Date.parse(rec.date) : 0;
+    const prevDate = prev?._date || 0;
+    if (!prev || recDate >= prevDate) {
+      out[key] = { x: Number(rec.x), y: Number(rec.y), _date: recDate };
+    }
+  };
+  if (Array.isArray(location)) {
+    location.forEach(consider);
+  } else if (typeof location === "object") {
+    Object.keys(location).forEach((k) => {
+      const val = location[k];
+      if (Array.isArray(val)) {
+        val.forEach(consider);
+      } else if (val && typeof val === "object") {
+        consider(val);
+      }
+    });
+  }
+  return out;
 };
 
 function degToCompass(deg) {
@@ -460,6 +548,37 @@ const buildPathFromXY = (xArr, yArr, w, h, pad = 12) => {
     return `${xx.toFixed(1)},${yy.toFixed(1)}`;
   });
   return `M${points.join(" L")}`;
+};
+
+// Build a projector that maps raw circuit x/y coordinates into the same
+// pixel space used by `buildPathFromXY`, so live driver locations line up
+// with the rendered circuit path.
+const buildCircuitProjector = (xArr, yArr, w, h, pad = 12) => {
+  if (!Array.isArray(xArr) || !Array.isArray(yArr)) return null;
+  if (xArr.length === 0 || xArr.length !== yArr.length) return null;
+  let minX = Infinity,
+    maxX = -Infinity;
+  let minY = Infinity,
+    maxY = -Infinity;
+  for (let i = 0; i < xArr.length; i++) {
+    const x = xArr[i];
+    const y = yArr[i];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  const innerW = w - pad * 2;
+  const innerH = h - pad * 2;
+  const scale = Math.min(innerW / spanX, innerH / spanY);
+  const tx = pad - minX * scale + (innerW - spanX * scale) / 2;
+  const ty = pad - minY * scale + (innerH - spanY * scale) / 2;
+  return (x, y) => ({
+    x: x * scale + tx,
+    y: y * scale + ty,
+  });
 };
 
 const F1_NAME_MAP = {
@@ -1414,12 +1533,15 @@ const RaceDetailsSessionCopyCard = ({
     .filter(Boolean)
     .join("  •  ");
 
-  const isLiveSession = isSessionLive(session);
-  const podiumSource = isLiveSession
-    ? Array.isArray(livePositions) && livePositions.length > 0
+  // Prefer live positions whenever they exist (they are derived from the
+  // live `positions` feed). Only fall back to final session_result when no
+  // live data is available. Do NOT gate on isSessionLive(session) — during a
+  // live session session_result is empty, so a clock-based gate that flips
+  // false (e.g. red flag past scheduled end) would blank the whole body.
+  const podiumSource =
+    Array.isArray(livePositions) && livePositions.length > 0
       ? livePositions
-      : []
-    : [];
+      : [];
   const fallbackPodiumSource = [...(sessionResults || [])]
     .filter((entry) => entry?.position != null)
     .sort((a, b) => Number(a.position) - Number(b.position))
@@ -1462,7 +1584,13 @@ const RaceDetailsSessionCopyCard = ({
     const fallbackDriverTime = driverTime?.time ?? null;
     const fallbackBehind = driverTime?.behind ?? null;
 
-    const durationToUse = resultDuration ?? fallbackDriverTime;
+    // Practice/qualifying are ranked by fastest lap, so prefer the driver's
+    // fastest lap time over the last segment time.
+    const fastestLapDuration = lapEntry?.fastest_lap?.lap_duration ?? null;
+    const durationToUse =
+      isPracticeOrQualifyingSession(session) && fastestLapDuration != null
+        ? fastestLapDuration
+        : (resultDuration ?? fallbackDriverTime);
     const behindToUse = resultGap ?? fallbackBehind;
     const lapsVal =
       entry?.number_of_laps ??
@@ -1482,7 +1610,7 @@ const RaceDetailsSessionCopyCard = ({
             const value = String(behindToUse);
             return value.startsWith("+") ? value : `+${value}`;
           })()
-        : "-";
+        : null;
 
     return {
       position: Number(entry.position),
@@ -1676,19 +1804,21 @@ const RaceDetailsSessionCopyCard = ({
                     >
                       {driver.duration}
                     </Text>
-                    <Text
-                      style={[
-                        f1CardStyles.timeText,
-                        {
-                          color: theme.textSecondary,
-                          fontSize: 9,
-                          opacity: 0.75,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {driver.behindDisplay}
-                    </Text>
+                    {driver.behindDisplay ? (
+                      <Text
+                        style={[
+                          f1CardStyles.timeText,
+                          {
+                            color: theme.textSecondary,
+                            fontSize: 9,
+                            opacity: 0.75,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {driver.behindDisplay}
+                      </Text>
+                    ) : null}
                     <Text
                       style={[
                         f1CardStyles.lapsText,
@@ -1790,6 +1920,7 @@ const RaceDetailsScreen = () => {
   const [driverCardVisible, setDriverCardVisible] = useState(false);
   const [sessionCardVisible, setSessionCardVisible] = useState(false);
   const [selectedDriverCard, setSelectedDriverCard] = useState(null);
+  const [circuitSelectedDrivers, setCircuitSelectedDrivers] = useState([]);
   const floatingButtonLongPressRef = useRef(false);
   const flowFilterScrollRef = useRef(null);
   const flowFilterScrollXRef = useRef(0);
@@ -1806,7 +1937,7 @@ const RaceDetailsScreen = () => {
   // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [isStreamLoading, setIsStreamLoading] = useState(true);
-  const [selectedStream, setSelectedStream] = useState(3); // 1 for Test 1, 2 for Test 2, 3 for Grand Prix
+  const [selectedStream, setSelectedStream] = useState(3); // kept for layout compatibility
   const [grandPrixStreamUrl, setGrandPrixStreamUrl] = useState(null); // URL for Grand Prix stream
 
   const sessionKey =
@@ -1856,12 +1987,15 @@ const RaceDetailsScreen = () => {
     const load = async () => {
       setLoading(true);
       try {
-        if (sessionKey) {
-          // Fetch meeting summary and session data
-          try {
+        const targetKey = sessionKey || meetingKey;
+        if (targetKey) {
+          // Fetch meeting summary and session details IN PARALLEL — they are
+          // independent, and running them sequentially doubled the load time
+          // (~7-8s) since each backend call takes several seconds.
+          const meetingTask = (async () => {
             const ts = Date.now();
             const resp = await fetch(
-              `${SERVER_BASE}/meeting/${sessionKey}?_t=${ts}`,
+              `${SERVER_BASE}/meeting/${targetKey}?_t=${ts}`,
               {
                 headers: NO_CACHE_HEADERS,
                 cache: "no-store",
@@ -1872,34 +2006,21 @@ const RaceDetailsScreen = () => {
             setMeetingInfo(meetingObj);
             const sessionsArr = json?.sessions ?? meetingObj?.sessions ?? [];
             setSessionsList(sessionsArr);
+          })();
 
-            // Fetch session details by meeting key
-            await fetchSessionByKey(sessionKey);
-          } catch (e) {
-            console.warn("[RaceDetailsScreen] meeting fetch failed", e);
-          }
-        } else if (meetingKey) {
-          // Fetch meeting summary and session data
-          try {
-            const ts = Date.now();
-            const resp = await fetch(
-              `${SERVER_BASE}/meeting/${meetingKey}?_t=${ts}`,
-              {
-                headers: NO_CACHE_HEADERS,
-                cache: "no-store",
-              },
-            );
-            const json = await resp.json();
-            const meetingObj = json?.meeting ?? json?.data?.meeting ?? json;
-            setMeetingInfo(meetingObj);
-            const sessionsArr = json?.sessions ?? meetingObj?.sessions ?? [];
-            setSessionsList(sessionsArr);
+          const sessionTask = fetchSessionByKey(targetKey);
 
-            // Fetch session details by meeting key
-            await fetchSessionByKey(meetingKey);
-          } catch (e) {
-            console.warn("[RaceDetailsScreen] meeting fetch failed", e);
-          }
+          const results = await Promise.allSettled([meetingTask, sessionTask]);
+          results.forEach((result, index) => {
+            if (result.status === "rejected") {
+              console.warn(
+                `[RaceDetailsScreen] ${
+                  index === 0 ? "meeting" : "session"
+                } fetch failed`,
+                result.reason,
+              );
+            }
+          });
         } else {
           setData(null);
           setMeetingInfo(null);
@@ -4120,19 +4241,158 @@ const RaceDetailsScreen = () => {
     return BASE_TABS;
   }, [startingGrid.length]);
 
+  // Drivers that have a live location on the circuit, sorted by position.
+  const circuitDrivers = useMemo(() => {
+    const locationMap = normalizeLocationMap(payload?.location);
+    const lapsByDriver = payload?.laps?.byDriver || {};
+    const isPracticeOrQual = isPracticeOrQualifyingSession(session);
+    const list = Object.keys(locationMap)
+      .filter((dn) => {
+        const loc = locationMap[dn];
+        return loc && loc.x != null && loc.y != null;
+      })
+      .map((dn) => {
+        const driverObj = findDriverInMaps(payload?.maps, dn) || null;
+        const name =
+          driverObj?.full_name ||
+          driverObj?.name ||
+          driverObj?.displayName ||
+          `#${dn}`;
+        const headshot =
+          driverObj?.headshot ||
+          driverObj?.headshot_url ||
+          driverObj?.headshotUrl ||
+          null;
+        const teamName =
+          DRIVER_TO_TEAM[String(dn)] ||
+          driverObj?.team ||
+          driverObj?.team_name ||
+          "";
+        const teamColor =
+          TEAM_COLORS[teamName.replace(/ Racing$/i, "")] ||
+          TEAM_COLORS[teamName] ||
+          colors.primary;
+        const sessionResult =
+          (sessionResults || []).find(
+            (r) => String(r.driver_number) === String(dn),
+          ) || null;
+        const pos = getCurrentPosition(dn);
+        const lapEntry = lapsByDriver[String(dn)] || null;
+        const fastestLapDuration = lapEntry?.fastest_lap?.lap_duration ?? null;
+        const resultDuration = Array.isArray(sessionResult?.duration)
+          ? (sessionResult.duration[2] ??
+            sessionResult.duration[1] ??
+            sessionResult.duration[0] ??
+            null)
+          : (sessionResult?.duration ?? null);
+        const durationToUse =
+          isPracticeOrQual && fastestLapDuration != null
+            ? fastestLapDuration
+            : resultDuration;
+        const laps =
+          sessionResult?.number_of_laps ??
+          lapEntry?.lastLap?.lap_number ??
+          lapEntry?.lastLap?.lapNumber ??
+          null;
+        return {
+          driverNumber: String(dn),
+          name,
+          headshot,
+          teamName,
+          teamColor,
+          pos: pos != null ? Number(pos) : null,
+          time: durationToUse != null ? formatLapTime(durationToUse) : "-",
+          laps,
+        };
+      });
+    list.sort((a, b) => {
+      if (a.pos == null && b.pos == null)
+        return a.name.localeCompare(b.name);
+      if (a.pos == null) return 1;
+      if (b.pos == null) return -1;
+      return a.pos - b.pos;
+    });
+    return list;
+  }, [
+    payload?.location,
+    payload?.maps,
+    payload?.laps?.byDriver,
+    sessionResults,
+    session,
+    colors.primary,
+  ]);
+
+  const toggleCircuitDriver = (dn) => {
+    const key = String(dn);
+    setCircuitSelectedDrivers((prev) => {
+      if (prev.includes(key)) return prev.filter((d) => d !== key);
+      if (prev.length >= 2) return [prev[1], key];
+      return [...prev, key];
+    });
+  };
+
   const renderCircuit = () => {
     if (!circuitInfo) return null;
     const x = circuitInfo.x || [];
     const y = circuitInfo.y || [];
     const h = Math.round((width - 24) * 0.62);
-    const path = buildPathFromXY(x, y, width - 24, h, 12);
-    if (!path) return null;
     const w = width - 24;
-    const transform = buildCircuitTransform(
-      meeting?.circuit_key || meeting?.circuitKey,
-      w,
-      h,
-    );
+    const path = buildPathFromXY(x, y, w, h, 12);
+    if (!path) return null;
+    const circuitKey = meeting?.circuit_key || meeting?.circuitKey;
+    const transform = buildCircuitTransform(circuitKey, w, h);
+    const projector = buildCircuitProjector(x, y, w, h, 12);
+
+    // Build live driver markers from the location feed.
+    const locationMap = normalizeLocationMap(payload?.location);
+    const hasSelection = circuitSelectedDrivers.length > 0;
+    const markers = [];
+    if (projector) {
+      Object.keys(locationMap).forEach((dn) => {
+        const loc = locationMap[dn];
+        if (!loc || loc.x == null || loc.y == null) return;
+        const projected = projector(Number(loc.x), Number(loc.y));
+        if (!projected) return;
+        const pt = applyCircuitTransformToPoint(
+          circuitKey,
+          w,
+          h,
+          projected,
+        );
+        const driverObj = findDriverInMaps(payload?.maps, dn) || null;
+        const teamName =
+          DRIVER_TO_TEAM[String(dn)] ||
+          driverObj?.team ||
+          driverObj?.team_name ||
+          "";
+        const teamColor =
+          TEAM_COLORS[teamName.replace(/ Racing$/i, "")] ||
+          TEAM_COLORS[teamName] ||
+          colors.primary;
+        const pos = getCurrentPosition(dn);
+        const isSelected = circuitSelectedDrivers.includes(String(dn));
+        markers.push({
+          dn: String(dn),
+          x: pt.x,
+          y: pt.y,
+          teamColor,
+          pos: pos != null ? Number(pos) : 999,
+          isSelected,
+        });
+      });
+    }
+
+    // Render order (SVG paints later elements on top):
+    //  - selected drivers above unselected
+    //  - within each group, lower position on top
+    markers.sort((a, b) => {
+      if (a.isSelected !== b.isSelected) return a.isSelected ? 1 : -1;
+      return b.pos - a.pos;
+    });
+
+    const baseR = 9;
+    const selectedR = 13;
+
     return (
       <Svg width={w} height={h} style={{ transform: [{ scaleY: -1 }] }}>
         {transform ? (
@@ -4156,6 +4416,39 @@ const RaceDetailsScreen = () => {
             strokeLinejoin="round"
           />
         )}
+
+        {markers.map((m) => {
+          const r = m.isSelected ? selectedR : baseR;
+          const dimmed = hasSelection && !m.isSelected;
+          const textColor = getF1TextOnColor(m.teamColor);
+          return (
+            <G key={`marker-${m.dn}`} opacity={dimmed ? 0.3 : 1}>
+              <Circle
+                cx={m.x}
+                cy={m.y}
+                r={r}
+                fill={m.teamColor}
+                stroke={theme.surface}
+                strokeWidth={1.5}
+              />
+              <G
+                transform={`translate(${m.x} ${m.y}) scale(1 -1) translate(${-m.x} ${-m.y})`}
+              >
+                <SvgText
+                  x={m.x}
+                  y={m.y}
+                  fill={textColor}
+                  fontSize={m.isSelected ? 10 : 8}
+                  fontWeight="900"
+                  textAnchor="middle"
+                  dy={m.isSelected ? 3.5 : 3}
+                >
+                  {m.dn}
+                </SvgText>
+              </G>
+            </G>
+          );
+        })}
       </Svg>
     );
   };
@@ -4276,62 +4569,38 @@ const RaceDetailsScreen = () => {
     return isSessionLive(session);
   }, [isStreamingUnlocked, session]);
 
-  // Function to fetch Grand Prix stream from streaming API
+  // Function to fetch the F1 stream from StreamFree.
+  // StreamFree's `racing` category carries the 24/7 "Sky Sports F1" channel
+  // rather than per-event streams, so we look for an F1-named channel first
+  // and fall back to the first racing stream that is live.
   const fetchGrandPrixStream = async () => {
     try {
-      console.log("Fetching Grand Prix stream from streaming API...");
-      const response = await fetch(
-        "https://streamed.pk/api/matches/motor-sports/popular",
-      );
-      const data = await response.json();
+      console.log("Fetching F1 stream from StreamFree...");
 
-      // Find the first match with "Grand Prix" in the title
-      const grandPrixMatch = data.find(
-        (match) =>
-          match.title && match.title.toLowerCase().includes("grand prix"),
-      );
-
-      if (!grandPrixMatch) {
-        console.log("No Grand Prix match found");
-        return null;
-      }
-
-      console.log("Found Grand Prix match:", grandPrixMatch.title);
-
-      // Look for admin source
-      const adminSource = grandPrixMatch.sources?.find(
-        (source) => source.source === "admin",
-      );
-
-      if (!adminSource) {
-        console.log("No admin source found for Grand Prix match");
-        // Look for next Grand Prix match with admin source
-        const alternativeMatch = data.find(
-          (match) =>
-            match.title &&
-            match.title.toLowerCase().includes("grand prix") &&
-            match.sources?.some((source) => source.source === "admin") &&
-            match.id !== grandPrixMatch.id,
-        );
-
-        if (alternativeMatch) {
-          const altAdminSource = alternativeMatch.sources.find(
-            (source) => source.source === "admin",
-          );
-          const streamUrl = `https://embed.st/embed/admin/${altAdminSource.id}/2`;
-          console.log("Found alternative Grand Prix stream:", streamUrl);
-          return streamUrl;
+      const byName = await StreamService.findStreamByName({
+        sport: "f1",
+        nameIncludes: "f1",
+      });
+      if (byName.match) {
+        const keys = Object.keys(byName.sources);
+        if (keys.length) {
+          const url = byName.sources[keys[0]].url;
+          console.log("F1 stream URL:", url);
+          return url;
         }
-
-        return null;
       }
 
-      // Build the embed URL
-      const streamUrl = `https://embed.st/embed/admin/${adminSource.id}/2`;
-      console.log("Grand Prix stream URL:", streamUrl);
-      return streamUrl;
+      // Fallback: any live racing stream
+      const streams = await StreamService.getStreamsForCategory("racing");
+      const live = streams.find((s) => s && s.iframe);
+      if (!live) {
+        console.log("No F1 stream found");
+        return null;
+      }
+      console.log("F1 fallback stream:", live.name);
+      return live.iframe;
     } catch (error) {
-      console.error("Failed to fetch Grand Prix stream:", error);
+      console.error("Failed to fetch F1 stream:", error);
       return null;
     }
   };
@@ -4516,42 +4785,44 @@ const RaceDetailsScreen = () => {
               setData(null);
               setMeetingInfo(null);
               setSessionsList([]);
-              // Re-fetch everything fresh with cache-busting
+              // Re-fetch meeting + session IN PARALLEL with cache-busting
               const ts = Date.now();
+              const targetKey = sessionKey || meetingKey;
               try {
-                if (sessionKey) {
-                  const resp = await fetch(
-                    `${SERVER_BASE}/meeting/${sessionKey}?_t=${ts}`,
-                    {
-                      headers: NO_CACHE_HEADERS,
-                      cache: "no-store",
-                    },
-                  );
-                  const json = await resp.json();
-                  const meetingObj =
-                    json?.meeting ?? json?.data?.meeting ?? json;
-                  setMeetingInfo(meetingObj);
-                  setSessionsList(json?.sessions ?? meetingObj?.sessions ?? []);
-                  await fetchSessionByKey(sessionKey, {
+                if (targetKey) {
+                  const meetingTask = (async () => {
+                    const resp = await fetch(
+                      `${SERVER_BASE}/meeting/${targetKey}?_t=${ts}`,
+                      {
+                        headers: NO_CACHE_HEADERS,
+                        cache: "no-store",
+                      },
+                    );
+                    const json = await resp.json();
+                    const meetingObj =
+                      json?.meeting ?? json?.data?.meeting ?? json;
+                    setMeetingInfo(meetingObj);
+                    setSessionsList(
+                      json?.sessions ?? meetingObj?.sessions ?? [],
+                    );
+                  })();
+                  const sessionTask = fetchSessionByKey(targetKey, {
                     silent: true,
                     cacheBust: ts,
                   });
-                } else if (meetingKey) {
-                  const resp = await fetch(
-                    `${SERVER_BASE}/meeting/${meetingKey}?_t=${ts}`,
-                    {
-                      headers: NO_CACHE_HEADERS,
-                      cache: "no-store",
-                    },
-                  );
-                  const json = await resp.json();
-                  const meetingObj =
-                    json?.meeting ?? json?.data?.meeting ?? json;
-                  setMeetingInfo(meetingObj);
-                  setSessionsList(json?.sessions ?? meetingObj?.sessions ?? []);
-                  await fetchSessionByKey(meetingKey, {
-                    silent: true,
-                    cacheBust: ts,
+                  const results = await Promise.allSettled([
+                    meetingTask,
+                    sessionTask,
+                  ]);
+                  results.forEach((result, index) => {
+                    if (result.status === "rejected") {
+                      console.warn(
+                        `[RaceDetailsScreen] refresh ${
+                          index === 0 ? "meeting" : "session"
+                        } fetch failed`,
+                        result.reason,
+                      );
+                    }
                   });
                 }
               } catch (e) {
@@ -4773,6 +5044,51 @@ const RaceDetailsScreen = () => {
                 </Text>
               </View>
 
+              {/* Driver selector (max 2) */}
+              {circuitDrivers.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.circuitDriverScroll}
+                  style={{ marginBottom: 10 }}
+                >
+                  {circuitDrivers.map((d) => {
+                    const selected = circuitSelectedDrivers.includes(
+                      d.driverNumber,
+                    );
+                    return (
+                      <TouchableOpacity
+                        key={`circuit-chip-${d.driverNumber}`}
+                        activeOpacity={0.8}
+                        onPress={() => toggleCircuitDriver(d.driverNumber)}
+                        style={[
+                          styles.circuitDriverChip,
+                          {
+                            borderColor: d.teamColor,
+                            backgroundColor: selected
+                              ? d.teamColor
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.circuitDriverChipText,
+                            {
+                              color: selected
+                                ? getF1TextOnColor(d.teamColor)
+                                : d.teamColor,
+                            },
+                          ]}
+                        >
+                          #{d.driverNumber}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
+
               {/* winner removed from here; rendered above the circuit container */}
 
               <View style={styles.circuitBody}>
@@ -4794,6 +5110,167 @@ const RaceDetailsScreen = () => {
                   </Text>
                 )}
               </View>
+
+              {/* Side-by-side selected driver stats */}
+              {circuitSelectedDrivers.length > 0 ? (
+                <View style={styles.circuitStatsRow}>
+                  {[0, 1].map((slot) => {
+                    const dn = circuitSelectedDrivers[slot];
+                    const d = circuitDrivers.find(
+                      (x) => x.driverNumber === dn,
+                    );
+                    if (!d) return <View key={`slot-${slot}`} style={{ flex: 1 }} />;
+                    const isLeft = slot === 0;
+                    const initials = (d.name || "")
+                      .split(" ")
+                      .map((p) => p[0] || "")
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase();
+                    const nameParts = (d.name || "").split(" ");
+                    const firstName = nameParts[0] || "";
+                    const lastName = nameParts.slice(1).join(" ") || "";
+                    const headshotEl = d.headshot ? (
+                      <Image
+                        source={{ uri: d.headshot }}
+                        style={[
+                          styles.circuitStatsHeadshot,
+                          {
+                            borderColor: d.teamColor,
+                            backgroundColor: d.teamColor + "33",
+                          },
+                        ]}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.circuitStatsHeadshot,
+                          {
+                            borderColor: d.teamColor,
+                            backgroundColor: d.teamColor + "22",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: d.teamColor,
+                            fontWeight: "900",
+                            fontSize: 14,
+                          }}
+                        >
+                          {initials || "D"}
+                        </Text>
+                      </View>
+                    );
+                    const nameEl = (
+                      <View
+                        style={[
+                          styles.circuitStatsNameBlock,
+                          { alignItems: isLeft ? "flex-start" : "flex-end" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.circuitStatsFirstName,
+                            { color: theme.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {firstName}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.circuitStatsLastName,
+                            { color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {lastName || firstName}
+                        </Text>
+                      </View>
+                    );
+                    return (
+                      <View
+                        key={`slot-${slot}`}
+                        style={[
+                          styles.circuitStatsCol,
+                          {
+                            flexDirection: isLeft ? "row" : "row-reverse",
+                          },
+                        ]}
+                      >
+                        {headshotEl}
+                        {nameEl}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {circuitSelectedDrivers.length > 0 ? (
+                <View style={styles.circuitStatsValuesRow}>
+                  {[0, 1].map((slot) => {
+                    const dn = circuitSelectedDrivers[slot];
+                    const d = circuitDrivers.find(
+                      (x) => x.driverNumber === dn,
+                    );
+                    if (!d) return <View key={`vals-${slot}`} style={{ flex: 1 }} />;
+                    const isLeft = slot === 0;
+                    const values = [
+                      { label: "TIME", val: d.time || "-" },
+                      {
+                        label: "LAPS",
+                        val: d.laps != null ? String(d.laps) : "-",
+                      },
+                      {
+                        label: "POS",
+                        val: d.pos != null ? String(d.pos) : "-",
+                      },
+                    ];
+                    return (
+                      <View
+                        key={`vals-${slot}`}
+                        style={[
+                          styles.circuitStatsValuesCol,
+                          { alignItems: isLeft ? "flex-start" : "flex-end" },
+                        ]}
+                      >
+                        {values.map((v) => (
+                          <View
+                            key={`${slot}-${v.label}`}
+                            style={[
+                              styles.circuitStatsValueRow,
+                              {
+                                flexDirection: isLeft ? "row" : "row-reverse",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.circuitStatsValue,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {v.val}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.circuitStatsValueLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {v.label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
 
               <View style={styles.toggleRow}>
                 <TouchableOpacity
@@ -5419,6 +5896,16 @@ const RaceDetailsScreen = () => {
                     null)
                   : sessionResult?.duration || null;
 
+                // Practice/qualifying are ranked by fastest lap, so use the
+                // driver's fastest lap time instead of the last segment time.
+                const isPracticeOrQual = isPracticeOrQualifyingSession(session);
+                const fastestLapDuration =
+                  lapsByDriver[String(dn)]?.fastest_lap?.lap_duration ?? null;
+                const durationToUse =
+                  isPracticeOrQual && fastestLapDuration != null
+                    ? fastestLapDuration
+                    : duration;
+
                 const outQual = Array.isArray(sessionResult?.duration)
                   ? !sessionResult?.duration[1]
                     ? "Q2"
@@ -5471,7 +5958,9 @@ const RaceDetailsScreen = () => {
 
                 const result = sessionResult ? dnfDnsDsq(sessionResult) : null;
 
-                const durationTime = duration ? formatLapTime(duration) : null;
+                const durationTime = durationToUse
+                  ? formatLapTime(durationToUse)
+                  : null;
 
                 const timeToUse = formatLapTime(driverDuration || time);
                 const timeRight =
@@ -6723,115 +7212,64 @@ const RaceDetailsScreen = () => {
                   style={[
                     styles.streamSelectorButton,
                     {
-                      backgroundColor:
-                        selectedStream === 3 ? colors.primary : theme.surface,
+                      backgroundColor: colors.primary,
                     },
                   ]}
                   onPress={() => setSelectedStream(3)}
                 >
                   <Text
                     allowFontScaling={false}
-                    style={[
-                      styles.streamSelectorText,
-                      { color: selectedStream === 3 ? "#fff" : theme.text },
-                    ]}
+                    style={[styles.streamSelectorText, { color: "#fff" }]}
                   >
-                    Grand Prix {!grandPrixStreamUrl ? "⏳" : ""}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.streamSelectorButton,
-                    {
-                      backgroundColor:
-                        selectedStream === 1 ? colors.primary : theme.surface,
-                    },
-                  ]}
-                  onPress={() => setSelectedStream(1)}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.streamSelectorText,
-                      { color: selectedStream === 1 ? "#fff" : theme.text },
-                    ]}
-                  >
-                    Test 1
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.streamSelectorButton,
-                    {
-                      backgroundColor:
-                        selectedStream === 2 ? colors.primary : theme.surface,
-                    },
-                  ]}
-                  onPress={() => setSelectedStream(2)}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.streamSelectorText,
-                      { color: selectedStream === 2 ? "#fff" : theme.text },
-                    ]}
-                  >
-                    Test 2
+                    F1 {!grandPrixStreamUrl ? "⏳" : ""}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Stream Content */}
               <View style={styles.streamContent}>
-                {(isStreamLoading ||
-                  (selectedStream === 3 && !grandPrixStreamUrl)) && (
+                {(isStreamLoading || !grandPrixStreamUrl) && (
                   <View style={styles.streamLoadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text
                       allowFontScaling={false}
                       style={[styles.streamLoadingText, { color: theme.text }]}
                     >
-                      {selectedStream === 3 && !grandPrixStreamUrl
-                        ? "Loading Grand Prix Stream..."
-                        : "Loading F1 Stream..."}
+                      Loading F1 Stream...
                     </Text>
                   </View>
                 )}
 
-                {/* Show error message if Grand Prix stream is selected but failed to load */}
-                {selectedStream === 3 &&
-                  !isStreamLoading &&
-                  !grandPrixStreamUrl && (
-                    <View style={styles.streamLoadingContainer}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.streamLoadingText,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        Grand Prix stream not available
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.streamLoadingText,
-                          {
-                            color: theme.textSecondary,
-                            fontSize: 12,
-                            marginTop: 8,
-                          },
-                        ]}
-                      >
-                        Try selecting Test 1 or Test 2
-                      </Text>
-                    </View>
-                  )}
+                {/* Show error message if the stream failed to load */}
+                {!isStreamLoading && !grandPrixStreamUrl && (
+                  <View style={styles.streamLoadingContainer}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.streamLoadingText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      F1 stream not available right now
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.streamLoadingText,
+                        {
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                          marginTop: 8,
+                        },
+                      ]}
+                    >
+                      Streams appear shortly before the session starts
+                    </Text>
+                  </View>
+                )}
 
-                {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
-                {(selectedStream !== 3 || grandPrixStreamUrl) && (
+                {/* F1 Stream WebView */}
+                {grandPrixStreamUrl && (
                   <WebView
                     ref={(ref) => {
                       if (ref) {
@@ -6841,26 +7279,14 @@ const RaceDetailsScreen = () => {
                     source={{
                       uri:
                         Platform.OS === "web"
-                          ? (() => {
-                              const base =
-                                selectedStream === 3 && grandPrixStreamUrl
-                                  ? grandPrixStreamUrl
-                                  : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
-                              return `${base}${base.includes("?") ? "&" : "?"}_nocache=${Date.now()}`;
-                            })()
-                          : selectedStream === 3 && grandPrixStreamUrl
-                            ? grandPrixStreamUrl
-                            : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`,
+                          ? `${grandPrixStreamUrl}${grandPrixStreamUrl.includes("?") ? "&" : "?"}_nocache=${Date.now()}`
+                          : grandPrixStreamUrl,
                     }}
-                    key={selectedStream}
+                    key={grandPrixStreamUrl}
                     style={[
                       styles.streamWebView,
                       {
-                        opacity:
-                          isStreamLoading ||
-                          (selectedStream === 3 && !grandPrixStreamUrl)
-                            ? 0
-                            : 1,
+                        opacity: isStreamLoading ? 0 : 1,
                       },
                     ]}
                     javaScriptEnabled={true}
@@ -6919,10 +7345,7 @@ const RaceDetailsScreen = () => {
                       );
 
                       // Allow the initial stream URL to load
-                      const streamUrl =
-                        selectedStream === 3 && grandPrixStreamUrl
-                          ? grandPrixStreamUrl
-                          : `https://embed.st/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                      const streamUrl = grandPrixStreamUrl;
                       if (request.url === streamUrl) {
                         return true;
                       }
@@ -7126,6 +7549,46 @@ const styles = StyleSheet.create({
   circuitHeader: { marginBottom: 8 },
   circuitTitle: { fontSize: 14, fontWeight: "800" },
   circuitBody: { alignItems: "center" },
+  circuitDriverScroll: { gap: 8, paddingVertical: 2 },
+  circuitDriverChip: {
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  circuitDriverChipText: { fontSize: 13, fontWeight: "800" },
+  circuitStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 12,
+  },
+  circuitStatsCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 8,
+  },
+  circuitStatsHeadshot: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+  },
+  circuitStatsNameBlock: { flexShrink: 1 },
+  circuitStatsFirstName: { fontSize: 12, fontWeight: "400" },
+  circuitStatsLastName: { fontSize: 14, fontWeight: "800" },
+  circuitStatsValuesRow: {
+    flexDirection: "row",
+    marginTop: 10,
+    gap: 12,
+  },
+  circuitStatsValuesCol: { flex: 1, gap: 4 },
+  circuitStatsValueRow: { alignItems: "baseline", gap: 6 },
+  circuitStatsValue: { fontSize: 14, fontWeight: "800" },
+  circuitStatsValueLabel: { fontSize: 12, fontWeight: "600" },
   toggleRow: { marginTop: 10, alignItems: "center" },
   toggleBtn: {
     paddingVertical: 8,

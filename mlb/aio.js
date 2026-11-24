@@ -1,763 +1,869 @@
-const teamAbbrMap = {
-  "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
-  "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
-  "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
-  "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
-  "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
-  "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
-  "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
-  "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
-};
+/**
+ * MLB AIO - All Games View
+ * Mirrors the app's MLBScoreboardScreen grid layout exactly:
+ * - Same API call with all hydrate params
+ * - Same data processing (processGameData)
+ * - Grid cards with gradients, BSO dots, bases diamond, pitcher info
+ * - Live viewer badges
+ * - Date picker bar
+ */
+(function () {
+  var SPORT = "mlb";
+  var currentDate = null;
+  var allGroups = [];
+  var pollInterval = null;
+  var currentIntervalMs = null;
+  var INTERVAL_FAST = 5000;
+  var INTERVAL_SLOW = 30000;
 
-const teamColors = {
-  "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#13274F", "Baltimore Orioles": "#000000", "Boston Red Sox": "#0C2340",
-  "Chicago White Sox": "#000000", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#0F223E",
-  "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
-  "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#A5ACAF", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E",
-  "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#000000",
-  "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
-  "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
-};
-
-// Convert hex color to rgba with opacity
-function hexToRgba(hex, opacity) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
-
-async function getLogoUrl(teamName) {
-  const abbr = teamAbbrMap[teamName];
-  if (!abbr) return "";
-  const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
-  const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(darkUrl);
-    img.onerror = () => resolve(lightUrl);
-    img.src = darkUrl;
-  });
-}
-
-async function getTeamNameById(id) {
-  try {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}`);
-    const data = await res.json();
-    return data.teams[0].teamName;
-  } catch (err) {
-    console.error("Error fetching team name for ID:", id, err);
-    return "";
-  }
-}
-
-function getInningLabel(inningHalf) {
-  return inningHalf === "Bottom" ? "Bot" : inningHalf === "Top" ? "Top" : inningHalf;
-}
-
-function getBaseHtml(matchup) {
-  const filled = {
-    first: matchup?.postOnFirst?.id,
-    second: matchup?.postOnSecond?.id,
-    third: matchup?.postOnThird?.id,
+  // ── Team colors (mirrors MLBService.teamColors) ──
+  var teamColors = {
+    "Arizona Diamondbacks": "#A71930",
+    "Atlanta Braves": "#CE1141",
+    "Baltimore Orioles": "#DF4601",
+    "Boston Red Sox": "#BD3039",
+    "Chicago White Sox": "#27251F",
+    "Chicago Cubs": "#0E3386",
+    "Cincinnati Reds": "#C6011F",
+    "Cleveland Guardians": "#E50022",
+    "Colorado Rockies": "#333366",
+    "Detroit Tigers": "#0C2340",
+    "Houston Astros": "#002D62",
+    "Kansas City Royals": "#004687",
+    "Los Angeles Angels": "#BA0021",
+    "Los Angeles Dodgers": "#005A9C",
+    "Miami Marlins": "#00A3E0",
+    "Milwaukee Brewers": "#FFC52F",
+    "Minnesota Twins": "#002B5C",
+    "New York Yankees": "#003087",
+    "New York Mets": "#FF5910",
+    Athletics: "#EFB21E",
+    "Philadelphia Phillies": "#E81828",
+    "Pittsburgh Pirates": "#FDB827",
+    "San Diego Padres": "#2F241D",
+    "San Francisco Giants": "#FD5A1E",
+    "Seattle Mariners": "#005C5C",
+    "St. Louis Cardinals": "#C41E3A",
+    "Tampa Bay Rays": "#092C5C",
+    "Texas Rangers": "#003278",
+    "Toronto Blue Jays": "#134A8E",
+    "Washington Nationals": "#AB0003",
   };
 
-  return `
-    <div class="small-base-diamond">
-      <div class="small-base small-base-second ${filled.second ? "occupied" : ""}"></div>
-      <div class="small-base small-base-third ${filled.third ? "occupied" : ""}"></div>
-      <div class="small-base small-base-first ${filled.first ? "occupied" : ""}"></div>
-    </div>
-  `;
-}
+  var teamAbbrMap = {
+    "Arizona Diamondbacks": "ari",
+    "Atlanta Braves": "atl",
+    "Baltimore Orioles": "bal",
+    "Boston Red Sox": "bos",
+    "Chicago White Sox": "cws",
+    "Chicago Cubs": "chc",
+    "Cincinnati Reds": "cin",
+    "Cleveland Guardians": "cle",
+    "Colorado Rockies": "col",
+    "Detroit Tigers": "det",
+    "Houston Astros": "hou",
+    "Kansas City Royals": "kc",
+    "Los Angeles Angels": "laa",
+    "Los Angeles Dodgers": "lad",
+    "Miami Marlins": "mia",
+    "Milwaukee Brewers": "mil",
+    "Minnesota Twins": "min",
+    "New York Yankees": "nyy",
+    "New York Mets": "nym",
+    Athletics: "oak",
+    "Philadelphia Phillies": "phi",
+    "Pittsburgh Pirates": "pit",
+    "San Diego Padres": "sd",
+    "San Francisco Giants": "sf",
+    "Seattle Mariners": "sea",
+    "St. Louis Cardinals": "stl",
+    "Tampa Bay Rays": "tb",
+    "Texas Rangers": "tex",
+    "Toronto Blue Jays": "tor",
+    "Washington Nationals": "wsh",
+  };
 
-async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore, inning, extraInning) {
-  const awayLogo = await getLogoUrl(awayFull);
-  const homeLogo = await getLogoUrl(homeFull);
-  const awayIsWinner = awayScore > homeScore;
-  const homeIsWinner = homeScore > awayScore;
-  console.log(`Inning: ${inning}, Extra Inning: ${extraInning}`);
-
-  return `
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div style="text-align: center;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-          <span style="font-size: 2.2rem; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayScore}</span>
-        </div>
-        <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayShort}</div>
-      </div>
-      <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final${extraInning ? `/${inning}` : ''}</div>
-      <div style="text-align: center;">
-        <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-          <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-          <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
-        </div>
-        <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeShort}</div>
-      </div>
-    </div>
-  `;
-}
-
-async function buildCard(game) {
-  const { teams, status, gameDate, linescore } = game;
-  const awayFull = teams.away.team.name;
-  const homeFull = teams.home.team.name;
-  const awayShort = await getTeamNameById(teams.away.team.id);
-  const homeShort = await getTeamNameById(teams.home.team.id);
-  const inning = game.linescore?.currentInning;
-  const extraInning = inning > 9;
-  const statusText = status.detailedState;
-  const card = document.createElement("div");
-  card.className = "game-card";
-  card.dataset.gamePk = game.gamePk; // Add gamePk as data attribute
-
-  // Apply team card styles from teams.js
-  const teamCardStyles = getTeamCardStyles();
-  const cardOpacity = teamCardStyles.backgroundOpacity / 100;
-  const cardBgColor = hexToRgba(teamCardStyles.backgroundColor, cardOpacity);
-  card.style.backgroundColor = cardBgColor;
-  card.style.color = teamCardStyles.textColor;
-
-  if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
-      const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
-      const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
-      const awayScore = teams.away.score || 0;
-      const homeScore = teams.home.score || 0;
-      const awayLogo = await getLogoUrl(awayFull);
-      const homeLogo = await getLogoUrl(homeFull);
-      const leadingAway = awayScore > homeScore;
-      const leadingHome = homeScore > awayScore;
-      const outs = game.linescore?.outs || 0;
-    
-      const gamePk = game.gamePk;
-      let matchup = {};
-      try {
-        const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
-        const data = await res.json();
-        matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
-      } catch (err) {
-        console.error(`Error fetching live feed for game ${gamePk}`, err);
-      }
-    
-      const baseHtml = getBaseHtml(matchup);
-    
-      card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-              <span style="font-size: 2rem; ${leadingAway ? 'font-weight: bold;' : ''}">${awayScore}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
-          </div>
-          <div style="text-align: center;">
-            <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
-            <div style="font-size: 0.85rem; margin-top: 4px;">Outs: ${outs}</div>
-            ${baseHtml}
-          </div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-              <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-              <span style="font-size: 2rem; ${leadingHome ? 'font-weight: bold;' : ''}">${homeScore}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
-          </div>
-        </div>
-      `;      
-  } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
-    const startTime = new Date(gameDate).toLocaleTimeString("en-US", {
-      hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York"
-    });
-    const awayRecord = `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`;
-    const homeRecord = `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`;
-    const awayLogo = await getLogoUrl(awayFull);
-    const homeLogo = await getLogoUrl(homeFull);
-
-    card.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div style="text-align: center;">
-        <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-          <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-          <span style="font-size: 0.95rem;">${awayRecord}</span>
-        </div>
-        <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
-      </div>
-      <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">${startTime}</div>
-      <div style="text-align: center;">
-        <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-          <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-          <span style="font-size: 0.95rem;">${homeRecord}</span>
-        </div>
-        <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
-      </div>
-    </div>
-  `;
-  } else if (statusText === "Postponed") {
-    const awayRecord = `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`;
-    const homeRecord = `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`;
-    const awayLogo = await getLogoUrl(awayFull);
-    const homeLogo = await getLogoUrl(homeFull);
-
-    card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-           <span style="font-size: 0.95rem;">${awayRecord}</span>
-          </div>
-          <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
-        </div>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.3rem; font-weight: bold;">PPD</div>
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-            <span style="font-size: 0.95rem;">${homeRecord}</span>
-          </div>
-          <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
-        </div>
-      </div>
-    `;
-  } else if (["Final", "Game Over"].includes(statusText)) {
-    card.innerHTML = await buildFinalCardContent(
-      awayFull, awayShort, teams.away.score,
-      homeFull, homeShort, teams.home.score, inning, extraInning
+  // ── Date helpers ─────────────────────────────────
+  function getMLBDate() {
+    var now = new Date();
+    var estNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
+    if (estNow.getHours() < 2) estNow.setDate(estNow.getDate() - 1);
+    return (
+      estNow.getFullYear() +
+      "-" +
+      String(estNow.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(estNow.getDate()).padStart(2, "0")
     );
   }
-  
-  // Add click handler to navigate to respective page
-  card.addEventListener('click', () => {
-    window.location.href = `scoreboard.html?gamePk=${game.gamePk}`;
-  });
-  
-  card.style.cursor = 'pointer';
-  
-  return card;
-}
 
-function getAdjustedDateForMLB() {
-  const now = new Date();
-
-  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-
-  if (estNow.getHours() < 2) {
-    estNow.setDate(estNow.getDate() - 1);
+  function toDateStr(d) {
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
   }
 
-  const adjustedDate = estNow.getFullYear() + "-" +
-                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
-                       String(estNow.getDate()).padStart(2, "0");
-
-  return adjustedDate;
-}
-
-let lastScheduleHash = null;
-
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const chr = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + chr;
-    hash |= 0;
+  function getOrdinalSuffix(num) {
+    if (num % 100 >= 11 && num % 100 <= 13) return num + "th";
+    switch (num % 10) {
+      case 1:
+        return num + "st";
+      case 2:
+        return num + "nd";
+      case 3:
+        return num + "rd";
+      default:
+        return num + "th";
+    }
   }
-  return hash;
-}
 
-async function updateCardInPlace(card, game) {
-  const { teams, status, gameDate } = game;
-  const awayFull = teams.away.team.name;
-  const homeFull = teams.home.team.name;
-  const awayShort = await getTeamNameById(teams.away.team.id);
-  const homeShort = await getTeamNameById(teams.home.team.id);
-  const statusText = status.detailedState;
+  function formatRecord(record) {
+    if (!record) return "";
+    return record.wins + "-" + record.losses;
+  }
 
-  if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
-    const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
-    const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
-    const awayScore = teams.away.score || 0;
-    const homeScore = teams.home.score || 0;
-    const leadingAway = awayScore > homeScore;
-    const leadingHome = homeScore > awayScore;
-    const outs = game.linescore?.outs || 0;
+  function getLogoUrl(teamName, teamAbbr) {
+    var abbr = teamAbbrMap[teamName];
+    if (!abbr && teamAbbr) abbr = teamAbbr.toLowerCase();
+    if (!abbr) return "";
+    return (
+      "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500-dark/" +
+      abbr +
+      ".png"
+    );
+  }
 
-    const gamePk = game.gamePk;
-    let matchup = {};
-    try {
-      const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
-      const data = await res.json();
-      matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
-    } catch (err) {
-      console.error(`Error fetching live feed for game ${gamePk}`, err);
+  function getHeadshotUrl(playerId) {
+    if (!playerId) return "";
+    return (
+      "https://img.mlbstatic.com/mlb-photos/image/upload/w_80,q_auto:good/v1/people/" +
+      playerId +
+      "/headshot/67/current"
+    );
+  }
+
+  function getShortPitcherName(fullName) {
+    if (!fullName) return "Pitcher";
+    var parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return fullName;
+    return parts[0][0] + ". " + parts[parts.length - 1];
+  }
+
+  function getPitcherSummary(pitcher) {
+    if (!pitcher || !pitcher.stats || !pitcher.stats.length) return "";
+    var stat = pitcher.stats[pitcher.stats.length - 1];
+    return stat && stat.stats && stat.stats.summary ? stat.stats.summary : "";
+  }
+
+  // ── Date Picker ──────────────────────────────────
+  function buildDatePicker() {
+    var bar = document.getElementById("datePickerBar");
+    if (!bar) return;
+    var today = new Date();
+    var dates = [];
+    for (var i = -3; i <= 3; i++) {
+      var d = new Date(today);
+      d.setDate(today.getDate() + i);
+      dates.push(d);
     }
 
-    const baseHtml = getBaseHtml(matchup);
+    bar.innerHTML = dates
+      .map(function (d, idx) {
+        var ds = toDateStr(d);
+        var isToday = idx === 3;
+        var label = isToday
+          ? "Today"
+          : new Intl.DateTimeFormat("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }).format(d);
+        var active = ds === currentDate ? " active" : "";
+        return (
+          '<button class="date-picker-item' +
+          active +
+          '" data-date="' +
+          ds +
+          '">' +
+          label +
+          "</button>"
+        );
+      })
+      .join("");
 
-    // Update only the changing elements
-    const centerDiv = card.querySelector('div:nth-child(2)');
-    if (centerDiv) {
-      centerDiv.innerHTML = `
-        <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
-        <div style="font-size: 0.85rem; margin-top: 4px;">Outs: ${outs}</div>
-        ${baseHtml}
-      `;
-    }
-
-    // Update scores
-    const awayScoreSpan = card.querySelector('div:first-child span');
-    const homeScoreSpan = card.querySelector('div:last-child span');
-    if (awayScoreSpan) {
-      awayScoreSpan.textContent = awayScore;
-      awayScoreSpan.style.fontWeight = leadingAway ? 'bold' : 'normal';
-    }
-    if (homeScoreSpan) {
-      homeScoreSpan.textContent = homeScore;
-      homeScoreSpan.style.fontWeight = leadingHome ? 'bold' : 'normal';
-    }
-
-  } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
-    // For scheduled games, the time might change, so update the center time
-    const centerTimeDiv = card.querySelector('div[style*="position: absolute"]');
-    if (centerTimeDiv) {
-      const startTime = new Date(gameDate).toLocaleTimeString("en-US", {
-        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York"
+    bar.querySelectorAll(".date-picker-item").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        currentDate = this.dataset.date;
+        bar.querySelectorAll(".date-picker-item").forEach(function (b) {
+          b.classList.remove("active");
+        });
+        this.classList.add("active");
+        loadGames();
       });
-      centerTimeDiv.textContent = startTime;
+    });
+  }
+
+  // ── MLB API Fetch (mirrors MLBService.getScoreboard) ──
+  function buildApiUrl(date) {
+    var fields =
+      "dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description";
+    // The CORS proxy responds with `Cache-Control: public, max-age=3600`, so the
+    // browser would serve a stale schedule for up to an hour. Append a unique
+    // cache-buster on every call so each poll actually hits the network.
+    return (
+      "https://corsproxy.io/?key=02fc2c87&url=https://statsapi.mlb.com/api/v1/schedule?sportId=1" +
+      "&date=" +
+      date +
+      "&hydrate=linescore,probablePitcher,stats" +
+      "&fields=" +
+      encodeURIComponent(fields) +
+      "&_=" +
+      Date.now()
+    );
+  }
+
+  function processGameData(game) {
+    var awayTeam = game.teams && game.teams.away;
+    var homeTeam = game.teams && game.teams.home;
+    var linescore = game.linescore || {};
+    var offense = linescore.offense || {};
+
+    var bases = {
+      first: !!offense.first,
+      second: !!offense.second,
+      third: !!offense.third,
+    };
+
+    var codedState =
+      (game.status && (game.status.codedGameState || game.status.statusCode)) ||
+      "";
+    var isLive = !["S", "P", "D", "C", "O", "F", "Q", "R", "FM", "DI"].includes(
+      String(codedState),
+    );
+    var isCompleted = ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(
+      String(codedState),
+    );
+
+    return {
+      id: String(game.gamePk),
+      date: game.gameDate,
+      status: (game.status && game.status.detailedState) || "Unknown",
+      statusType: (game.status && game.status.statusCode) || "U",
+      reason: (game.status && game.status.reason) || null,
+      isCompleted: isCompleted,
+      isLive: isLive,
+      gameType: game.gameType || "",
+      venue: (game.venue && game.venue.name) || "",
+      notes: game.seriesDescription || "",
+      notes1: game.description || "",
+      inning: linescore.currentInning || 0,
+      inningState:
+        linescore.isTopInning === true
+          ? "Top"
+          : linescore.isTopInning === false
+            ? "Bottom"
+            : "",
+      balls: linescore.balls || 0,
+      strikes: linescore.strikes || 0,
+      outs: linescore.outs || 0,
+      bases: bases,
+      first: bases.first,
+      second: bases.second,
+      third: bases.third,
+      awayTeam: {
+        id: awayTeam && awayTeam.team ? String(awayTeam.team.id) : "",
+        displayName: awayTeam && awayTeam.team ? awayTeam.team.name : "",
+        abbreviation:
+          awayTeam && awayTeam.team ? awayTeam.team.abbreviation : "",
+        score: awayTeam ? String(awayTeam.score || 0) : "0",
+        record: formatRecord(awayTeam && awayTeam.leagueRecord),
+        logo: getLogoUrl(
+          awayTeam && awayTeam.team ? awayTeam.team.name : "",
+          awayTeam && awayTeam.team ? awayTeam.team.abbreviation : "",
+        ),
+        color:
+          teamColors[awayTeam && awayTeam.team ? awayTeam.team.name : ""] ||
+          "#333333",
+        probablePitcher:
+          awayTeam && awayTeam.probablePitcher
+            ? {
+                id: awayTeam.probablePitcher.id,
+                fullName: awayTeam.probablePitcher.fullName || "",
+                stats: Array.isArray(awayTeam.probablePitcher.stats)
+                  ? awayTeam.probablePitcher.stats
+                  : [],
+              }
+            : null,
+      },
+      homeTeam: {
+        id: homeTeam && homeTeam.team ? String(homeTeam.team.id) : "",
+        displayName: homeTeam && homeTeam.team ? homeTeam.team.name : "",
+        abbreviation:
+          homeTeam && homeTeam.team ? homeTeam.team.abbreviation : "",
+        score: homeTeam ? String(homeTeam.score || 0) : "0",
+        record: formatRecord(homeTeam && homeTeam.leagueRecord),
+        logo: getLogoUrl(
+          homeTeam && homeTeam.team ? homeTeam.team.name : "",
+          homeTeam && homeTeam.team ? homeTeam.team.abbreviation : "",
+        ),
+        color:
+          teamColors[homeTeam && homeTeam.team ? homeTeam.team.name : ""] ||
+          "#333333",
+        probablePitcher:
+          homeTeam && homeTeam.probablePitcher
+            ? {
+                id: homeTeam.probablePitcher.id,
+                fullName: homeTeam.probablePitcher.fullName || "",
+                stats: Array.isArray(homeTeam.probablePitcher.stats)
+                  ? homeTeam.probablePitcher.stats
+                  : [],
+              }
+            : null,
+      },
+    };
+  }
+
+  async function fetchMLBGames(date) {
+    var url = buildApiUrl(date);
+    var res = await fetch(url, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+    });
+    var data = await res.json();
+    var games = [];
+    if (data.dates && data.dates.length > 0) {
+      data.dates.forEach(function (dateObj) {
+        if (dateObj.games && dateObj.games.length > 0) {
+          dateObj.games.forEach(function (game) {
+            games.push(processGameData(game));
+          });
+        }
+      });
     }
-  }
-  // For finished games, they don't change much so we can leave them as-is
-}
-
-async function displayGames(games, sectionId, containerId, noGamesId) {
-  const section = document.getElementById(sectionId);
-  const container = document.getElementById(containerId);
-  const noGamesDiv = document.getElementById(noGamesId);
-
-  if (games.length === 0) {
-    container.style.display = "none";
-    noGamesDiv.style.display = "flex";
-    section.style.display = "block";
-    return;
+    return games;
   }
 
-  container.style.display = "flex";
-  noGamesDiv.style.display = "none";
-  section.style.display = "block";
+  // ── Group by date ────────────────────────────────
+  function groupGamesByDate(games) {
+    var map = {};
+    games.forEach(function (game) {
+      var d = new Date(game.date);
+      var key = d.toDateString();
+      if (!map[key]) {
+        map[key] = {
+          dateKey: key,
+          dateTs: d.getTime(),
+          label: formatDateGroupLabel(game.date),
+          games: [],
+        };
+      }
+      map[key].games.push(game);
+    });
+    return Object.values(map).sort(function (a, b) {
+      return a.dateTs - b.dateTs;
+    });
+  }
 
-  // Get existing cards
-  const existingCards = Array.from(container.children);
-  const existingGameIds = existingCards.map(card => card.dataset.gamePk);
+  function formatDateGroupLabel(dateStr) {
+    var date = new Date(dateStr);
+    var today = new Date();
+    var yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    var tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+  }
 
-  // Create a map of games by gamePk for efficient lookup
-  const gamesMap = new Map();
-  games.forEach(game => gamesMap.set(game.gamePk, game));
+  // ── BSO Dots HTML ────────────────────────────────
+  function bsoDots(filled, total, color) {
+    var html = '<div class="mlb-bso-row">';
+    for (var i = 0; i < total; i++) {
+      html +=
+        '<span class="mlb-bso-dot' +
+        (i < filled ? " filled" : "") +
+        '" style="' +
+        (i < filled
+          ? "background:" +
+            color +
+            ";border-color:" +
+            color +
+            ";box-shadow:0 0 3px " +
+            color +
+            ";"
+          : "") +
+        '"></span>';
+    }
+    html += "</div>";
+    return html;
+  }
 
-  // Update existing cards and track which ones to keep
-  const cardsToKeep = new Set();
+  // ── Mini Bases Diamond HTML ──────────────────────
+  function miniBasesDiamond(bases) {
+    var first = bases && bases.first;
+    var second = bases && bases.second;
+    var third = bases && bases.third;
+    function baseStyle(occ) {
+      return occ
+        ? "background:var(--accent-primary);border-color:var(--accent-primary);box-shadow:0 0 4px var(--accent-primary);"
+        : "background:transparent;border:1px solid var(--border-secondary);";
+    }
+    return (
+      '<div class="mlb-mini-bases">' +
+      '<div class="mlb-mini-bases-row"><span class="mlb-mini-base" style="' +
+      baseStyle(second) +
+      '"></span></div>' +
+      '<div class="mlb-mini-bases-row"><span class="mlb-mini-base" style="' +
+      baseStyle(third) +
+      '"></span><span class="mlb-mini-base" style="' +
+      baseStyle(first) +
+      '"></span></div>' +
+      "</div>"
+    );
+  }
 
-  for (const game of games) {
-    const gamePk = game.gamePk;
-    cardsToKeep.add(gamePk);
+  // ── Grid Card Builder (mirrors MLBGridCard) ──────
+  function buildGridCard(game) {
+    var away = game.awayTeam;
+    var home = game.homeTeam;
+    var awayColor = away.color || "#333333";
+    var homeColor = home.color || "#333333";
+    var awayLogo = away.logo || "";
+    var homeLogo = home.logo || "";
+    var awayAbbr = (
+      away.abbreviation ||
+      teamAbbrMap[away.displayName] ||
+      (away.displayName || "AWY").slice(0, 3)
+    ).toUpperCase();
+    var homeAbbr = (
+      home.abbreviation ||
+      teamAbbrMap[home.displayName] ||
+      (home.displayName || "HME").slice(0, 3)
+    ).toUpperCase();
+    var isLive = game.isLive;
+    var isFinished = game.isCompleted;
+    var isScheduled = !isLive && !isFinished;
+    var isPostponed = game.status === "Postponed";
+    var reason = game.reason || "";
 
-    const existingCardIndex = existingGameIds.indexOf(gamePk);
-    if (existingCardIndex !== -1) {
-      // Update existing card in-place to prevent jittering
-      const existingCard = existingCards[existingCardIndex];
-      await updateCardInPlace(existingCard, game);
+    var awayScore = away.score;
+    var homeScore = home.score;
+    var awayWins = isFinished && parseInt(awayScore) > parseInt(homeScore);
+    var homeWins = isFinished && parseInt(homeScore) > parseInt(awayScore);
+
+    var timeStr = "";
+    if (game.date) {
+      var d = new Date(game.date);
+      timeStr = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "America/New_York",
+      });
+    }
+
+    var gradId = "mg_" + game.id;
+
+    // Status / Time line
+    var topHTML = "";
+    if (isLive) {
+      var arrow =
+        game.inningState === "Top"
+          ? "▲"
+          : game.inningState === "Bottom"
+            ? "▼"
+            : "";
+      topHTML =
+        '<span class="mlb-grid-status-live">' +
+        arrow +
+        " " +
+        getOrdinalSuffix(game.inning || 0) +
+        "</span>";
+    } else if (isFinished) {
+      var showInning =
+        game.statusType !== "DI" && game.inning && game.inning !== 9;
+      topHTML =
+        '<span class="mlb-grid-status-text">' +
+        (game.status || "Final").slice(0, 9) +
+        (showInning ? "/" + game.inning : "") +
+        "</span>";
+    } else if (isPostponed) {
+      topHTML =
+        '<span class="mlb-grid-status-text">PPD &middot; <span style="opacity:0.6">' +
+        reason +
+        "</span></span>";
     } else {
-      // Create new card
-      const newCard = await buildCard(game);
-      newCard.dataset.gamePk = gamePk;
-      container.appendChild(newCard);
+      topHTML = '<span class="mlb-grid-status-time">' + timeStr + "</span>";
     }
-  }
 
-  // Remove cards that are no longer in the games list
-  existingCards.forEach(card => {
-    const gamePk = card.dataset.gamePk;
-    if (!cardsToKeep.has(gamePk)) {
-      card.remove();
+    // Away side
+    var awaySideHTML = "";
+    if (isScheduled) {
+      awaySideHTML = awayLogo
+        ? '<img src="' +
+          awayLogo +
+          '" class="mlb-grid-team-logo" onerror="this.style.display=\'none\'">'
+        : '<div class="mlb-grid-team-logo-fb" style="background:' +
+          awayColor +
+          '"><span>' +
+          awayAbbr[0] +
+          "</span></div>";
+    } else {
+      awaySideHTML =
+        '<div class="mlb-grid-score-cell">' +
+        '<span class="mlb-grid-score" style="color:' +
+        (awayWins ? "var(--accent-primary)" : "var(--text-primary)") +
+        ";font-weight:" +
+        (awayWins ? "700" : "400") +
+        ";opacity:" +
+        (isFinished && !awayWins ? "0.55" : "1") +
+        '">' +
+        (awayScore || "—") +
+        "</span>" +
+        (awayLogo
+          ? '<img src="' +
+            awayLogo +
+            '" class="mlb-grid-score-logo" style="opacity:' +
+            (isFinished && !awayWins ? "0.55" : "1") +
+            '" onerror="this.style.display=\'none\'">'
+          : '<div class="mlb-grid-score-logo-fb" style="background:' +
+            awayColor +
+            ";opacity:" +
+            (isFinished && !awayWins ? "0.55" : "1") +
+            '"><span>' +
+            awayAbbr[0] +
+            "</span></div>") +
+        "</div>";
     }
-  });
-}
-
-async function fetchAndDisplayAllGames() {
-  const today = getAdjustedDateForMLB();
-  const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
-
-  try {
-    const response = await fetch(url);
-    const responseText = await response.text();
-    const newHash = hashString(responseText);
-
-    if (newHash === lastScheduleHash) {
-      console.log("No changes detected in the schedule.");
-      return;
+    awaySideHTML +=
+      '<span class="mlb-grid-team-abbr" style="opacity:' +
+      (isFinished && !awayWins ? "0.55" : "1") +
+      '">' +
+      awayAbbr +
+      "</span>";
+    if (away.record) {
+      awaySideHTML +=
+        '<span class="mlb-grid-team-record" style="opacity:' +
+        (isFinished && !awayWins ? "0.55" : "1") +
+        '">' +
+        away.record +
+        "</span>";
     }
-    lastScheduleHash = newHash;
 
-    const data = JSON.parse(responseText);
-    const games = data.dates[0]?.games || [];
+    // Home side
+    var homeSideHTML = "";
+    if (isScheduled) {
+      homeSideHTML = homeLogo
+        ? '<img src="' +
+          homeLogo +
+          '" class="mlb-grid-team-logo" onerror="this.style.display=\'none\'">'
+        : '<div class="mlb-grid-team-logo-fb" style="background:' +
+          homeColor +
+          '"><span>' +
+          homeAbbr[0] +
+          "</span></div>";
+    } else {
+      homeSideHTML =
+        '<div class="mlb-grid-score-cell">' +
+        '<span class="mlb-grid-score" style="color:' +
+        (homeWins ? "var(--accent-primary)" : "var(--text-primary)") +
+        ";font-weight:" +
+        (homeWins ? "700" : "400") +
+        ";opacity:" +
+        (isFinished && !homeWins ? "0.55" : "1") +
+        '">' +
+        (homeScore || "—") +
+        "</span>" +
+        (homeLogo
+          ? '<img src="' +
+            homeLogo +
+            '" class="mlb-grid-score-logo" style="opacity:' +
+            (isFinished && !homeWins ? "0.55" : "1") +
+            '" onerror="this.style.display=\'none\'">'
+          : '<div class="mlb-grid-score-logo-fb" style="background:' +
+            homeColor +
+            ";opacity:" +
+            (isFinished && !homeWins ? "0.55" : "1") +
+            '"><span>' +
+            homeAbbr[0] +
+            "</span></div>") +
+        "</div>";
+    }
+    homeSideHTML +=
+      '<span class="mlb-grid-team-abbr" style="opacity:' +
+      (isFinished && !homeWins ? "0.55" : "1") +
+      '">' +
+      homeAbbr +
+      "</span>";
+    if (home.record) {
+      homeSideHTML +=
+        '<span class="mlb-grid-team-record" style="opacity:' +
+        (isFinished && !homeWins ? "0.55" : "1") +
+        '">' +
+        home.record +
+        "</span>";
+    }
 
-    // Remove duplicates
-    const seenGameIds = new Set();
-    const uniqueGames = games.filter(game => {
-      if (seenGameIds.has(game.gamePk)) {
-        return false;
+    // Pitcher info for scheduled games
+    var awayPitcherHTML = "";
+    var homePitcherHTML = "";
+    if (isScheduled) {
+      var awayP = away.probablePitcher;
+      var homeP = home.probablePitcher;
+      if (awayP) {
+        var summary = getPitcherSummary(awayP);
+        awayPitcherHTML =
+          '<div class="mlb-grid-pitcher-wrap">' +
+          (summary
+            ? '<span class="mlb-grid-pitcher-summary">' + summary + "</span>"
+            : "") +
+          '<img src="' +
+          getHeadshotUrl(awayP.id) +
+          '" class="mlb-grid-pitcher-headshot" style="border-color:' +
+          awayColor +
+          '" onerror="this.style.display=\'none\'">' +
+          '<span class="mlb-grid-pitcher-name">' +
+          getShortPitcherName(awayP.fullName) +
+          "</span>" +
+          "</div>";
       }
-      seenGameIds.add(game.gamePk);
-      return true;
+      if (homeP) {
+        var hsummary = getPitcherSummary(homeP);
+        homePitcherHTML =
+          '<div class="mlb-grid-pitcher-wrap">' +
+          (hsummary
+            ? '<span class="mlb-grid-pitcher-summary">' + hsummary + "</span>"
+            : "") +
+          '<img src="' +
+          getHeadshotUrl(homeP.id) +
+          '" class="mlb-grid-pitcher-headshot" style="border-color:' +
+          homeColor +
+          '" onerror="this.style.display=\'none\'">' +
+          '<span class="mlb-grid-pitcher-name">' +
+          getShortPitcherName(homeP.fullName) +
+          "</span>" +
+          "</div>";
+      }
+    }
+
+    // Footer: venue or BSO + bases
+    var footerHTML = "";
+    if (isLive) {
+      footerHTML =
+        '<div class="mlb-grid-footer-live">' +
+        '<div class="mlb-grid-bso-stack">' +
+        bsoDots(game.balls || 0, 4, "var(--success)") +
+        bsoDots(game.strikes || 0, 3, "var(--warning)") +
+        bsoDots(game.outs || 0, 3, "var(--error)") +
+        "</div>" +
+        miniBasesDiamond(game.bases) +
+        "</div>";
+    } else {
+      footerHTML =
+        '<span class="mlb-grid-venue">' + (game.venue || "") + "</span>";
+    }
+
+    return (
+      '<div class="mlb-grid-card" data-game-id="' +
+      game.id +
+      '" onclick="window.location.href=\'scoreboard.html?gamePk=' +
+      game.id +
+      "'\">" +
+      // Gradient overlay
+      '<div class="mlb-grid-card-gradient" style="background:linear-gradient(90deg,' +
+      awayColor +
+      "33 0%,transparent 30%,transparent 70%," +
+      homeColor +
+      '33 100%)"></div>' +
+      // Top status
+      '<div class="mlb-grid-card-top">' +
+      topHTML +
+      '<div class="mlb-grid-card-badge" id="lt-' +
+      game.id +
+      '"></div>' +
+      "</div>" +
+      // Teams row
+      '<div class="mlb-grid-teams-row">' +
+      '<div class="mlb-grid-team-side">' +
+      awaySideHTML +
+      (isScheduled ? awayPitcherHTML : "") +
+      "</div>" +
+      '<div class="mlb-grid-divider"></div>' +
+      '<div class="mlb-grid-team-side">' +
+      homeSideHTML +
+      (isScheduled ? homePitcherHTML : "") +
+      "</div>" +
+      "</div>" +
+      // Footer
+      '<div class="mlb-grid-card-footer">' +
+      footerHTML +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  // ── Group Header ─────────────────────────────────
+  function buildGroupHeader(group) {
+    return (
+      '<div class="mlb-grid-group-header">' +
+      '<div class="mlb-grid-group-bubble">' +
+      '<img src="/assets/mlb.png" class="mlb-grid-group-logo" onerror="this.style.display=\'none\'">' +
+      '<span class="mlb-grid-group-name">' +
+      group.label +
+      "</span>" +
+      '<span class="mlb-grid-group-count">' +
+      group.games.length +
+      "</span>" +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  // ── Load & Display ───────────────────────────────
+  var lastGridHtml = null;
+  var hasLoadedOnce = false;
+
+  // Only touch the DOM when the markup actually changed. Polling every few
+  // seconds used to wipe and rebuild the grid even when nothing had changed,
+  // which reloaded every logo/headshot and showed up as a visible flicker.
+  function renderGrid(grid, html) {
+    if (lastGridHtml === html) return false;
+    lastGridHtml = html;
+    grid.querySelectorAll(".live-tracker-badge").forEach(function (b) {
+      if (typeof b.destroy === "function") b.destroy();
+    });
+    grid.innerHTML = html;
+    return true;
+  }
+
+  async function loadGames() {
+    var grid = document.getElementById("mlbGrid");
+    if (!grid) return;
+    if (!hasLoadedOnce)
+      grid.innerHTML =
+        '<div class="loading"><div class="loading-spinner"></div></div>';
+
+    try {
+      var games = await fetchMLBGames(currentDate);
+      hasLoadedOnce = true;
+
+      if (games.length === 0) {
+        renderGrid(
+          grid,
+          '<div class="empty-state"><div class="empty-state-icon">⚾</div><div class="empty-state-text">No games scheduled for this date</div></div>',
+        );
+        schedulePolling([]);
+        return;
+      }
+
+      allGroups = groupGamesByDate(games);
+
+      // Sort games within each group: live → scheduled → finished
+      allGroups.forEach(function (group) {
+        group.games.sort(function (a, b) {
+          var order = { live: 0, scheduled: 1, finished: 2 };
+          function getState(g) {
+            return g.isLive ? "live" : g.isCompleted ? "finished" : "scheduled";
+          }
+          var diff = order[getState(a)] - order[getState(b)];
+          if (diff !== 0) return diff;
+          return new Date(a.date) - new Date(b.date);
+        });
+      });
+
+      var html = "";
+      allGroups.forEach(function (group) {
+        html += buildGroupHeader(group);
+        html += '<div class="mlb-grid-cards-row">';
+        group.games.forEach(function (game) {
+          html += buildGridCard(game);
+        });
+        html += "</div>";
+      });
+
+      var changed = renderGrid(grid, html);
+      if (changed) {
+        // Attach live viewer badges to ALL games with status info
+        games.forEach(function (g) {
+          var el = document.getElementById("lt-" + g.id);
+          if (el && typeof createLiveTrackerBadge === "function") {
+            el.appendChild(createLiveTrackerBadge(SPORT, g.id, g));
+          }
+        });
+      }
+
+      schedulePolling(allGroups);
+    } catch (err) {
+      console.error("MLB load error:", err);
+      renderGrid(
+        grid,
+        '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error loading games</div></div>',
+      );
+    }
+  }
+
+  // ── Smart Polling (mirrors app's getPollingInterval) ──
+  function schedulePolling(groups) {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+
+    var allGames = [];
+    groups.forEach(function (g) {
+      allGames = allGames.concat(g.games);
     });
 
-    // Separate games by status and sort by time
-    const liveGames = uniqueGames.filter(game => 
-      ["In Progress", "Manager challenge"].includes(game.status.detailedState) || game.status.codedGameState === "M"
-    ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
-    
-    const scheduledGames = uniqueGames.filter(game => 
-      ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState)
-    ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
-    
-    const finishedGames = uniqueGames.filter(game => 
-      ["Final", "Game Over"].includes(game.status.detailedState)
-    ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+    if (allGames.length === 0) return;
 
-    await displayGames(liveGames, 'live-section', 'liveGamesContainer', 'no-live-games');
-    await displayGames(scheduledGames, 'scheduled-section', 'scheduledGamesContainer', 'no-scheduled-games');
-    await displayGames(finishedGames, 'finished-section', 'finishedGamesContainer', 'no-finished-games');
-  } catch (error) {
-    console.error("Error fetching games:", error);
-  }
-}
-
-// Initialize page
-document.addEventListener("DOMContentLoaded", function() {
-  fetchAndDisplayAllGames();
-  setInterval(fetchAndDisplayAllGames, 2000); // Refresh every 2 seconds
-  initializePageStyling();
-  initializeTickerControls();
-});
-
-// Initialize ticker controls
-function initializeTickerControls() {
-  // Load saved ticker speed or default to 5 seconds
-  const savedSpeed = localStorage.getItem('mlb-ticker-speed');
-  const speedInput = document.getElementById('ticker-speed');
-  
-  if (savedSpeed) {
-    speedInput.value = savedSpeed;
-  }
-  
-  // Add event listener for speed changes
-  speedInput.addEventListener('input', function() {
-    const speed = Math.max(1, Math.min(30, parseInt(this.value) || 5));
-    this.value = speed;
-    localStorage.setItem('mlb-ticker-speed', speed.toString());
-  });
-  
-  // Add blur event to ensure valid value
-  speedInput.addEventListener('blur', function() {
-    if (!this.value || parseInt(this.value) < 1) {
-      this.value = 5;
-      localStorage.setItem('mlb-ticker-speed', '5');
-    }
-  });
-  
-  // Add ticker button functionality
-  const tickerButton = document.getElementById('ticker-button');
-  if (tickerButton) {
-    tickerButton.addEventListener('click', function() {
-      // Get current speed setting
-      const speedInput = document.getElementById('ticker-speed');
-      const speed = speedInput ? speedInput.value : '5';
-      
-      // Include speed as URL parameter for OBS compatibility
-      const tickerUrl = `${window.location.origin}${window.location.pathname.replace('aio.html', 'ticker.html')}?speed=${speed}`;
-      window.open(tickerUrl, '_blank', 'width=1920,height=200,scrollbars=no,resizable=no,status=no,toolbar=no,menubar=no');
+    var hasLive = allGames.some(function (g) {
+      return g.isLive;
     });
+    var now = Date.now();
+    var hasSoon = allGames.some(function (g) {
+      if (g.isLive || g.isCompleted) return false;
+      if (!g.date) return false;
+      var msUntil = new Date(g.date).getTime() - now;
+      return msUntil >= 0 && msUntil <= 5 * 60 * 1000;
+    });
+
+    var desired = hasLive || hasSoon ? INTERVAL_FAST : INTERVAL_SLOW;
+    currentIntervalMs = desired;
+    pollInterval = setInterval(loadGames, desired);
   }
-}
 
-// Styling functionality
-const defaultTeamCardStyles = {
-  backgroundColor: '#ebebeb',
-  backgroundOpacity: 100,
-  textColor: '#ffffff'
-};
+  // ── Init ─────────────────────────────────────────
+  function init() {
+    currentDate = getMLBDate();
+    buildDatePicker();
+    loadGames();
 
-const defaultPageStyles = {
-  backgroundColor: '#ebebeb',
-  backgroundOpacity: 100,
-  textColor: '#000000'
-};
-
-// Check if we're in URL parameter mode
-function isUrlParameterMode() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor') ||
-         urlParams.has('pageBgColor') || urlParams.has('pageBgOpacity') || urlParams.has('pageTextColor');
-}
-
-// Get team card styles from URL parameters, teams.js localStorage, or defaults
-function getTeamCardStyles() {
-  // Check for URL parameters first (these override localStorage for OBS)
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlBgColor = urlParams.get('bgColor');
-  const urlBgOpacity = urlParams.get('bgOpacity');
-  const urlTextColor = urlParams.get('textColor');
-  
-  // If we have URL parameters, use them (OBS mode)
-  if (urlBgColor || urlBgOpacity !== null || urlTextColor) {
-    return {
-      backgroundColor: urlBgColor || defaultTeamCardStyles.backgroundColor,
-      backgroundOpacity: urlBgOpacity !== null ? parseInt(urlBgOpacity) : defaultTeamCardStyles.backgroundOpacity,
-      textColor: urlTextColor || defaultTeamCardStyles.textColor
-    };
-  }
-  
-  // Otherwise use localStorage or defaults
-  const saved = localStorage.getItem('mlb-game-card-styles');
-  return saved ? JSON.parse(saved) : defaultTeamCardStyles;
-}
-
-// Load page-specific styles with URL parameter support
-function loadPageStyles() {
-  // Check for URL parameters first (these override localStorage for OBS)
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlPageBgColor = urlParams.get('pageBgColor');
-  const urlPageBgOpacity = urlParams.get('pageBgOpacity');
-  const urlPageTextColor = urlParams.get('pageTextColor');
-  
-  // If we have page URL parameters, use them (OBS mode)
-  if (urlPageBgColor || urlPageBgOpacity !== null || urlPageTextColor) {
-    return {
-      backgroundColor: urlPageBgColor || defaultPageStyles.backgroundColor,
-      backgroundOpacity: urlPageBgOpacity !== null ? parseInt(urlPageBgOpacity) : defaultPageStyles.backgroundOpacity,
-      textColor: urlPageTextColor || defaultPageStyles.textColor
-    };
-  }
-  
-  // Otherwise use localStorage or defaults
-  const saved = localStorage.getItem('mlb-aio-page-styles');
-  return saved ? JSON.parse(saved) : defaultPageStyles;
-}
-
-// Save page styles to localStorage
-function savePageStyles(styles) {
-  localStorage.setItem('mlb-aio-page-styles', JSON.stringify(styles));
-}
-
-// Apply page styles to background and text
-function applyPageStyles(styles) {
-  const body = document.body;
-  const scoreboard = document.getElementById('scoreboard');
-  const opacity = styles.backgroundOpacity / 100;
-  const bgColor = hexToRgba(styles.backgroundColor, opacity);
-  
-  // Apply background to both body and scoreboard div
-  body.style.backgroundColor = bgColor;
-  if (scoreboard) {
-    scoreboard.style.backgroundColor = bgColor;
-  }
-  
-  body.style.color = styles.textColor;
-  
-  // Apply to all headers and text elements
-  const textElements = document.querySelectorAll('h2, h3, .section-header, .no-games, p, span, div');
-  textElements.forEach(element => {
-    // Don't override game card text colors
-    if (!element.closest('.game-card') && !element.closest('#styling-panel')) {
-      element.style.color = styles.textColor;
+    var authContainer = document.getElementById("auth-button-container");
+    if (authContainer && typeof createAuthButton === "function") {
+      authContainer.appendChild(createAuthButton());
     }
-  });
-}
+  }
 
-// Apply team card styles to all game cards
-function applyTeamCardStyles() {
-  const teamCardStyles = getTeamCardStyles();
-  const gameCards = document.querySelectorAll('.game-card');
-  gameCards.forEach(card => {
-    const opacity = teamCardStyles.backgroundOpacity / 100;
-    const bgColor = hexToRgba(teamCardStyles.backgroundColor, opacity);
-    card.style.setProperty('background-color', bgColor, 'important');
-    card.style.setProperty('color', teamCardStyles.textColor, 'important');
-  });
-}
-
-// Validate hex color
-function isValidHex(hex) {
-  return /^#[0-9A-F]{6}$/i.test(hex);
-}
-
-// Update preview colors
-function updatePagePreviews(styles) {
-  const bgPreview = document.getElementById('page-bg-preview');
-  const textPreview = document.getElementById('page-text-preview');
-  if (bgPreview) bgPreview.style.backgroundColor = styles.backgroundColor;
-  if (textPreview) textPreview.style.backgroundColor = styles.textColor;
-}
-
-// Toggle styling panel
-function toggleStylingPanel() {
-  const panel = document.getElementById('styling-panel');
-  const toggle = document.getElementById('styling-toggle');
-  const isExpanded = panel.style.display !== 'none';
-  
-  if (isExpanded) {
-    panel.style.display = 'none';
-    toggle.textContent = '🎨 Page Styling ▼';
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    panel.style.display = 'block';
-    toggle.textContent = '🎨 Page Styling ▲';
-  }
-}
-
-// Initialize page styling controls
-function initializePageStyling() {
-  const currentPageStyles = loadPageStyles();
-  const urlMode = isUrlParameterMode();
-  
-  // Apply initial styles
-  applyPageStyles(currentPageStyles);
-  
-  // Apply team card styles immediately and after a delay to catch dynamically loaded cards
-  applyTeamCardStyles();
-  setTimeout(() => {
-    applyTeamCardStyles();
-  }, 500);
-  
-  // Get control elements
-  const bgColorPicker = document.getElementById('page-bg-color-picker');
-  const bgColorHex = document.getElementById('page-bg-color-hex');
-  const bgOpacitySlider = document.getElementById('page-bg-opacity-slider');
-  const bgOpacityInput = document.getElementById('page-bg-opacity-input');
-  const textColorPicker = document.getElementById('page-text-color-picker');
-  const textColorHex = document.getElementById('page-text-color-hex');
-  const resetButton = document.getElementById('reset-page-styles');
-  const toggleButton = document.getElementById('styling-toggle');
-  const panel = document.getElementById('styling-panel');
-
-  // If in URL parameter mode, hide styling controls since they're locked
-  if (urlMode && panel) {
-    panel.style.display = 'none';
-    if (toggleButton) {
-      toggleButton.style.display = 'none';
-    }
-    return; // Don't set up event listeners in URL mode
+    init();
   }
 
-  // Set initial values
-  if (bgColorPicker) bgColorPicker.value = currentPageStyles.backgroundColor;
-  if (bgColorHex) bgColorHex.value = currentPageStyles.backgroundColor;
-  if (bgOpacitySlider) bgOpacitySlider.value = currentPageStyles.backgroundOpacity;
-  if (bgOpacityInput) bgOpacityInput.value = currentPageStyles.backgroundOpacity;
-  if (textColorPicker) textColorPicker.value = currentPageStyles.textColor;
-  if (textColorHex) textColorHex.value = currentPageStyles.textColor;
-
-  updatePagePreviews(currentPageStyles);
-
-  // Event listeners
-  if (toggleButton) toggleButton.addEventListener('click', toggleStylingPanel);
-
-  // Background color picker change
-  if (bgColorPicker) {
-    bgColorPicker.addEventListener('change', (e) => {
-      const color = e.target.value;
-      if (bgColorHex) bgColorHex.value = color;
-      currentPageStyles.backgroundColor = color;
-      updatePagePreviews(currentPageStyles);
-      applyPageStyles(currentPageStyles);
-      savePageStyles(currentPageStyles);
-    });
-  }
-
-  // Background color hex input change
-  if (bgColorHex) {
-    bgColorHex.addEventListener('input', (e) => {
-      const color = e.target.value;
-      if (isValidHex(color)) {
-        if (bgColorPicker) bgColorPicker.value = color;
-        currentPageStyles.backgroundColor = color;
-        updatePagePreviews(currentPageStyles);
-        applyPageStyles(currentPageStyles);
-        savePageStyles(currentPageStyles);
-      }
-    });
-  }
-
-  // Background opacity slider change
-  if (bgOpacitySlider) {
-    bgOpacitySlider.addEventListener('input', (e) => {
-      const opacity = parseInt(e.target.value);
-      if (bgOpacityInput) bgOpacityInput.value = opacity;
-      currentPageStyles.backgroundOpacity = opacity;
-      applyPageStyles(currentPageStyles);
-      savePageStyles(currentPageStyles);
-    });
-  }
-
-  // Background opacity input change
-  if (bgOpacityInput) {
-    bgOpacityInput.addEventListener('input', (e) => {
-      const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-      if (bgOpacitySlider) bgOpacitySlider.value = opacity;
-      e.target.value = opacity;
-      currentPageStyles.backgroundOpacity = opacity;
-      applyPageStyles(currentPageStyles);
-      savePageStyles(currentPageStyles);
-    });
-  }
-
-  // Text color picker change
-  if (textColorPicker) {
-    textColorPicker.addEventListener('change', (e) => {
-      const color = e.target.value;
-      if (textColorHex) textColorHex.value = color;
-      currentPageStyles.textColor = color;
-      updatePagePreviews(currentPageStyles);
-      applyPageStyles(currentPageStyles);
-      savePageStyles(currentPageStyles);
-    });
-  }
-
-  // Text color hex input change
-  if (textColorHex) {
-    textColorHex.addEventListener('input', (e) => {
-      const color = e.target.value;
-      if (isValidHex(color)) {
-        if (textColorPicker) textColorPicker.value = color;
-        currentPageStyles.textColor = color;
-        updatePagePreviews(currentPageStyles);
-        applyPageStyles(currentPageStyles);
-        savePageStyles(currentPageStyles);
-      }
-    });
-  }
-
-  // Reset button
-  if (resetButton) {
-    resetButton.addEventListener('click', () => {
-      // Reset to defaults
-      if (bgColorPicker) bgColorPicker.value = defaultPageStyles.backgroundColor;
-      if (bgColorHex) bgColorHex.value = defaultPageStyles.backgroundColor;
-      if (bgOpacitySlider) bgOpacitySlider.value = defaultPageStyles.backgroundOpacity;
-      if (bgOpacityInput) bgOpacityInput.value = defaultPageStyles.backgroundOpacity;
-      if (textColorPicker) textColorPicker.value = defaultPageStyles.textColor;
-      if (textColorHex) textColorHex.value = defaultPageStyles.textColor;
-
-      // Update current styles object - use explicit assignment for immediate reactivity
-      currentPageStyles.backgroundColor = defaultPageStyles.backgroundColor;
-      currentPageStyles.backgroundOpacity = defaultPageStyles.backgroundOpacity;
-      currentPageStyles.textColor = defaultPageStyles.textColor;
-      
-      updatePagePreviews(currentPageStyles);
-      applyPageStyles(currentPageStyles);
-      savePageStyles(currentPageStyles);
-    });
-  }
-
-  // Re-apply team card styles periodically to catch new cards
-  setInterval(() => {
-    applyTeamCardStyles();
-  }, 3000);
-}
+  window.addEventListener("beforeunload", function () {
+    if (pollInterval) clearInterval(pollInterval);
+    if (typeof LiveTrackerViewer !== "undefined") LiveTrackerViewer.stopAll();
+  });
+})();

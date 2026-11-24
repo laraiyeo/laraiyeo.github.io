@@ -1,40 +1,56 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
-<head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-    <meta charset="UTF-8">
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <!-- BEGIN AUTO REDIRECT TO /use-app.html -->
+    <meta http-equiv="refresh" content="0;url=/use-app.html" />
+    <script>
+      if (location.pathname !== "/use-app.html") {
+        location.replace("/use-app.html");
+      }
+    </script>
+    <!-- END AUTO REDIRECT -->
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
+      crossorigin="anonymous"
+    ></script>
+    <meta charset="UTF-8" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Match Search - NBA</title>
     <link rel="icon" href="icon.png" type="image/png" />
     <link rel="stylesheet" href="style-2.css" />
-    <link rel="stylesheet" href="search.css">
-  <script src="../assets/analytics.js"></script>
-</head>
-<body>
+    <link rel="stylesheet" href="search.css" />
+    <script src="../assets/analytics.js"></script>
+    <script src="../assets/split-screen.js"></script>
+  </head>
+  <body>
     <div id="navbar-container"></div>
 
     <div class="main-content">
-        <div id="search" class="search-section">
-            <h2>Team Search</h2>
-            
-            <div class="search-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="teamSearch">Search for a team:</label>
-                        <input type="text" id="teamSearch" placeholder="Enter team name..." autocomplete="off">
-                        <div id="teamSuggestions" class="suggestions-dropdown"></div>
-                    </div>
-                </div>
+      <div id="search" class="search-section">
+        <h2>Team Search</h2>
+
+        <div class="search-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="teamSearch">Search for a team:</label>
+              <input
+                type="text"
+                id="teamSearch"
+                placeholder="Enter team name..."
+                autocomplete="off"
+              />
+              <div id="teamSuggestions" class="suggestions-dropdown"></div>
             </div>
-            
-            <div id="searchResults" class="search-results"></div>
+          </div>
         </div>
+
+        <div id="searchResults" class="search-results"></div>
+      </div>
     </div>
 
     <script src="navbarLoader.js"></script>
@@ -43,12 +59,10 @@
     <div id="footer-container"></div>
     <script>
       fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
+        .then((response) => response.text())
+        .then((html) => {
           document.getElementById("footer-container").innerHTML = html;
         });
     </script>
-</body>
+  </body>
 </html>
-
-

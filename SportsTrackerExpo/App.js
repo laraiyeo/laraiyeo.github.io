@@ -7,7 +7,14 @@ import {
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
@@ -79,6 +86,9 @@ import analyticsService from "./src/services/AnalyticsService";
 
 // Import Update Service
 import UpdateService from "./src/services/UpdateService";
+
+// Import Cache Janitor (prunes unbounded AsyncStorage caches on launch)
+import CacheJanitor from "./src/services/CacheJanitor";
 
 // Import Emote Service for preloading
 import EmoteService from "./src/services/EmoteService";
@@ -2472,6 +2482,16 @@ const RootStackNavigator = ({
 // Keep the native splash screen visible until we're ready
 ExpoSplashScreen.preventAutoHideAsync();
 
+// Resolve a promise with a fallback value if it doesn't settle within `ms`.
+// Used to keep cold start responsive when the device is offline: Supabase's
+// auth client retries token refresh with exponential backoff (up to ~30s)
+// before rejecting, which would otherwise leave the app on a black screen.
+const withTimeout = (promise, ms, fallback = null) =>
+  Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+
 const AppContent = () => {
   const { setIsPro, isPro } = useBetSlip();
   const { currentColorPalette, changeColorPalette, isDarkMode, theme } =
@@ -2615,8 +2635,15 @@ const AppContent = () => {
     let mounted = true;
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        const session = data?.session || null;
+        // Guard against offline hangs: if the stored session is near expiry,
+        // Supabase tries to refresh it and backs off for up to ~30s when there
+        // is no network. Race it against a short timeout so the app can render.
+        const res = await withTimeout(
+          supabase.auth.getSession(),
+          4000,
+          null,
+        );
+        const session = res?.data?.session || null;
         globalThis.__sportsheartUserId = session?.user?.id || null;
         if (mounted) setHasSession(!!session?.user);
       } catch (e) {
@@ -2632,6 +2659,12 @@ const AppContent = () => {
   }, []);
 
   const initializeBackgroundServices = async () => {
+    // Prune stale AsyncStorage caches (non-blocking) so "Documents & Data"
+    // doesn't grow without bound across sessions.
+    CacheJanitor.prune().catch((err) => {
+      if (__DEV__) console.warn("CacheJanitor prune failed:", err?.message || err);
+    });
+
     // Run analytics init (non-blocking) with extra diagnostics
     try {
       console.log("App.js: starting analytics initialization", {
@@ -3097,7 +3130,22 @@ const AppContent = () => {
     : "Onboarding";
 
   if (showSplash) return <SplashScreen onFinish={handleSplashFinish} />;
-  if (!onboardingReady || (isOnboardingComplete && !authChecked)) return null;
+  if (!onboardingReady || (isOnboardingComplete && !authChecked)) {
+    // Render a themed placeholder instead of `null` so the user never sees a
+    // black screen while we wait for onboarding/auth state to resolve.
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme?.background || "#000000",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator color={theme?.text || "#ffffff"} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer linking={linking} ref={navigationRef}>

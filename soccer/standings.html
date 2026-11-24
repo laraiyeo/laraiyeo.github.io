@@ -1,21 +1,28 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
+      crossorigin="anonymous"
+    ></script>
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soccer Standings</title>
     <link rel="icon" href="soccer-ball-png-24.png" type="image/png" />
     <link rel="stylesheet" href="style-2.css" />
     <script src="../assets/analytics.js"></script>
-</head>
+    <script src="../assets/split-screen.js"></script>
+  </head>
   <body>
     <div id="navbar-container"></div>
 
     <div id="leagueButtons" class="league-buttons"></div>
-    
+
     <div id="seasonSelector"></div>
 
     <div id="standings">
@@ -29,11 +36,10 @@
     <div id="footer-container"></div>
     <script>
       fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
+        .then((response) => response.text())
+        .then((html) => {
           document.getElementById("footer-container").innerHTML = html;
         });
     </script>
   </body>
 </html>
-

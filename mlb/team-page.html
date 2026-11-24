@@ -1,104 +1,88 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
-<head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-    <meta charset="UTF-8">
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Details - MLB</title>
-    <link rel="icon" href="icon.png" type="image/png" />
-    <link rel="stylesheet" href="style-2.css" />
-    <link rel="stylesheet" href="team-page.css">
-  <script src="../assets/analytics.js"></script>
-</head>
-<body>
-    <div id="navbar-container"></div>
-
-    <div id="teamPageContainer">
-        <div id="teamInfo" class="team-info-section">
-            <!-- Team header will be loaded here -->
-        </div>
-
-        <div class="team-content">
-            <!-- Current Game Section -->
-            <div id="currentGame" class="section-card">
-                <h3>Current Game</h3>
-                <div id="currentGameContent">
-                    <div class="loading">Loading current game...</div>
-                </div>
-            </div>
-
-            <!-- Last Matches Section -->
-            <div id="recentMatches" class="section-card">
-                <div class="section-header">
-                    <h3>Last Matches</h3>
-                    <div class="date-picker-container">
-                        <label for="startDatePicker">Start Date:</label>
-                        <input type="date" id="startDatePicker" class="date-picker">
-                    </div>
-                </div>
-                <div id="recentMatchesContent">
-                    <div class="loading">Loading recent matches...</div>
-                </div>
-                <div class="pagination-container">
-                    <button id="prevPage" class="pagination-btn" disabled>Prev</button>
-                    <span id="pageInfo" class="page-info">Page 1</span>
-                    <button id="nextPage" class="pagination-btn" disabled>Next</button>
-                </div>
-            </div>
-
-            <!-- Next 5 Matches Section -->
-            <div id="upcomingMatches" class="section-card">
-                <h3>Next 5 Matches</h3>
-                <div id="upcomingMatchesContent">
-                    <div class="loading">Loading upcoming matches...</div>
-                </div>
-            </div>
-
-            <!-- Team Stats Section -->
-            <div id="teamStats" class="section-card">
-                <h3>Team Statistics</h3>
-                <div id="teamStatsContent">
-                    <div class="loading">Loading team stats...</div>
-                </div>
-            </div>
-
-            <!-- Current Standing Section -->
-            <div id="currentStanding" class="section-card">
-                <h3>Current Standing</h3>
-                <div id="currentStandingContent">
-                    <div class="loading">Loading standings...</div>
-                </div>
-            </div>
-
-            <!-- Players Section -->
-            <div id="playersInfo" class="section-card">
-                <h3>Player Information</h3>
-                <div id="playersInfoContent">
-                    <div class="loading">Loading player information...</div>
-                </div>
-            </div>
-        </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Team - MLB - SportsHeart</title>
+    <link rel="icon" href="/icon.png" type="image/png" />
+    <link rel="stylesheet" href="/assets/dark-mode.css" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="/assets/analytics.js"></script>
+  </head>
+  <body>
+    <div class="screen-size-warning">
+      <div class="screen-size-warning-icon">📱</div>
+      <h2>Desktop Only</h2>
+      <p>
+        SportsHeart is optimized for desktop viewing (1366px+). Download our app
+        for mobile.
+      </p>
+      <div class="store-buttons">
+        <a
+          href="https://apps.apple.com/app/id6754208862"
+          class="store-btn"
+          target="_blank"
+          rel="noopener"
+          >App Store</a
+        >
+        <a
+          href="https://play.google.com/store/apps/details?id=com.sportsheart.app"
+          class="store-btn"
+          target="_blank"
+          rel="noopener"
+          >Google Play</a
+        >
+      </div>
     </div>
 
-    <script src="navbarLoader.js"></script>
-    <script src="navbar.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <nav class="navbar">
+      <div class="navbar-left">
+        <a href="/" class="navbar-logo"
+          ><img
+            src="/icon.png"
+            alt="SportsHeart"
+            onerror="this.style.display = 'none'"
+          /><img
+            style="margin-top: 5px"
+            src="assets/33115791.png"
+            alt="SportsHeart"
+            onerror="this.style.display = 'none'"
+          />
+          <span>SportsHeart</span></a
+        >
+      </div>
+      <div class="navbar-center">
+        <a href="/mlb/aio.html" class="nav-link active">MLB</a>
+        <a href="/nhl/aio.html" class="nav-link">NHL</a>
+        <a href="/nba/aio.html" class="nav-link">NBA</a>
+        <a href="/nfl/aio.html" class="nav-link">NFL</a>
+        <a href="/wnba/aio.html" class="nav-link">WNBA</a>
+      </div>
+      <div class="navbar-right"><div id="auth-button-container"></div></div>
+    </nav>
+
+    <div class="team-page-container">
+      <div class="team-header-banner" id="teamHeader"></div>
+      <div class="team-tabs" id="teamTabs">
+        <button class="team-tab active" data-tab="games">Games</button>
+        <button class="team-tab" data-tab="stats">Stats</button>
+        <button class="team-tab" data-tab="roster">Roster</button>
+        <button class="team-tab" data-tab="standings">Standings</button>
+      </div>
+      <div id="teamContent">
+        <div class="loading"><div class="loading-spinner"></div></div>
+      </div>
+    </div>
+
+    <script src="/assets/sports-data-service.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="/assets/auth.js"></script>
+    <script src="/assets/split-screen.js"></script>
+    <script src="/assets/live-tracker.js"></script>
     <script src="team-page.js"></script>
-    <div id="footer-container"></div>
-    <script>
-      fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
-          document.getElementById("footer-container").innerHTML = html;
-        });
-    </script>
-</body>
+  </body>
 </html>
-
-

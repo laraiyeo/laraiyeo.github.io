@@ -45,6 +45,7 @@ import { useGamePresence } from "../../hooks/useGamePresence";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useTheme } from "../../context/ThemeContext";
 import { NHLService } from "../../services/NHLService";
+import StreamService from "../../services/StreamService";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 
 const { width } = Dimensions.get("window");
@@ -284,199 +285,24 @@ const getNhlMugHeadshotUrl = ({ seasonCode, teamAbbrev, playerId }) => {
   return `https://assets.nhle.com/mugs/nhl/${season}/${team}/${id}.png`;
 };
 
-const STREAM_API_BASE = "https://streamed.pk/api";
-
-const convertToHttps = (url) => {
-  if (url && url.startsWith("http://")) {
-    return url.replace("http://", "https://");
-  }
-  return url;
-};
-
-const fetchLiveMatches = async () => {
-  const sportsToTry = ["ice-hockey", "hockey"];
-  for (const sportKey of sportsToTry) {
-    try {
-      const resp = await fetch(
-        convertToHttps(`${STREAM_API_BASE}/matches/${sportKey}`),
-      );
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      if (Array.isArray(data) && data.length > 0) return data;
-    } catch (e) {
-      console.error("fetchLiveMatches error:", e);
-    }
-  }
-  return [];
-};
-
-const fetchStreamsForSource = async (source, sourceId) => {
-  try {
-    const response = await fetch(
-      convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`),
-    );
-    if (!response.ok) {
-      throw new Error(`Stream API request failed: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
-    return [];
-  }
-};
+// ── Streaming (StreamFree) ───────────────────────────────────────────────────
+const STREAM_SPORT = "nhl";
 
 const normalizeTeamName = (teamName) =>
-  String(teamName || "")
-    .toLowerCase()
-    .replace(
-      /[áéíóúüñçßëïöäåø]/g,
-      (c) =>
-        ({
-          á: "a",
-          é: "e",
-          í: "i",
-          ó: "o",
-          ú: "u",
-          ü: "u",
-          ñ: "n",
-          ç: "c",
-          ß: "ss",
-          ë: "e",
-          ï: "i",
-          ö: "o",
-          ä: "a",
-          å: "a",
-          ø: "o",
-        })[c] || c,
-    )
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  StreamService.normalizeTeamName(teamName);
 
+// Returns { sources, match }. `sources` is a label -> { url, ... } map.
 const findMatchStreams = async (homeTeamName, awayTeamName) => {
   try {
-    const liveMatches = await fetchLiveMatches();
-    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0)
-      return {};
-
-    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
-    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-    const homeFirstWord = homeNormalized.split("-")[0];
-    const awayFirstWord = awayNormalized.split("-")[0];
-    const hasSameCity = homeFirstWord === awayFirstWord;
-
-    let bestMatch = null;
-    let bestScore = 0;
-
-    const quickMatches = liveMatches
-      .slice(0, Math.min(liveMatches.length, 100))
-      .filter((match) => {
-        const title = String(match.title || "").toLowerCase();
-        if (hasSameCity) {
-          return (
-            title.includes(homeNormalized) && title.includes(awayNormalized)
-          );
-        }
-        const homeHasMatch =
-          title.includes(homeNormalized.split("-")[0]) ||
-          title.includes(homeNormalized.split("-")[1] || "") ||
-          (match.teams?.home?.name || "")
-            .toLowerCase()
-            .includes(homeNormalized.split("-")[0]);
-        const awayHasMatch =
-          title.includes(awayNormalized.split("-")[0]) ||
-          title.includes(awayNormalized.split("-")[1] || "") ||
-          (match.teams?.away?.name || "")
-            .toLowerCase()
-            .includes(awayNormalized.split("-")[0]);
-        return homeHasMatch && awayHasMatch;
-      });
-
-    const matchesToProcess =
-      quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
-
-    for (const match of matchesToProcess) {
-      if (!match.sources || match.sources.length === 0) continue;
-      const matchTitle = String(match.title || "").toLowerCase();
-      let totalScore = 0;
-      const titleWords = matchTitle.split(/[\s\-]+/);
-      const homeParts = homeNormalized.split("-").filter((w) => w.length > 2);
-      const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
-
-      homeParts.forEach((part) => {
-        if (titleWords.some((w) => w.includes(part) || part.includes(w))) {
-          totalScore += 0.4;
-        }
-      });
-      awayParts.forEach((part) => {
-        if (titleWords.some((w) => w.includes(part) || part.includes(w))) {
-          totalScore += 0.4;
-        }
-      });
-
-      if (match.teams) {
-        const homeApiName = (match.teams.home?.name || "").toLowerCase();
-        const awayApiName = (match.teams.away?.name || "").toLowerCase();
-        homeParts.forEach((part) => {
-          if (homeApiName.includes(part)) totalScore += 0.6;
-        });
-        awayParts.forEach((part) => {
-          if (awayApiName.includes(part)) totalScore += 0.6;
-        });
-      }
-
-      if (totalScore > bestScore) {
-        bestScore = totalScore;
-        bestMatch = match;
-        if (bestScore >= 1.0) break;
-      }
-    }
-
-    if (!bestMatch || bestScore < 0.3) return {};
-
-    const allStreams = {};
-    for (const source of bestMatch.sources) {
-      try {
-        const sourceStreams = await fetchStreamsForSource(
-          source.source,
-          source.id,
-        );
-        if (sourceStreams && sourceStreams.length > 0) {
-          const firstStream = sourceStreams[0];
-          allStreams[source.source] = {
-            url: firstStream.embedUrl || firstStream.url,
-            embedUrl: firstStream.embedUrl || firstStream.url,
-            source: source.source,
-            title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`,
-          };
-        }
-      } catch (error) {
-        console.error(`Error fetching streams for ${source.source}:`, error);
-      }
-    }
-
-    return allStreams;
+    return await StreamService.findMatchStreams({
+      homeTeamName,
+      awayTeamName,
+      sport: STREAM_SPORT,
+    });
   } catch (error) {
     console.error("Error in findMatchStreams:", error);
-    return {};
+    return { sources: {}, match: null };
   }
-};
-
-const generateStreamUrl = (
-  awayTeamName,
-  homeTeamName,
-  streamType = "alpha1",
-) => {
-  const normalizedAway = normalizeTeamName(awayTeamName);
-  const normalizedHome = normalizeTeamName(homeTeamName);
-  const streamUrls = {
-    alpha1: `https://weakstreams.com/nhl-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
-    alpha2: `https://weakstreams.com/nhl-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
-    bravo: `https://sportsurge.club/hockey/${normalizedAway}-vs-${normalizedHome}`,
-    charlie: `https://sportshd.me/hockey/${normalizedAway}-${normalizedHome}`,
-  };
-  return streamUrls[streamType] || streamUrls.alpha1;
 };
 
 const formatLocalTime = (dateString) => {
@@ -11355,16 +11181,16 @@ const NHLGameDetailsScreen = ({ route }) => {
       const awayTeamName = String(
         liveGame?.away?.name || liveGame?.away?.abbreviation || "",
       ).trim();
-      const streams = await findMatchStreams(homeTeamName, awayTeamName);
+      const { sources } = await findMatchStreams(homeTeamName, awayTeamName);
       const converted = {};
-      Object.keys(streams).forEach((s) => {
-        if (streams[s] && (streams[s].embedUrl || streams[s].url)) {
-          converted[s] = streams[s].embedUrl || streams[s].url;
-        }
+      Object.keys(sources || {}).forEach((s) => {
+        const entry = sources[s];
+        if (entry && entry.url) converted[s] = entry.url;
       });
       setAvailableStreams(converted);
       const keys = Object.keys(converted);
       if (keys.length > 0) setCurrentStreamType(keys[0]);
+      else setCurrentStreamType("");
     } catch (e) {
       console.error("loadStreams error:", e);
       setStreamError(true);
@@ -11392,15 +11218,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const switchStream = (streamType) => {
     setCurrentStreamType(streamType);
     setStreamLoading(true);
-    let newUrl = "";
-    if (availableStreams[streamType]) newUrl = availableStreams[streamType];
-    else {
-      newUrl = generateStreamUrl(
-        String(liveGame?.away?.name || ""),
-        String(liveGame?.home?.name || ""),
-        streamType,
-      );
-    }
+    const newUrl = availableStreams[streamType] || "";
     if (newUrl) {
       setAvailableStreams((prev) => ({
         ...prev,
@@ -11412,7 +11230,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
   const closeStreamModal = () => {
     setShowStreamModal(false);
-    setCurrentStreamType("alpha1");
+    setCurrentStreamType("");
     setAvailableStreams({});
     setStreamError(false);
   };

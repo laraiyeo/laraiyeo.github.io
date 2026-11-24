@@ -26,9 +26,16 @@ app.use(morgan("combined"));
 // CORS configuration
 app.use(
   cors({
-    origin: ["http://localhost:8081", "http://localhost:19006", "http://127.0.0.1:5500", "http://localhost:5500"], // Expo dev servers + live-server
+    origin: [
+      "http://localhost:8081",
+      "http://localhost:19006",
+      "http://127.0.0.1:5500",
+      "http://localhost:5500",
+      "https://sportsheart.ca",
+      "https://www.sportsheart.ca",
+    ],
     credentials: true,
-  })
+  }),
 );
 
 // Rate limiting
@@ -85,7 +92,7 @@ async function startServer() {
   } catch (err) {
     console.error(
       "⚠️ Redis initialization failed (will continue without cache):",
-      err.message || err
+      err.message || err,
     );
   }
 
@@ -96,7 +103,7 @@ async function startServer() {
   } catch (err) {
     console.error(
       "⚠️ Failed to start background jobs (continuing):",
-      err.message || err
+      err.message || err,
     );
   }
 

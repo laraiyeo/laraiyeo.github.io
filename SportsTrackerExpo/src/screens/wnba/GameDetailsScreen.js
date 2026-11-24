@@ -38,6 +38,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { useNavigation } from "@react-navigation/native";
 import { WNBAService } from "../../services/WNBAService";
+import StreamService from "../../services/StreamService";
 import ChatComponent from "../../components/ChatComponent";
 import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useStreamingAccess } from "../../utils/streamingUtils";
@@ -5406,266 +5407,24 @@ const WNBAGameDetailsScreen = ({ route }) => {
     setVisiblePlaysCount(30);
   }, []);
 
-  // Stream API functions (adapted from NFL)
-  const STREAM_API_BASE = "https://streamed.pk/api";
-  let liveMatchesCache = null;
-  let cacheTimestamp = 0;
-  const CACHE_DURATION = 30000; // 30 seconds cache
-
-  const fetchLiveMatches = async () => {
-    try {
-      const now = Date.now();
-      if (liveMatchesCache && now - cacheTimestamp < CACHE_DURATION) {
-        return liveMatchesCache;
-      }
-
-      const response = await fetch(`${STREAM_API_BASE}/matches/basketball`);
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-
-      const allMatches = await response.json();
-      console.log(`Found ${allMatches.length} total live matches`);
-
-      // Filter matches by basketball / wnba
-      const matches = allMatches.filter((match) => {
-        const matchSport = match.sport || match.category;
-        return (
-          matchSport === "basketball" ||
-          matchSport === "wnba" ||
-          (match.title &&
-            (match.title.toLowerCase().includes("wnba") ||
-              match.title.toLowerCase().includes("basketball")))
-        );
-      });
-      console.log(`Filtered to ${matches.length} basketball matches`);
-
-      liveMatchesCache = matches;
-      cacheTimestamp = now;
-
-      return matches;
-    } catch (error) {
-      console.error("Error fetching live matches:", error);
-      return [];
-    }
-  };
-
-  const fetchStreamsForSource = async (source, sourceId) => {
-    try {
-      const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch streams: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error(`Error fetching streams for ${source}:`, error);
-      return [];
-    }
-  };
+  // Stream API functions (StreamFree)
+  const STREAM_SPORT = "wnba";
 
   // Team name normalization for WNBA
-  const normalizeWNBATeamName = (teamName) => {
-    if (!teamName) return "";
-
-    const wnbaMappings = {};
-
-    if (wnbaMappings[teamName]) return wnbaMappings[teamName];
-
-    return teamName
-      .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9\-]/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  };
+  const normalizeWNBATeamName = (teamName) =>
+    StreamService.normalizeTeamName(teamName);
 
   const findWNBAMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      console.log(
-        `Finding WNBA streams for: ${awayTeamName} vs ${homeTeamName}`,
-      );
-
-      const liveMatches = await fetchLiveMatches();
-      if (
-        !liveMatches ||
-        !Array.isArray(liveMatches) ||
-        liveMatches.length === 0
-      ) {
-        console.log("No live WNBA matches data available");
-        return {};
-      }
-
-      const homeNormalized = normalizeWNBATeamName(homeTeamName).toLowerCase();
-      const awayNormalized = normalizeWNBATeamName(awayTeamName).toLowerCase();
-
-      console.log(
-        `Normalized WNBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
-      );
-
-      let bestMatch = null;
-      let bestScore = 0;
-
-      for (let i = 0; i < Math.min(liveMatches.length, 200); i++) {
-        const match = liveMatches[i];
-        if (!match.sources || match.sources.length === 0) continue;
-
-        const matchTitle = (match.title || "").toLowerCase();
-        let totalScore = 0;
-
-        const strategies = [
-          () => {
-            let score = 0;
-            if (
-              matchTitle.includes(homeNormalized) &&
-              matchTitle.includes(awayNormalized)
-            ) {
-              score += 1.0;
-            } else {
-              const homeParts = homeNormalized
-                .split("-")
-                .filter((w) => w.length > 2);
-              const awayParts = awayNormalized
-                .split("-")
-                .filter((w) => w.length > 2);
-              let homeMatches = 0;
-              let awayMatches = 0;
-              homeParts.forEach((part) => {
-                if (matchTitle.includes(part)) homeMatches++;
-              });
-              awayParts.forEach((part) => {
-                if (matchTitle.includes(part)) awayMatches++;
-              });
-              if (homeMatches >= 1 && awayMatches >= 1) score += 0.8;
-            }
-            return score;
-          },
-          () => {
-            let score = 0;
-            if (match.teams) {
-              const homeTeamMatch = (
-                match.teams.home?.name ||
-                match.teams.home?.title ||
-                ""
-              ).toLowerCase();
-              const awayTeamMatch = (
-                match.teams.away?.name ||
-                match.teams.away?.title ||
-                ""
-              ).toLowerCase();
-              if (homeTeamMatch && awayTeamMatch) {
-                if (
-                  homeTeamMatch.includes(homeNormalized.split("-")[0]) &&
-                  awayTeamMatch.includes(awayNormalized.split("-")[0])
-                ) {
-                  score += 0.9;
-                }
-              }
-            }
-            return score;
-          },
-        ];
-
-        strategies.forEach((s) => {
-          totalScore += s();
-        });
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestMatch = match;
-          if (bestScore >= 1.0) break;
-        }
-      }
-
-      if (!bestMatch || bestScore < 0.25) {
-        console.log(
-          `No good matching WNBA live match found (best score: ${bestScore})`,
-        );
-        return {};
-      }
-
-      console.log(
-        `Found matching WNBA match: ${
-          bestMatch.title || bestMatch.id
-        } (score: ${bestScore})`,
-      );
-
-      const allStreams = {};
-      for (const source of bestMatch.sources) {
-        try {
-          const sourceStreams = await fetchStreamsForSource(
-            source.source,
-            source.id,
-          );
-          if (sourceStreams && sourceStreams.length > 0) {
-            const firstStream = sourceStreams[0];
-            const sourceKey = source.source;
-            allStreams[sourceKey] = {
-              url:
-                firstStream.embedUrl ||
-                firstStream.url ||
-                firstStream.embed_url ||
-                firstStream.embed,
-              embedUrl:
-                firstStream.embedUrl ||
-                firstStream.url ||
-                firstStream.embed_url ||
-                firstStream.embed,
-              source: source.source,
-              title: `${
-                source.source.charAt(0).toUpperCase() + source.source.slice(1)
-              } Stream`,
-            };
-            console.log(
-              `Added WNBA stream for ${source.source}:`,
-              allStreams[sourceKey],
-            );
-          }
-        } catch (error) {
-          console.error(
-            `Error fetching WNBA streams for ${source.source}:`,
-            error,
-          );
-        }
-      }
-
-      console.log("Final WNBA streams found:", allStreams);
-      return allStreams;
+      return await StreamService.findMatchStreams({
+        homeTeamName,
+        awayTeamName,
+        sport: STREAM_SPORT,
+      });
     } catch (error) {
       console.error("Error in findWNBAMatchStreams:", error);
-      return {};
+      return { sources: {}, match: null };
     }
-  };
-
-  const generateWNBAStreamUrl = (
-    awayTeamName,
-    homeTeamName,
-    streamType = "alpha",
-  ) => {
-    const normalizedAway = normalizeWNBATeamName(awayTeamName);
-    const normalizedHome = normalizeWNBATeamName(homeTeamName);
-    const streamUrls = {
-      alpha: `https://weakstreams.com/wnba-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
-      bravo: `https://sportsurge.club/wnba/${normalizedAway}-vs-${normalizedHome}`,
-      charlie: `https://sportshd.me/wnba/${normalizedAway}-${normalizedHome}`,
-    };
-    return streamUrls[streamType] || streamUrls.alpha;
   };
 
   // Stream modal functions
@@ -5736,7 +5495,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       // Show modal immediately so user sees something while we fetch
       setAvailableStreams({});
       setStreamUrl("");
-      setCurrentStreamType("alpha");
+      setCurrentStreamType("");
       setStreamModalVisible(true);
       setIsStreamLoading(true);
 
@@ -5753,40 +5512,19 @@ const WNBAGameDetailsScreen = ({ route }) => {
         awayTeam.abbreviation ||
         "";
 
-      const streams = await findWNBAMatchStreams(homeName, awayName);
-      console.log("openStreamModal: streams result =", streams);
-      setAvailableStreams(streams || {});
+      const { sources } = await findWNBAMatchStreams(homeName, awayName);
+      setAvailableStreams(sources || {});
 
-      let initialUrl = "";
-      let initialStreamType = "";
-
-      const streamKeys = Object.keys(streams || {});
+      const streamKeys = Object.keys(sources || {});
       if (streamKeys.length > 0) {
-        const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
-        initialStreamType =
-          preferredOrder.find((type) => streamKeys.includes(type)) ||
-          streamKeys[0];
-
-        const streamData = streams[initialStreamType];
-        initialUrl = streamData?.embedUrl || streamData?.url || streamData;
+        const initialStreamType = streamKeys[0];
         setCurrentStreamType(initialStreamType);
+        setStreamUrl(sources[initialStreamType].url);
       } else {
-        initialStreamType = "alpha";
-        initialUrl = generateWNBAStreamUrl(
-          awayName,
-          homeName,
-          initialStreamType,
-        );
-        setCurrentStreamType(initialStreamType);
+        setCurrentStreamType("");
+        setStreamUrl("");
       }
 
-      console.log(
-        "openStreamModal: initialStreamType =",
-        initialStreamType,
-        "initialUrl =",
-        initialUrl,
-      );
-      setStreamUrl(initialUrl);
       setIsStreamLoading(false);
     } catch (err) {
       console.error("openStreamModal: caught error", err);
@@ -5795,32 +5533,18 @@ const WNBAGameDetailsScreen = ({ route }) => {
   };
 
   const switchStream = (streamType) => {
+    const entry = availableStreams[streamType];
+    if (!entry) return;
     setCurrentStreamType(streamType);
     setIsStreamLoading(true);
-    let newUrl = "";
-    if (availableStreams[streamType]) {
-      const streamData = availableStreams[streamType];
-      newUrl = streamData.embedUrl || streamData.url || streamData;
-    } else {
-      const awayTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away",
-      )?.team;
-      const homeTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home",
-      )?.team;
-      newUrl = generateWNBAStreamUrl(
-        awayTeam?.displayName || awayTeam?.name,
-        homeTeam?.displayName || homeTeam?.name,
-        streamType,
-      );
-    }
-    setStreamUrl(newUrl);
+    setStreamUrl(entry.url);
     setTimeout(() => setIsStreamLoading(false), 1000);
   };
 
   const closeStreamModal = () => {
     setStreamModalVisible(false);
     setStreamUrl("");
+    setCurrentStreamType("");
     setIsStreamLoading(true);
   };
 
@@ -10095,37 +9819,45 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 >
                   {Object.keys(availableStreams)
                     .slice(0, 5)
-                    .map((source) => (
-                      <TouchableOpacity
-                        key={source}
-                        style={[
-                          styles.streamSourceButton,
-                          {
-                            backgroundColor:
-                              currentStreamType === source
-                                ? colors.primary
-                                : theme.surfaceSecondary,
-                          },
-                          { borderColor: theme.border },
-                        ]}
-                        onPress={() => switchStream(source)}
-                      >
-                        <Text
-                          allowFontScaling={false}
+                    .map((source) => {
+                      const entry = availableStreams[source] || {};
+                      const label = entry.label || source;
+                      const quality = entry.quality
+                        ? ` · ${entry.quality}`
+                        : "";
+                      return (
+                        <TouchableOpacity
+                          key={source}
                           style={[
-                            styles.streamSourceButtonText,
+                            styles.streamSourceButton,
                             {
-                              color:
+                              backgroundColor:
                                 currentStreamType === source
-                                  ? "#fff"
-                                  : colors.primary,
+                                  ? colors.primary
+                                  : theme.surfaceSecondary,
                             },
+                            { borderColor: theme.border },
                           ]}
+                          onPress={() => switchStream(source)}
                         >
-                          {source.charAt(0).toUpperCase() + source.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.streamSourceButtonText,
+                              {
+                                color:
+                                  currentStreamType === source
+                                    ? "#fff"
+                                    : colors.primary,
+                              },
+                            ]}
+                          >
+                            {label}
+                            {quality}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                 </ScrollView>
 
                 {/* WebView Container */}

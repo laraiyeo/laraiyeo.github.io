@@ -1,0 +1,7 @@
+$css = [System.IO.File]::ReadAllLines('c:\live-sports-tracker\nhl\style.css')
+Write-Output ("total: " + $css.Count)
+Write-Output ("line3: " + $css[2])
+Write-Output ("line4: " + $css[3])
+Write-Output ("line585: " + $css[584])
+Write-Output ("line586: " + $css[585])
+Write-Output ("line587: " + $css[586])

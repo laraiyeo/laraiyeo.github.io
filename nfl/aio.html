@@ -1,87 +1,57 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-  <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-    <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>All Games - NFL Live Tracker</title>
-    <link rel="icon" href="football.png" type="image/png" />
-    <link rel="stylesheet" href="style.css" />
-    <script src="../assets/analytics.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFL - SportsHeart</title>
+    <link rel="icon" href="/assets/33115791.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/dark-mode.css" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="/assets/analytics.js"></script>
 </head>
-  <body>
-    <div id="navbar-container"></div>
-
-    <div id="scoreboard">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-        <h2 style="margin: 0; color: black;">All Games Today</h2>
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <label for="ticker-speed" style="font-size: 0.9em; font-weight: bold; color: #333;">Ticker Speed:</label>
-            <input type="number" id="ticker-speed" min="1" max="30" value="5" 
-                   style="width: 60px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 0.9em;">
-            <span style="font-size: 0.85em; color: #666;">sec</span>
-          </div>
-          <button id="ticker-button" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
-            📺 Ticker
-          </button>
-        </div>
-      </div>
-
-      <!-- Live Games Section -->
-      <div id="live-section">
-        <h3 class="section-header">🔴 Live Games</h3>
-        <div id="liveGamesContainer" class="games-container"></div>
-        <div id="no-live-games" class="no-games" style="display: none;">
-          No live games at the moment
-        </div>
-      </div>
-
-      <!-- Scheduled Games Section -->
-      <div id="scheduled-section">
-        <h3 class="section-header">📅 Scheduled Games</h3>
-        <div id="scheduledGamesContainer" class="games-container"></div>
-        <div id="no-scheduled-games" class="no-games" style="display: none;">
-          No scheduled games today
-        </div>
-      </div>
-
-      <!-- Finished Games Section -->
-      <div id="finished-section">
-        <h3 class="section-header">✅ Finished Games</h3>
-        <div id="finishedGamesContainer" class="games-container"></div>
-        <div id="no-finished-games" class="no-games" style="display: none;">
-          No finished games today
-        </div>
-      </div>
+<body>
+  <div class="screen-size-warning">
+    <div class="screen-size-warning-icon">📱</div>
+    <h2>Desktop Only</h2>
+    <p>SportsHeart is optimized for desktop viewing (1366px+). Download our app for mobile.</p>
+    <div class="store-buttons">
+      <a href="https://apps.apple.com/app/id6754208862" class="store-btn" target="_blank" rel="noopener">App Store</a>
+      <a href="https://play.google.com/store/apps/details?id=com.sportsheart.app" class="store-btn" target="_blank" rel="noopener">Google Play</a>
     </div>
+  </div>
 
-    <script src="navbarLoader.js"></script>
-    <script src="navbar.js"></script>
-    <script src="aio.js"></script>
-    <div id="footer-container"></div>
-    <script>
-      // Ticker button functionality
-      document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('ticker-button').addEventListener('click', function() {
-          const speed = document.getElementById('ticker-speed').value || 5;
-          window.open(`ticker.html?speed=${speed}`, '_blank', 'width=1920,height=50,toolbar=no,menubar=no,scrollbars=no,resizable=yes,location=no,status=no');
-        });
-      });
-      
-      // Footer loading
-      fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
-          document.getElementById("footer-container").innerHTML = html;
-        });
-    </script>
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="/" class="navbar-logo"><img style="margin-top: 5px;" src="/assets/33115791.png" alt="SportsHeart" onerror="this.style.display='none'"><span>SportsHeart</span></a>
+    </div>
+    <div class="navbar-center">
+      <a href="/mlb/aio.html" class="nav-link">MLB</a>
+      <a href="/nhl/aio.html" class="nav-link">NHL</a>
+      <a href="/nba/aio.html" class="nav-link">NBA</a>
+      <a href="/nfl/aio.html" class="nav-link active">NFL</a>
+      <a href="/wnba/aio.html" class="nav-link">WNBA</a>
+    </div>
+    <div class="navbar-right"><div id="auth-button-container"></div></div>
+  </nav>
+
+  <div class="date-picker-row">
+    <div class="date-picker-bar" id="datePickerBar"></div>
+    <a href="teams.html" class="to-teams-btn">To Teams Page</a>
+  </div>
+
+  <div id="mlbGrid" style="padding:0 20px 40px;">
+    <div class="loading"><div class="loading-spinner"></div></div>
+  </div>
+
+  <script src="/assets/sports-data-service.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/assets/auth.js"></script>
+  <script src="/assets/split-screen.js"></script>
+  <script src="/assets/live-tracker.js"></script>
+  <script src="aio.js"></script>
+</body>
+</html>
   </body>
 </html>
 

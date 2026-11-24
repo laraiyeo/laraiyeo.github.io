@@ -1,21 +1,28 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
+      crossorigin="anonymous"
+    ></script>
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>All Teams - F1 Live Tracker</title>
     <link rel="icon" href="F1-Logo.png" type="image/png" />
-    <link rel="stylesheet" href="style.css"/>
+    <link rel="stylesheet" href="style.css" />
     <script src="../assets/analytics.js"></script>
-</head>
+    <script src="../assets/split-screen.js"></script>
+  </head>
   <body>
     <div id="navbar-container"></div>
 
     <div id="scoreboard">
-      <h2 style="color: black;">All F1 Teams</h2>
+      <h2 style="color: black">All F1 Teams</h2>
       <div id="teamsContainer" class="teams-container"></div>
     </div>
 
@@ -25,12 +32,10 @@
     <div id="footer-container"></div>
     <script>
       fetch("footer.html")
-        .then(response => response.text())
-        .then(html => {
+        .then((response) => response.text())
+        .then((html) => {
           document.getElementById("footer-container").innerHTML = html;
         });
     </script>
   </body>
 </html>
-
-

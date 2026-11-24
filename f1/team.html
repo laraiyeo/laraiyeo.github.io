@@ -55,6 +55,7 @@
     </style>
 
     <script src="../assets/analytics.js"></script>
+    <script src="../assets/split-screen.js"></script>
   </head>
   <body>
     <div id="scaleWrapper">
@@ -160,18 +161,18 @@
 
         function getTeamColor(constructorName) {
           const colorMap = {
-      Mercedes: "00D7B6",
-      "Red Bull": "4781D7",
-      Ferrari: "ED1131",
-      McLaren: "F47600",
-      Alpine: "00A1E8",
-      "Racing Bulls": "6C98FF",
-      "Aston Martin": "229971",
-      Williams: "1878D8",
-      Sauber: "52E252",
-      Haas: "9C9FA2",
-      Audi: "F50537",
-      Cadillac: "909090",
+            Mercedes: "00D7B6",
+            "Red Bull": "4781D7",
+            Ferrari: "ED1131",
+            McLaren: "F47600",
+            Alpine: "00A1E8",
+            "Racing Bulls": "6C98FF",
+            "Aston Martin": "229971",
+            Williams: "1878D8",
+            Sauber: "52E252",
+            Haas: "9C9FA2",
+            Audi: "F50537",
+            Cadillac: "909090",
           };
 
           return colorMap[constructorName] || "000000";

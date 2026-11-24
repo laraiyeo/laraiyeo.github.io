@@ -42,6 +42,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import sportsFavs from "../../services/sports-favs";
 import WBCService from "../../services/WBCService";
+import StreamService from "../../services/StreamService";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import ChatComponent from "../../components/ChatComponent";
@@ -10297,8 +10298,8 @@ const SeriesGameCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {away?.leagueRecord.wins || "W"} -{" "}
-                {away?.leagueRecord.losses || "L"}
+                {away?.leagueRecord.wins || "0"} -{" "}
+                {away?.leagueRecord.losses || "0"}
               </Text>
             </View>
           </View>
@@ -10421,8 +10422,8 @@ const SeriesGameCard = ({
                 ]}
                 numberOfLines={1}
               >
-                {home?.leagueRecord.wins || "W"} -{" "}
-                {home?.leagueRecord.losses || "L"}
+                {home?.leagueRecord.wins || "0"} -{" "}
+                {home?.leagueRecord.losses || "0"}
               </Text>
             </View>
 
@@ -11342,247 +11343,24 @@ const GameDetailsScreen = ({ navigation, route }) => {
     return { homeWins, awayWins };
   }, [awayTeam?.id, homeTeam?.id, seriesFilteredGames]);
 
-  // ── Streaming helpers ──────────────────────────────────────────────────────
-  const STREAM_API_BASE = "https://streamed.pk/api";
-  let liveMatchesCache = null;
-  let cacheTimestamp = 0;
-  const CACHE_DURATION = 30000; // 30 seconds cache
+  // ── Streaming helpers (StreamFree) ─────────────────────────────────────────
+  const STREAM_SPORT = "mlb";
 
-  const fetchLiveMatches = async () => {
-    try {
-      const now = Date.now();
-      if (liveMatchesCache && now - cacheTimestamp < CACHE_DURATION) {
-        return liveMatchesCache;
-      }
+  const normalizeTeamName = (teamName) =>
+    StreamService.normalizeTeamName(teamName);
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/baseball`);
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-
-      const allMatches = await response.json();
-      const matches = allMatches.filter((match) => {
-        const matchSport = match.sport || match.category;
-        return matchSport === "baseball";
-      });
-
-      liveMatchesCache = matches;
-      cacheTimestamp = now;
-      return matches;
-    } catch (error) {
-      console.error("Error fetching live matches:", error);
-      return null;
-    }
-  };
-
-  const fetchStreamsForSource = async (source, sourceId) => {
-    try {
-      const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
-      );
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error(`Error fetching streams for ${source}:`, error);
-      return [];
-    }
-  };
-
-  const normalizeTeamName = (teamName) => {
-    const nameMap = {
-      "Arizona Diamondbacks": "arizona-diamondbacks",
-      "Atlanta Braves": "atlanta-braves",
-      "Baltimore Orioles": "baltimore-orioles",
-      "Boston Red Sox": "boston-red-sox",
-      "Chicago White Sox": "chicago-white-sox",
-      "Chicago Cubs": "chicago-cubs",
-      "Cincinnati Reds": "cincinnati-reds",
-      "Cleveland Guardians": "cleveland-guardians",
-      "Colorado Rockies": "colorado-rockies",
-      "Detroit Tigers": "detroit-tigers",
-      "Houston Astros": "houston-astros",
-      "Kansas City Royals": "kansas-city-royals",
-      "Los Angeles Angels": "los-angeles-angels",
-      "Los Angeles Dodgers": "los-angeles-dodgers",
-      "Miami Marlins": "miami-marlins",
-      "Milwaukee Brewers": "milwaukee-brewers",
-      "Minnesota Twins": "minnesota-twins",
-      "New York Yankees": "new-york-yankees",
-      "New York Mets": "new-york-mets",
-      Athletics: "athletics",
-      "Philadelphia Phillies": "philadelphia-phillies",
-      "Pittsburgh Pirates": "pittsburgh-pirates",
-      "San Diego Padres": "san-diego-padres",
-      "San Francisco Giants": "san-francisco-giants",
-      "Seattle Mariners": "seattle-mariners",
-      "St. Louis Cardinals": "st-louis-cardinals",
-      "Tampa Bay Rays": "tampa-bay-rays",
-      "Texas Rangers": "texas-rangers",
-      "Toronto Blue Jays": "toronto-blue-jays",
-      "Washington Nationals": "washington-nationals",
-    };
-
-    if (nameMap[teamName]) return nameMap[teamName];
-
-    return teamName
-      .toLowerCase()
-      .replace(
-        /[áéíóúüñçßëïöäåø]/g,
-        (c) =>
-          ({
-            á: "a",
-            é: "e",
-            í: "i",
-            ó: "o",
-            ú: "u",
-            ü: "u",
-            ñ: "n",
-            ç: "c",
-            ß: "ss",
-            ë: "e",
-            ï: "i",
-            ö: "o",
-            ä: "a",
-            å: "a",
-            ø: "o",
-          })[c] || c,
-      )
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9\-]/g, "")
-      .replace(/-+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  };
-
+  // Returns { sources, match }. `sources` is a label -> { url, ... } map.
   const findMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      const liveMatches = await fetchLiveMatches();
-      if (
-        !liveMatches ||
-        !Array.isArray(liveMatches) ||
-        liveMatches.length === 0
-      ) {
-        return {};
-      }
-
-      const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
-      const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-      const homeFirstWord = homeNormalized.split("-")[0];
-      const awayFirstWord = awayNormalized.split("-")[0];
-      const hasSameCity = homeFirstWord === awayFirstWord;
-
-      let bestMatch = null;
-      let bestScore = 0;
-
-      const quickMatches = liveMatches
-        .slice(0, Math.min(liveMatches.length, 100))
-        .filter((match) => {
-          const title = match.title.toLowerCase();
-          if (hasSameCity) {
-            return (
-              title.includes(homeNormalized) && title.includes(awayNormalized)
-            );
-          }
-          const homeHasMatch =
-            title.includes(homeNormalized.split("-")[0]) ||
-            title.includes(homeNormalized.split("-")[1] || "") ||
-            match.teams?.home?.name
-              ?.toLowerCase()
-              .includes(homeNormalized.split("-")[0]);
-          const awayHasMatch =
-            title.includes(awayNormalized.split("-")[0]) ||
-            title.includes(awayNormalized.split("-")[1] || "") ||
-            match.teams?.away?.name
-              ?.toLowerCase()
-              .includes(awayNormalized.split("-")[0]);
-          return homeHasMatch && awayHasMatch;
-        });
-
-      const matchesToProcess =
-        quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
-
-      for (const match of matchesToProcess) {
-        if (!match.sources || match.sources.length === 0) continue;
-
-        const matchTitle = match.title.toLowerCase();
-        let totalScore = 0;
-
-        const titleWords = matchTitle.split(/[\s\-]+/);
-        const homeParts = homeNormalized.split("-").filter((w) => w.length > 2);
-        const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
-
-        homeParts.forEach((part) => {
-          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
-            totalScore += 0.4;
-        });
-        awayParts.forEach((part) => {
-          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
-            totalScore += 0.4;
-        });
-
-        if (match.teams) {
-          const homeApiName = match.teams.home?.name?.toLowerCase() || "";
-          const awayApiName = match.teams.away?.name?.toLowerCase() || "";
-          homeParts.forEach((part) => {
-            if (homeApiName.includes(part)) totalScore += 0.6;
-          });
-          awayParts.forEach((part) => {
-            if (awayApiName.includes(part)) totalScore += 0.6;
-          });
-        }
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestMatch = match;
-          if (bestScore >= 1.0) break;
-        }
-      }
-
-      if (!bestMatch || bestScore < 0.3) return {};
-
-      const allStreams = {};
-      for (const source of bestMatch.sources) {
-        try {
-          const sourceStreams = await fetchStreamsForSource(
-            source.source,
-            source.id,
-          );
-          if (sourceStreams && sourceStreams.length > 0) {
-            const firstStream = sourceStreams[0];
-            allStreams[source.source] = {
-              url: firstStream.embedUrl || firstStream.url,
-              embedUrl: firstStream.embedUrl || firstStream.url,
-              source: source.source,
-              title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`,
-            };
-          }
-        } catch (error) {
-          console.error(`Error fetching streams for ${source.source}:`, error);
-        }
-      }
-
-      return allStreams;
+      return await StreamService.findMatchStreams({
+        homeTeamName,
+        awayTeamName,
+        sport: STREAM_SPORT,
+      });
     } catch (error) {
       console.error("Error in findMatchStreams:", error);
-      return {};
+      return { sources: {}, match: null };
     }
-  };
-
-  const generateStreamUrl = (
-    awayTeamName,
-    homeTeamName,
-    streamType = "alpha1",
-  ) => {
-    const normalizedAway = normalizeTeamName(awayTeamName);
-    const normalizedHome = normalizeTeamName(homeTeamName);
-    const streamUrls = {
-      alpha1: `https://weakstreams.com/mlb-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
-      alpha2: `https://weakstreams.com/mlb-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
-      bravo: `https://sportsurge.club/mlb/${normalizedAway}-vs-${normalizedHome}`,
-      charlie: `https://sportshd.me/mlb/${normalizedAway}-${normalizedHome}`,
-    };
-    return streamUrls[streamType] || streamUrls.alpha1;
   };
 
   const openStreamModal = async () => {
@@ -11609,52 +11387,35 @@ const GameDetailsScreen = ({ navigation, route }) => {
     setStreamModalVisible(true);
     setIsStreamLoading(true);
 
-    const streams = await findMatchStreams(homeTeam.name, awayTeam.name);
-    setAvailableStreams(streams);
+    const { sources } = await findMatchStreams(homeTeam.name, awayTeam.name);
+    setAvailableStreams(sources || {});
 
-    let initialUrl = "";
-    let initialStreamType = "";
-    const streamKeys = Object.keys(streams);
+    const streamKeys = Object.keys(sources || {});
     if (streamKeys.length > 0) {
-      const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
-      initialStreamType =
-        preferredOrder.find((type) => streamKeys.includes(type)) ||
-        streamKeys[0];
-      const streamData = streams[initialStreamType];
-      initialUrl = streamData.embedUrl || streamData.url || streamData;
+      const initialStreamType = streamKeys[0];
       setCurrentStreamType(initialStreamType);
+      setStreamUrl(sources[initialStreamType].url);
     } else {
-      initialStreamType = "alpha";
-      initialUrl = generateStreamUrl(
-        awayTeam.name,
-        homeTeam.name,
-        initialStreamType,
-      );
-      setCurrentStreamType(initialStreamType);
+      setCurrentStreamType("");
+      setStreamUrl("");
     }
 
-    setStreamUrl(initialUrl);
     setIsStreamLoading(false);
   };
 
   const switchStream = (streamType) => {
+    const entry = availableStreams[streamType];
+    if (!entry) return;
     setCurrentStreamType(streamType);
     setIsStreamLoading(true);
-    let newUrl = "";
-    if (availableStreams[streamType]) {
-      const streamData = availableStreams[streamType];
-      newUrl = streamData.embedUrl || streamData.url || streamData;
-    } else {
-      newUrl = generateStreamUrl(awayTeam?.name, homeTeam?.name, streamType);
-    }
-    setStreamUrl(newUrl);
+    setStreamUrl(entry.url);
     setTimeout(() => setIsStreamLoading(false), 1000);
   };
 
   const closeStreamModal = () => {
     setStreamModalVisible(false);
     setStreamUrl("");
-    setCurrentStreamType("alpha1");
+    setCurrentStreamType("");
     setAvailableStreams({});
   };
 
@@ -13408,8 +13169,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 contentContainerStyle={styles.streamButtonsContent}
               >
                 {Object.keys(availableStreams).map((streamKey) => {
-                  const capitalizedName =
-                    streamKey.charAt(0).toUpperCase() + streamKey.slice(1);
+                  const entry = availableStreams[streamKey] || {};
+                  const label = entry.label || streamKey;
+                  const quality = entry.quality ? ` · ${entry.quality}` : "";
                   return (
                     <TouchableOpacity
                       key={streamKey}
@@ -13437,7 +13199,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                           },
                         ]}
                       >
-                        {capitalizedName}
+                        {label}
+                        {quality}
                       </Text>
                     </TouchableOpacity>
                   );

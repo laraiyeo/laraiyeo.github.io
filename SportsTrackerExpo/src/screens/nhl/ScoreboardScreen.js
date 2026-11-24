@@ -2012,12 +2012,12 @@ const nhlGridStyles = StyleSheet.create({
     opacity: 0.35,
   },
   teamLogo: {
-    width: 50,
+    width: 65,
     height: 50,
     marginBottom: 5,
   },
   teamLogoPlaceholder: {
-    width: 50,
+    width: 65,
     height: 50,
     borderRadius: 20,
     justifyContent: "center",
@@ -2045,7 +2045,7 @@ const nhlGridStyles = StyleSheet.create({
     position: "absolute",
     bottom: -5,
     right: -5,
-    width: 30,
+    width: 35,
     height: 30,
     opacity: 0.75,
   },

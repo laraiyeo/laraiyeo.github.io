@@ -1,34 +1,126 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NHL Game Scoreboard</title>
-    <link rel="icon" href="icon.png" type="image/png" />
-    <link rel="stylesheet" href="style-1.css" />
-    <script src="../assets/analytics.js"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5256386471137141"
-     crossorigin="anonymous"></script>
-</head>
+    <title>NHL Game - SportsHeart</title>
+    <link rel="icon" href="/assets/33115791.png" type="image/png" />
+    <link rel="stylesheet" href="/assets/dark-mode.css" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="/assets/analytics.js"></script>
+  </head>
   <body>
-    <div id="scoreboardContainer">
-      <!-- Game Header, Period State, Time Left -->
-      <div id="topScoreboard" class="top-scoreboard"></div>
-
-      <!-- Play description -->
-      <div id="playDescription" class="play-description"></div>
-
-      <!-- Player stats -->
-      <div id="playerStats" class="player-stats"></div>
+    <div class="screen-size-warning">
+      <div class="screen-size-warning-icon">📱</div>
+      <h2>Desktop Only</h2>
+      <p>
+        SportsHeart is optimized for desktop viewing (1366px+). Download our app
+        for mobile.
+      </p>
+      <div class="store-buttons">
+        <a
+          href="https://apps.apple.com/app/id6754208862"
+          class="store-btn"
+          target="_blank"
+          rel="noopener"
+          >App Store</a
+        >
+        <a
+          href="https://play.google.com/store/apps/details?id=com.sportsheart.app"
+          class="store-btn"
+          target="_blank"
+          rel="noopener"
+          >Google Play</a
+        >
+      </div>
     </div>
 
+    <nav class="navbar">
+      <div class="navbar-left">
+        <a href="/" class="navbar-logo"><img style="margin-top: 5px;" src="/assets/33115791.png" alt="SportsHeart" onerror="this.style.display='none'"><span>SportsHeart</span></a>
+      </div>
+      <div class="navbar-center">
+        <a href="/mlb/aio.html" class="nav-link">MLB</a>
+        <a href="/nhl/aio.html" class="nav-link active">NHL</a>
+        <a href="/nba/aio.html" class="nav-link">NBA</a>
+        <a href="/nfl/aio.html" class="nav-link">NFL</a>
+        <a href="/wnba/aio.html" class="nav-link">WNBA</a>
+      </div>
+      <div class="navbar-right"><div id="auth-button-container"></div></div>
+    </nav>
+
+    <div class="sb-container" id="sbContainer">
+      <div
+        class="sb-sticky-header"
+        id="sbStickyHeader"
+        style="display: none"
+      ></div>
+      <div class="sb-header" id="sbHeader">
+        <div class="loading"><div class="loading-spinner"></div></div>
+      </div>
+      <!-- Split panels — each has its own tab bar (rendered by scoreboard.js) -->
+      <div class="sb-split" id="sbSplit">
+        <div class="sb-panel" id="sbLeftPanel">
+          <div class="sb-panel-tabs" id="sbLeftTabs"></div>
+          <div class="sb-panel-body" id="sbLeftBody">
+            <div class="loading"><div class="loading-spinner"></div></div>
+          </div>
+        </div>
+        <div class="sb-panel" id="sbRightPanel">
+          <div class="sb-panel-tabs" id="sbRightTabs"></div>
+          <div class="sb-panel-body" id="sbRightBody">
+            <div class="loading"><div class="loading-spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player detail modal (no copy card) -->
+    <div class="sb-modal-overlay" id="sbPlayerModal" style="display: none">
+      <div class="sb-modal-sheet">
+        <div class="sb-modal-drag-strip">
+          <div class="sb-modal-handle"></div>
+          <div class="sb-modal-close" id="sbPlayerModalClose">✕</div>
+        </div>
+        <div class="sb-modal-body" id="sbPlayerModalBody"></div>
+      </div>
+    </div>
+
+    <!-- Live stream modal -->
+    <div class="sb-stream-overlay" id="sbStreamModal" style="display: none">
+      <div class="sb-stream-container">
+        <div class="sb-stream-header">
+          <span class="sb-stream-title">Live Stream</span>
+          <button class="sb-stream-close" id="sbStreamClose">×</button>
+        </div>
+        <div class="sb-stream-buttons" id="sbStreamButtons"></div>
+        <div class="sb-stream-view">
+          <div class="sb-stream-loading" id="sbStreamLoading">
+            <div class="loading-spinner"></div>
+            <span>Loading stream...</span>
+          </div>
+          <iframe
+            id="sbStreamFrame"
+            class="sb-stream-frame"
+            style="display: none"
+            allowfullscreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            referrerpolicy="no-referrer"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/sports-data-service.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="/assets/auth.js"></script>
+    <script src="/assets/split-screen.js"></script>
+    <script src="/assets/live-tracker.js"></script>
+    <script src="/assets/stream-service.js"></script>
     <script src="scoreboard.js"></script>
   </body>
 </html>
-
-

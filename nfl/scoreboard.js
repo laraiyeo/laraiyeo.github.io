@@ -1,3528 +1,2505 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
+// ─── NFL Scoreboard ───────────────────────────────────────────────────────────
+// Mirrors the app's GameDetailsScreen: NHL-style header (venue row, team sides
+// with score-beside-logo, possession badge, status center, down & distance),
+// sticky mini header, 5-tab split view (Main / Drives / Away / Home / Stats),
+// player modal and live streaming. No copy/share cards.
+// Data source: ESPN summary API + ESPN core drives API
+// Pattern follows mlb/scoreboard.js (render guard, tab mutual exclusion,
+// split-view collapse, quiet polling, LiveTrackerViewer).
 
-// Function to convert any URL to HTTPS
-function convertToHttps(url) {
-  if (typeof url !== 'string') return url;
-  return url.replace(/^http:\/\//i, 'https://');
-}
+(function () {
+  "use strict";
 
-// NFL Position Groupings for Scoring Cards
-function getPositionGroup(position) {
-  const positionGroups = {
-    'QB': 'QB',
-    'RB': 'RB', 'FB': 'RB',
-    'WR': 'WR/TE', 'TE': 'WR/TE',
-    'OT': 'OL', 'G': 'OL', 'C': 'OL', 'OL': 'OL',
-    'DE': 'DL/LB', 'DT': 'DL/LB', 'LB': 'DL/LB', 'OLB': 'DL/LB', 'MLB': 'DL/LB', 'ILB': 'DL/LB',
-    'CB': 'DB', 'S': 'DB', 'FS': 'DB', 'SS': 'DB', 'DB': 'DB',
-    'K': 'K/P', 'P': 'K/P', 'PK': 'K/P',
-    'LS': 'LS'
-  };
-  
-  return positionGroups[position] || 'OTHER';
-}
+  const POLL_LIVE_MS = 5000;
+  const POLL_IDLE_MS = 30000;
+  const DRIVES_BASE =
+    "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events";
 
-// Get relevant stats for position group for scoring cards
-function getPositionStatsForCard(positionGroup, boxScoreData, playerName, preferredStatCategory = null) {
-  console.log('getPositionStatsForCard called with:', { positionGroup, playerName, preferredStatCategory, hasBoxScore: !!boxScoreData });
-  
-  if (!boxScoreData || !boxScoreData.gamepackageJSON?.boxscore?.players) {
-    console.log('No box score data available');
-    return [];
+  let gameId = null;
+  let gameData = null; // ESPN summary JSON
+  let drivesData = null; // resolved drives (teams + plays)
+  let pollTimer = null;
+  // Persist resolved team $refs across polls so each team is fetched once.
+  const teamRefCache = new Map();
+  let leftTab = "Main";
+  let rightTab = "Drives";
+  let splitViewActive = false;
+  let selectedDriveIdx = null; // index within reversed (newest-first) list
+  let expandedPlayId = null;
+  let teamFilter = { away: "", home: "" }; // boxscore category filter per side
+
+  // ─── Streaming state ────────────────────────────────────────────────────────
+  let streamModalVisible = false;
+  let currentStreamType = "";
+  let availableStreams = {};
+  let streamUrl = "";
+
+  const $ = (s) => document.querySelector(s);
+  const sbHeader = $("#sbHeader");
+  const sbStickyHeader = $("#sbStickyHeader");
+  const sbLeftTabs = $("#sbLeftTabs");
+  const sbRightTabs = $("#sbRightTabs");
+  const sbLeftBody = $("#sbLeftBody");
+  const sbRightBody = $("#sbRightBody");
+
+  // ─── Render guard ───────────────────────────────────────────────────────────
+  // Polling re-renders every panel every few seconds. Rewriting innerHTML with
+  // identical markup reloads every headshot/logo (flicker), so skip the write.
+  const lastPanelHtml = new WeakMap();
+  function setPanelHtml(el, html) {
+    if (!el) return false;
+    if (lastPanelHtml.get(el) === html) return false;
+    lastPanelHtml.set(el, html);
+    el.innerHTML = html;
+    return true;
   }
 
-  const players = boxScoreData.gamepackageJSON.boxscore.players;
-  let playerStats = {};
-  let foundInPreferredCategory = false;
-
-  console.log('Searching for player in box score, teams:', players.length);
-
-  // First pass: try to find player in preferred stat category
-  if (preferredStatCategory) {
-    for (const team of players) {
-      for (const statCategory of team.statistics || []) {
-        if (statCategory.name === preferredStatCategory) {
-          console.log('Checking preferred stat category:', statCategory.name, 'with labels:', statCategory.labels);
-          for (const athlete of statCategory.athletes || []) {
-            const athleteName = athlete.athlete?.displayName || '';
-            const athleteFullName = athlete.athlete?.fullName || '';
-            
-            // Check for exact match first
-            if (athleteName === playerName || athleteFullName === playerName) {
-              console.log('Found exact matching player in preferred category!', athleteName);
-              const stats = athlete.stats || [];
-              for (let i = 0; i < stats.length; i++) {
-                const statName = statCategory.labels?.[i];
-                if (statName) {
-                  playerStats[statName] = stats[i];
-                  console.log('Added preferred stat:', statName, '=', stats[i]);
-                }
-              }
-              foundInPreferredCategory = true;
-              break;
-            }
-            // Check for abbreviated name match
-            else if (playerName.includes('.') && athleteName) {
-              const [firstInitial, lastName] = playerName.split('.');
-              if (athleteName.toLowerCase().startsWith(firstInitial.toLowerCase()) && 
-                  athleteName.toLowerCase().includes(lastName.toLowerCase())) {
-                console.log('Found matching player by abbreviation in preferred category!', athleteName, 'matches', playerName);
-                const stats = athlete.stats || [];
-                for (let i = 0; i < stats.length; i++) {
-                  const statName = statCategory.labels?.[i];
-                  if (statName) {
-                    playerStats[statName] = stats[i];
-                    console.log('Added preferred stat:', statName, '=', stats[i]);
-                  }
-                }
-                foundInPreferredCategory = true;
-                break;
-              }
-            }
-          }
-          if (foundInPreferredCategory) break;
-        }
-      }
-      if (foundInPreferredCategory) break;
-    }
+  function esc(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
-  // If not found in preferred category or no preferred category, search all categories
-  if (!foundInPreferredCategory) {
-    console.log('Player not found in preferred category, searching all categories');
-    // Find the player in the box score data
-    for (const team of players) {
-      console.log('Checking team:', team.team?.displayName);
-      for (const statCategory of team.statistics || []) {
-        console.log('Checking stat category:', statCategory.name, 'with labels:', statCategory.labels);
-        for (const athlete of statCategory.athletes || []) {
-          const athleteName = athlete.athlete?.displayName || '';
-          const athleteFullName = athlete.athlete?.fullName || '';
-          console.log('Checking athlete:', athleteName);
-          
-          // Check for exact match first
-          if (athleteName === playerName || athleteFullName === playerName) {
-            console.log('Found exact matching player!', athleteName);
-            const stats = athlete.stats || [];
-            for (let i = 0; i < stats.length; i++) {
-              const statName = statCategory.labels?.[i];
-              if (statName) {
-                playerStats[statName] = stats[i];
-                console.log('Added stat:', statName, '=', stats[i]);
-              }
-            }
-          }
-          // Check for abbreviated name match (e.g., "G.Helm" matches "Greg Helm")
-          else if (playerName.includes('.') && athleteName) {
-            const [firstInitial, lastName] = playerName.split('.');
-            if (athleteName.toLowerCase().startsWith(firstInitial.toLowerCase()) && 
-                athleteName.toLowerCase().includes(lastName.toLowerCase())) {
-              console.log('Found matching player by abbreviation!', athleteName, 'matches', playerName);
-              const stats = athlete.stats || [];
-              for (let i = 0; i < stats.length; i++) {
-                const statName = statCategory.labels?.[i];
-                if (statName) {
-                  playerStats[statName] = stats[i];
-                  console.log('Added stat:', statName, '=', stats[i]);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  console.log('Player stats found:', playerStats);
-
-  // Map position-specific stats for scoring cards (6 stats each)
-  const statMappings = {
-    'QB': [
-      { key: 'CMP', label: 'Comp' },
-      { key: 'ATT', label: 'Att' },
-      { key: 'YDS', label: 'Pass Yds' },
-      { key: 'TD', label: 'Pass TD' },
-      { key: 'INT', label: 'INT' },
-      { key: 'QBR', label: 'QBR' }
-    ],
-    'RB': [
-      { key: 'CAR', label: 'Carries' },
-      { key: 'YDS', label: 'Rush Yds' },
-      { key: 'TD', label: 'Rush TD' },
-      { key: 'AVG', label: 'Avg' },
-      { key: 'REC', label: 'Rec' },
-      { key: 'YDS', label: 'Rec Yds' }
-    ],
-    'RB_RUSHING': [
-      { key: 'CAR', label: 'Carries' },
-      { key: 'YDS', label: 'Rush Yds' },
-      { key: 'AVG', label: 'Avg' },
-      { key: 'TD', label: 'Rush TD' },
-      { key: 'LONG', label: 'Long' }
-    ],
-    'WR': [
-      { key: 'REC', label: 'Rec' },
-      { key: 'YDS', label: 'Rec Yds' },
-      { key: 'TD', label: 'Rec TD' },
-      { key: 'AVG', label: 'Avg' },
-      { key: 'LONG', label: 'Long' },
-      { key: 'TGTS', label: 'Targets' }
-    ],
-    'WR/TE': [
-      { key: 'REC', label: 'Rec' },
-      { key: 'YDS', label: 'Rec Yds' },
-      { key: 'TD', label: 'Rec TD' },
-      { key: 'AVG', label: 'Avg' },
-      { key: 'LONG', label: 'Long' },
-      { key: 'TGTS', label: 'Targets' }
-    ],
-    'K': [
-      { key: 'FGM', label: 'FG Made' },
-      { key: 'FGA', label: 'FG Att' },
-      { key: 'XPM', label: 'XP Made' },
-      { key: 'XPA', label: 'XP Att' },
-      { key: 'PTS', label: 'Points' },
-      { key: 'LNG', label: 'Long' }
-    ],
-    'DL/LB': [
-      { key: 'SOLO', label: 'Solo' },
-      { key: 'TOT', label: 'Total' },
-      { key: 'SACKS', label: 'Sacks' },
-      { key: 'TFL', label: 'TFL' },
-      { key: 'QH', label: 'QB Hits' },
-      { key: 'PD', label: 'PD' }
-    ],
-    'DB': [
-      { key: 'SOLO', label: 'Solo' },
-      { key: 'TOT', label: 'Total' },
-      { key: 'INT', label: 'INT' },
-      { key: 'PD', label: 'PD' },
-      { key: 'SACKS', label: 'Sacks' },
-      { key: 'TFL', label: 'TFL' }
-    ],
-    'K/P': [
-      { key: 'FG', label: 'FG' },
-      { key: 'XP', label: 'XP' },
-      { key: 'PTS', label: 'Points' },
-      { key: 'AVG', label: 'Avg' },
-      { key: 'LONG', label: 'Long' },
-      { key: 'TB', label: 'TB' }
-    ]
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COLORS — same contrast-aware logic as the app's resolveMatchColors
+  // ═══════════════════════════════════════════════════════════════════════════
+  const NFL_TEAM_ID_TO_ABBR = {
+    2: "BUF",
+    15: "MIA",
+    17: "NE",
+    20: "NYJ",
+    33: "BAL",
+    4: "CIN",
+    5: "CLE",
+    23: "PIT",
+    34: "HOU",
+    11: "IND",
+    30: "JAX",
+    10: "TEN",
+    7: "DEN",
+    12: "KC",
+    13: "LV",
+    24: "LAC",
+    6: "DAL",
+    19: "NYG",
+    21: "PHI",
+    28: "WAS",
+    3: "CHI",
+    8: "DET",
+    9: "GB",
+    16: "MIN",
+    1: "ATL",
+    29: "CAR",
+    18: "NO",
+    27: "TB",
+    22: "ARI",
+    14: "LAR",
+    25: "SF",
+    26: "SEA",
   };
 
-  const positionStatConfig = statMappings[positionGroup] || statMappings['DL/LB'];
-  const formattedStats = [];
-
-  positionStatConfig.forEach(config => {
-    const value = playerStats[config.key] || '0';
-    formattedStats.push({
-      label: config.label,
-      value: value
-    });
-  });
-
-  return formattedStats;
-}
-
-// NFL team name normalization 
-function normalizeTeamName(teamName) {
-  // Convert team names to the format used in the streaming site URLs
-  const nameMap = {
-    "Arizona Cardinals": "arizona-cardinals",
-    "Atlanta Falcons": "atlanta-falcons", 
-    "Baltimore Ravens": "baltimore-ravens",
-    "Buffalo Bills": "buffalo-bills",
-    "Carolina Panthers": "carolina-panthers",
-    "Chicago Bears": "chicago-bears",
-    "Cincinnati Bengals": "cincinnati-bengals",
-    "Cleveland Browns": "cleveland-browns",
-    "Dallas Cowboys": "dallas-cowboys",
-    "Denver Broncos": "denver-broncos",
-    "Detroit Lions": "detroit-lions",
-    "Green Bay Packers": "green-bay-packers",
-    "Houston Texans": "houston-texans",
-    "Indianapolis Colts": "indianapolis-colts",
-    "Jacksonville Jaguars": "jacksonville-jaguars",
-    "Kansas City Chiefs": "kansas-city-chiefs",
-    "Las Vegas Raiders": "las-vegas-raiders",
-    "Los Angeles Chargers": "los-angeles-chargers",
-    "Los Angeles Rams": "los-angeles-rams",
-    "Miami Dolphins": "miami-dolphins",
-    "Minnesota Vikings": "minnesota-vikings",
-    "New England Patriots": "new-england-patriots",
-    "New Orleans Saints": "new-orleans-saints",
-    "New York Giants": "new-york-giants",
-    "New York Jets": "new-york-jets",
-    "Philadelphia Eagles": "philadelphia-eagles",
-    "Pittsburgh Steelers": "pittsburgh-steelers",
-    "San Francisco 49ers": "san-francisco-49ers",
-    "Seattle Seahawks": "seattle-seahawks",
-    "Tampa Bay Buccaneers": "tampa-bay-buccaneers",
-    "Tennessee Titans": "tennessee-titans",
-    "Washington Commanders": "washington-commanders"
+  const FALLBACK_ABBR_COLORS = {
+    ARI: "#A71930",
+    ATL: "#A71930",
+    BAL: "#241773",
+    BUF: "#00338D",
+    CAR: "#0085CA",
+    CHI: "#0B162A",
+    CIN: "#FB4F14",
+    CLE: "#311D00",
+    DAL: "#003594",
+    DEN: "#FB4F14",
+    DET: "#0076B6",
+    GB: "#203731",
+    HOU: "#03202F",
+    IND: "#002C5F",
+    JAX: "#006778",
+    KC: "#E31837",
+    LAC: "#0080C6",
+    LAR: "#003594",
+    LV: "#000000",
+    MIA: "#008E97",
+    MIN: "#4F2683",
+    NE: "#002244",
+    NO: "#D3BC8D",
+    NYG: "#0B2265",
+    NYJ: "#125740",
+    PHI: "#004C54",
+    PIT: "#FFB612",
+    SEA: "#69BE28",
+    SF: "#AA0000",
+    TB: "#D50A0A",
+    TEN: "#4B92DB",
+    WAS: "#5A1414",
   };
 
-  const lowerName = teamName.toLowerCase();
-
-  if (nameMap[teamName]) {
-    return nameMap[teamName];
+  function parseHexColor(hex) {
+    if (!hex || typeof hex !== "string") return null;
+    const raw = hex.trim().replace("#", "");
+    const expanded =
+      raw.length === 3
+        ? raw
+            .split("")
+            .map((ch) => ch + ch)
+            .join("")
+        : raw;
+    if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+    return {
+      r: parseInt(expanded.slice(0, 2), 16),
+      g: parseInt(expanded.slice(2, 4), 16),
+      b: parseInt(expanded.slice(4, 6), 16),
+    };
   }
 
-  // Convert team names to streaming format with proper special character handling
-  return lowerName.toLowerCase()
-    // First, convert special characters to ASCII equivalents (matching API format)
-    .replace(/á/g, 'a')
-    .replace(/é/g, 'e')
-    .replace(/í/g, 'i')
-    .replace(/ó/g, 'o')
-    .replace(/ú/g, 'u')
-    .replace(/ü/g, 'u')
-    .replace(/ñ/g, 'n')
-    .replace(/ç/g, 'c')
-    .replace(/ß/g, 'ss')
-    // Handle accented characters that become multiple characters
-    .replace(/ë/g, 'e')
-    .replace(/ï/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ä/g, 'a')
-    .replace(/å/g, 'a')
-    .replace(/ø/g, 'o')
-    // Convert spaces to hyphens
-    .replace(/\s+/g, '-')
-    // Remove any remaining non-alphanumeric characters except hyphens
-    .replace(/[^a-z0-9\-]/g, '')
-    // Clean up multiple hyphens
-    .replace(/-+/g, '-')
-    // Remove leading/trailing hyphens
-    .replace(/^-+|-+$/g, '')
-    // Remove common prefixes/suffixes (be more conservative)
-    .replace(/^afc-/, '')  // Remove "AFC " prefix
-    .replace(/-afc$/, '')  // Remove " AFC" suffix
-    // Keep "FC " prefix as it's often part of the official name
-}
+  function areColorsSimilar(a, b) {
+    const ca = parseHexColor(a);
+    const cb = parseHexColor(b);
+    if (!ca || !cb) return false;
+    const dr = ca.r - cb.r;
+    const dg = ca.g - cb.g;
+    const db = ca.b - cb.b;
+    return Math.sqrt(dr * dr + dg * dg + db * db) <= 60;
+  }
 
-// Global variables for stream functionality
-let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo')
-let currentAwayTeam = ''; // Store current away team name
-let currentHomeTeam = ''; // Store current home team name
-let isMuted = true; // Start muted to prevent autoplay issues
-let availableStreams = {}; // Store available streams from API
-let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
-
-// API functions for streamed.pk
-const STREAM_API_BASE = 'https://streamed.pk/api';
-
-// Cache for API responses to reduce data transfer
-let liveMatchesCache = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 seconds cache
-
-// Function to clear cache (useful for debugging or forcing fresh data)
-function clearStreamCache() {
-  liveMatchesCache = null;
-  cacheTimestamp = 0;
-  console.log('Stream cache cleared');
-}
-
-// Make cache clearing function available globally
-window.clearStreamCache = clearStreamCache;
-
-async function fetchLiveMatches() {
-  try {
-    // Check cache first
-    const now = Date.now();
-    if (liveMatchesCache && (now - cacheTimestamp) < CACHE_DURATION) {
-      console.log('Using cached live matches data');
-      return liveMatchesCache;
-    }
-
-    console.log(`Fetching live matches from API...`);
-    const response = await fetch(`${STREAM_API_BASE}/matches/live`);
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    const allMatches = await response.json();
-    console.log(`Found ${allMatches.length} total live matches`);
-
-    // Debug: Check what sport values are in the API response
-    if (allMatches.length > 0) {
-      const uniqueSports = [...new Set(allMatches.map(match => match.sport || match.category).filter(sport => sport))];
-      console.log('Available sports in API:', uniqueSports);
-
-      // Show sample of matches with their sport values
-      console.log('Sample matches with sport values:');
-      for (let i = 0; i < Math.min(5, allMatches.length); i++) {
-        const match = allMatches[i];
-        const sportValue = match.sport || match.category || 'unknown';
-        console.log(`  ${i+1}. "${match.title}" - Sport: "${sportValue}"`);
+  function resolveMatchColors({
+    homePrimary,
+    homeSecondary,
+    awayPrimary,
+    awaySecondary,
+    homeFallback,
+    awayFallback,
+  }) {
+    const homeColors = [homePrimary, homeSecondary, homeFallback].filter(Boolean);
+    const awayColors = [awayPrimary, awaySecondary, awayFallback].filter(Boolean);
+    for (const homeColor of homeColors) {
+      for (const awayColor of awayColors) {
+        if (!areColorsSimilar(homeColor, awayColor)) {
+          return { homeColor, awayColor };
+        }
       }
     }
+    return { homeColor: homeColors[0], awayColor: awayColors[0] };
+  }
 
-    // Filter matches by NFL sports (american-football and nfl)
-    const relevantSports = ['american-football', 'nfl'];
-    const matches = allMatches.filter(match => {
-      const matchSport = match.sport || match.category;
-      return relevantSports.includes(matchSport);
+  function getTeamAbbr(team) {
+    if (!team) return "";
+    if (team.abbreviation) return String(team.abbreviation).toUpperCase();
+    return NFL_TEAM_ID_TO_ABBR[team.id] || "";
+  }
+
+  function getTeamLogoUrl(team) {
+    if (!team) return "";
+    if (team.logos && team.logos.length)
+      return team.logos[0].href || team.logos[1]?.href || "";
+    return team.logo || "";
+  }
+
+  function headshotUrl(id) {
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${id}.png&w=150`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GAME DATA ACCESSORS
+  // ═══════════════════════════════════════════════════════════════════════════
+  function getCompetition() {
+    return (
+      gameData?.header?.competitions?.[0] ||
+      gameData?.competitions?.[0] ||
+      null
+    );
+  }
+
+  function getTeams() {
+    const comp = getCompetition();
+    if (!comp) return { home: null, away: null };
+    return {
+      home: comp.competitors?.find((c) => c.homeAway === "home") || null,
+      away: comp.competitors?.find((c) => c.homeAway === "away") || null,
+    };
+  }
+
+  function getStatus() {
+    const comp = getCompetition();
+    return comp?.status || gameData?.header?.status || null;
+  }
+
+  function isScheduled() {
+    return (getStatus()?.type?.description || "")
+      .toLowerCase()
+      .includes("scheduled");
+  }
+
+  function isFinal() {
+    return !!getStatus()?.type?.completed;
+  }
+
+  function isLive() {
+    const s = getStatus();
+    if (isScheduled() || isFinal()) return false;
+    return (
+      s?.type?.state === "in" ||
+      s?.type?.description === "In Progress" ||
+      (s?.period && s.period > 0)
+    );
+  }
+
+  // Contrast-aware pair for the two game teams (app's getSmartTeamColors)
+  function getMatchColors() {
+    const { home, away } = getTeams();
+    return resolveMatchColors({
+      homePrimary: home?.team?.color ? `#${home.team.color}` : null,
+      homeSecondary: home?.team?.alternateColor
+        ? `#${home.team.alternateColor}`
+        : null,
+      awayPrimary: away?.team?.color ? `#${away.team.color}` : null,
+      awaySecondary: away?.team?.alternateColor
+        ? `#${away.team.alternateColor}`
+        : null,
+      homeFallback: "#013369",
+      awayFallback: "#666666",
     });
-    console.log(`Filtered to ${matches.length} NFL matches (${relevantSports.join(' or ')})`);
-
-    // Cache the response
-    liveMatchesCache = matches;
-    cacheTimestamp = now;
-
-    return matches;
-  } catch (error) {
-    console.error('Error fetching live matches:', error);
-    return [];
-  }
-}
-
-async function fetchStreamsForSource(source, sourceId) {
-  try {
-    console.log(`Fetching streams for ${source}/${sourceId}...`);
-    const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
-
-    if (!response.ok) {
-      throw new Error(`Stream API request failed: ${response.status}`);
-    }
-
-    const streams = await response.json();
-    console.log(`Found ${streams.length} streams for ${source}`);
-    return streams;
-  } catch (error) {
-    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
-    return [];
-  }
-}
-
-async function findMatchStreams(homeTeamName, awayTeamName) {
-  try {
-    console.log(`Looking for streams: ${homeTeamName} vs ${awayTeamName}`);
-
-    // Fetch live matches for NFL (american-football and nfl)
-    const matches = await fetchLiveMatches();
-
-    // Debug: Check if we got any matches and what they look like
-    console.log(`After filtering: Got ${matches.length} NFL matches`);
-    if (matches.length === 0) {
-      console.log('No NFL matches found! This could be due to:');
-      console.log('1. API sport field name changed');
-      console.log('2. No american-football or nfl matches currently live');
-    } else {
-      console.log('Sample filtered matches:');
-      for (let i = 0; i < Math.min(3, matches.length); i++) {
-        const match = matches[i];
-        const sportValue = match.sport || match.category || 'unknown';
-        console.log(`  ${i+1}. "${match.title}" - Sport: "${sportValue}"`);
-      }
-    }
-
-    // Try to find our match
-    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
-    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-
-    console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
-
-    // Check if both teams have the same first word (city name) - this causes confusion
-    const homeFirstWord = homeNormalized.split('-')[0];
-    const awayFirstWord = awayNormalized.split('-')[0];
-    const hasSameCity = homeFirstWord === awayFirstWord;
-
-    console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
-
-    let bestMatch = null;
-    let bestScore = 0;
-
-    // Quick pre-filter to reduce processing - look for obvious matches first
-    const quickMatches = matches.slice(0, Math.min(matches.length, 100)).filter(match => {
-      const title = match.title.toLowerCase();
-
-      if (hasSameCity) {
-        // If teams have same city, require BOTH full team names to be present
-        const hasHomeTeam = title.includes(homeNormalized) ||
-                           (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
-        const hasAwayTeam = title.includes(awayNormalized) ||
-                           (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
-        return hasHomeTeam && hasAwayTeam;
-      } else {
-        // Normal case: require BOTH teams to have some match, not just one
-        // For multi-part names, require at least two parts to match to avoid false positives
-        const homeParts = homeNormalized.split('-').filter(p => p.length > 0);
-        const awayParts = awayNormalized.split('-').filter(p => p.length > 0);
-        
-        let homeHasMatch = false;
-        if (homeParts.length >= 2) {
-          homeHasMatch = (title.includes(homeParts[0]) && title.includes(homeParts[1])) ||
-                        title.includes(homeNormalized) ||
-                        (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
-        } else {
-          homeHasMatch = title.includes(homeNormalized) ||
-                        (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
-        }
-        
-        let awayHasMatch = false;
-        if (awayParts.length >= 2) {
-          awayHasMatch = (title.includes(awayParts[0]) && title.includes(awayParts[1])) ||
-                        title.includes(awayNormalized) ||
-                        (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
-        } else {
-          awayHasMatch = title.includes(awayNormalized) ||
-                        (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
-        }
-
-        // Require BOTH teams to match, not just one
-        return homeHasMatch && awayHasMatch;
-      }
-    });
-
-    // If we found quick matches, prioritize them
-    const matchesToProcess = quickMatches.length > 0 ? quickMatches : matches.slice(0, Math.min(matches.length, 100));
-
-    console.log(`Processing ${matchesToProcess.length} matches (${quickMatches.length > 0 ? 'pre-filtered' : 'full set'})`);
-
-    // Debug: Show first few matches to understand API format (limited)
-    if (matches.length > 0) {
-      console.log('Sample matches from API:');
-      for (let i = 0; i < Math.min(5, matches.length); i++) {
-        const match = matches[i];
-        console.log(`  ${i+1}. Title: "${match.title}"`);
-        if (match.teams) {
-          console.log(`     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`);
-        }
-        if (match.sources) {
-          console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
-        }
-      }
-    }
-
-    // Process the filtered matches
-    for (let i = 0; i < matchesToProcess.length; i++) {
-      const match = matchesToProcess[i];
-
-      if (!match.sources || match.sources.length === 0) continue;
-
-      const matchTitle = match.title.toLowerCase();
-      let totalScore = 0;
-
-      // Multiple matching strategies with rough/fuzzy matching
-      const strategies = [
-        // Strategy 0: Special handling for teams (e.g., "Chiefs vs Raiders")
-        () => {
-          let score = 0;
-          
-          // Check for simple team vs team format
-          const simpleGamePattern = /([a-z\s]+?)\s+vs\s+([a-z\s]+)/i;
-          const gameMatch = matchTitle.match(simpleGamePattern);
-          
-          if (gameMatch) {
-            const team1 = gameMatch[1].trim().replace(/\s+/g, '-').toLowerCase();
-            const team2 = gameMatch[2].trim().replace(/\s+/g, '-').toLowerCase();
-            
-            console.log(`Simple game pattern found: "${team1}" vs "${team2}"`);
-            console.log(`Looking for: "${homeNormalized}" vs "${awayNormalized}"`);
-            
-            // More flexible matching for team names
-            const homeKeywords = homeNormalized.split('-').filter(word => word.length > 3);
-            const awayKeywords = awayNormalized.split('-').filter(word => word.length > 3);
-            
-            let homeMatches = false;
-            let awayMatches = false;
-            
-            // Check if home team matches either API team
-            homeKeywords.forEach(keyword => {
-              if (team1.includes(keyword) || team2.includes(keyword) || 
-                  keyword.includes(team1) || keyword.includes(team2)) {
-                homeMatches = true;
-              }
-            });
-            
-            // Check if away team matches either API team  
-            awayKeywords.forEach(keyword => {
-              if (team1.includes(keyword) || team2.includes(keyword) || 
-                  keyword.includes(team1) || keyword.includes(team2)) {
-                awayMatches = true;
-              }
-            });
-            
-            if (homeMatches && awayMatches) {
-              score += 3.0; // Very high score for games that match both teams
-              console.log(`✓ Found game match: "${matchTitle}" with teams "${team1}" and "${team2}"`);
-            } else {
-              console.log(`✗ Game doesn't match: home=${homeMatches}, away=${awayMatches}`);
-            }
-          }
-          
-          return score;
-        },
-        // Strategy 1: Rough name matching in title (more flexible)
-        () => {
-          let score = 0;
-          const titleWords = matchTitle.split(/[\s\-]+/);
-
-          if (hasSameCity) {
-            // For same-city teams, require both full team names to be present
-            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
-              score += 1.0; // High score for exact matches
-            } else {
-              // Check for partial matches but be more strict
-              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-              let homeMatches = 0;
-              let awayMatches = 0;
-
-              homeParts.forEach(part => {
-                if (titleWords.some(word => word.includes(part))) homeMatches++;
-              });
-              awayParts.forEach(part => {
-                if (titleWords.some(word => word.includes(part))) awayMatches++;
-              });
-
-              // Require at least 2 parts to match for each team when they have same city
-              if (homeMatches >= 2 && awayMatches >= 2) {
-                score += 0.8;
-              } else if (homeMatches >= 1 && awayMatches >= 1) {
-                score += 0.4;
-              }
-            }
-          } else {
-            // Normal case: check if major parts of team names appear in title
-            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-            let homePartMatches = 0;
-            let awayPartMatches = 0;
-
-            homeParts.forEach(part => {
-              // Use more precise matching - require exact word matches or very close matches
-              const hasMatch = titleWords.some(word => {
-                // Exact match
-                if (word === part || part === word) return true;
-                // Allow partial matching only for longer words (6+ chars) to avoid false positives
-                if (part.length >= 6 && word.length >= 6) {
-                  return word.includes(part) || part.includes(word);
-                }
-                return false;
-              });
-              if (hasMatch) {
-                homePartMatches++;
-                score += 0.5;
-              }
-            });
-            
-            awayParts.forEach(part => {
-              // Use more precise matching - require exact word matches or very close matches
-              const hasMatch = titleWords.some(word => {
-                // Exact match
-                if (word === part || part === word) return true;
-                // Allow partial matching only for longer words (6+ chars) to avoid false positives
-                if (part.length >= 6 && word.length >= 6) {
-                  return word.includes(part) || part.includes(word);
-                }
-                return false;
-              });
-              if (hasMatch) {
-                awayPartMatches++;
-                score += 0.5;
-              }
-            });
-
-            // Bonus for having both teams represented
-            if (homePartMatches > 0 && awayPartMatches > 0) {
-              score += 0.3;
-            }
-
-            // Penalty for matches that only have one team
-            if (homePartMatches === 0 || awayPartMatches === 0) {
-              score = 0; // Reset score if only one team matches
-            }
-          }
-
-          return score;
-        },
-        // Strategy 2: Check team objects if available (rough matching)
-        () => {
-          let score = 0;
-          if (match.teams) {
-            const homeApiName = match.teams.home?.name?.toLowerCase() || '';
-            const awayApiName = match.teams.away?.name?.toLowerCase() || '';
-
-            if (hasSameCity) {
-              // For same-city teams, require both API team names to match our normalized names
-              if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
-                score += 1.2; // Very high score for exact API matches
-              } else {
-                // Check for partial matches but be more strict
-                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-                let homeMatches = 0;
-                let awayMatches = 0;
-
-                homeParts.forEach(part => {
-                  if (homeApiName.includes(part)) homeMatches++;
-                });
-                awayParts.forEach(part => {
-                  if (awayApiName.includes(part)) awayMatches++;
-                });
-
-                // Require at least 2 parts to match for each team when they have same city
-                if (homeMatches >= 2 && awayMatches >= 2) {
-                  score += 0.9;
-                } else if (homeMatches >= 1 && awayMatches >= 1) {
-                  score += 0.5;
-                }
-              }
-            } else {
-              // Normal case: more precise matching against API team names
-              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
-
-              let homeApiMatches = 0;
-              let awayApiMatches = 0;
-
-              homeParts.forEach(part => {
-                // More precise API name matching
-                if (homeApiName === part || 
-                    (part.length >= 4 && homeApiName.includes(part)) ||
-                    (homeApiName.length >= 4 && part.includes(homeApiName))) {
-                  homeApiMatches++;
-                  score += 0.7;
-                }
-              });
-              
-              awayParts.forEach(part => {
-                // More precise API name matching
-                if (awayApiName === part || 
-                    (part.length >= 4 && awayApiName.includes(part)) ||
-                    (awayApiName.length >= 4 && part.includes(awayApiName))) {
-                  awayApiMatches++;
-                  score += 0.7;
-                }
-              });
-
-              // Bonus for having both teams in API data
-              if (homeApiMatches > 0 && awayApiMatches > 0) {
-                score += 0.5;
-              }
-
-              // Penalty for matches that only have one team in API data
-              if ((homeApiMatches === 0 && homeApiName.length > 0) || 
-                  (awayApiMatches === 0 && awayApiName.length > 0)) {
-                score *= 0.3; // Reduce score significantly for partial API matches
-              }
-            }
-          }
-          return score;
-        },
-        // Strategy 3: NFL-specific abbreviations and common names
-        () => {
-          const abbreviations = {
-            'arizona': ['cardinals', 'arizona-cardinals'],
-            'atlanta': ['falcons', 'atlanta-falcons'],
-            'baltimore': ['ravens', 'baltimore-ravens'],
-            'buffalo': ['bills', 'buffalo-bills'],
-            'carolina': ['panthers', 'carolina-panthers'],
-            'chicago': ['bears', 'chicago-bears'],
-            'cincinnati': ['bengals', 'cincinnati-bengals'],
-            'cleveland': ['browns', 'cleveland-browns'],
-            'dallas': ['cowboys', 'dallas-cowboys'],
-            'denver': ['broncos', 'denver-broncos'],
-            'detroit': ['lions', 'detroit-lions'],
-            'green-bay': ['packers', 'green-bay-packers'],
-            'houston': ['texans', 'houston-texans'],
-            'indianapolis': ['colts', 'indianapolis-colts'],
-            'jacksonville': ['jaguars', 'jacksonville-jaguars'],
-            'kansas-city': ['chiefs', 'kansas-city-chiefs'],
-            'las-vegas': ['raiders', 'las-vegas-raiders'],
-            'los-angeles-chargers': ['chargers', 'los-angeles-chargers'],
-            'los-angeles-rams': ['rams', 'los-angeles-rams'],
-            'miami': ['dolphins', 'miami-dolphins'],
-            'minnesota': ['vikings', 'minnesota-vikings'],
-            'new-england': ['patriots', 'new-england-patriots'],
-            'new-orleans': ['saints', 'new-orleans-saints'],
-            'new-york-giants': ['giants', 'new-york-giants'],
-            'new-york-jets': ['jets', 'new-york-jets'],
-            'philadelphia': ['eagles', 'philadelphia-eagles'],
-            'pittsburgh': ['steelers', 'pittsburgh-steelers'],
-            'san-francisco': ['49ers', 'san-francisco-49ers'],
-            'seattle': ['seahawks', 'seattle-seahawks'],
-            'tampa-bay': ['buccaneers', 'tampa-bay-buccaneers'],
-            'tennessee': ['titans', 'tennessee-titans'],
-            'washington': ['commanders', 'washington-commanders']
-          };
-
-          let score = 0;
-          const titleWords = matchTitle.split(/[\s\-]+/);
-
-          // Check home team abbreviations
-          const homeParts = homeNormalized.split('-');
-          homeParts.forEach(part => {
-            if (abbreviations[part]) {
-              abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
-              });
-            }
-          });
-
-          // Check away team abbreviations
-          const awayParts = awayNormalized.split('-');
-          awayParts.forEach(part => {
-            if (abbreviations[part]) {
-              abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
-              });
-            }
-          });
-
-          return score;
-        }
-      ];
-
-      // Apply all strategies and sum scores
-      strategies.forEach(strategy => {
-        totalScore += strategy();
-      });
-
-      console.log(`Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
-
-      if (totalScore > bestScore) {
-        bestScore = totalScore;
-        bestMatch = match;
-
-        // Don't exit early - evaluate all matches to find the best one
-        console.log(`New best match found with score ${bestScore}`);
-      }
-    }
-
-    if (!bestMatch || bestScore < 0.1) {
-      console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
-      console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Processed: ${matchesToProcess.length} matches out of ${matches.length} total`);
-      return {};
-    }
-
-    console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
-
-    // VALIDATION: Ensure the matched game actually contains both teams
-    const matchedTitle = bestMatch.title.toLowerCase();
-    const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
-    const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
-
-    // Check if both teams appear in the title (using flexible word matching like relevance check)
-    const homeWords = homeNormalized.split('-').filter(word => word.length > 2);
-    const awayWords = awayNormalized.split('-').filter(word => word.length > 2);
-
-    let homeInTitle = false;
-    let awayInTitle = false;
-
-    // Check if significant words from each team appear in title or API team names
-    homeWords.forEach(word => {
-      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) homeInTitle = true;
-    });
-    awayWords.forEach(word => {
-      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) awayInTitle = true;
-    });
-
-    if (!homeInTitle || !awayInTitle) {
-      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams!`);
-      console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
-      console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
-
-      // If this is a same-city scenario and validation fails, reject the match
-      if (hasSameCity) {
-        console.log('Rejecting match due to same-city validation failure');
-        return {};
-      }
-      
-      // For matches that fail validation with a high score, it's likely a false positive
-      console.log('Match failed validation - rejecting as potential false positive');
-      return {};
-    } else {
-      console.log(`✓ Validation passed: Matched game contains both teams`);
-    }
-
-    // Fetch streams for each source
-    const streams = {};
-
-    for (const source of bestMatch.sources) {
-      const sourceStreams = await fetchStreamsForSource(source.source, source.id);
-
-      // Store the first stream for each source (usually the best quality)
-      if (sourceStreams.length > 0) {
-        streams[source.source] = sourceStreams[0];
-        console.log(`Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`);
-      }
-    }
-
-    return streams;
-  } catch (error) {
-    console.error('Error finding match streams:', error);
-    return {};
-  }
-}
-
-// Enhanced video control functions matching the iframe pattern
-window.toggleMute = function() {
-  const iframe = document.getElementById('streamIframe');
-  const muteButton = document.getElementById('muteButton');
-
-  if (!iframe || !muteButton) return;
-
-  // Toggle muted state
-  isMuted = !isMuted;
-  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-
-  // Multiple approaches to control video muting
-  try {
-    // Method 1: Direct iframe manipulation
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    if (iframeDoc) {
-      const videos = iframeDoc.querySelectorAll('video');
-      videos.forEach(video => {
-        video.muted = isMuted;
-        // Also try to control volume
-        video.volume = isMuted ? 0 : 1;
-      });
-
-      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
-    }
-  } catch (e) {
-    console.log('Direct video access blocked by CORS');
   }
 
-  // Method 2: Enhanced PostMessage to iframe
-  try {
-    iframe.contentWindow.postMessage({
-      action: 'toggleMute',
-      muted: isMuted,
-      volume: isMuted ? 0 : 1
-    }, '*');
-
-    // Also send autoplay and mute parameters
-    iframe.contentWindow.postMessage({
-      action: 'setVideoParams',
-      autoplay: 1,
-      mute: isMuted ? 1 : 0
-    }, '*');
-
-    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
-  } catch (e) {
-    console.log('PostMessage failed');
+  // Smart color for any team object (game teams use the resolved pair so the
+  // two sides never clash; other teams — drives/last-5 — use their own color).
+  function getSmartColor(team) {
+    if (!team) return "#1a1a2e";
+    const { home, away } = getTeams();
+    const pair = getMatchColors();
+    if (home && String(home.team?.id) === String(team.id)) return pair.homeColor;
+    if (away && String(away.team?.id) === String(team.id)) return pair.awayColor;
+    if (team.color) return `#${team.color}`;
+    return FALLBACK_ABBR_COLORS[getTeamAbbr(team)] || "#1a1a2e";
   }
 
-  // Method 3: Simulate key events
-  try {
-    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
-    iframe.contentWindow.dispatchEvent(keyEvent);
-    console.log('Mute key event sent to iframe');
-  } catch (e) {
-    console.log('Key event failed');
-  }
-
-  // Method 4: Try to modify iframe src with mute parameter
-  if (iframe.src && !iframe.src.includes('mute=')) {
-    const separator = iframe.src.includes('?') ? '&' : '?';
-    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
-    // Don't reload unless necessary
-    if (iframe.src !== newSrc) {
-      iframe.src = newSrc;
-      console.log('Updated iframe src with mute parameter');
+  function statusLine1() {
+    const s = getStatus();
+    if (isFinal()) return "Final";
+    if (s?.type?.description === "Halftime") return "Halftime";
+    if (s?.period && s.period > 0) {
+      return s.period <= 4
+        ? `${["1st", "2nd", "3rd", "4th"][s.period - 1]} QTR`
+        : `OT ${s.period - 4}`;
     }
+    return s?.type?.description || s?.type?.name || "Scheduled";
   }
-};
 
-window.switchToStream = function(streamType) {
-  console.log('Switching to stream type:', streamType);
-  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
-
-  // Update current stream type
-  currentStreamType = streamType;
-
-  // If team names are not available, try to get them from other sources
-  if (!currentAwayTeam || !currentHomeTeam) {
-    console.log('Team names not available, attempting to retrieve them...');
-
-    // Try to get team names from the current game data by looking at the scoreboard
-    const awayTeamElement = document.querySelector('.team-name');
-    const homeTeamElement = document.querySelectorAll('.team-name')[1];
-
-    if (awayTeamElement) {
-      currentAwayTeam = awayTeamElement.textContent?.trim() || 'away';
+  function statusLine2() {
+    const s = getStatus();
+    const comp = getCompetition();
+    if (isLive() && s?.displayClock && s?.type?.description !== "Halftime") {
+      return s.displayClock;
     }
-
-    if (homeTeamElement) {
-      currentHomeTeam = homeTeamElement.textContent?.trim() || 'home';
-    }
-
-    console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
+    const d = new Date(comp?.date);
+    if (isNaN(d.getTime())) return "";
+    return (
+      d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }) +
+      " · " +
+      d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    );
   }
 
-  // Generate new embed URL using renderStreamEmbed to avoid browser history
-  if (currentAwayTeam && currentHomeTeam) {
-    streamInitialized = false; // Reset flag to allow stream switching
-    
-    // Handle the async renderStreamEmbed function properly
-    renderStreamEmbed(currentAwayTeam, currentHomeTeam)
-      .then(streamHTML => {
-        const streamContainer = document.getElementById('streamEmbed');
-        if (streamContainer && streamHTML) {
-          streamContainer.innerHTML = streamHTML;
-          streamInitialized = true;
-          console.log('NFL switchToStream: Updated stream container with new HTML');
-        } else {
-          console.error('NFL switchToStream: Stream container not found or no HTML returned');
-        }
-      })
-      .catch(error => {
-        console.error('NFL Error switching stream:', error);
-      });
-    
-    streamInitialized = true; // Set flag after successful switch
-  } else {
-    console.error('Team names still not available for stream switch');
-    alert('Unable to switch stream: team names not available. Please refresh the page and try again.');
-  }
-};
-
-// Stream functionality using embedsports.top embed service
-
-// Debug function to test streaming embed URLs
-function debugStreamExtraction(homeTeamName, awayTeamName, streamType = 'alpha1') {
-  console.log('=== STREAM DEBUGGING START ===');
-  console.log(`Testing embed URLs for: ${homeTeamName} vs ${awayTeamName}, type: ${streamType}`);
-
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-
-  console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
-
-  let embedUrl = '';
-  if (streamType === 'alpha1') {
-    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
-  } else if (streamType === 'alpha2') {
-    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
-  } else if (streamType === 'bravo') {
-    const timestamp = Date.now();
-    embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
+  function getCurrentDrive() {
+    if (!Array.isArray(drivesData)) return null;
+    return (
+      drivesData.find((d) => !d.end?.text && d.result !== "End of Game") ||
+      null
+    );
   }
 
-  console.log('Generated embed URL:', embedUrl);
-  console.log('Expected iframe HTML:');
-  console.log(`<iframe title="${homeTeamName} vs ${awayTeamName} Player" marginheight="0" marginwidth="0" src="${embedUrl}" scrolling="no" allowfullscreen="yes" allow="encrypted-media; picture-in-picture;" width="100%" height="100%" frameborder="0"></iframe>`);
-
-  console.log('=== STREAM DEBUGGING END ===');
-}
-
-// Make debug function available globally for console testing
-window.debugStreamExtraction = debugStreamExtraction;
-
-async function renderStreamEmbed(awayTeamName, homeTeamName) {
-  console.log('NFL renderStreamEmbed called with:', { awayTeamName, homeTeamName });
-  
-  const streamContainer = document.getElementById('streamEmbed');
-
-  if (!streamContainer) {
-    console.error('NFL Stream container not found! Cannot render stream.');
-    return;
-  }
-
-  console.log('NFL Stream container found, proceeding with stream rendering...');
-
-  // Store current team names for toggle function
-  currentAwayTeam = awayTeamName;
-  currentHomeTeam = homeTeamName;
-
-  console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
-  console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
-
-  const isSmallScreen = window.innerWidth < 525;
-  const screenHeight = isSmallScreen ? 250 : 700;
-
-  // Try to fetch streams from API first
-  console.log('Attempting to fetch streams from API...');
-  availableStreams = await findMatchStreams(homeTeamName, awayTeamName);
-
-  // If we have streams and the current stream type isn't available, switch to the first available
-  const availableStreamSources = Object.keys(availableStreams);
-  if (availableStreamSources.length > 0 && !availableStreams[currentStreamType] && currentStreamType !== 'alpha2') {
-    currentStreamType = availableStreamSources[0];
-    console.log('Switched to first available stream type:', currentStreamType);
-  }
-
-  // Generate embed URL based on stream type and available streams
-  let embedUrl = '';
-
-  // Check if we have the stream from API
-  if (availableStreams[currentStreamType]) {
-    embedUrl = availableStreams[currentStreamType].embedUrl;
-  } else if (currentStreamType === 'alpha2' && availableStreams.alpha) {
-    // Special case for alpha2 - modify alpha URL to use /2 instead of /1
-    embedUrl = availableStreams.alpha.embedUrl.replace(/\/1$/, '/2');
-  }
-
-  // Fallback to manual URL construction if API doesn't have the stream
-  if (!embedUrl) {
-    console.log('API stream not available for', currentStreamType, ', falling back to manual URL construction');
-    const homeNormalized = normalizeTeamName(homeTeamName);
-    const awayNormalized = normalizeTeamName(awayTeamName);
-
-    if (currentStreamType === 'alpha1') {
-      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
-    } else if (currentStreamType === 'alpha2') {
-      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
-    } else if (currentStreamType === 'bravo') {
-      const timestamp = Date.now();
-      embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
-    } else {
-      // For other sources, use a generic pattern
-      embedUrl = `https://embedsports.top/embed/${currentStreamType}/${homeNormalized}-vs-${awayNormalized}/1`;
-    }
-  }
-
-  console.log('Generated embed URL:', embedUrl);
-
-  // Create dynamic buttons for all available stream sources
-  const streamSources = Object.keys(availableStreams);
-  let streamButtons = '';
-  
-  // Create buttons for each available stream source
-  streamSources.forEach((source, index) => {
-    if (source !== currentStreamType) {  // Don't show button for current stream
-      const buttonText = `Stream ${source.charAt(0).toUpperCase() + source.slice(1)}`;
-      streamButtons += `<button onclick="switchToStream('${source}')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${buttonText}</button>`;
-    }
-  });
-  
-  // If no streams from API, show fallback options
-  if (streamSources.length === 0) {
-    if (currentStreamType === 'alpha1') {
-      streamButtons = `
-        <button onclick="switchToStream('alpha2')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 2</button>
-        <button onclick="switchToStream('bravo')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Bravo</button>
-      `;
-    } else if (currentStreamType === 'alpha2') {
-      streamButtons = `
-        <button onclick="switchToStream('alpha1')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 1</button>
-        <button onclick="switchToStream('bravo')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Bravo</button>
-      `;
-    } else if (currentStreamType === 'bravo') {
-      streamButtons = `
-        <button onclick="switchToStream('alpha1')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 1</button>
-        <button onclick="switchToStream('alpha2')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 2</button>
-      `;
-    }
-  }
-
-  const streamHTML = `
-    <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
-      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
-        <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-          ${streamButtons}
-        </div>
-      </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
-        <p>Loading stream... <span id="streamStatus"></span></p>
-      </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden; isolation: isolate;">
-        <iframe
-          id="streamIframe"
-          src="${embedUrl}"
-          width="100%"
-          height="${screenHeight}"
-          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px; isolation: isolate; will-change: auto; backface-visibility: hidden; transform: translateZ(0);"
-          frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          referrerpolicy="no-referrer-when-downgrade"
-          onload="handleStreamLoad()"
-          onerror="handleStreamError()"
-          title="${homeTeamName} vs ${awayTeamName} Player">
-        </iframe>
-      </div>
-    </div>
-  `;
-
-  // Show the iframe after a delay
-  setTimeout(() => {
-    const iframe = document.getElementById('streamIframe');
-    const connectingDiv = document.getElementById('streamConnecting');
-    if (iframe) {
-      iframe.style.display = 'block';
-    }
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-  }, 1000);
-
-  // Return the HTML content
-  console.log('NFL renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
-  return streamHTML;
-}
-
-// Stream control functions (adapted from CWC/MLB)
-window.toggleFullscreen = function() {
-  const iframe = document.getElementById('streamIframe');
-
-  if (iframe) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATA FETCHING
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ESPN endpoints are read through the r.jina.ai proxy (same as nfl/aio.js)
+  // so the request goes through. It returns the payload as text, so pull the
+  // JSON object out the same way aio does. Falls back to a direct fetch if
+  // the proxy errors out.
+  async function fetchJson(url) {
     try {
-      // For iOS Safari and other WebKit browsers
-      if (iframe.webkitEnterFullscreen) {
-        iframe.webkitEnterFullscreen();
-        console.log('iOS/WebKit fullscreen requested');
-      }
-      // Standard fullscreen API
-      else if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-        console.log('Standard fullscreen requested');
-      }
-      // Chrome/Safari prefixed version
-      else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-        console.log('WebKit fullscreen requested');
-      }
-      // IE/Edge prefixed version
-      else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-        console.log('MS fullscreen requested');
-      }
-      // Mozilla prefixed version
-      else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-        console.log('Mozilla fullscreen requested');
-      }
-      else {
-        console.log('Fullscreen API not supported on this device');
-        // Fallback: try to make the iframe larger on unsupported devices
-        if (iframe.style.position !== 'fixed') {
-          iframe.style.position = 'fixed';
-          iframe.style.top = '0';
-          iframe.style.left = '0';
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-          iframe.style.zIndex = '9999';
-          iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
-        } else {
-          // Exit fullscreen-like mode
-          iframe.style.position = '';
-          iframe.style.top = '';
-          iframe.style.left = '';
-          iframe.style.width = '100%';
-          iframe.style.height = '400px';
-          iframe.style.zIndex = '';
-          iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
-        }
-      }
-    } catch (e) {
-      console.log('Fullscreen request failed:', e);
-      // Additional fallback for cases where even the API calls fail
-      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
+      const res = await fetch("https://r.jina.ai/" + url, {
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      if (!res.ok) throw new Error(`proxy HTTP ${res.status}`);
+      const text = await res.text();
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start === -1 || end === -1 || end < start)
+        throw new Error("No JSON found in proxy response");
+      return JSON.parse(text.substring(start, end + 1));
+    } catch (proxyErr) {
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     }
   }
-};
 
-window.handleStreamLoad = function() {
-  const iframe = document.getElementById('streamIframe');
-  const connectingDiv = document.getElementById('streamConnecting');
-
-  if (iframe && connectingDiv) {
-    console.log('Stream loaded successfully');
-    iframe.style.display = 'block';
-    connectingDiv.style.display = 'none';
-  }
-};
-
-window.handleStreamError = function() {
-  console.log('Stream error occurred');
-  const connectingDiv = document.getElementById('streamConnecting');
-  if (connectingDiv) {
-    connectingDiv.innerHTML = '<p>Stream temporarily unavailable. Retrying...</p>';
-    // Auto-retry after a delay
-    setTimeout(() => {
-      const iframe = document.getElementById('streamIframe');
-      if (iframe) {
-        iframe.src = iframe.src; // Reload the iframe
+  async function resolveTeamRef(ref, cache) {
+    const url = String(ref).replace(/^http:/i, "https:");
+    // Cache the in-flight promise (not just the resolved value) so concurrent
+    // drives referencing the same team share a single request instead of each
+    // firing its own fetch. The cache is module-level so it also persists
+    // across polls.
+    if (cache.has(url)) return cache.get(url);
+    const promise = (async () => {
+      try {
+        const t = await fetchJson(url);
+        return {
+          ...t,
+          logo: t.logos?.[1]?.href || t.logos?.[0]?.href || "",
+        };
+      } catch (e) {
+        console.warn("NFL scoreboard team resolve failed:", e);
+        return null;
       }
-    }, 3000);
+    })();
+    cache.set(url, promise);
+    return promise;
   }
-};
 
-function getAdjustedDateForNBA() {
-  const now = new Date();
-  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  if (estNow.getHours() < 2) {
-    estNow.setDate(estNow.getDate() - 1);
-  }
-  const adjustedDate = estNow.getFullYear() +
-                       String(estNow.getMonth() + 1).padStart(2, "0") +
-                       String(estNow.getDate()).padStart(2, "0");
-  return adjustedDate;
-}
-
-function getQueryParam(param) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(param);
-}
-
-// Function to render NFL scoring card
-async function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, teamSide, homeTeam, awayTeam, boxScoreData) {
-  console.log('renderScoringCard called with play:', play);
-  
-  // Get game state information first
-  const clock = play.clock?.displayValue || '';
-  const period = play.period?.number || '';
-  const scoringType = play.scoringType?.displayName || '';
-  const playText = play.text || '';
-  
-  // Get scorer information from play participants or extract from play text
-  let scorer = null;
-  let scorerName = 'Unknown Player';
-  let scorerPosition = '';
-  
-  // Try to get scorer from participants (fetch athlete data from $ref)
-  if (play.participants && play.participants.length > 0) {
+  // Mirrors NFLService.getDrivesComplete: resolve drive teams, endTeam and
+  // play-level team $refs (inline plays.items — no extra play fetches).
+  async function fetchDrives() {
     try {
-      // For scoring plays, prioritize the actual scorer over other participants
-      let mainParticipant = null;
-      
-      // Look for scorer-specific participant types first
-      mainParticipant = play.participants.find(p => 
-        p.type === 'scorer' || p.type === 'receiver' || p.type === 'rusher'
+      const url = `${DRIVES_BASE}/${gameId}/competitions/${gameId}/drives?lang=en&region=us&limit=50`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items = json.items || [];
+      const cache = teamRefCache;
+
+      const resolved = await Promise.all(
+        items.map(async (drive) => {
+          try {
+            const team = drive.team?.$ref
+              ? await resolveTeamRef(drive.team.$ref, cache)
+              : null;
+            const endTeam = drive.endTeam?.$ref
+              ? await resolveTeamRef(drive.endTeam.$ref, cache)
+              : null;
+            const plays = (drive.plays?.items || []).map((play) => {
+              if (play.team?.$ref) {
+                const m = play.team.$ref.match(/\/teams\/(\d+)/);
+                if (m) {
+                  if (team && String(team.id) === m[1])
+                    return { ...play, team };
+                  if (endTeam && String(endTeam.id) === m[1])
+                    return { ...play, team: endTeam };
+                }
+              }
+              return play;
+            });
+            return { ...drive, team, endTeam, plays };
+          } catch (e) {
+            return { ...drive, team: null, endTeam: null, plays: [] };
+          }
+        }),
       );
-      
-      // If no specific scorer found, fall back to other types
-      if (!mainParticipant) {
-        mainParticipant = play.participants.find(p => 
-          p.type === 'passer' || p.type === 'kicker'
-        ) || play.participants[0];
+      drivesData = resolved;
+    } catch (err) {
+      console.error("NFL scoreboard drives fetch error:", err);
+    }
+  }
+
+  async function fetchGameData() {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+      gameData = await fetchJson(url);
+
+      // Drives power the Main-tab live field, down & distance and Drives tab.
+      if (!isScheduled()) {
+        await fetchDrives();
+      } else {
+        drivesData = null;
       }
-      
-      if (mainParticipant?.athlete?.$ref) {
-        console.log('Fetching athlete data from:', mainParticipant.athlete.$ref);
-        const athleteResponse = await fetch(convertToHttps(mainParticipant.athlete.$ref));
-        const athleteData = await athleteResponse.json();
-        
-        scorer = athleteData;
-        scorerName = athleteData.displayName || athleteData.fullName || 'Unknown Player';
-        
-        // Get position from athlete data or participant type
-        if (athleteData.position?.abbreviation) {
-          scorerPosition = athleteData.position.abbreviation;
-        } else if (mainParticipant.type) {
-          // Map participant type to position abbreviation
-          const typeToPosition = {
-            'kicker': 'K',
-            'rusher': 'RB',
-            'receiver': 'WR',
-            'passer': 'QB',
-            'returner': 'RB',
-            'scorer': 'WR' // Default for scorer type
-          };
-          scorerPosition = typeToPosition[mainParticipant.type] || '';
-        }
-        
-        console.log('Found scorer from participants:', scorerName, scorerPosition, 'Type:', mainParticipant.type);
+
+      renderAll();
+      schedulePoll();
+    } catch (err) {
+      console.error("NFL scoreboard fetch error:", err);
+      sbHeader.innerHTML =
+        '<div class="sb-error">Failed to load game data. <button onclick="location.reload()">Retry</button></div>';
+    }
+  }
+
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    // Pause background fetching while the stream modal is open (matches app).
+    if (streamModalVisible) return;
+    pollTimer = setTimeout(
+      fetchGameDataQuiet,
+      isLive() ? POLL_LIVE_MS : POLL_IDLE_MS,
+    );
+  }
+
+  // Quiet poll: same data path as the initial load (r.jina.ai proxy + drives),
+  // but re-renders without touching the tab bars so the DOM doesn't flicker.
+  async function fetchGameDataQuiet() {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+      gameData = await fetchJson(url);
+
+      // Keep drives fresh — they power the live field, down & distance and
+      // the Drives tab.
+      if (!isScheduled()) {
+        await fetchDrives();
+      } else {
+        drivesData = null;
       }
-    } catch (error) {
-      console.error('Error fetching athlete data:', error);
-    }
-  }
-  
-  // Fallback: try to extract player name from play text if no participant data worked
-  if (scorerName === 'Unknown Player') {
-    console.log('No participants found or failed to fetch, trying to extract from text:', playText);
-    
-    // Enhanced NFL scoring patterns - prioritize actual scorers over extra point kickers
-    const patterns = [
-      // Receiving touchdowns: "pass to PLAYER for X yards, TOUCHDOWN"
-      /pass\s+(?:deep\s+)?(?:right|left|middle)?\s*to\s+([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Rushing touchdowns: "PLAYER run/rush/guard/tackle/end for X yards, TOUCHDOWN"
-      /([A-Z]\.[A-Za-z]+)\s+(?:run|rush|up the middle|left end|right end|left guard|right guard|left tackle|right tackle)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Scrambling touchdowns: "PLAYER scrambles up the middle/left/right for X yards, TOUCHDOWN"
-      /([A-Z]\.[A-Za-z]+)\s+scrambles\s+(?:up the middle|left|right|left end|right end)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Generic rushing: "PLAYER for X yards, TOUCHDOWN" (before any extra point mention)
-      /([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Field goals: "PLAYER X yard field goal is GOOD" (only for field goals, not touchdowns)
-      /([A-Z]\.[A-Za-z]+)\s+\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i
-    ];
-    
-    // Special handling for extra points - only use kicker if this is specifically an extra point play
-    if (scoringType && scoringType.toLowerCase().includes('extra point')) {
-      const extraPointPattern = /([A-Z]\.[A-Za-z]+)\s+extra\s+point\s+is\s+GOOD/i;
-      const match = playText.match(extraPointPattern);
-      if (match && match[1]) {
-        scorerName = match[1].trim();
-        scorerPosition = 'K';
-        console.log('Extracted extra point kicker:', scorerName);
-      }
-    } else {
-      // For touchdowns and field goals, use the main patterns
-      for (const pattern of patterns) {
-        const match = playText.match(pattern);
-        if (match && match[1]) {
-          scorerName = match[1].trim();
-          console.log('Extracted scorer from text:', scorerName);
-          
-          // Try to determine position from play context
-          if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
-            scorerPosition = 'WR'; // Receiving touchdown
-          } else if (playText.includes(scorerName + ' scrambles')) {
-            scorerPosition = 'QB'; // Quarterback scramble
-          } else if (playText.includes(scorerName + ' right guard') || 
-                     playText.includes(scorerName + ' left guard') ||
-                     playText.includes(scorerName + ' run') || 
-                     playText.includes(scorerName + ' rush') ||
-                     playText.includes(scorerName + ' up the middle') ||
-                     playText.includes(scorerName + ' left end') ||
-                     playText.includes(scorerName + ' right end') ||
-                     playText.includes(scorerName + ' left tackle') ||
-                     playText.includes(scorerName + ' right tackle')) {
-            scorerPosition = 'RB'; // Rushing touchdown
-          } else if (playText.includes('field goal')) {
-            scorerPosition = 'K'; // Kicker
-          }
-          
-          console.log('Inferred position:', scorerPosition);
-          break;
-        }
-      }
-    }
-    
-    // If still no scorer found, continue anyway for the card
-    if (scorerName === 'Unknown Player') {
-      console.log('Could not extract scorer, using team info');
+
+      renderAllQuiet();
+      schedulePoll();
+    } catch (err) {
+      console.error("NFL scoreboard quiet fetch error:", err);
+      // Always reschedule so one transient failure doesn't kill polling.
+      schedulePoll();
     }
   }
 
-  // Get team abbreviation and logo
-  const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
-  const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
-  const teamLogo = (teamAbbr === "NYG" || teamAbbr === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
-
-  // Determine scoring situation
-  let scoringSituation = '';
-  if (teamSide === 'home') {
-    if (homeScore > awayScore) {
-      scoringSituation = homeScore - awayScore === 1 ? 'Go-ahead Score' : 'Extends Lead';
-    } else if (homeScore === awayScore) {
-      scoringSituation = 'Ties Game';
-    }
-  } else {
-    if (awayScore > homeScore) {
-      scoringSituation = awayScore - homeScore === 1 ? 'Go-ahead Score' : 'Extends Lead';
-    } else if (awayScore === homeScore) {
-      scoringSituation = 'Ties Game';
-    }
+  function renderAll() {
+    renderHeader();
+    renderTabBars();
+    renderPanel("left");
+    renderPanel("right");
   }
 
-  // Get position-specific stats
-  const positionGroup = getPositionGroup(scorerPosition);
-  console.log('Getting stats for:', { scorerName, scorerPosition, positionGroup });
-  
-  // For RBs, determine if this was a rushing or receiving touchdown to show appropriate stats
-  let adjustedPositionGroup = positionGroup;
-  let preferredStatCategory = null;
-  
-  if (positionGroup === 'RB') {
-    // Check if this was a receiving touchdown (pass play)
-    if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
-      adjustedPositionGroup = 'WR/TE'; // Show receiving stats for receiving TDs
-      preferredStatCategory = 'receiving';
-      console.log('RB receiving TD detected, showing receiving stats');
-    } else {
-      adjustedPositionGroup = 'RB_RUSHING'; // Show rushing-focused stats for rushing TDs
-      preferredStatCategory = 'rushing';
-      console.log('RB rushing TD detected, showing rushing stats');
-    }
-  } else if (positionGroup === 'QB' && playText.includes(scorerName + ' scrambles')) {
-    // For QB scrambles, show rushing stats instead of passing stats
-    adjustedPositionGroup = 'RB_RUSHING';
-    preferredStatCategory = 'rushing';
-    console.log('QB scramble TD detected, showing rushing stats');
-  }
-  
-  const playerStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorerName, preferredStatCategory);
-  console.log('Player stats retrieved for scoring card:', { scorerName, adjustedPositionGroup, preferredStatCategory, statsCount: playerStats.length });
-  
-  // If no stats found with the current name, try alternative name formats
-  if (playerStats.length === 0 && scorer?.shortName && scorer.shortName !== scorerName) {
-    console.log('No stats found with display name, trying short name:', scorer.shortName);
-    const alternativeStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorer.shortName, preferredStatCategory);
-    if (alternativeStats.length > 0) {
-      console.log('Found stats with short name!');
-      playerStats.push(...alternativeStats);
-    }
-  }
-  
-  // If still no stats and we have full name, try that too
-  if (playerStats.length === 0 && scorer?.fullName && scorer.fullName !== scorerName) {
-    console.log('Still no stats found, trying full name:', scorer.fullName);
-    const fullNameStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorer.fullName, preferredStatCategory);
-    if (fullNameStats.length > 0) {
-      console.log('Found stats with full name!');
-      playerStats.push(...fullNameStats);
-    }
+  // Non-flickering update: re-render header + panels, not the tab bars.
+  function renderAllQuiet() {
+    renderHeader();
+    // Keep the sticky mini header in sync when the user is scrolled down.
+    if (sbStickyHeader.style.display === "flex") renderStickyHeader();
+    renderPanel("left");
+    renderPanel("right");
   }
 
-  // Get team logos for score display
-  const homeTeamLogo = (homeTeam.team.abbreviation === "NYG" || homeTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
-  const awayTeamLogo = (awayTeam.team.abbreviation === "NYG" || awayTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png`;
-
-  const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
-  const scoringCardId = `scoring-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  console.log('About to render scoring card with:', {
-    scorerName,
-    scorerPosition,
-    teamAbbr,
-    scoringType,
-    playerStats: playerStats.length
-  });
-
-  return `
-    <div id="${scoringCardId}" class="scoring-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
-      <div class="copy-button" onclick="copyScoringCardAsImage('${scoringCardId}')" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: none; border-radius: 50%; width: 30px; height: 30px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 10;">
-        📋
-      </div>
-      
-      <div class="scoring-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 15px; margin-right: 40px;">
-        <div style="display: flex; align-items: center; flex: 1;">
-          <img src="${teamLogo}" alt="${teamInfo?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;">
-          <div class="scoring-info">
-            <div class="scoring-type" style="font-size: 14px; font-weight: bold; color: white; margin-bottom: 4px;">
-              🏈 ${scoringType} ${scoringSituation ? `• ${scoringSituation}` : ''}
-            </div>
-            <div class="scoring-time" style="font-size: 12px; color: rgba(255,255,255,0.8);">
-              Q${period} ${clock}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="scoring-card-body">
-        <div class="scorer-info" style="margin-bottom: 15px;">
-          <div class="scorer-name" style="font-size: 18px; font-weight: bold; color: white; margin-bottom: 7.5px;">
-            ${scorerName} (${scorerPosition}) - ${teamAbbr}
-          </div>
-          <div class="play-description" style="font-size: 14px; color: #eee; margin-bottom: 10px;">
-            ${playText}
-          </div>
-        </div>
-        
-        <div class="scoring-score-line" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 15px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;">
-            <span style="font-size: 16px; font-weight: bold; color: white;">${homeScore} - ${awayScore}</span>
-            <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;">
-          </div>
-          <div style="background: ${teamColorHex}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-            ${scoringType.toUpperCase()}
-          </div>
-        </div>
-        
-        ${playerStats.length > 0 ? `
-          <div class="scorer-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            ${playerStats.map(stat => `
-              <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
-                <div style="font-size: 16px; font-weight: bold; color: white;">${stat.value}</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.8);">${stat.label}</div>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
-      </div>
-    </div>
-  `;
-}
-
-// Function to copy scoring card as image
-async function copyScoringCardAsImage(cardId) {
-  try {
-    const element = document.getElementById(cardId);
-    if (!element) {
-      console.error('Scoring card element not found');
-      return;
-    }
-    
-    // Hide the copy button before taking screenshot
-    const copyButton = element.querySelector('.copy-button');
-    const originalDisplay = copyButton ? copyButton.style.display : null;
-    if (copyButton) {
-      copyButton.style.display = 'none';
-    }
-    
-    showFeedback('Preparing image...', 'loading');
-    await captureAndCopyImage(element);
-    
-    // Restore the copy button after screenshot
-    if (copyButton) {
-      copyButton.style.display = originalDisplay || 'flex';
-    }
-    
-  } catch (error) {
-    console.error('Error copying scoring card:', error);
-    
-    // Make sure to restore the copy button even if there's an error
-    const element = document.getElementById(cardId);
-    const copyButton = element?.querySelector('.copy-button');
-    if (copyButton) {
-      copyButton.style.display = 'flex';
-    }
-    
-    showFeedback('Failed to copy scoring card', 'error');
-  }
-}
-
-// Function to capture and copy element as image
-async function captureAndCopyImage(element) {
-  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
-  
-  const canvas = await html2canvas(element, {
-    backgroundColor: '#1a1a1a',
-    scale: 3,
-    useCORS: true
-  });
-  
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(async (blob) => {
-      // Check if device is mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                      ('ontouchstart' in window) || 
-                      (navigator.maxTouchPoints > 0);
-
-      try {
-        if (isMobile) {
-          // On mobile, download the image
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `scoring-card-${new Date().getTime()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          showFeedback('Scoring card downloaded!', 'success');
-          resolve();
-        } else {
-          // On desktop, try to copy to clipboard using modern API
-          if (navigator.clipboard && window.ClipboardItem) {
-            const clipboardItem = new ClipboardItem({
-              'image/png': blob
-            });
-            await navigator.clipboard.write([clipboardItem]);
-            showFeedback('Scoring card copied to clipboard!', 'success');
-            resolve();
-          } else {
-            showFeedback('Could not copy to clipboard. Try again', 'error');
-            reject(new Error('Clipboard API not available'));
-          }
-        }
-      } catch (clipboardError) {
-        console.error('Error handling image:', clipboardError);
-        showFeedback('Could not copy to clipboard. Try again', 'error');
-        reject(clipboardError);
-      }
-    }, 'image/png', 0.95);
-  });
-}
-
-// Function to show feedback messages
-function showFeedback(message, type) {
-  const existingFeedback = document.getElementById('copyFeedback');
-  if (existingFeedback) {
-    existingFeedback.remove();
-  }
-
-  const feedback = document.createElement('div');
-  feedback.id = 'copyFeedback';
-  feedback.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    color: white;
-    font-weight: 500;
-    z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: opacity 0.3s ease;
-  `;
-
-  switch (type) {
-    case 'success':
-      feedback.style.backgroundColor = '#28a745';
-      break;
-    case 'error':
-      feedback.style.backgroundColor = '#dc3545';
-      break;
-    case 'loading':
-      feedback.style.backgroundColor = '#007bff';
-      break;
-    default:
-      feedback.style.backgroundColor = '#6c757d';
-  }
-
-  feedback.textContent = message;
-  document.body.appendChild(feedback);
-
-  if (type !== 'loading') {
-    setTimeout(() => {
-      if (feedback.parentNode) {
-        feedback.remove();
-      }
-    }, 3000);
-  }
-}
-
-// Function to capture and copy play card as image
-async function captureAndCopyPlayCard(element) {
-  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
-
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                  ('ontouchstart' in window) || 
-                  (navigator.maxTouchPoints > 0);
-  
-  // Clone the element to modify it for clipboard copy without affecting the original
-  const clonedElement = element.cloneNode(true);
-  
-  // Add padding for clipboard copy
-  clonedElement.style.paddingTop = '20px';
-  clonedElement.style.paddingLeft = '20px';
-  clonedElement.style.paddingRight = '20px';
-  clonedElement.style.paddingBottom = '20px';
-  
-  // Modify headshot size for clipboard copy
-  const containerImg = clonedElement.querySelector('.copy-player-image-container');
-  if (containerImg) {
-    containerImg.style.width = '120px';
-    containerImg.style.height = '80px';
-  }
-  const headshotImg = clonedElement.querySelector('.copy-player-image');
-  if (headshotImg) {
-    headshotImg.style.width = '114px';
-    headshotImg.style.height = `${isMobile ? '76px' : '74px'}`;
-  }
-
-  // Temporarily add the cloned element to the DOM for rendering
-  clonedElement.style.position = 'absolute';
-  clonedElement.style.left = '-9999px';
-  clonedElement.style.top = '-9999px';
-  document.body.appendChild(clonedElement);
-  
-  const canvas = await html2canvas(clonedElement, {
-    backgroundColor: '#1a1a1a',
-    scale: 3,
-    useCORS: true
-  });
-  
-  // Remove the cloned element from DOM
-  document.body.removeChild(clonedElement);
-  
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(async (blob) => {
-      // Check if device is mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                      ('ontouchstart' in window) || 
-                      (navigator.maxTouchPoints > 0);
-
-      try {
-        if (isMobile) {
-          // On mobile, download the image
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `play-card-${new Date().getTime()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          showFeedback('Play card downloaded!', 'success');
-          resolve();
-        } else {
-          // On desktop, try to copy to clipboard using modern API
-          if (navigator.clipboard && window.ClipboardItem) {
-            const clipboardItem = new ClipboardItem({
-              'image/png': blob
-            });
-            await navigator.clipboard.write([clipboardItem]);
-            showFeedback('Play card copied to clipboard!', 'success');
-            resolve();
-          } else {
-            showFeedback('Could not copy to clipboard. Try again', 'error');
-            reject(new Error('Clipboard API not available'));
-          }
-        }
-      } catch (clipboardError) {
-        console.error('Error handling play card image:', clipboardError);
-        showFeedback('Could not copy to clipboard. Try again', 'error');
-        reject(clipboardError);
-      }
-    }, 'image/png', 0.95);
-  });
-}
-
-async function renderBoxScore(gameId, gameState) {
-  try {
-    const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
-    console.log("Fetching box score from:", BOX_SCORE_API_URL);
-    const response = await fetch(BOX_SCORE_API_URL);
-    const data = await response.json();
-
-    console.log("Box score data received:", data);
-
-    const isSmallScreen = window.innerWidth <= 475;
-
-    const players = data.gamepackageJSON?.boxscore?.players || [];
-    console.log("Players data:", players);
-    
-    const boxScoreDiv = document.getElementById("boxScore");
-    if (!boxScoreDiv) {
-      console.error("Error: 'boxScore' element not found.");
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEADER — mirrors app NflHeaderGradient + NflTeamSide + NflStatusBadge
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderHeader() {
+    const { home, away } = getTeams();
+    if (!home || !away) {
+      if (!sbHeader.querySelector(".sb-error"))
+        sbHeader.innerHTML = '<div class="sb-error">No game data</div>';
       return;
     }
 
-    // Check if we have valid player data
-    if (players.length === 0) {
-      boxScoreDiv.innerHTML = `<div style="color: white; text-align: center; padding: 20px;"></div>`;
-      return;
-    }
+    const pair = getMatchColors();
+    const awayColor = pair.awayColor;
+    const homeColor = pair.homeColor;
+    const live = isLive();
+    const final = isFinal();
+    const pre = isScheduled();
+    const showScores = !pre;
 
-    const renderTeamRoster = (team) => {
-      if (!team || !team.statistics || team.statistics.length === 0) {
-        console.log("Team data structure:", team);
-        console.error("Invalid team data for player stats rendering.");
-        return `<div class="error-message"></div>`;
-      }
+    const awayScore = away.score ?? "0";
+    const homeScore = home.score ?? "0";
+    const awayWon = final && Number(awayScore) > Number(homeScore);
+    const homeWon = final && Number(homeScore) > Number(awayScore);
 
-      const teamName = team.team.shortDisplayName;
-      const teamColor = `#${team.team.color}`;
-      const teamLogo = (team.team.abbreviation === "NYG" || team.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${team.team.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${team.team.abbreviation}.png`;
+    const awayAbbr = getTeamAbbr(away.team) || "AWY";
+    const homeAbbr = getTeamAbbr(home.team) || "HME";
+    const awayLogo = getTeamLogoUrl(away.team);
+    const homeLogo = getTeamLogoUrl(home.team);
+    const awayName =
+      away.team?.shortDisplayName ||
+      away.team?.displayName ||
+      away.team?.name ||
+      "Away";
+    const homeName =
+      home.team?.shortDisplayName ||
+      home.team?.displayName ||
+      home.team?.name ||
+      "Home";
+    const awayRecord = away.record?.[0]?.summary || "";
+    const homeRecord = home.record?.[0]?.summary || "";
 
-      // NFL has different stat categories: passing, rushing, receiving, etc.
-      let playersHtml = '';
-      
-      team.statistics.forEach(statCategory => {
-        const categoryName = statCategory.name;
-        const athletes = statCategory.athletes || [];
-        
-        // Skip fumbles category and empty categories
-        if (athletes.length === 0) return;
+    // Possession from the current drive
+    const currentDrive = getCurrentDrive();
+    const possId = currentDrive?.team?.id;
+    const showPossession =
+      live && getStatus()?.type?.description !== "Halftime" && possId != null;
+    const awayPoss = showPossession && String(possId) === String(away.team?.id);
+    const homePoss = showPossession && String(possId) === String(home.team?.id);
 
-        // Create header for this stat category
-        const categoryLabels = statCategory.labels || [];
-        const categoryDescriptions = statCategory.descriptions || [];
-        
-        playersHtml += `
-          <div class="stat-category">
-            <h4>${statCategory.text || categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}</h4>
-            <table>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  ${categoryLabels.slice(0, isSmallScreen ? 3 : categoryLabels.length).map(label => `<th>${label}</th>`).join('')}
-                </tr>
-              </thead>
-              <tbody>
-                ${athletes.map(playerData => {
-                  const player = playerData.athlete;
-                  const stats = playerData.stats || [];
-                  const displayStats = isSmallScreen ? stats.slice(0, 3) : stats;
-                  
-                  return `
-                    <tr>
-                      <td>
-                        ${isSmallScreen ? player.firstName?.charAt(0) + '. ' || '' : player.firstName || ''} ${player.lastName || player.displayName || 'Unknown'}
-                        <span style="color: grey;"> #${player.jersey || 'N/A'}</span>
-                      </td>
-                      ${displayStats.map(stat => `<td>${stat || '0'}</td>`).join('')}
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      });
+    const comp = getCompetition();
+    const venue =
+      gameData?.gameInfo?.venue?.fullName || comp?.venue?.fullName || "";
+    const gameNote = gameData?.header?.gameNote || null;
+    const headerText =
+      gameData?.season?.type !== 3
+        ? `${
+            gameData?.header?.season?.type === 1
+              ? "Preseason"
+              : gameData?.header?.season?.type === 2
+                ? "Regular Season"
+                : ""
+          } Week ${
+            (gameData?.header?.week || 0) +
+            (gameData?.header?.season?.type === 1 ? -1 : 0)
+          }`.trim()
+        : null;
+    const leagueLine = [venue || "NFL", gameNote || headerText || "NFL"]
+      .filter(Boolean)
+      .join(" · ");
 
+    const teamSide = (
+      team,
+      score,
+      side,
+      color,
+      logo,
+      abbr,
+      name,
+      record,
+      isWinner,
+      isLoser,
+      hasPoss,
+    ) => {
+      const scoreEl = showScores
+        ? `<span class="sb-team-score" style="color:${final && isLoser ? "var(--text-secondary)" : "var(--text-primary)"};font-weight:${isWinner || live ? "800" : "400"}">${esc(score)}</span>`
+        : "";
+      const logoEl = logo
+        ? `<img src="${esc(logo)}" class="sb-team-logo" alt="${esc(name)}" onerror="this.parentElement.innerHTML='<div class=\\'sb-team-logo-fallback\\' style=\\'background:${color}\\'>${abbr[0]}</div>'">`
+        : `<div class="sb-team-logo-fallback" style="background:${color}">${abbr[0]}</div>`;
+      const possBadge = hasPoss
+        ? `<span class="sb-poss-badge sb-poss-${side}">🏈</span>`
+        : "";
+      const logoScoreRow =
+        side === "home"
+          ? `${scoreEl}<div class="sb-team-logo-wrap">${logoEl}${possBadge}</div>`
+          : `<div class="sb-team-logo-wrap">${logoEl}${possBadge}</div>${scoreEl}`;
       return `
-        <div class="team-box-score ${gameState === "Final" ? "final" : ""} responsive-team-box-score">
-          <h3 style="background-color: ${teamColor}; display: flex; align-items: center; gap: 10px;">
-            <img src="${teamLogo}" alt="${teamName}" style="width: 30px; height: 30px; border-radius: 50%;"> ${teamName}
-          </h3>
-          ${playersHtml}
-        </div>
-      `;
+        <div class="sb-team-col">
+          <a href="team-page.html?id=${esc(team.team?.id)}" class="sb-team-link" style="text-decoration:none">
+            <div class="sb-logo-score-row">${logoScoreRow}</div>
+            <div class="sb-team-name" style="opacity:${final && !isWinner ? "0.55" : "1"}">${esc(name)}</div>
+            ${record ? `<div class="sb-team-record" style="opacity:${final && !isWinner ? "0.55" : "1"}">${esc(record)}</div>` : ""}
+          </a>
+        </div>`;
     };
 
-    const team1 = players.find(team => team.displayOrder === 1);
-    const team2 = players.find(team => team.displayOrder === 2);
-
-    boxScoreDiv.innerHTML = `
-      ${renderTeamRoster(team1)}
-      ${renderTeamRoster(team2)}
-    `;
-  } catch (error) {
-    console.error("Error fetching NFL box score data:", error);
-  }
-}
-
-// Helper function to format yard line text
-function formatYardLineText(yardLine, teamAbbr, homeTeam, awayTeam) {
-  if (yardLine === undefined || yardLine === null) return '';
-  
-  if (yardLine === 50) {
-    return '50';
-  } else if (yardLine > 50) {
-    // In opponent territory - show opponent team abbreviation
-    const opponentAbbr = (teamAbbr === homeTeam?.abbreviation) ? awayTeam?.abbreviation : homeTeam?.abbreviation;
-    const yardLineFromGoal = 100 - yardLine;
-    return opponentAbbr ? `${opponentAbbr} ${yardLineFromGoal}` : `${yardLineFromGoal}`;
-  } else {
-    // In own territory - show own team abbreviation
-    return teamAbbr ? `${teamAbbr} ${yardLine}` : `${yardLine}`;
-  }
-}
-
-async function renderPlayByPlay(gameId) {
-  try {
-    console.log("Rendering play-by-play for game:", gameId);
-    
-    // Use the drives API endpoint as specified
-    const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
-    console.log("Fetching drives from:", drivesUrl);
-    
-    const response = await fetch(convertToHttps(drivesUrl));
-    const drivesData = await response.json();
-    
-    console.log("Drives data received:", drivesData);
-    
-    const drives = drivesData.items || [];
-    
-    // Get team information for layout decisions
-    const gameId_param = getQueryParam("gameId");
-    
-    // Store current play data for copy functionality
-    currentPlayData = {
-      drives: drives,
-      gameId: gameId,
-      boxScoreUrl: `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId_param || gameId}`
-    };
-    
-    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
-    if (!playsDiv) {
-      console.error("Error: 'plays-placeholder' element not found.");
-      return;
-    }
-    
-    if (drives.length === 0) {
-      console.log("No drives found");
-      playsDiv.innerHTML = `
-        <h2>Plays</h2>
-        <div style="color: white; text-align: center; padding: 20px;">No play data available for this game.</div>
-      `;
-      return;
+    // Down & distance from the latest play of the current drive
+    let downDistHtml = "";
+    if (live && currentDrive?.plays?.length) {
+      const sorted = [...currentDrive.plays].sort(
+        (a, b) =>
+          (parseInt(b.sequenceNumber) || 0) - (parseInt(a.sequenceNumber) || 0),
+      );
+      const latest = sorted[0];
+      const dd =
+        latest?.end?.shortDownDistanceText ||
+        latest?.start?.shortDownDistanceText ||
+        "";
+      const possText = latest?.end?.possessionText || "";
+      if (dd) {
+        downDistHtml = `
+          <div class="sb-down-row">
+            <span class="sb-down-text">${esc(dd)}</span>
+            ${possText ? `<span class="sb-poss-label">${esc(possText)}</span>` : ""}
+          </div>`;
+      }
     }
 
-    let homeTeamId = null;
-    let awayTeamId = null;
-    let homeTeam = null;
-    let awayTeam = null;
-    let boxScoreData = null;
-    
-    // Fetch box score data for player stats
-    try {
-      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId_param}`;
-      const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
-      boxScoreData = await boxScoreResponse.json();
-    } catch (error) {
-      console.log("Could not fetch box score data for scoring cards");
-    }
-    
-    // Try to get home/away team IDs from the game-specific API
-    try {
-      const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId_param}`;
-      console.log('Fetching game data from:', GAME_API_URL);
-      const gameResponse = await fetch(GAME_API_URL);
-      const gameData = await gameResponse.json();
-      
-      if (gameData?.header?.competitions?.[0]?.competitors) {
-        const competitors = gameData.header.competitions[0].competitors;
-        const homeCompetitor = competitors.find(c => c.homeAway === "home");
-        const awayCompetitor = competitors.find(c => c.homeAway === "away");
-        
-        homeTeamId = homeCompetitor?.team?.id;
-        awayTeamId = awayCompetitor?.team?.id;
-        homeTeam = homeCompetitor;
-        awayTeam = awayCompetitor;
-        
-        console.log('Team IDs retrieved:', { homeTeamId, awayTeamId });
-      }
-    } catch (e) {
-      console.log("Could not fetch team home/away info from game API:", e);
-    }
+    const streamBtn =
+      live && typeof Auth !== "undefined" && Auth.isLoggedIn
+        ? `<button class="sb-stream-btn" id="sbStreamOpen" style="margin-top:8px"><span class="sb-stream-dot"></span> Stream</button>`
+        : "";
 
-    const drivesHtml = await Promise.all(drives.reverse().map(async (drive, index) => {
-      const driveNumber = drives.length - index; // Correct numbering: first drive = 1, latest drive = highest number
-      
-      // Get team information
-      let teamInfo = null;
-      if (drive.team && drive.team.$ref) {
-        try {
-          const teamResponse = await fetch(convertToHttps(drive.team.$ref));
-          teamInfo = await teamResponse.json();
-        } catch (error) {
-          console.error("Error fetching team info:", error);
-        }
-      }
-      
-      const teamName = teamInfo?.shortDisplayName || teamInfo?.abbreviation || 'Unknown';
-      const teamLogo = teamInfo?.logos?.[1]?.href || '';
-      const teamColor = teamInfo?.color ? `#${teamInfo.color}` : '#333';
-      const teamId = teamInfo?.id;
-      const driveResult = drive.displayResult || drive.result || 'In Progress';
-      const driveDescription = drive.description || '';
-      const isScore = drive.isScore || false;
-      
-      // Determine if this is the home team
-      const isHomeTeam = homeTeamId && teamId === homeTeamId;
-      
-      // Debug logging
-      console.log('Drive team debugging:', {
-        teamName,
-        teamId,
-        homeTeamId,
-        awayTeamId,
-        isHomeTeam,
-        driveNumber
-      });
-      
-      // Get drive summary info
-      const startText = drive.start?.text || '';
-      const endText = drive.end?.text || '';
-      const timeElapsed = drive.timeElapsed?.displayValue || '';
-      
-      // Get first play time and quarter information from plays
-      let firstPlay = null;
-      if (drive.plays && drive.plays.items && drive.plays.items.length > 0) {
-        // Sort plays by sequence number to get the actual first play
-        const sortedPlays = drive.plays.items.sort((a, b) => {
-          const seqA = parseInt(a.sequenceNumber) || 0;
-          const seqB = parseInt(b.sequenceNumber) || 0;
-          return seqA - seqB;
-        });
-        firstPlay = sortedPlays[0];
-        
-        // Get detailed play information if $ref is available
-        if (firstPlay.$ref) {
-          try {
-            const playResponse = await fetch(convertToHttps(firstPlay.$ref));
-            firstPlay = await playResponse.json();
-          } catch (error) {
-            console.error("Error fetching first play details:", error);
-          }
-        }
-      }
-      
-      const firstPlayQuarter = firstPlay?.period?.number || '';
-      const firstPlayTime = firstPlay?.clock?.displayValue || '';
-      const firstPlayTimeText = (firstPlayQuarter && firstPlayTime) ? `Q${firstPlayQuarter} ${firstPlayTime}` : '';
-      
-      // Create yard line graphic with gradient from start to current/end position
-      const startYardLine = drive.start?.yardLine || 0;
-      const driveEndYardLine = drive.end?.yardLine;
-      const startPosition = Math.min(100, Math.max(0, startYardLine));
-      const hasDriveEnded = driveEndYardLine !== undefined && driveEndYardLine !== null;
-      
-      // If drive hasn't ended, find the most recent play's end position as current position
-      let currentYardLine = driveEndYardLine;
-      let currentText = drive.end?.text || '';
-      
-      // If currentText is empty but we have a yard line, generate text
-      if (!currentText && driveEndYardLine !== undefined) {
-        currentText = formatYardLineText(driveEndYardLine, drive.team?.abbreviation, homeTeam, awayTeam);
-      }
-      
-      if (!hasDriveEnded && drive.plays?.items && drive.plays.items.length > 0) {
-        // Sort plays by sequence number to get the most recent play
-        const sortedPlays = drive.plays.items.sort((a, b) => {
-          const seqA = parseInt(a.sequenceNumber) || 0;
-          const seqB = parseInt(b.sequenceNumber) || 0;
-          return seqB - seqA; // Most recent first
-        });
-        
-        // Get the most recent play's end position
-        let mostRecentPlay = sortedPlays[0];
-        
-        // Fetch detailed play data if needed
-        if (mostRecentPlay.$ref) {
-          try {
-            const playResponse = await fetch(convertToHttps(mostRecentPlay.$ref));
-            mostRecentPlay = await playResponse.json();
-          } catch (error) {
-            console.error("Error fetching most recent play details:", error);
-          }
-        }
-        
-        if (mostRecentPlay.end?.yardLine !== undefined) {
-          currentYardLine = mostRecentPlay.end.yardLine;
-          currentText = mostRecentPlay.end.text || '';
-          
-          // If currentText is empty, generate it from the yard line
-          if (!currentText) {
-            currentText = formatYardLineText(currentYardLine, drive.team?.abbreviation, homeTeam, awayTeam);
-          }
-          
-          console.log('Using current position from most recent play:', currentText, currentYardLine);
-        }
-      }
-      
-      const hasCurrentPosition = currentYardLine !== undefined && currentYardLine !== null;
-      const currentPosition = hasCurrentPosition ? Math.min(100, Math.max(0, currentYardLine)) : startPosition;
-      
-      // Calculate gradient line from start to current position
-      let fieldProgressHtml = '';
-      let currentMarkerHtml = '';
-      
-      if (hasCurrentPosition) {
-        const leftPosition = Math.min(startPosition, currentPosition);
-        const rightPosition = Math.max(startPosition, currentPosition);
-        const width = rightPosition - leftPosition;
-        
-        // Flip gradient direction for away teams (green to red for home, red to green for away)
-        const gradientDirection = isHomeTeam ? 'linear-gradient(90deg, #28a745 0%, #dc3545 100%)' : 'linear-gradient(90deg, #dc3545 0%, #28a745 100%)';
-        
-        fieldProgressHtml = `<div class="field-progress" style="left: ${leftPosition}%; width: ${width}%; background: ${gradientDirection};"></div>`;
-        currentMarkerHtml = `<div class="field-marker end-marker" style="left: ${currentPosition}%"></div>`;
-      }
-      
-      const yardLineGraphic = `
-        <div class="yard-line-graphic ${isHomeTeam ? 'home-team' : ''}">
-          <div class="yard-info ${isHomeTeam ? 'home-team' : ''}">
-            ${hasCurrentPosition ? `<span>${hasDriveEnded ? 'End' : 'Current'}: ${currentText}</span>` : '<span>&nbsp;</span>'}
-            <div class="field-graphic">
-              <div class="field-line">
-                ${fieldProgressHtml}
-                <div class="field-marker start-marker" style="left: ${startPosition}%"></div>
-                ${currentMarkerHtml}
-              </div>
-            </div>
-            <span>Start: ${startText}</span>
+    setPanelHtml(
+      sbHeader,
+      `
+      <div class="sb-header-inner">
+        <div class="sb-header-gradient" style="background:linear-gradient(90deg,${awayColor}33 0%,transparent 40%,transparent 60%,${homeColor}33 100%)"></div>
+        <div class="sb-league-row">${esc(leagueLine)}</div>
+        <div class="sb-teams-row">
+          ${teamSide(away, awayScore, "away", awayColor, awayLogo, awayAbbr, awayName, awayRecord, awayWon, homeWon, awayPoss)}
+          <div class="sb-status-center">
+            <div class="sb-status-top" style="color:${live ? "var(--accent-success, #27ae60)" : "var(--text-secondary)"}">${esc(statusLine1())}</div>
+            ${statusLine2() ? `<div class="sb-status-bottom">${esc(statusLine2())}</div>` : ""}
+            ${streamBtn}
           </div>
+          ${teamSide(home, homeScore, "home", homeColor, homeLogo, homeAbbr, homeName, homeRecord, homeWon, awayWon, homePoss)}
         </div>
-      `;
-      
-      // Generate plays HTML for this drive
-      const playsHtml = await Promise.all((drive.plays?.items || []).reverse().map(async (play, playIndex) => {
-        // Get detailed play information if $ref is available
-        let playDetails = play;
-        if (play.$ref) {
-          try {
-            const playResponse = await fetch(convertToHttps(play.$ref));
-            playDetails = await playResponse.json();
-          } catch (error) {
-            console.error("Error fetching play details:", error);
-          }
+        ${downDistHtml}
+      </div>`,
+    );
+  }
+
+  function renderStickyHeader() {
+    const { home, away } = getTeams();
+    if (!home || !away) return;
+    const pair = getMatchColors();
+    const final = isFinal();
+    const pre = isScheduled();
+    const live = isLive();
+    const awayScore = away.score ?? "0";
+    const homeScore = home.score ?? "0";
+    const awayWon = final && Number(awayScore) > Number(homeScore);
+    const homeWon = final && Number(homeScore) > Number(awayScore);
+    const awayAbbr = getTeamAbbr(away.team) || "AWY";
+    const homeAbbr = getTeamAbbr(home.team) || "HME";
+    const awayLogo = getTeamLogoUrl(away.team);
+    const homeLogo = getTeamLogoUrl(home.team);
+
+    sbStickyHeader.innerHTML = `
+      <div class="sb-sticky-inner">
+        <div class="sb-sticky-gradient" style="background:linear-gradient(90deg,${pair.awayColor}33,transparent 30%,transparent 70%,${pair.homeColor}33)"></div>
+        <div class="sb-sticky-side">
+          ${awayLogo ? `<img src="${esc(awayLogo)}" class="sb-sticky-logo" onerror="this.style.display='none'">` : ""}
+          <span class="sb-sticky-abbr" style="opacity:${final && !awayWon ? "0.55" : "1"}">${awayAbbr}</span>
+          ${!pre ? `<span class="sb-sticky-score" style="font-weight:${awayWon || live ? "800" : "400"};color:${final && !awayWon ? "var(--text-secondary)" : "var(--text-primary)"}">${awayScore}</span>` : ""}
+        </div>
+        <div class="sb-sticky-status-block">
+          <div class="sb-sticky-status-line">${esc(statusLine1())}</div>
+          ${statusLine2() ? `<div class="sb-sticky-status-sub">${esc(statusLine2())}</div>` : ""}
+        </div>
+        <div class="sb-sticky-side sb-sticky-right">
+          ${!pre ? `<span class="sb-sticky-score" style="font-weight:${homeWon || live ? "800" : "400"};color:${final && !homeWon ? "var(--text-secondary)" : "var(--text-primary)"}">${homeScore}</span>` : ""}
+          <span class="sb-sticky-abbr" style="opacity:${final && !homeWon ? "0.55" : "1"}">${homeAbbr}</span>
+          ${homeLogo ? `<img src="${esc(homeLogo)}" class="sb-sticky-logo" onerror="this.style.display='none'">` : ""}
+        </div>
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB BARS — app tabs: Main / Drives / Away / Home / Stats
+  // Same tab cannot be open on both sides (MLB pattern)
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderTabBars() {
+    const sched = isScheduled();
+    const allTabs = sched
+      ? ["Main", "Away", "Home", "Stats"]
+      : ["Main", "Drives", "Away", "Home", "Stats"];
+    if (splitViewActive) {
+      renderOneTabBar(sbLeftTabs, "left", allTabs, true);
+      return;
+    }
+    renderOneTabBar(sbLeftTabs, "left", allTabs);
+    renderOneTabBar(sbRightTabs, "right", allTabs);
+  }
+
+  function renderOneTabBar(container, side, allTabs, noDisable) {
+    const currentTab = side === "left" ? leftTab : rightTab;
+    const tabsHtml = allTabs
+      .map((t) => {
+        const disabled = noDisable
+          ? false
+          : (side === "left" && t === rightTab) ||
+            (side === "right" && t === leftTab);
+        return `<button class="sb-tab${t === currentTab ? " active" : ""}${disabled ? " disabled" : ""}" data-tab="${t}"${disabled ? " disabled" : ""}>${t}</button>`;
+      })
+      .join("");
+
+    if (!setPanelHtml(container, tabsHtml)) return;
+
+    container.querySelectorAll(".sb-tab:not(.disabled)").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        if (side === "left") leftTab = tab;
+        else rightTab = tab;
+        // Reset drive selection when the Drives tab is (re)opened so the
+        // newest drive is selected.
+        if (tab === "Drives") {
+          selectedDriveIdx = null;
+          expandedPlayId = null;
         }
-        
-        const playText = playDetails.text || 'No description available';
-        const clock = playDetails.clock?.displayValue || '';
-        const period = playDetails.period?.number || '';
-        const homeScore = playDetails.homeScore || 0;
-        const awayScore = playDetails.awayScore || 0;
-        const isScoringPlay = playDetails.scoringPlay || false;
-        const scoringType = playDetails.scoringType?.displayName || '';
-        
-        // Also check if this is a scoring play by looking at text patterns (backup check)
-        // But distinguish between touchdowns and extra points
-        const isTouchdown = /\bTOUCHDOWN\b/i.test(playText);
-        const isFieldGoal = /\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i.test(playText);
-        const isExtraPointOnly = /extra\s+point\s+is\s+GOOD/i.test(playText) && !isTouchdown;
-        const isSafety = /safety/i.test(playText);
-        
-        const isLikelyScoringPlay = isScoringPlay || isTouchdown || isFieldGoal || isSafety;
-        // Don't show cards for extra point only plays (they're usually combined with touchdown plays)
-        const shouldShowScoringCard = isLikelyScoringPlay && !isExtraPointOnly;
-        
-        console.log('Play analysis:', {
-          playText,
-          isScoringPlay,
-          isTouchdown,
-          isFieldGoal,
-          isExtraPointOnly,
-          shouldShowScoringCard,
-          scoringType,
-          hasParticipants: !!playDetails.participants
-        });
-        
-        // Generate scoring card for scoring plays
-        let scoringCardHtml = '';
-        if (shouldShowScoringCard) {
-          console.log('Scoring play detected:', {
-            scoringType,
-            playText,
-            isScoringPlay: isLikelyScoringPlay,
-            play: playDetails,
-            teamId,
-            homeTeamId,
-            awayTeamId
-          });
-          
-          try {
-            // Determine which team scored
-            const teamSide = teamId === homeTeamId ? 'home' : 'away';
-            
-            // Get team color from the appropriate team data
-            let currentTeamColor = teamInfo?.color;
-            if (!currentTeamColor) {
-              // Fallback to get color from home/away team data
-              if (teamSide === 'home' && homeTeam?.team?.color) {
-                currentTeamColor = homeTeam.team.color;
-              } else if (teamSide === 'away' && awayTeam?.team?.color) {
-                currentTeamColor = awayTeam.team.color;
-              } else {
-                // Default fallback color
-                currentTeamColor = '000000';
-              }
+        renderTabBars(); // re-render both to update disabled states
+        renderPanel(side);
+      });
+    });
+  }
+
+  function renderPanel(side) {
+    const tab = side === "left" ? leftTab : rightTab;
+    const body = side === "left" ? sbLeftBody : sbRightBody;
+    if (!gameData) return;
+
+    switch (tab) {
+      case "Main":
+        renderMainPanel(body);
+        break;
+      case "Drives":
+        renderDrivesPanel(body);
+        break;
+      case "Away":
+        renderTeamPanel(body, "away");
+        break;
+      case "Home":
+        renderTeamPanel(body, "home");
+        break;
+      case "Stats":
+        renderStatsPanel(body);
+        break;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MAIN PANEL — live field, linescore, scoring summary, officials, weather,
+  // last-5 games, venue (app renderMainContent, no copy cards)
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderMainPanel(body) {
+    const { home, away } = getTeams();
+    if (!home || !away) {
+      setPanelHtml(body, '<div class="sb-empty">No game data</div>');
+      return;
+    }
+    const pair = getMatchColors();
+    const awayColor = pair.awayColor;
+    const homeColor = pair.homeColor;
+    const live = isLive();
+
+    let html = "";
+
+    // ── Live Field (latest play) ──
+    if (live) html += renderLiveFieldCard();
+
+    // ── Linescore ──
+    html += renderLinescoreCard(away, home, awayColor, homeColor);
+
+    // ── Scoring Summary ──
+    html += renderScoringCard(away, home, awayColor, homeColor);
+
+    // ── Officials ──
+    html += renderOfficialsCard();
+
+    // ── Weather ──
+    html += renderWeatherCard();
+
+    // ── Last 5 Games ──
+    html += renderLast5Cards();
+
+    // ── Venue ──
+    html += renderVenueCard();
+
+    setPanelHtml(
+      body,
+      html || '<div class="sb-empty">No game information available</div>',
+    );
+  }
+
+  // ── Live Field: latest play across all drives (app Main tab) ────────────────
+  function collectAllPlays() {
+    const all = [];
+    if (Array.isArray(drivesData)) {
+      for (const drive of drivesData) {
+        if (drive.plays?.length) {
+          for (const play of drive.plays) all.push({ play, drive });
+        }
+      }
+    }
+    all.sort(
+      (a, b) =>
+        (parseInt(a.play.sequenceNumber) || 0) -
+        (parseInt(b.play.sequenceNumber) || 0),
+    );
+    return all;
+  }
+
+  function renderLiveFieldCard() {
+    const allPlays = collectAllPlays();
+    const entry = allPlays[allPlays.length - 1];
+    if (!entry) {
+      return `<div class="sb-card"><div class="sb-card-header"><span class="sb-card-title">Live Field</span></div><div class="sb-empty">No plays available</div></div>`;
+    }
+    const { play, drive } = entry;
+    const awayAbbr = getTeamAbbr(getTeams().away?.team) || "AWY";
+    const homeAbbr = getTeamAbbr(getTeams().home?.team) || "HME";
+
+    const playTeam = play.team || drive.team;
+    const playTeamColor = getSmartColor(playTeam);
+    const playTeamAbbr = getTeamAbbr(playTeam);
+
+    const playTypeId = play.type?.id;
+    const playTypeText = play.type?.text || play.type?.abbreviation || "";
+    const playText = play.text || play.shortText || "";
+    const ddText =
+      play.start?.downDistanceText || play.end?.downDistanceText || "";
+    const period = play.period?.number || 0;
+    const clock = play.clock?.displayValue || "";
+    const periodLabel =
+      period <= 4 ? `Q${period}` : period > 4 ? `OT${period - 4}` : "";
+    const isScoring = !!play.scoringPlay;
+
+    // Field yard selection (scoring plays with same-team drive use drive yards)
+    const driveTeamAbbr = getTeamAbbr(drive?.team);
+    const driveEndAbbr = getTeamAbbr(drive?.endTeam);
+    const driveHasEndTeam = driveEndAbbr && driveEndAbbr !== driveTeamAbbr;
+    const useDriveYards =
+      isScoring && !driveHasEndTeam && drive?.end?.yardLine != null;
+    const startYard = useDriveYards
+      ? drive.start?.yardLine
+      : play.start?.yardLine;
+    const endYard = useDriveYards
+      ? drive.end?.yardLine
+      : (play.end?.yardLine ?? play.start?.yardLine);
+
+    // Enrich participants ($ref → boxscore athletes, same as the app)
+    const enriched = enrichParticipants(play, drive);
+    let participants = [...enriched].sort(
+      (a, b) => (a.order || 0) - (b.order || 0),
+    );
+
+    const specialTypes = ["53", "26", "36", "52", "29", "80", "7", "32", "34"];
+    const isSpecial = specialTypes.includes(playTypeId);
+    const isRush = playTypeId === "5";
+    const isPass = playTypeId === "24";
+    const scoringLike =
+      isScoring || (play.text || "").toLowerCase().includes("touchdown");
+
+    let mainPlayer = null;
+    if (scoringLike) {
+      mainPlayer = participants.find(
+        (p) =>
+          p.type === "scorer" || p.type === "rusher" || p.type === "receiver",
+      );
+    }
+    if (!mainPlayer) {
+      if (isSpecial && participants.length > 1) {
+        mainPlayer = participants.find(
+          (p) =>
+            p.type === "recoverer" ||
+            p.type === "returner" ||
+            p.type === "sackedBy" ||
+            p.type === "passDefender",
+        );
+      } else if (isRush) {
+        mainPlayer = participants.find((p) => p.type === "rusher");
+      } else if (isPass) {
+        mainPlayer = participants.find((p) => p.type === "receiver");
+      }
+      if (!mainPlayer) mainPlayer = participants[0];
+    }
+    if (mainPlayer && (isSpecial || isRush || isPass || scoringLike)) {
+      participants = [
+        mainPlayer,
+        ...participants.filter(
+          (p) => p.athlete?.displayName !== mainPlayer?.athlete?.displayName,
+        ),
+      ];
+    }
+
+    const athlete = mainPlayer?.athlete;
+    const mainStats = mainPlayer
+      ? getPlayPlayerStats(mainPlayer, playTypeId, mainPlayer.type)
+      : [];
+    const meta = [
+      playTeamAbbr,
+      athlete?.jersey ? `#${athlete.jersey}` : "",
+      (mainPlayer?.type || athlete?.position?.abbreviation || "").toUpperCase(),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const playerRow = athlete
+      ? `
+        <div class="sb-lf-player">
+          <div class="sb-lf-player-info">
+            <div class="sb-lf-player-name">${esc(
+              athlete.displayName ||
+                athlete.fullName ||
+                `${athlete.firstName || ""} ${athlete.lastName || ""}`.trim() ||
+                "Unknown",
+            )}</div>
+            ${meta ? `<div class="sb-lf-player-meta">${esc(meta)}</div>` : ""}
+            ${
+              mainStats.length
+                ? `<div class="sb-lf-stats">${mainStats
+                    .map((s) => {
+                      const parts = String(s).split(" ");
+                      const val = parts.shift() || "—";
+                      const lbl = parts.join(" ");
+                      return `<div class="sb-lf-stat"><div class="sb-lf-stat-val">${esc(val)}</div><div class="sb-lf-stat-lbl">${esc(lbl || "STAT")}</div></div>`;
+                    })
+                    .join("")}</div>`
+                : ""
             }
-            
-            console.log('Rendering scoring card with:', {
-              teamSide,
-              teamColor: currentTeamColor,
-              homeScore,
-              awayScore,
-              homeTeam,
-              awayTeam
-            });
-            
-            scoringCardHtml = await renderScoringCard(
-              playDetails, 
-              teamInfo, 
-              currentTeamColor, 
-              homeScore, 
-              awayScore, 
-              teamSide, 
-              homeTeam, 
-              awayTeam, 
-              boxScoreData
-            );
-            
-            console.log('Scoring card HTML generated:', scoringCardHtml ? 'SUCCESS' : 'EMPTY');
-          } catch (error) {
-            console.log('Error rendering scoring card:', error);
+          </div>
+          <div class="sb-lf-headshot" style="border-color:${playTeamColor};background:${playTeamColor}66">
+            <img src="${esc(headshotUrl(athlete.id))}" alt="" onerror="this.style.display='none'">
+            <span class="sb-lf-hs-badge" style="border-color:${playTeamColor}">
+              <img src="${esc(getTeamLogoUrl(playTeam || drive?.team))}" alt="" onerror="this.style.display='none'">
+            </span>
+          </div>
+        </div>`
+      : `<div class="sb-lf-none">No player tagged for this play</div>`;
+
+    return `
+      <div class="sb-card sb-field-card">
+        <div class="sb-card-header"><span class="sb-card-title">Live Field</span></div>
+        <div class="sb-field-body">
+          ${fieldSvg(playTeamColor, startYard, endYard, play)}
+          <div class="sb-lf-playinfo">
+            <div class="sb-lf-playinfo-top">
+              <span class="sb-lf-playtype" style="color:${isScoring ? playTeamColor : "var(--text-secondary)"}">${esc(playTypeText)}</span>
+              <span class="sb-lf-playclock">${esc(periodLabel)} ${esc(clock)}</span>
+            </div>
+            <div class="sb-lf-playtext">${esc(playText)}</div>
+            ${
+              ddText || play.awayScore !== undefined
+                ? `<div class="sb-lf-playinfo-bottom">
+                    ${ddText ? `<span class="sb-lf-dd">${esc(ddText)}</span>` : "<span></span>"}
+                    ${play.awayScore !== undefined ? `<span class="sb-lf-score">${awayAbbr} ${play.awayScore} - ${play.homeScore} ${homeAbbr}</span>` : ""}
+                  </div>`
+                : ""
+            }
+          </div>
+          <div class="sb-lf-players" style="--pc:${playTeamColor}">
+            <div class="sb-lf-players-grad" style="background:linear-gradient(90deg,${playTeamColor}38,transparent 70%)"></div>
+            <div class="sb-lf-players-head">
+              <span style="color:${playTeamColor}">${esc(
+                (
+                  playTeam?.displayName ||
+                  playTeam?.name ||
+                  playTeamAbbr ||
+                  ""
+                ).toUpperCase(),
+              )}</span>
+              <span>${playTeamAbbr === awayAbbr ? "AWAY" : "HOME"}</span>
+            </div>
+            ${playerRow}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Resolve play participants from $ref using boxscore athletes (app logic)
+  function enrichParticipants(play, drive) {
+    const out = [];
+    if (!play?.participants?.length) return out;
+    const findInBoxscore = (athleteId) => {
+      const teams = gameData?.boxscore?.players || [];
+      for (const teamData of teams) {
+        for (const cat of teamData.statistics || []) {
+          for (const a of cat.athletes || []) {
+            const athlete = a.athlete;
+            if (
+              athlete &&
+              (athlete.id === athleteId ||
+                String(athlete.id) === String(athleteId))
+            ) {
+              return athlete;
+            }
           }
-        }
-        
-        return `
-          <div class="play-item ${shouldShowScoringCard ? 'scoring-play' : ''}" data-play-id="${play.id}">
-            <div class="play-header">
-              <span class="play-time">Q${period} ${clock}</span>
-              <span class="play-score">${awayScore} - ${homeScore}</span>
-              ${shouldShowScoringCard ? `<span class="scoring-indicator">${scoringType || (isTouchdown ? 'Touchdown' : isFieldGoal ? 'Field Goal' : 'Score')}</span>` : ''}
-              ${play.participants && play.participants.length > 0 ? `<button class="copy-play-btn" onclick="copyPlay('${play.id}')" title="Copy play">📋</button>` : ''}
-            </div>
-            <div class="play-description">${playText}</div>
-            ${scoringCardHtml}
-            <div id="copy-card-${play.id}" class="copy-card" style="display: none;"></div>
-          </div>
-        `;
-      }));
-
-      return `
-        <div class="drive-container">
-          <div class="drive-header ${isScore ? 'scoring-drive' : ''}" onclick="toggleDrive(${index})">
-            <div class="drive-info ${isHomeTeam ? 'home-team' : ''}">
-              <div class="drive-team">
-                ${teamLogo ? `<img src="${convertToHttps(teamLogo)}" alt="${teamName}" class="drive-team-logo">` : ''}
-                <span class="drive-team-name">${teamName}</span>
-                <span class="drive-number">Drive ${driveNumber}</span>
-              </div>
-              <div class="drive-result ${isScore ? 'score' : ''}">${driveResult}</div>
-            </div>
-            <div class="drive-summary ${isHomeTeam ? 'home-team' : ''}">
-              <span class="drive-description">${driveDescription}</span>
-              <div class="drive-timing ${isHomeTeam ? 'home-team' : ''}">
-                ${firstPlayTimeText ? `<span class="first-play-time">${firstPlayTimeText}</span>` : ''}
-                ${timeElapsed ? `<span class="drive-time">${timeElapsed}</span>` : ''}
-              </div>
-            </div>
-            ${yardLineGraphic}
-            <div class="drive-toggle">
-              <span class="toggle-icon" id="toggle-${index}">▼</span>
-            </div>
-          </div>
-          <div class="drive-plays" id="drive-${index}" style="display: none;">
-            ${playsHtml.join('')}
-          </div>
-        </div>
-      `;
-    }));
-
-    playsDiv.innerHTML = `
-      <h2>Plays</h2>
-      <div class="drives-container">
-        ${drivesHtml.join('')}
-      </div>
-    `;
-  } catch (error) {
-    console.error("Error fetching NFL play-by-play data:", error);
-    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
-    if (playsDiv) {
-      playsDiv.innerHTML = `
-        <h2>Plays</h2>
-        <div style="color: white; text-align: center; padding: 20px;">Error loading play data: ${error.message}</div>
-      `;
-    }
-  }
-}
-
-async function fetchAndRenderTopScoreboard() {
-  try {
-    function getOrdinalSuffix(num) {
-      if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
-      switch (num % 10) {
-        case 1: return `${num}st`;
-        case 2: return `${num}nd`;
-        case 3: return `${num}rd`;
-        default: return `${num}th`;
-      }
-    }
-
-    const gameId = getQueryParam("gameId");
-    const gameDate = getQueryParam("date");
-    
-    if (!gameId) {
-      console.error("No gameId provided");
-      return;
-    }
-
-    let selectedGame = null;
-    let scoreboardData = null;
-
-    if (gameDate) {
-      // Use the specific date provided
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${gameDate}`;
-      
-      try {
-        const response = await fetch(SCOREBOARD_API_URL);
-        const data = await response.json();
-        const games = data.events || [];
-        
-        selectedGame = games.find(game => game.id === gameId);
-        if (selectedGame) {
-          scoreboardData = data;
-        }
-      } catch (error) {
-        console.error(`Error fetching data for date ${gameDate}:`, error);
-      }
-    }
-
-    // Fallback: search recent dates if specific date doesn't work
-    if (!selectedGame) {
-      const today = new Date();
-      for (let daysBack = 0; daysBack <= 30; daysBack++) {
-        const searchDate = new Date(today);
-        searchDate.setDate(today.getDate() - daysBack);
-        
-        const adjustedDate = searchDate.getFullYear() +
-                             String(searchDate.getMonth() + 1).padStart(2, "0") +
-                             String(searchDate.getDate()).padStart(2, "0");
-        
-        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
-
-        try {
-          const response = await fetch(SCOREBOARD_API_URL);
-          const data = await response.json();
-          const games = data.events || [];
-          
-          selectedGame = games.find(game => game.id === gameId);
-          if (selectedGame) {
-            scoreboardData = data;
-            break;
-          }
-        } catch (error) {
-          console.error(`Error fetching data for date ${adjustedDate}:`, error);
-        }
-      }
-    }
-
-    if (!selectedGame) {
-      console.error(`Game with ID ${gameId} not found.`);
-      return;
-    }
-
-    const awayTeam = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-    const homeTeam = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-
-    const awayScore = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-    const homeScore = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-
-    const awayLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.linescores || [];
-    const homeLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.linescores || [];
-
-    const slug = selectedGame.season?.slug || "regular-season";
-
-    const homeTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
-
-    const awayTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
-
-    const period = selectedGame.status.period || 0;
-    const clock = selectedGame.status.displayClock || "00:00";
-    const gameStatus = selectedGame.status.type.description;
-    const isGameOver = gameStatus === "Final";
-    const isGameScheduled = gameStatus === "Scheduled";
-
-    const possession = selectedGame?.competitions[0]?.situation?.possession;
-    const text = selectedGame?.competitions[0]?.situation?.possessionText || "";
-    const distance = selectedGame?.competitions[0]?.situation?.distance || "N/A";
-    const yardLine = selectedGame?.competitions[0]?.situation?.yardLine || "N/A";
-    const kickoff = selectedGame?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : selectedGame?.competitions[0]?.situation?.shortDownDistanceText || "";
-
-
-    const topScoreboardEl = document.getElementById("topScoreboard");
-    if (!topScoreboardEl) {
-      console.error("Error: 'topScoreboard' element not found.");
-      return;
-    }
-
-    const periodText = isGameOver ? "Final"
-      : isGameScheduled ? "Scheduled"
-      : period > 4
-      ? "OT"
-      : `${getOrdinalSuffix(period)} Quarter`;
-
-    const timeLeft = isGameOver ? "End" : isGameScheduled ? `${selectedGame.status.type.shortDetail}` : clock;
-
-    // Determine score colors for the final game state
-    const awayScoreColor = gameStatus === "Final" && parseInt(awayScore) < parseInt(homeScore) ? "grey" : "white";
-    const homeScoreColor = gameStatus === "Final" && parseInt(homeScore) < parseInt(awayScore) ? "grey" : "white";
-
-    topScoreboardEl.innerHTML = `
-      <div class="team-block">
-        <div class="team-score responsive-score" style="color: ${awayScoreColor};">${awayScore}</div>
-        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName}">
-        <div class="team-name responsive-name">${awayTeam?.shortDisplayName}</div>
-        <div class="team-record responsive-record">${awayTeamRecord}</div>
-      </div>
-      <div class="inning-center">
-        <div class="inning-status responsive-inning-status">${periodText}</div>
-        <div class="time-left responsive-game-clock">${timeLeft}</div>
-        <div class="time-left responsive-text1" style="margin-top: 25px">${kickoff}</div>
-        <div class="time-left responsive-text2" style="color: white;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
-      </div>
-      <div class="team-block">
-        <div class="team-score responsive-score" style="color: ${homeScoreColor};">${homeScore}</div>
-        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName}">
-        <div class="team-name responsive-name">${homeTeam?.shortDisplayName}</div>
-        <div class="team-record responsive-record">${homeTeamRecord}</div>
-      </div>
-    `;
-
-    renderLinescoreTable(awayLinescores, homeLinescores, awayTeam?.abbreviation, homeTeam?.abbreviation, awayScore, homeScore);
-
-    // Add stream embed after linescore (only render once and only for in-progress games)
-    const isInProgress = gameStatus !== "Final" && gameStatus !== "Scheduled";
-    console.log('NFL Stream check:', { gameStatus, isInProgress, streamInitialized, awayTeam: awayTeam?.displayName, homeTeam: homeTeam?.displayName });
-    
-    if (isInProgress && !streamInitialized) {
-      console.log('Game is in progress, initializing stream...');
-      
-      // Handle the async renderStreamEmbed function properly
-      renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName)
-        .then(streamHTML => {
-          const streamContainer = document.getElementById('streamEmbed');
-          if (streamContainer && streamHTML) {
-            streamContainer.innerHTML = streamHTML;
-            streamInitialized = true;
-            console.log('NFL Stream initialized successfully');
-          } else {
-            console.error('NFL Stream container not found or no HTML returned');
-          }
-        })
-        .catch(error => {
-          console.error('NFL Error initializing stream:', error);
-        });
-    } else if (!isInProgress) {
-      console.log('Game is not in progress (status:', gameStatus, '), clearing stream...');
-      // Clear stream container if game is finished and reset flag
-      const streamContainer = document.getElementById("streamEmbed");
-      if (streamContainer && streamContainer.innerHTML) {
-        streamContainer.innerHTML = "";
-        streamInitialized = false;
-        console.log('NFL Stream container cleared and flag reset');
-      }
-    } else {
-      console.log('Stream already initialized for in-progress game, skipping...');
-    }
-
-    // Remove play description functionality - no longer needed
-    // as it will be handled in the Plays section
-
-    // Render the box score
-    renderBoxScore(gameId, gameStatus);
-
-    // Return true if game is over to stop further updates
-    return isGameOver;
-  } catch (error) {
-    console.error("Error fetching NFL scoreboard data:", error);
-    return true; // Stop fetching on error
-  }
-}
-
-let updateInterval;
-
-// Fetch and render the scoreboard based on the gameId in the URL
-const gameId = getQueryParam("gameId");
-if (gameId) {
-  const updateScoreboard = async () => {
-    const gameOver = await fetchAndRenderTopScoreboard();
-    if (gameOver && updateInterval) {
-      clearInterval(updateInterval);
-      console.log("Game is over. Stopped fetching updates.");
-    }
-  };
-
-  updateScoreboard(); // Initial fetch
-  updateInterval = setInterval(updateScoreboard, 2000);
-} else {
-  document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
-}
-
-function renderLinescoreTable(awayLinescores, homeLinescores, awayAbbr, homeAbbr, awayTotal, homeTotal) {
-  const linescoreTableDiv = document.getElementById("linescoreTable");
-  if (!linescoreTableDiv) {
-    console.error("Error: 'linescoreTable' element not found.");
-    return;
-  }
-
-  const periods = [1, 2, 3, 4]; // Standard NFL periods
-  const periodHeaders = periods.map(period => `<th>${period}</th>`).join("");
-
-  const awayScores = periods.map(period => {
-    const score = awayLinescores.find(ls => ls.period === period)?.displayValue || "-";
-    return `<td>${score}</td>`;
-  }).join("");
-
-  const homeScores = periods.map(period => {
-    const score = homeLinescores.find(ls => ls.period === period)?.displayValue || "-";
-    return `<td>${score}</td>`;
-  }).join("");
-
-  linescoreTableDiv.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th></th>
-          ${periodHeaders}
-          <th></th> <!-- Space between periods and total -->
-          <th>T</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>${awayAbbr}</td>
-          ${awayScores}
-          <td></td> <!-- Space between periods and total -->
-          <td>${awayTotal}</td>
-        </tr>
-        <tr>
-          <td>${homeAbbr}</td>
-          ${homeScores}
-          <td></td> <!-- Space between periods and total -->
-          <td>${homeTotal}</td>
-        </tr>
-      </tbody>
-    </table>
-  `;
-}
-
-function renderPlayDescription(lastPlay, clock, competitors) {
-  const playDescriptionDiv = document.getElementById("playDescription");
-  if (!playDescriptionDiv) {
-    console.error("Error: 'playDescription' element not found.");
-    return;
-  }
-
-  if (!lastPlay || !lastPlay.text) {
-    playDescriptionDiv.innerHTML = `
-      <div class="play-description-content">
-        <div class="play-text">No play data available</div>
-      </div>
-    `;
-    playDescriptionDiv.style.backgroundColor = "#1a1a1a"; // Default background color
-    return;
-  }
-
-  // Handle clock display
-  const displayClock = clock === "0.0" ? "End" : clock;
-
-  // Find the team in the competitors array that matches the team ID from lastPlay
-  const team = competitors.find(c => c.team.id === lastPlay.team?.id);
-
-  // Use the team's color or fallback to a default color
-  const teamColor = team?.team?.color ? `#${team.team.color}` : "#1a1a1a";
-  playDescriptionDiv.style.backgroundColor = teamColor;
-
-  playDescriptionDiv.innerHTML = `
-    <div class="play-description-content">
-      <div class="play-text">${lastPlay.text}</div>
-    </div>
-  `;
-}
-
-// Content slider functions
-function showStats() {
-  // Update tab states
-  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
-  const statsBtn = document.getElementById('statsBtn');
-  if (statsBtn) statsBtn.classList.add('active');
-  
-  // Show/hide content sections - handle all content classes
-  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
-    content.classList.remove('active');
-  });
-  const statsContent = document.getElementById('statsContent');
-  if (statsContent) statsContent.classList.add('active');
-  
-  // Hide stream embed when on stats
-  const streamEmbed = document.getElementById('streamEmbed');
-  if (streamEmbed) {
-    streamEmbed.style.display = 'none';
-  }
-  
-  // Load stats data when switching to stats view
-  const gameId = getQueryParam("gameId");
-  if (gameId) {
-    loadMatchStats(gameId);
-  }
-}
-
-function showBoxscore() {
-  // Update tab states
-  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
-  const boxscoreBtn = document.getElementById('boxscoreBtn');
-  if (boxscoreBtn) boxscoreBtn.classList.add('active');
-  
-  // Show/hide content sections - handle all content classes
-  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
-    content.classList.remove('active');
-  });
-  const boxscoreContent = document.getElementById('boxscoreContent');
-  if (boxscoreContent) boxscoreContent.classList.add('active');
-  
-  // Show stream embed when on boxscore (if game is in progress)
-  const streamEmbed = document.getElementById('streamEmbed');
-  if (streamEmbed) {
-    streamEmbed.style.display = 'block';
-  }
-}
-
-function showPlays() {
-  // Update tab states
-  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
-  const playsBtn = document.getElementById('playsBtn');
-  if (playsBtn) playsBtn.classList.add('active');
-  
-  // Show/hide content sections - handle all content classes
-  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
-    content.classList.remove('active');
-  });
-  const playsContent = document.getElementById('playsContent');
-  if (playsContent) playsContent.classList.add('active');
-  
-  // Hide stream embed when on plays
-  const streamEmbed = document.getElementById('streamEmbed');
-  if (streamEmbed) {
-    streamEmbed.style.display = 'none';
-  }
-  
-  // Load play-by-play data when switching to plays view
-  const gameId = getQueryParam("gameId");
-  if (gameId) {
-    renderPlayByPlay(gameId);
-  }
-}
-
-// Function to toggle drive visibility
-function toggleDrive(driveIndex) {
-  const driveElement = document.getElementById(`drive-${driveIndex}`);
-  const toggleIcon = document.getElementById(`toggle-${driveIndex}`);
-  
-  if (driveElement && toggleIcon) {
-    if (driveElement.style.display === 'none') {
-      driveElement.style.display = 'block';
-      toggleIcon.textContent = '▲';
-    } else {
-      driveElement.style.display = 'none';
-      toggleIcon.textContent = '▼';
-    }
-  }
-}
-
-// Stats functionality
-async function loadMatchStats(gameId) {
-  try {
-    console.log('Loading match stats for game:', gameId);
-    
-    // Replace gameId in the URL with the actual gameId
-    const STATS_API_URL = `https://cdn.espn.com/core/nfl/matchup?xhr=1&gameId=${gameId}`;
-    console.log('Fetching stats from:', STATS_API_URL);
-    
-    const response = await fetch(STATS_API_URL);
-    const data = await response.json();
-    
-    console.log('Stats data received:', data);
-    console.log('Full gamepackageJSON:', data.gamepackageJSON);
-    
-    const statsContainer = document.getElementById('matchStatsDisplay');
-    if (!statsContainer) {
-      console.error('Stats container not found');
-      return;
-    }
-    
-    // Check if we have valid data
-    if (!data || !data.gamepackageJSON) {
-      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Stats not available for this game.</div>';
-      return;
-    }
-    
-    // Look for teams in different possible locations
-    let teams = data.gamepackageJSON.teams;
-    
-    // Try alternative locations if teams not found
-    if (!teams && data.gamepackageJSON.boxscore) {
-      teams = data.gamepackageJSON.boxscore.teams;
-    }
-    if (!teams && data.gamepackageJSON.header) {
-      teams = data.gamepackageJSON.header.competitions?.[0]?.competitors;
-    }
-    
-    console.log('Teams found:', teams);
-    
-    if (!teams || teams.length < 2) {
-      // Try to find team info in header/competitors
-      const competitors = data.gamepackageJSON.header?.competitions?.[0]?.competitors;
-      if (competitors && competitors.length >= 2) {
-        console.log('Using competitors data:', competitors);
-        
-        // Convert competitors to team format
-        const awayTeam = competitors.find(c => c.homeAway === 'away') || competitors[1];
-        const homeTeam = competitors.find(c => c.homeAway === 'home') || competitors[0];
-        
-        // Render basic team info without detailed stats
-        renderBasicTeamInfo(awayTeam, homeTeam, statsContainer);
-        return;
-      }
-      
-      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Team data not available.</div>';
-      return;
-    }
-    
-    const awayTeam = teams.find(team => team.homeAway === 'away') || teams[0];
-    const homeTeam = teams.find(team => team.homeAway === 'home') || teams[1];
-    
-    console.log('Away team:', awayTeam);
-    console.log('Home team:', homeTeam);
-    
-    // Get team statistics
-    const awayStats = awayTeam.statistics || [];
-    const homeStats = homeTeam.statistics || [];
-    
-    console.log('Away stats:', awayStats);
-    console.log('Home stats:', homeStats);
-    
-    // Render stats similar to soccer format
-    renderMatchStats(awayTeam, homeTeam, awayStats, homeStats);
-    
-  } catch (error) {
-    console.error('Error loading match stats:', error);
-    const statsContainer = document.getElementById('matchStatsDisplay');
-    if (statsContainer) {
-      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Error loading stats.</div>';
-    }
-  }
-}
-
-// Function to render basic team info when detailed stats aren't available
-function renderBasicTeamInfo(awayTeam, homeTeam, statsContainer) {
-  console.log('Rendering basic team info');
-  
-  // Get team logos and names
-  const awayLogo = awayTeam.team?.logo || awayTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation}.png`;
-  const homeLogo = homeTeam.team?.logo || homeTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation}.png`;
-  
-  const awayName = awayTeam.team?.shortDisplayName || awayTeam.team?.displayName || awayTeam.team?.name;
-  const homeName = homeTeam.team?.shortDisplayName || homeTeam.team?.displayName || homeTeam.team?.name;
-  
-  const statsHtml = `
-    <div class="match-stats-container">
-      <div class="stats-header">Team Information</div>
-      
-      <div class="stats-teams">
-        <div class="stats-team away">
-          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo">
-          <div class="stats-team-name">${awayName}</div>
-        </div>
-        <div class="stats-team home">
-          <div class="stats-team-name">${homeName}</div>
-          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo">
-        </div>
-      </div>
-      
-      <div style="color: white; text-align: center; padding: 20px;">
-        Detailed team statistics will be available during or after the game.
-      </div>
-    </div>
-  `;
-  
-  statsContainer.innerHTML = statsHtml;
-}
-
-// Function to render match stats similar to soccer
-function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
-  const statsContainer = document.getElementById('matchStatsDisplay');
-  if (!statsContainer) return;
-  
-  console.log('Rendering match stats for:', awayTeam, homeTeam);
-  
-  // Get team logos with multiple fallback options
-  const awayLogo = awayTeam.team?.logo || 
-                   awayTeam.team?.logos?.[0]?.href || 
-                   awayTeam.logo || 
-                   `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation || awayTeam.abbreviation}.png`;
-  
-  const homeLogo = homeTeam.team?.logo || 
-                   homeTeam.team?.logos?.[0]?.href || 
-                   homeTeam.logo || 
-                   `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation || homeTeam.abbreviation}.png`;
-  
-  // Get team names with multiple fallback options
-  const awayName = awayTeam.team?.shortDisplayName || 
-                   awayTeam.team?.displayName || 
-                   awayTeam.team?.name || 
-                   awayTeam.shortDisplayName || 
-                   awayTeam.displayName || 
-                   awayTeam.name;
-  
-  const homeName = homeTeam.team?.shortDisplayName || 
-                   homeTeam.team?.displayName || 
-                   homeTeam.team?.name || 
-                   homeTeam.shortDisplayName || 
-                   homeTeam.displayName || 
-                   homeTeam.name;
-
-  // Get team colors with fallbacks
-  const awayColor = awayTeam.team?.color || awayTeam.color || 'dc3545';
-  const homeColor = homeTeam.team?.color || homeTeam.color || '007bff';
-  
-  // Ensure colors have # prefix
-  const awayColorHex = awayColor.startsWith('#') ? awayColor : `#${awayColor}`;
-  const homeColorHex = homeColor.startsWith('#') ? homeColor : `#${homeColor}`;
-  
-  // Create stats sections based on available data
-  let statsHtml = `
-    <div class="match-stats-container">
-      <div class="stats-header">Match Stats</div>
-      
-      <div class="stats-teams">
-        <div class="stats-team away">
-          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo" onerror="this.src='football.png';">
-          <div class="stats-team-name">${awayName}</div>
-        </div>
-        <div class="stats-team home">
-          <div class="stats-team-name">${homeName}</div>
-          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo" onerror="this.src='football.png';">
-        </div>
-      </div>
-  `;
-  
-  // Process statistics if available
-  if (awayStats.length > 0 && homeStats.length > 0) {
-    // Get possession data
-    const awayPossessionStat = awayStats.find(stat => stat.name === 'possessionTime');
-    const homePossessionStat = homeStats.find(stat => stat.name === 'possessionTime');
-    
-    if (awayPossessionStat && homePossessionStat) {
-      // Use the actual seconds values from the data
-      const awaySeconds = awayPossessionStat.value; // Already in seconds
-      const homeSeconds = homePossessionStat.value; // Already in seconds
-      const totalSeconds = awaySeconds + homeSeconds;
-      
-      const awayPercent = ((awaySeconds / totalSeconds) * 100).toFixed(1);
-      const homePercent = ((homeSeconds / totalSeconds) * 100).toFixed(1);
-      
-      // Use displayValue for the time format display
-      const awayTimeDisplay = awayPossessionStat.displayValue; // "40:15"
-      const homeTimeDisplay = homePossessionStat.displayValue; // "19:45"
-      
-      statsHtml += `
-        <div class="stats-section">
-          <div class="stats-section-title">Possession</div>
-          <div class="possession-section">
-            <div class="possession-circle" style="background: conic-gradient(${homeColorHex} 0% ${homePercent}%, ${awayColorHex} ${homePercent}% 100%);">
-              <div class="possession-center">
-                <div>Possession</div>
-              </div>
-            </div>
-            <div class="possession-values">
-              <div class="possession-team away-team">
-                <div class="possession-color" style="background: ${awayColorHex};"></div>
-                <span>${awayName} ${awayPercent}% (${awayTimeDisplay})</span>
-              </div>
-              <div class="possession-team home-team">
-                <span>${homeName} ${homePercent}% (${homeTimeDisplay})</span>
-                <div class="possession-color" style="background: ${homeColorHex};"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    
-    // Create stat categories (11 categories as requested)
-    const statCategories = {
-      'Offense': ['firstDowns', 'totalOffensivePlays', 'totalYards', 'yardsPerPlay'],
-      'Passing': ['netPassingYards', 'completionAttempts', 'yardsPerPass'],
-      'Rushing': ['rushingYards', 'rushingAttempts', 'yardsPerRushAttempt'],
-      'Turnovers': ['interceptions', 'fumblesLost'],
-      'Penalties': ['totalPenaltiesYards'],
-      'Third Down': ['thirdDownEff'],
-      'Fourth Down': ['fourthDownEff'],
-      'Red Zone': ['redZoneAttempts'],
-      'Defense': ['sacksYardsLost'],
-      'Drives': ['totalDrives']
-    };
-    
-    Object.entries(statCategories).forEach(([category, statKeys]) => {
-      statsHtml += `<div class="stats-section">
-        <div class="stats-section-title">${category}</div>`;
-      
-      statKeys.forEach(statKey => {
-        const awayStat = findStatValue(awayStats, statKey);
-        const homeStat = findStatValue(homeStats, statKey);
-        
-        if (awayStat !== null && homeStat !== null) {
-          // Get display name for stat
-          const statLabel = getStatDisplayName(statKey);
-          
-          // For percentage stats, use the raw values for comparison
-          let awayValue, homeValue;
-          if (statKey.includes('Eff') || statKey.includes('Attempts')) {
-            // For efficiency stats, extract percentage or fraction
-            awayValue = extractNumericValue(awayStat);
-            homeValue = extractNumericValue(homeStat);
-          } else {
-            awayValue = parseFloat(awayStat) || 0;
-            homeValue = parseFloat(homeStat) || 0;
-          }
-          
-          const maxValue = Math.max(awayValue, homeValue);
-          const total = awayValue + homeValue;
-          
-          // Calculate percentages for bar widths (like soccer - based on proportion of total)
-          let awayPercent = 0;
-          let homePercent = 0;
-          
-          if (total > 0) {
-            awayPercent = (awayValue / total) * 100;
-            homePercent = (homeValue / total) * 100;
-          }
-          
-          statsHtml += `
-            <div class="stats-row">
-              <div class="stats-value away">${awayStat}</div>
-              <div class="stats-bar-container">
-                <div class="stats-bar">
-                  <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: ${awayColorHex};"></div>
-                </div>
-                <div class="stats-bar">
-                  <div class="stats-bar-fill home" style="width: ${homePercent}%; background: ${homeColorHex};"></div>
-                </div>
-              </div>
-              <div class="stats-value home">${homeStat}</div>
-            </div>
-            <div class="stats-label">${statLabel}</div>
-          `;
-        }
-      });
-      
-      statsHtml += '</div>';
-    });
-    
-  } else {
-    statsHtml += '<div style="color: white; text-align: center; padding: 20px;">Detailed statistics will be available during or after the game.</div>';
-  }
-  
-  statsHtml += '</div>';
-  
-  // First set the main stats HTML
-  statsContainer.innerHTML = statsHtml;
-  
-  // Then load and append leaders data
-  loadMatchLeaders();
-}
-
-// Helper function to find stat values in the stats array
-function findStatValue(stats, statKey) {
-  for (const stat of stats) {
-    if (stat.name === statKey || stat.abbreviation === statKey) {
-      return stat.displayValue || stat.value;
-    }
-  }
-  return null;
-}
-
-// Helper function to convert time (MM:SS) to seconds
-function convertTimeToSeconds(timeString) {
-  if (!timeString || typeof timeString !== 'string') return 0;
-  
-  const parts = timeString.split(':');
-  if (parts.length === 2) {
-    const minutes = parseInt(parts[0]) || 0;
-    const seconds = parseInt(parts[1]) || 0;
-    return (minutes * 60) + seconds;
-  }
-  return 0;
-}
-
-// Helper function to get display names for stats
-function getStatDisplayName(statKey) {
-  const displayNames = {
-    'firstDowns': '1st Downs',
-    'totalOffensivePlays': 'Total Plays',
-    'totalYards': 'Total Yards',
-    'yardsPerPlay': 'Yards per Play',
-    'netPassingYards': 'Net Passing Yards',
-    'completionAttempts': 'Comp/Att',
-    'yardsPerPass': 'Yards per Pass',
-    'rushingYards': 'Rushing Yards',
-    'rushingAttempts': 'Rushing Attempts',
-    'yardsPerRushAttempt': 'Yards per Rush',
-    'interceptions': 'Interceptions',
-    'fumblesLost': 'Fumbles Lost',
-    'totalPenaltiesYards': 'Penalties-Yards',
-    'thirdDownEff': '3rd Down Efficiency',
-    'fourthDownEff': '4th Down Efficiency',
-    'redZoneAttempts': 'Red Zone (Made-Att)',
-    'sacksYardsLost': 'Sacks-Yards Lost',
-    'timeOfPossession': 'Time of Possession',
-    'totalDrives': 'Total Drives'
-  };
-  
-  return displayNames[statKey] || statKey;
-}
-
-// Helper function to extract numeric value from stat strings like "9-12" or "75%"
-function extractNumericValue(statString) {
-  if (!statString || statString === '-') return 0;
-  
-  // Handle fractions like "9-12" (convert to percentage)
-  if (statString.includes('-')) {
-    const parts = statString.split('-');
-    if (parts.length === 2) {
-      const made = parseFloat(parts[0]) || 0;
-      const attempted = parseFloat(parts[1]) || 0;
-      return attempted > 0 ? (made / attempted) : 0;
-    }
-  }
-  
-  // Handle percentages like "75%"
-  if (statString.includes('%')) {
-    return parseFloat(statString.replace('%', '')) || 0;
-  }
-  
-  // Handle regular numbers
-  return parseFloat(statString) || 0;
-}
-
-// Function to load and render leaders data
-async function loadMatchLeaders() {
-  try {
-    const gameId = getQueryParam("gameId");
-    if (!gameId) return;
-    
-    const LEADERS_API_URL = `https://cdn.espn.com/core/nfl/matchup?xhr=1&gameId=${gameId}`;
-    const response = await fetch(LEADERS_API_URL);
-    const data = await response.json();
-    
-    console.log('Leaders data received:', data);
-    
-    if (data && data.gamepackageJSON && data.gamepackageJSON.leaders) {
-      renderLeaders(data.gamepackageJSON.leaders);
-    }
-  } catch (error) {
-    console.error('Error loading leaders:', error);
-  }
-}
-
-// Function to render leaders (like soccer's form containers)
-function renderLeaders(leadersData) {
-  const statsContainer = document.getElementById('matchStatsDisplay');
-  if (!statsContainer || !leadersData) return;
-  
-  // Create leaders HTML similar to soccer's form containers
-  let leadersHtml = `
-    <div class="form-containers">
-  `;
-  
-  // Reverse the order so away team is on left, home team is on right
-  const orderedLeaders = [...leadersData].reverse();
-  
-  // Process each team's leaders
-  orderedLeaders.forEach(teamLeaders => {
-    const team = teamLeaders.team;
-    const leaders = teamLeaders.leaders;
-    
-    if (!team || !leaders) return;
-    
-    leadersHtml += `
-      <div class="form-container">
-        <div class="form-header">
-          <img src="${team.logo || team.logos?.[0]?.href}" alt="${team.displayName}" class="form-team-logo-header" onerror="this.src='football.png';">
-          <div class="form-team-info">
-            <div class="form-team-name">${team.displayName}</div>
-            <div class="form-subtitle">LEADERS</div>
-          </div>
-        </div>
-        
-        <div class="form-matches">
-    `;
-    
-    // Add leaders for key categories
-    const keyLeaders = ['passingYards', 'rushingYards', 'receivingYards'];
-    
-    keyLeaders.forEach(leaderType => {
-      const leaderCategory = leaders.find(cat => cat.name === leaderType);
-      if (leaderCategory && leaderCategory.leaders && leaderCategory.leaders.length > 0) {
-        const leader = leaderCategory.leaders[0]; // Top leader
-        const athlete = leader.athlete;
-        
-        leadersHtml += `
-          <div class="form-match">
-            <div class="form-match-header">
-              <div class="form-date">${leaderCategory.displayName}</div>
-              <div class="form-competition" style="margin-left: auto; font-size: 12px; color: #888;">${athlete.position?.abbreviation || 'Player'}</div>
-            </div>
-            <div class="form-match-teams">
-              <div class="form-team">
-                <img src="${athlete.headshot?.href || 'football.png'}" alt="${athlete.displayName}" class="form-team-logo-small" onerror="this.src='football.png';">
-                <span class="form-team-abbr">${athlete.shortName || athlete.displayName}</span>
-              </div>
-              <div class="form-score">${leader.displayValue}</div>
-            </div>
-          </div>
-        `;
-      }
-    });
-    
-    leadersHtml += `
-        </div>
-      </div>
-    `;
-  });
-  
-  leadersHtml += `</div>`;
-  
-  // Append leaders to the stats container
-  statsContainer.innerHTML += leadersHtml;
-}
-
-// Global variable to store play data for copying
-let currentPlayData = null;
-
-// Function to copy play data
-async function copyPlay(playId) {
-  console.log('Copy play clicked for ID:', playId);
-  
-  const copyCard = document.getElementById(`copy-card-${playId}`);
-  if (!copyCard) {
-    console.log('Copy card not found for play ID:', playId);
-    return;
-  }
-  
-  try {
-    // Always render the copy card (but keep it hidden)
-    const cardHtml = await renderPlayCopyCard(playId);
-    copyCard.innerHTML = cardHtml;
-    copyCard.style.display = 'block';
-    
-    // Wait a moment for the card to render in the DOM
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Find the play copy card inside the copy card div
-    const playCardElement = copyCard.querySelector('.play-copy-card');
-    if (playCardElement) {
-      // Copy the card as image
-      showFeedback('Preparing image...', 'loading');
-      await captureAndCopyPlayCard(playCardElement);
-    } else {
-      console.error('Play copy card element not found within copy card');
-      showFeedback('Error: Could not find copy card element', 'error');
-    }
-    
-    // Hide the copy card after copying
-    copyCard.style.display = 'none';
-    
-  } catch (error) {
-    console.error('Error copying play:', error);
-    showFeedback('Failed to copy play', 'error');
-    // Hide the copy card on error
-    copyCard.style.display = 'none';
-  }
-}
-
-// Function to render the play copy card
-async function renderPlayCopyCard(playId) {
-  console.log('Rendering copy card for play ID:', playId);
-  
-  if (!currentPlayData) {
-    console.log('No current play data available');
-    return '<div class="copy-card-error">Play data not available</div>';
-  }
-  
-  // Find the play in the current data
-  let targetPlay = null;
-  let homeTeamData = null;
-  let awayTeamData = null;
-  
-  for (const drive of currentPlayData.drives) {
-    if (drive.plays && drive.plays.items) {
-      for (const play of drive.plays.items) {
-        if (play.id === playId) {
-          targetPlay = play;
-          break;
-        }
-      }
-    }
-    if (targetPlay) break;
-  }
-  
-  if (!targetPlay) {
-    console.log('Play not found in current data');
-    return '<div class="copy-card-error">Play not found</div>';
-  }
-  
-  // Get team data from boxscore
-  try {
-    const boxScoreUrl = convertToHttps(currentPlayData.boxScoreUrl);
-    console.log('Fetching boxscore from:', boxScoreUrl);
-    const boxScoreResponse = await fetch(boxScoreUrl);
-    const boxScoreData = await boxScoreResponse.json();
-    
-    console.log('Boxscore data structure:', boxScoreData);
-    
-    // Check for correct structure
-    if (boxScoreData.gamepackageJSON?.boxscore?.teams) {
-      console.log('Using gamepackageJSON structure');
-      homeTeamData = boxScoreData.gamepackageJSON.boxscore.teams[1]; // Home team
-      awayTeamData = boxScoreData.gamepackageJSON.boxscore.teams[0]; // Away team
-    } else if (boxScoreData.boxscore?.teams) {
-      console.log('Using direct boxscore structure');
-      homeTeamData = boxScoreData.boxscore.teams[1]; // Home team
-      awayTeamData = boxScoreData.boxscore.teams[0]; // Away team
-    } else {
-      console.log('Available boxscore keys:', Object.keys(boxScoreData));
-      console.log('Using fallback - no team data available');
-      homeTeamData = null;
-      awayTeamData = null;
-    }
-    
-    console.log('Home team data:', homeTeamData);
-    console.log('Away team data:', awayTeamData);
-    
-  } catch (error) {
-    console.error('Error fetching team data:', error);
-    console.log('Using fallback - team data fetch failed');
-    homeTeamData = null;
-    awayTeamData = null;
-  }
-  
-  // Get basic play info
-  const period = targetPlay.period?.number || 1;
-  const periodType = period > 4 ? 'OT' : 'Q';
-  const periodNumber = period > 4 ? period - 4 : period;
-  const clock = targetPlay.clock?.displayValue || '';
-  const awayScore = targetPlay.awayScore || 0;
-  const homeScore = targetPlay.homeScore || 0;
-  const shortText = targetPlay.shortText || targetPlay.text || '';
-  const downDistanceText = targetPlay.start?.downDistanceText || targetPlay.end?.downDistanceText || '';
-
-  // Get team logos
-  const homeTeamLogo = homeTeamData?.team?.logo || homeTeamData?.team?.logos?.[0]?.href || 'football.png';
-  const awayTeamLogo = awayTeamData?.team?.logo || awayTeamData?.team?.logos?.[0]?.href || 'football.png';
-  
-  // Process participants
-  let participantsList = [];
-  if (targetPlay.participants) {
-    const participantPromises = targetPlay.participants.map(async (participant) => {
-      if (participant.athlete?.$ref) {
-        try {
-          const athleteResponse = await fetch(convertToHttps(participant.athlete.$ref));
-          const athleteData = await athleteResponse.json();
-          
-          return {
-            name: athleteData.shortName || athleteData.displayName || 'Unknown',
-            fullName: athleteData.fullName || athleteData.displayName || 'Unknown',
-            headshot: athleteData.headshot?.href || '',
-            jersey: athleteData.jersey || '',
-            position: athleteData.position?.abbreviation || '',
-            team: participant.team || targetPlay.team,
-            type: participant.type || '',
-            order: participant.order || 1,
-            stats: participant.stats || []
-          };
-        } catch (error) {
-          console.error('Error fetching athlete data:', error);
-          return {
-            name: 'Unknown',
-            fullName: 'Unknown',
-            headshot: '',
-            jersey: '',
-            position: '',
-            team: participant.team || targetPlay.team,
-            type: participant.type || '',
-            order: participant.order || 1,
-            stats: participant.stats || []
-          };
         }
       }
       return null;
-    });
-    
-    const resolvedParticipants = await Promise.all(participantPromises);
-    participantsList = resolvedParticipants.filter(p => p !== null);
-  }
-  
-  // Sort participants by order (main participant first)
-  participantsList.sort((a, b) => a.order - b.order);
-  
-  // Check for special cases using play type ID
-  const playTypeId = targetPlay.type?.id;
-  const isSpecialPlayType = ['53', '26', '52', '29', '7'].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
-  const isRushingPlay = playTypeId === '5'; // Rush
-  const isPassingPlay = playTypeId === '24'; // Pass Reception
-  const isScoringPlay = targetPlay.scoringPlay || targetPlay.text?.toLowerCase().includes('touchdown');
-  
-  console.log('Play type ID:', playTypeId, 'Is special:', isSpecialPlayType, 'Is scoring:', isScoringPlay);
-  console.log('Available participant types:', participantsList.map(p => `${p.name}: ${p.type}`));
-  
-  // Get main participant
-  let mainParticipant;
-  
-  // First check if it's a scoring play and prioritize the scorer
-  if (isScoringPlay) {
-    const scorer = participantsList.find(p => 
-      p.type === 'scorer' || p.type === 'rusher' || p.type === 'receiver'
-    );
-    if (scorer) {
-      console.log('Found scoring participant:', scorer?.name, 'Type:', scorer?.type);
-      mainParticipant = scorer;
+    };
+
+    for (const p of play.participants) {
+      if (p.athlete && typeof p.athlete === "object" && p.athlete.displayName) {
+        out.push({ ...p, team: p.team || drive?.team });
+        continue;
+      }
+      if (p.athlete && p.athlete.$ref) {
+        const m = p.athlete.$ref.match(/\/athletes\/(\d+)/);
+        if (m) {
+          const found = findInBoxscore(m[1]);
+          if (found) {
+            out.push({
+              ...p,
+              athlete: { ...found, id: m[1] },
+              team: p.team || drive?.team,
+            });
+          }
+        }
+      }
     }
+    return out;
   }
-  
-  // If no scorer found or not a scoring play, use regular logic
-  if (!mainParticipant) {
-    if (isSpecialPlayType && participantsList.length > 1) {
-      // For special play types, look for recoverer, returner, or sackedBy participant type
-      const specialParticipant = participantsList.find(p => 
-        p.type === 'recoverer' || p.type === 'returner' || p.type === 'sackedBy'
-      );
-      console.log('Found special participant:', specialParticipant?.name, 'Type:', specialParticipant?.type);
-      mainParticipant = specialParticipant || participantsList[0];
-    } else if (isRushingPlay) {
-      // For rushing plays, prioritize the rusher
-      const rusher = participantsList.find(p => p.type === 'rusher');
-      mainParticipant = rusher || participantsList[0];
-    } else if (isPassingPlay) {
-      // For passing plays, prioritize the receiver
-      const receiver = participantsList.find(p => p.type === 'receiver');
-      mainParticipant = receiver || participantsList[0];
+
+  // Play-type aware boxscore stat extraction (app getPlayPlayerStats)
+  function getPlayPlayerStats(player, playTypeId, participantType) {
+    if (!gameData?.boxscore?.players || !player?.athlete?.id) return [];
+    const box = {};
+    for (const teamData of gameData.boxscore.players) {
+      for (const cat of teamData.statistics || []) {
+        for (const a of cat.athletes || []) {
+          if (
+            a.athlete &&
+            (a.athlete.id === player.athlete.id ||
+              String(a.athlete.id) === String(player.athlete.id))
+          ) {
+            box[cat.name] = a.stats || [];
+          }
+        }
+      }
+    }
+    if (!Object.keys(box).length) return [];
+
+    const stats = [];
+    const t = String(playTypeId);
+    if (t === "26" || t === "36") {
+      if (participantType === "passer") {
+        const p = box.passing || [];
+        if (p[1]) stats.push(`${p[1]} yds`);
+        if (p[4]) stats.push(`${p[4]} INT`);
+      } else if (participantType === "passDefender") {
+        const d = box.interceptions || [];
+        if (d[0]) stats.push(`${d[0]} INT`);
+        if (d[1]) stats.push(`${d[1]} INT yds`);
+      } else if (participantType === "returner") {
+        const r = box.receiving || [];
+        if (r[5]) stats.push(`${r[5]} tgt`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = box.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    } else if (t === "53") {
+      if (participantType === "returner") {
+        const r = box.kickReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = box.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    } else if (t === "32") {
+      if (participantType === "returner" || participantType === "scorer") {
+        const r = box.kickReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[4]) stats.push(`${r[4]} TD`);
+      } else if (
+        participantType === "patScorer" ||
+        participantType === "kicker"
+      ) {
+        const k = box.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      }
+    } else if (t === "52" || t === "34") {
+      if (participantType === "returner") {
+        const r = box.puntReturns || [];
+        if (r[0]) stats.push(`${r[0]} ret`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = box.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      } else if (participantType === "punter") {
+        const p = box.punting || [];
+        if (p[0]) stats.push(`${p[0]} punts`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+      } else if (
+        participantType === "patScorer" ||
+        participantType === "kicker"
+      ) {
+        const k = box.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      }
+    } else if (t === "29" || t === "80") {
+      if (
+        participantType === "fumbler" ||
+        participantType === "rusher" ||
+        participantType === "passer"
+      ) {
+        const f = box.fumbles || [];
+        if (f[0]) stats.push(`${f[0]} fum`);
+      } else if (participantType === "recoverer") {
+        const f = box.fumbles || [];
+        if (f[2]) stats.push(`${f[2]} rec`);
+      } else if (
+        participantType === "tackler" ||
+        participantType === "assistedBy" ||
+        participantType === "forcedBy"
+      ) {
+        const d = box.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    } else if (t === "7") {
+      if (participantType === "passer") {
+        const p = box.passing || [];
+        if (p[5]) stats.push(`${p[5]} sck`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+      } else if (
+        participantType === "sackedBy" ||
+        participantType === "tackler" ||
+        participantType === "assistedBy"
+      ) {
+        const d = box.defensive || [];
+        if (d[2]) stats.push(`${d[2]} sck`);
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      }
+    } else if (t === "59") {
+      if (participantType === "kicker") {
+        const k = box.kicking || [];
+        if (k[0]) stats.push(`${k[0]} FG`);
+        if (k[1]) stats.push(`${k[1]}%`);
+      }
     } else {
-      mainParticipant = participantsList[0]; // Use first participant normally
-    }
-  }
-  
-  console.log('Selected main participant:', mainParticipant?.name, 'Type:', mainParticipant?.type);
-  
-  // Reorder participants array to put main participant first
-  if (mainParticipant && (isSpecialPlayType || isRushingPlay || isPassingPlay || isScoringPlay)) {
-    const otherParticipants = participantsList.filter(p => p.name !== mainParticipant.name);
-    participantsList = [mainParticipant, ...otherParticipants];
-  }
-  
-  // Get team data for the main participant to get team colors
-  let participantTeamData = null;
-  let participantTeamLogo = '';
-  let teamColor = '#3498db'; // Default blue
-  let teamColorDark = '#2980b9'; // Default dark blue
-  
-  if (mainParticipant?.team?.$ref) {
-    try {
-      const teamResponse = await fetch(convertToHttps(mainParticipant.team.$ref));
-      participantTeamData = await teamResponse.json();
-      participantTeamLogo = participantTeamData.logos?.[0]?.href || '';
-      
-      // Get team color
-      if (participantTeamData.color) {
-        teamColor = `#${participantTeamData.color}`;
-        // Create a darker shade for the border
-        const r = parseInt(participantTeamData.color.substr(0, 2), 16);
-        const g = parseInt(participantTeamData.color.substr(2, 2), 16);
-        const b = parseInt(participantTeamData.color.substr(4, 2), 16);
-        teamColorDark = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
-      }
-    } catch (error) {
-      console.error('Error fetching participant team data:', error);
-    }
-  }
-  
-  // Build participants text with separate rows
-  let participantsText = '';
-  const seenParticipants = new Set();
-  
-  participantsList.forEach((participant, index) => {
-    if (!seenParticipants.has(participant.name)) {
-      seenParticipants.add(participant.name);
-      
-      if (index > 0) participantsText += '<br>'; // Line break between participants
-      
-      // First participant in the reordered array is always the main one
-      if (index === 0) {
-        // Main participant - bold
-        participantsText += `<strong>${participant.name}`;
-        
-        // Add stats if available for main participant
-        if (participant.stats && participant.stats.length > 0) {
-          participant.stats.forEach(stat => {
-            if (stat.displayValue && stat.abbreviation) {
-              participantsText += ` • ${stat.displayValue} ${stat.abbreviation}`;
-            }
-          });
-        }
-        
-        participantsText += `</strong>`;
-      } else {
-        // Other participants - regular and smaller
-        participantsText += `<span class="secondary-participant">${participant.name}`;
-        
-        // Add stats if available for secondary participant
-        if (participant.stats && participant.stats.length > 0) {
-          participant.stats.forEach(stat => {
-            if (stat.displayValue && stat.abbreviation) {
-              participantsText += ` • ${stat.displayValue} ${stat.abbreviation}`;
-            }
-          });
-        }
-        
-        participantsText += `</span>`;
+      if (participantType === "rusher") {
+        const r = box.rushing || [];
+        if (r[0]) stats.push(`${r[0]} att`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[3]) stats.push(`${r[3]} TD`);
+      } else if (participantType === "passer") {
+        const p = box.passing || [];
+        if (p[0]) stats.push(`${p[0]} c/att`);
+        if (p[1]) stats.push(`${p[1]} yds`);
+        if (p[3]) stats.push(`${p[3]} TD`);
+      } else if (participantType === "receiver") {
+        const r = box.receiving || [];
+        if (r[0]) stats.push(`${r[0]} rec`);
+        if (r[1]) stats.push(`${r[1]} yds`);
+        if (r[3]) stats.push(`${r[3]} TD`);
+      } else if (
+        participantType === "assistedBy" ||
+        participantType === "tackler"
+      ) {
+        const d = box.defensive || [];
+        if (d[0]) stats.push(`${d[0]} tkl`);
+      } else if (participantType === "passDefender") {
+        const d = box.defensive || [];
+        if (d[4]) stats.push(`${d[4]} PD`);
+      } else if (participantType === "kicker") {
+        const k = box.kicking || [];
+        if (k[3]) stats.push(`${k[3]} XP`);
+      } else if (participantType === "punter") {
+        const p = box.punting || [];
+        if (p[0]) stats.push(`${p[0]} punts`);
+        if (p[1]) stats.push(`${p[1]} yds`);
       }
     }
-  });
-  
-  // Get additional play data
-  const yardsAfterCatch = targetPlay.yardsAfterCatch;
-  const penalty = targetPlay.penalty;
-  
-  // Get probability data for the drive team
-  let probabilityText = '';
-  let probabilityTeamLogo = '';
-  if (targetPlay.probability?.$ref) {
-    try {
-      const probResponse = await fetch(convertToHttps(targetPlay.probability.$ref));
-      const probData = await probResponse.json();
-      
-      const homeWinPct = probData.homeWinPercentage || 0;
-      const awayWinPct = probData.awayWinPercentage || 0;
-      
-      // Determine if the drive team is home or away based on the main participant's team
-      const driveTeamId = participantTeamData?.id;
-      const homeTeamId = homeTeamData?.team?.id;
-      const awayTeamId = awayTeamData?.team?.id;
-      
-      if (driveTeamId === homeTeamId) {
-        // Drive team is home team
-        probabilityText = `${(homeWinPct * 100).toFixed(2)}%`;
-        probabilityTeamLogo = participantTeamLogo;
-      } else if (driveTeamId === awayTeamId) {
-        // Drive team is away team
-        probabilityText = `${(awayWinPct * 100).toFixed(2)}%`;
-        probabilityTeamLogo = participantTeamLogo;
-      } else {
-        // Fallback to higher percentage
-        if (homeWinPct > awayWinPct) {
-          probabilityText = `${(homeWinPct * 100).toFixed(2)}%`;
-          probabilityTeamLogo = homeTeamLogo;
-        } else {
-          probabilityText = `${(awayWinPct * 100).toFixed(2)}%`;
-          probabilityTeamLogo = awayTeamLogo;
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching probability data:', error);
-    }
+    return stats;
   }
-  
-  const playCardId = `play-copy-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
-  return `
-    <div id="${playCardId}" class="play-copy-card" style="position: relative;">
-      <div class="copy-card-header">
-        <div class="copy-score-section">
-          <img src="${convertToHttps(awayTeamLogo)}" alt="Away" class="copy-team-logo">
-          <span class="copy-score">${awayScore} - ${homeScore}</span>
-          <img src="${convertToHttps(homeTeamLogo)}" alt="Home" class="copy-team-logo">
-        </div>
-        <div class="copy-game-info">
-          ${periodType}${periodNumber} ${clock} • ${downDistanceText}
-        </div>
-      </div>
-      
-      <div class="copy-card-main">
-        <div class="copy-player-section">
-          ${mainParticipant?.headshot ? `
-            <div class="copy-player-image-container">
-              <div class="copy-player-image">
-                <img src="${convertToHttps(mainParticipant.headshot)}" alt="${mainParticipant.name}" class="copy-player-headshot">
-              </div>
-              ${participantTeamLogo ? `<img src="${convertToHttps(participantTeamLogo)}" alt="Team" class="copy-player-team-logo">` : ''}
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="copy-play-section">
-          <div class="copy-play-text">${shortText}</div>
-          <div class="copy-participants">${participantsText}</div>
-        </div>
-      </div>
-      
-      <div class="copy-card-bottom">
-        <div class="copy-additional-info">
-          ${yardsAfterCatch ? `<span class="copy-yac">Yards After Catch: ${yardsAfterCatch}</span>` : ''}
-          ${penalty ? `
-            <div class="copy-penalty">
-              ${penalty.type?.text || 'Penalty'} (${penalty.yards || 0} yards)
-              ${penalty.status?.text ? `, ${penalty.status.text}` : ''}
-            </div>
-          ` : ''}
-        </div>
-        
-        ${probabilityText ? `
-          <div class="copy-probability">
-            <span class="copy-prob-text">W ${probabilityText}</span>
-            ${probabilityTeamLogo ? `<img src="${convertToHttps(probabilityTeamLogo)}" alt="Team" class="copy-prob-logo">` : ''}
+
+  // ── Field SVG (same geometry as the app's NflPlayFieldMini) ────────────────
+  function fieldSvg(teamColor, startYard, endYard, play) {
+    const c = teamColor || "#888888";
+    const W = 300;
+    const H = 130;
+    const inL = 30; // interior left (10%)
+    const inW = 240; // interior width (80%)
+
+    const xOfInteriorPct = (pct) => inL + (pct / 100) * inW;
+
+    let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="sb-field-svg">`;
+    // End zones
+    s += `<rect x="0" y="0" width="30" height="${H}" fill="${c}" opacity="0.65"/>`;
+    s += `<rect x="${W - 30}" y="0" width="30" height="${H}" fill="${c}" opacity="0.65"/>`;
+    s += `<text x="15" y="70" text-anchor="middle" fill="#fff" font-size="7" font-weight="800">NFL</text>`;
+    s += `<text x="${W - 15}" y="70" text-anchor="middle" fill="#fff" font-size="7" font-weight="800">NFL</text>`;
+
+    // Yard markers + labels (marker at 10..90% of interior)
+    const yardLabels = [10, 20, 30, 40, 50, 40, 30, 20, 10];
+    for (let i = 0; i < 9; i++) {
+      const x = xOfInteriorPct(10 + i * 10);
+      s += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#fff" stroke-width="1" opacity="0.45"/>`;
+      s += `<line x1="${x - 2}" y1="${H * 0.15}" x2="${x + 2}" y2="${H * 0.15}" stroke="#fff" stroke-width="1.5"/>`;
+      s += `<line x1="${x - 2}" y1="${H * 0.85}" x2="${x + 2}" y2="${H * 0.85}" stroke="#fff" stroke-width="1.5"/>`;
+      s += `<text x="${x}" y="12" text-anchor="middle" fill="#fff" font-size="8" font-weight="800">${yardLabels[i]}</text>`;
+      s += `<text x="${x}" y="${H - 5}" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" transform="rotate(180 ${x} ${H - 9})">${yardLabels[i]}</text>`;
+    }
+
+    // Hash marks
+    for (let i = 1; i < 100; i++) {
+      const x = inL + (i / 100) * inW;
+      s += `<line x1="${x}" y1="0" x2="${x}" y2="3" stroke="#fff" stroke-width="1" opacity="0.35"/>`;
+      s += `<line x1="${x}" y1="${H - 3}" x2="${x}" y2="${H}" stroke="#fff" stroke-width="1" opacity="0.35"/>`;
+    }
+
+    // Midfield line
+    s += `<line x1="${inL + inW / 2}" y1="0" x2="${inL + inW / 2}" y2="${H}" stroke="#fff" stroke-width="2"/>`;
+
+    // Drive/play gradient
+    if (startYard != null && endYard != null) {
+      const startPos = 100 - startYard;
+      const endPos = 100 - endYard;
+      const min = Math.min(startPos, endPos);
+      const max = Math.max(startPos, endPos);
+      const x1 = xOfInteriorPct(min);
+      const x2 = xOfInteriorPct(max);
+      const width = Math.max(0, x2 - x1);
+      const startIsLeft = startPos <= endPos;
+      const gid = `fldg-${Math.round(startYard)}-${Math.round(endYard)}`;
+      if (width > 0) {
+        s += `<defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="0%">`;
+        s += startIsLeft
+          ? `<stop offset="0%" stop-color="${c}" stop-opacity="0.35"/><stop offset="100%" stop-color="${c}" stop-opacity="0.95"/>`
+          : `<stop offset="0%" stop-color="${c}" stop-opacity="0.95"/><stop offset="100%" stop-color="${c}" stop-opacity="0.35"/>`;
+        s += `</linearGradient></defs>`;
+        s += `<rect x="${x1}" y="0" width="${width}" height="${H}" fill="url(#${gid})"/>`;
+      }
+      s += `<line x1="${x1}" y1="0" x2="${x1}" y2="${H}" stroke="${c}" stroke-width="1.5"/>`;
+      if (width > 0)
+        s += `<line x1="${x2}" y1="0" x2="${x2}" y2="${H}" stroke="${c}" stroke-width="1.5"/>`;
+    }
+
+    // First-down marker (yellow) — same skip/parse rules as the app
+    const fdPct = firstDownMarkerPct(play, startYard);
+    if (fdPct != null) {
+      const x = xOfInteriorPct(fdPct);
+      s += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#FFD700" stroke-width="2" opacity="0.85"/>`;
+    }
+
+    s += `</svg>`;
+    return s;
+  }
+
+  function firstDownMarkerPct(play, startYard) {
+    if (startYard == null) return null;
+    const typeText = (
+      play?.type?.text ||
+      play?.type?.abbreviation ||
+      ""
+    ).toLowerCase();
+    const descText = (play?.text || play?.shortText || "").toLowerCase();
+    const skip = [
+      "kickoff",
+      "touchdown",
+      "official timeout",
+      "punt",
+      "extra point",
+      "field goal",
+      "end of",
+      "two-point",
+    ];
+    if (skip.some((t) => typeText.includes(t) || descText.includes(t)))
+      return null;
+
+    const dd = play?.start?.downDistanceText || play?.end?.downDistanceText || "";
+    const m = dd.match(/&\s*(.+)/);
+    if (!m) return null;
+    const distStr = m[1].trim().toLowerCase();
+    if (distStr === "goal") return null;
+    let distance;
+    if (distStr === "inches") distance = 1;
+    else {
+      distance = parseInt(distStr, 10);
+      if (isNaN(distance) || distance <= 0) return null;
+    }
+
+    const yardsToEndzone =
+      play?.start?.yardsToEndzone ?? play?.end?.yardsToEndzone;
+    let goingRight;
+    if (yardsToEndzone != null) {
+      const distToFar = Math.abs(yardsToEndzone - (100 - startYard));
+      const distToNear = Math.abs(yardsToEndzone - startYard);
+      goingRight = distToFar <= distToNear;
+    } else {
+      goingRight = startYard <= 50;
+    }
+    const firstDownYard = goingRight
+      ? startYard + distance
+      : startYard - distance;
+    if (firstDownYard < 0 || firstDownYard > 100) return null;
+    return 100 - firstDownYard;
+  }
+
+  // ── Linescore ──────────────────────────────────────────────────────────────
+  function renderLinescoreCard(away, home, awayColor, homeColor) {
+    const awayLS = away?.linescores || [];
+    const homeLS = home?.linescores || [];
+    if (!awayLS.length && !homeLS.length) return "";
+
+    const maxPeriods = Math.max(awayLS.length, homeLS.length, 4);
+    const labels = [];
+    for (let i = 0; i < maxPeriods; i++) {
+      labels.push(i < 4 ? String(i + 1) : `OT${i - 3}`);
+    }
+    const awayAbbr = getTeamAbbr(away.team) || "AWY";
+    const homeAbbr = getTeamAbbr(home.team) || "HME";
+
+    return `
+      <div class="sb-linescore">
+        <div class="sb-ls-grid">
+          <div class="sb-ls-col sb-ls-label-col">
+            <div class="sb-ls-cell sb-ls-head"></div>
+            <div class="sb-ls-cell" style="border-bottom:2px solid ${awayColor}"><span class="sb-ls-abbr">${awayAbbr}</span></div>
+            <div class="sb-ls-cell" style="border-bottom:2px solid ${homeColor}"><span class="sb-ls-abbr">${homeAbbr}</span></div>
           </div>
-        ` : ''}
+          <div class="sb-ls-scroll">
+            ${labels
+              .map(
+                (label, i) => `
+              <div class="sb-ls-col">
+                <div class="sb-ls-cell sb-ls-head"><span>${label}</span></div>
+                <div class="sb-ls-cell" style="border-bottom:2px solid ${awayColor}">${esc(awayLS[i]?.displayValue || "-")}</div>
+                <div class="sb-ls-cell" style="border-bottom:2px solid ${homeColor}">${esc(homeLS[i]?.displayValue || "-")}</div>
+              </div>`,
+              )
+              .join("")}
+          </div>
+          <div class="sb-ls-col sb-ls-total-col">
+            <div class="sb-ls-cell sb-ls-head"><span>T</span></div>
+            <div class="sb-ls-cell" style="border-bottom:2px solid ${awayColor}">${esc(away.score ?? "0")}</div>
+            <div class="sb-ls-cell" style="border-bottom:2px solid ${homeColor}">${esc(home.score ?? "0")}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Scoring Summary ────────────────────────────────────────────────────────
+  function renderScoringCard(away, home, awayColor, homeColor) {
+    const scoring = gameData?.scoringPlays || [];
+    if (!scoring.length) return "";
+    const rows = scoring
+      .map((play, idx) => {
+        const isHome = String(play.team?.id) === String(home.team?.id);
+        const color = isHome ? homeColor : awayColor;
+        const p = play.period?.number || 0;
+        return `
+          <div class="sb-scoring-row" style="border-left-color:${color}">
+            <div class="sb-scoring-time">
+              <div class="sb-scoring-period">${p <= 4 ? `Q${p || "?"}` : `OT${p - 4 || "?"}`}</div>
+              <div class="sb-scoring-clock">${esc(play.clock?.displayValue || "")}</div>
+            </div>
+            <div class="sb-scoring-info">
+              <div class="sb-scoring-text">${esc(play.text || "")}</div>
+              <div class="sb-scoring-score">${esc(play.awayScore)} - ${esc(play.homeScore)}</div>
+            </div>
+          </div>`;
+      })
+      .join("");
+    return `
+      <div class="sb-card">
+        <div class="sb-card-header"><span class="sb-card-title">Scoring Summary</span></div>
+        <div class="sb-card-body sb-scoring-body">${rows}</div>
+      </div>`;
+  }
+
+  // ── Officials ──────────────────────────────────────────────────────────────
+  function renderOfficialsCard() {
+    const officials = gameData?.gameInfo?.officials || [];
+    if (!officials.length) return "";
+    const rows = officials
+      .map(
+        (o) => `
+        <div class="sb-official-row">
+          <span class="sb-official-name">${esc(o.displayName || o.fullName || "")}</span>
+          <span class="sb-official-role">${esc(o.position?.displayName || o.position?.name || "")}</span>
+        </div>`,
+      )
+      .join("");
+    return `
+      <div class="sb-card">
+        <div class="sb-card-header"><span class="sb-card-title">Officials</span></div>
+        <div class="sb-card-body">${rows}</div>
+      </div>`;
+  }
+
+  // ── Weather ────────────────────────────────────────────────────────────────
+  function renderWeatherCard() {
+    const w = gameData?.gameInfo?.weather;
+    if (!w) return "";
+    const item = (val, label) => `
+      <div class="sb-weather-item">
+        <div class="sb-weather-val">${esc(val)}</div>
+        <div class="sb-weather-lbl">${label}</div>
+      </div>`;
+    return `
+      <div class="sb-card">
+        <div class="sb-card-header"><span class="sb-card-title">Weather</span></div>
+        <div class="sb-card-body sb-weather-row">
+          ${item(w.temperature != null ? `${w.temperature}°F` : "—", "Temperature")}
+          ${item(w.precipitation != null ? `${w.precipitation}%` : "—", "Precipitation")}
+          ${item(w.gust != null ? `${w.gust} mph` : "—", "Wind Gust")}
+        </div>
+      </div>`;
+  }
+
+  // ── Last 5 Games ───────────────────────────────────────────────────────────
+  function renderLast5Cards() {
+    const lastFive = gameData?.lastFiveGames;
+    if (!Array.isArray(lastFive) || !lastFive.length) return "";
+    return lastFive
+      .map((entry) => {
+        const teamInfo = entry?.team;
+        const events = entry?.events || [];
+        if (!teamInfo || !events.length) return "";
+        const color = getSmartColor(teamInfo);
+        const rows = events
+          .slice()
+          .reverse()
+          .map((evt) => {
+            const isWin = evt.gameResult === "W";
+            const isLoss = evt.gameResult === "L";
+            const opp = evt.opponent || {};
+            const dateStr = evt.gameDate
+              ? new Date(evt.gameDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })
+              : "";
+            return `
+              <a class="sb-last5-row" href="scoreboard.html?id=${esc(evt.id)}">
+                <span class="sb-last5-badge" style="background:${isWin ? "#27ae60" : isLoss ? "#e74c3c" : "var(--text-secondary)"}">${esc(evt.gameResult || "-")}</span>
+                <span class="sb-last5-opp">${esc(evt.atVs || "")} ${esc(opp.displayName || opp.abbreviation || "")}</span>
+                <span class="sb-last5-score">${esc(evt.score || "")}</span>
+                <span class="sb-last5-date">${esc(dateStr)}</span>
+              </a>`;
+          })
+          .join("");
+        return `
+          <div class="sb-card">
+            <div class="sb-card-header sb-card-header-split">
+              <span class="sb-last5-team" style="color:${color}">
+                ${teamInfo.logo ? `<img src="${esc(teamInfo.logo)}" alt="" onerror="this.style.display='none'">` : ""}
+                ${esc(teamInfo.displayName || teamInfo.abbreviation || "")}
+              </span>
+              <span class="sb-card-subtitle">Last ${events.length} Games</span>
+            </div>
+            <div class="sb-last5-body">${rows}</div>
+          </div>`;
+      })
+      .join("");
+  }
+
+  // ── Venue ──────────────────────────────────────────────────────────────────
+  function renderVenueCard() {
+    const comp = getCompetition();
+    const venue =
+      gameData?.gameInfo?.venue?.fullName || comp?.venue?.fullName || "";
+    if (!venue) return "";
+    const date = comp?.date ? new Date(comp.date) : null;
+    const dateStr =
+      date && !isNaN(date.getTime())
+        ? date.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "";
+    return `
+      <div class="sb-card sb-venue-card">
+        <div class="sb-venue-name">${esc(venue)}</div>
+        ${dateStr ? `<div class="sb-venue-date">${esc(dateStr)}</div>` : ""}
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DRIVES PANEL — drive chips, result banner, play cards (app Drives tab)
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderDrivesPanel(body) {
+    if (!drivesData || !drivesData.length) {
+      setPanelHtml(
+        body,
+        `<div class="sb-empty">${isScheduled() ? "Drives are not available for scheduled games" : "No drive information available"}</div>`,
+      );
+      return;
+    }
+
+    const total = drivesData.length;
+    const reversed = [...drivesData].reverse();
+    const activeIdx =
+      selectedDriveIdx != null && selectedDriveIdx < reversed.length
+        ? selectedDriveIdx
+        : 0;
+    const origIdx = total - 1 - activeIdx;
+    const activeDrive = drivesData[origIdx] || drivesData[total - 1];
+    const activeDriveNum = origIdx + 1;
+
+    const driveTeam = activeDrive?.team;
+    const driveEndTeam = activeDrive?.endTeam;
+    const driveTeamAbbr = getTeamAbbr(driveTeam);
+    const driveEndAbbr = getTeamAbbr(driveEndTeam);
+    const hasEndTeam = driveEndAbbr && driveEndAbbr !== driveTeamAbbr;
+    const driveColor = getSmartColor(driveTeam);
+    const endColor = hasEndTeam ? getSmartColor(driveEndTeam) : driveColor;
+    const isTD = !!activeDrive?.isScore;
+
+    // Drive chips
+    const chips = reversed
+      .map((drive, revIdx) => {
+        const num = total - revIdx;
+        const isActive = revIdx === activeIdx;
+        const abbr = getTeamAbbr(drive.team);
+        const endAbbr = getTeamAbbr(drive.endTeam);
+        const chipHasEnd = endAbbr && endAbbr !== abbr;
+        const chipTD = !!drive.isScore;
+        const chipColor =
+          chipHasEnd && chipTD
+            ? getSmartColor(drive.endTeam)
+            : getSmartColor(drive.team);
+        const logo = getTeamLogoUrl(drive.team);
+        const endLogo = getTeamLogoUrl(drive.endTeam);
+        const logoHtml = chipHasEnd
+          ? `<span class="sb-drive-chip-logos">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<span class="sb-drive-chip-div">|</span>${endLogo ? `<img src="${esc(endLogo)}" alt="">` : ""}</span>`
+          : logo
+            ? `<img class="sb-drive-chip-logo" src="${esc(logo)}" alt="">`
+            : "";
+        return `
+          <button class="sb-drive-chip${isActive ? " active" : ""}${chipTD ? " td" : ""}" data-drive="${revIdx}"
+            style="border-color:${isActive ? chipColor : "var(--bg-border)"};background:${chipTD ? chipColor + "33" : isActive ? "var(--bg-surface-secondary)" : "var(--bg-surface)"}">
+            ${logoHtml}
+            <span style="color:${isActive ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${isActive ? "800" : "600"}">${num}</span>
+          </button>`;
+      })
+      .join("");
+
+    // Banner
+    const bannerLogo = hasEndTeam
+      ? `<span class="sb-drive-banner-logo-stack">
+           <img src="${esc(getTeamLogoUrl(driveEndTeam))}" alt="">
+           <span class="sb-drive-banner-overlay" style="border-color:${driveColor}"><img src="${esc(getTeamLogoUrl(driveTeam))}" alt=""></span>
+         </span>`
+      : getTeamLogoUrl(driveTeam)
+        ? `<img class="sb-drive-banner-logo" src="${esc(getTeamLogoUrl(driveTeam))}" alt="">`
+        : "";
+
+    const banner = `
+      <div class="sb-drive-banner" style="border-color:${hasEndTeam ? endColor : driveColor}">
+        <div class="sb-drive-banner-info">
+          <div class="sb-drive-banner-title">Drive ${activeDriveNum}</div>
+          <div class="sb-drive-banner-result" style="color:${isTD ? endColor : "var(--text-secondary)"}">${esc(
+            activeDrive?.displayResult || activeDrive?.result || "In Progress",
+          )}</div>
+          ${activeDrive?.description ? `<div class="sb-drive-banner-desc">${esc(activeDrive.description)}</div>` : ""}
+        </div>
+        <div class="sb-drive-banner-logo-wrap">${bannerLogo}</div>
+      </div>`;
+
+    // Play cards
+    const drivePlays = [...(activeDrive?.plays || [])].reverse();
+    const playsHtml = drivePlays.length
+      ? drivePlays
+          .map((play) => {
+            const playId = String(play.id || play.sequenceNumber || "");
+            const isExpanded = expandedPlayId === playId;
+            const period = play.period?.number || 0;
+            const clock = play.clock?.displayValue || "";
+            const periodLabel =
+              period <= 4 ? `Q${period}` : period > 4 ? `OT${period - 4}` : "";
+            const playType = play.type?.text || play.type?.abbreviation || "";
+            const playText = play.text || play.shortText || "";
+            const ddText =
+              play.start?.downDistanceText || play.end?.downDistanceText || "";
+            const isScoring = !!play.scoringPlay;
+            const winPct = getPlayWinPct(play, driveTeam?.id);
+
+            const playTeamAbbr = getTeamAbbr(play.team) || driveTeamAbbr;
+            const playTeamColor = getSmartColor(play.team || driveTeam);
+            const playTeamDiffers =
+              playTeamAbbr && driveTeamAbbr && playTeamAbbr !== driveTeamAbbr;
+            const cardBorder = isScoring
+              ? hasEndTeam
+                ? endColor
+                : playTeamColor
+              : playTeamDiffers
+                ? playTeamColor
+                : "var(--bg-border)";
+            const accent = isScoring
+              ? hasEndTeam
+                ? endColor
+                : playTeamColor
+              : "var(--text-primary)";
+
+            const hasYardLine =
+              play.start?.yardLine !== undefined ||
+              play.end?.yardLine !== undefined;
+            const canExpand = hasYardLine;
+
+            let expanded = "";
+            if (isExpanded && hasYardLine) {
+              const useDriveYards =
+                isScoring && !hasEndTeam && activeDrive?.end?.yardLine != null;
+              const sY = useDriveYards
+                ? activeDrive.start?.yardLine
+                : play.start?.yardLine;
+              const eY = useDriveYards
+                ? activeDrive.end?.yardLine
+                : (play.end?.yardLine ?? play.start?.yardLine);
+              expanded = `<div class="sb-drive-play-expanded">${fieldSvg(playTeamColor, sY, eY, play)}</div>`;
+            }
+
+            return `
+              <div class="sb-drive-play-row">
+                <div class="sb-drive-play-time">
+                  <div class="sb-drive-play-clock">${esc(clock || "--:--")}</div>
+                  <div class="sb-drive-play-period">${periodLabel}</div>
+                </div>
+                <div class="sb-drive-play-card${isExpanded ? " expanded" : ""}" data-play="${esc(playId)}" data-expand="${canExpand ? "1" : "0"}"
+                     style="border-color:${cardBorder};background:${isScoring ? (hasEndTeam ? endColor : playTeamColor) + "18" : "var(--bg-surface)"}">
+                  <div class="sb-drive-play-head">
+                    <span style="color:${accent}">${esc(playType)}</span>
+                    <span class="sb-drive-play-scores" style="color:${accent}">
+                      ${play.awayScore != null ? esc(play.awayScore) : ""}${play.awayScore != null || play.homeScore != null ? " - " : ""}${play.homeScore != null ? esc(play.homeScore) : ""}
+                    </span>
+                  </div>
+                  <div class="sb-drive-play-text">${esc(playText)}</div>
+                  ${ddText || winPct !== null ? `
+                    <div class="sb-drive-play-sub">
+                      ${ddText ? `<span>${esc(ddText)}</span>` : ""}
+                      ${winPct !== null ? `<span>W ${winPct.toFixed(1)}%</span>` : ""}
+                    </div>` : ""}
+                  ${expanded}
+                </div>
+              </div>`;
+          })
+          .join("")
+      : `<div class="sb-empty">No plays available for this drive</div>`;
+
+    const html = `
+      <div class="sb-drives-wrap">
+        <div class="sb-drive-chips">${chips}</div>
+        ${banner}
+        <div class="sb-drive-plays">${playsHtml}</div>
+      </div>`;
+
+    if (!setPanelHtml(body, html)) return;
+
+    body.querySelectorAll(".sb-drive-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        selectedDriveIdx = Number(chip.dataset.drive);
+        expandedPlayId = null;
+        renderDrivesPanel(body);
+      });
+    });
+    body
+      .querySelectorAll('.sb-drive-play-card[data-expand="1"]')
+      .forEach((card) => {
+        card.addEventListener("click", () => {
+          const id = card.dataset.play;
+          expandedPlayId = expandedPlayId === id ? null : id;
+          renderDrivesPanel(body);
+        });
+      });
+  }
+
+  // Win probability for a play (app getPlayWinPct)
+  function getPlayWinPct(play, driveTeamId) {
+    if (!play) return null;
+    const wpArr = gameData?.winprobability;
+    if (!Array.isArray(wpArr) || !wpArr.length) return null;
+    const playId = String(play.id || "");
+    let entry = wpArr.find((w) => String(w.playId) === playId);
+    if (!entry) {
+      const seq = Number(play.sequenceNumber) || 0;
+      let best = null;
+      let bestDist = Infinity;
+      for (const w of wpArr) {
+        const wSeq = Number(String(w.playId || "").replace(/\D/g, "")) || 0;
+        const dist = Math.abs(wSeq - seq);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = w;
+        }
+      }
+      if (best && bestDist < 500) entry = best;
+    }
+    if (!entry) return null;
+    const { home } = getTeams();
+    const homePct = entry.homeWinPercentage ?? entry.homeWinProbability ?? 0.5;
+    const isHomeDriving = String(driveTeamId) === String(home?.team?.id);
+    const raw = isHomeDriving ? homePct : 1 - homePct;
+    return Math.round(raw * 1000) / 10;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TEAM PANEL (Away/Home) — injuries when scheduled, else category chips +
+  // player cards (app renderTeamContent). Player click opens the player modal.
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderTeamPanel(body, side) {
+    const { home, away } = getTeams();
+    const comp = side === "away" ? away : home;
+    if (!comp) {
+      setPanelHtml(body, '<div class="sb-empty">No team data</div>');
+      return;
+    }
+    const teamColor = getSmartColor(comp.team);
+
+    if (isScheduled()) {
+      setPanelHtml(body, renderInjuries(comp, teamColor));
+      return;
+    }
+
+    const teamBoxScore = (gameData?.boxscore?.players || []).find(
+      (p) =>
+        String(p.team?.id) === String(comp.team?.id) ||
+        p.team?.abbreviation === comp.team?.abbreviation,
+    );
+    if (!teamBoxScore || !teamBoxScore.statistics) {
+      setPanelHtml(
+        body,
+        '<div class="sb-empty">No statistics available for this team</div>',
+      );
+      return;
+    }
+
+    const categories = teamBoxScore.statistics
+      .filter((c) => c.athletes && c.athletes.length > 0)
+      .map((c) => ({
+        name: c.name,
+        text: c.text || c.name,
+        labels: c.labels || [],
+      }));
+    const catNames = categories.map((c) => c.name);
+    if (!catNames.length) {
+      setPanelHtml(
+        body,
+        '<div class="sb-empty">No statistics available for this team</div>',
+      );
+      return;
+    }
+    const active = catNames.includes(teamFilter[side])
+      ? teamFilter[side]
+      : catNames[0];
+    teamFilter[side] = active;
+
+    const fmtCat = (name) =>
+      name
+        ? name
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (s) => s.toUpperCase())
+            .trim()
+        : "";
+
+    const cat = teamBoxScore.statistics.find((c) => c.name === active);
+    const labels = cat?.labels || [];
+    const seen = new Set();
+    const players = [];
+    for (const entry of cat?.athletes || []) {
+      const athlete = entry.athlete;
+      if (!athlete || seen.has(athlete.id)) continue;
+      seen.add(athlete.id);
+      const stats = (entry.stats || [])
+        .slice(0, 6)
+        .map((v, i) => ({
+          label: labels[i] || `S${i + 1}`,
+          value: String(v ?? "0"),
+        }));
+      if (stats.length) players.push({ athlete, stats });
+    }
+
+    const chips = catNames
+      .map((name) => {
+        const isActive = name === active;
+        return `<button class="sb-pos-chip${isActive ? " active" : ""}" data-cat="${esc(name)}"
+          style="border-color:${isActive ? teamColor : "var(--bg-border)"};background:${isActive ? teamColor + "22" : "var(--bg-surface)"};color:${isActive ? "var(--text-primary)" : "var(--text-secondary)"}">${esc(fmtCat(name))}</button>`;
+      })
+      .join("");
+
+    const cards = players.length
+      ? players
+          .map(
+            (p) => `
+          <div class="sb-player-card" data-athlete="${esc(p.athlete.id)}" style="border-color:${teamColor}">
+            <div class="sb-pc-top">
+              <div class="sb-pc-headshot-wrap" style="background:${teamColor}33;border-color:${teamColor}">
+                <img src="${esc(headshotUrl(p.athlete.id))}" alt="" loading="lazy" onerror="this.style.display='none'">
+              </div>
+              <div class="sb-pc-info">
+                <div class="sb-pc-name">${esc(
+                  p.athlete.displayName ||
+                    `${p.athlete.firstName || ""} ${p.athlete.lastName || ""}`.trim() ||
+                    "Unknown",
+                )}</div>
+                <div class="sb-pc-meta">${[
+                  p.athlete.jersey ? `#${p.athlete.jersey}` : "",
+                  p.athlete.position?.abbreviation || "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}</div>
+              </div>
+            </div>
+            <div class="sb-pc-stats">
+              ${p.stats
+                .map(
+                  (s) => `
+                <div class="sb-pc-stat">
+                  <div class="sb-pc-stat-val">${esc(s.value)}</div>
+                  <div class="sb-pc-stat-lbl">${esc(s.label)}</div>
+                </div>`,
+                )
+                .join("")}
+            </div>
+          </div>`,
+          )
+          .join("")
+      : '<div class="sb-empty">No players found</div>';
+
+    const html = `
+      <div class="sb-team-wrap">
+        <div class="sb-pos-bar">${chips}</div>
+        <div class="sb-player-list">${cards}</div>
+      </div>`;
+
+    if (!setPanelHtml(body, html)) return;
+
+    body.querySelectorAll(".sb-pos-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        teamFilter[side] = chip.dataset.cat;
+        renderTeamPanel(body, side);
+      });
+    });
+    body.querySelectorAll(".sb-player-card[data-athlete]").forEach((card) => {
+      card.addEventListener("click", () => {
+        openPlayerModal(card.dataset.athlete, teamFilter[side]);
+      });
+    });
+  }
+
+  // Injury report for scheduled games (app renderTeamInjuries)
+  function renderInjuries(comp, teamColor) {
+    const injuries = gameData?.injuries || [];
+    const entry = injuries.find(
+      (e) => String(e?.team?.id) === String(comp.team?.id),
+    );
+    const list = entry?.injuries || [];
+    if (!list.length) {
+      return '<div class="sb-empty">No injury report available</div>';
+    }
+    const cards = list
+      .map((inj) => {
+        const athlete = inj?.athlete;
+        if (!athlete) return "";
+        const statusText = inj.status || inj.type?.description || "";
+        const statusColor = /out/i.test(statusText)
+          ? "#e74c3c"
+          : /questionable/i.test(statusText)
+            ? "#f39c12"
+            : /doubtful/i.test(statusText)
+              ? "#e67e22"
+              : "var(--text-secondary)";
+        const type = inj.details?.type || "";
+        const location = inj.details?.location || "";
+        const detail =
+          inj.details?.detail && inj.details.detail !== "Not Specified"
+            ? inj.details.detail
+            : "";
+        const returnDate = inj.details?.returnDate
+          ? new Date(inj.details.returnDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : "";
+        const cell = (val, label) => `
+          <div class="sb-pc-stat">
+            <div class="sb-pc-stat-val" style="font-size:12px">${esc(val || "—")}</div>
+            <div class="sb-pc-stat-lbl">${label}</div>
+          </div>`;
+        return `
+          <div class="sb-player-card" style="border-color:${teamColor}">
+            <div class="sb-pc-top">
+              <div class="sb-pc-headshot-wrap" style="background:${teamColor}33;border-color:${teamColor}">
+                <img src="${esc(headshotUrl(athlete.id))}" alt="" loading="lazy" onerror="this.style.display='none'">
+              </div>
+              <div class="sb-pc-info">
+                <div class="sb-pc-name">${esc(
+                  athlete.displayName ||
+                    athlete.fullName ||
+                    `${athlete.firstName || ""} ${athlete.lastName || ""}`.trim(),
+                )}</div>
+                <div class="sb-pc-meta">${[
+                  athlete.jersey ? `#${athlete.jersey}` : "",
+                  athlete.position?.displayName || "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}</div>
+              </div>
+            </div>
+            <div class="sb-pc-stats">
+              <div class="sb-pc-stat">
+                <div class="sb-pc-stat-val" style="color:${statusColor};font-size:12px">${esc(
+                  statusText
+                    ? statusText[0].toUpperCase() + statusText.slice(1)
+                    : "—",
+                )}</div>
+                <div class="sb-pc-stat-lbl">Status</div>
+              </div>
+              ${cell(type, "Injury")}
+              ${cell([detail, location].filter(Boolean).join(" · "), "Location")}
+              ${cell(returnDate, "Return")}
+            </div>
+          </div>`;
+      })
+      .join("");
+    return `<div class="sb-player-list">${cards}</div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STATS PANEL — possession ring, bar stats, game leaders, prediction
+  // (app renderStatsContent)
+  // ═══════════════════════════════════════════════════════════════════════════
+  function renderStatsPanel(body) {
+    const { home, away } = getTeams();
+    if (!home || !away) {
+      setPanelHtml(body, '<div class="sb-empty">No game data</div>');
+      return;
+    }
+    const pair = getMatchColors();
+    const awayColor = pair.awayColor;
+    const homeColor = pair.homeColor;
+
+    const awayStats = gameData?.boxscore?.teams?.[0]?.statistics || [];
+    const homeStats = gameData?.boxscore?.teams?.[1]?.statistics || [];
+    const findStat = (stats, key) => stats.find((s) => s.name === key);
+
+    const parseNum = (val) => {
+      if (val == null) return 0;
+      const s = String(val);
+      const slash = s.match(/^(\d+(?:\.\d+)?)/);
+      if (slash) return Number(slash[1]) || 0;
+      const n = Number(s.replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const barStats = [
+      { key: "totalYards", label: "Total Yards" },
+      { key: "netPassingYards", label: "Passing Yards" },
+      { key: "rushingYards", label: "Rushing Yards" },
+      { key: "firstDowns", label: "First Downs" },
+      { key: "thirdDownEff", label: "3rd Down Conv" },
+      { key: "fourthDownEff", label: "4th Down Conv" },
+      { key: "turnovers", label: "Turnovers", opp: true },
+      { key: "totalPenaltiesYards", label: "Penalties", opp: true },
+      { key: "sacksYardsLost", label: "Sacks", opp: true },
+    ];
+    const schedBarStats = [
+      { key: "totalPointsPerGame", label: "Points Per Game" },
+      { key: "yardsPerGame", label: "Yards Per Game" },
+      { key: "passingYardsPerGame", label: "Passing Yards Per Game" },
+      { key: "rushingYardsPerGame", label: "Rushing Yards Per Game" },
+      {
+        key: "totalPointsPerGameAllowed",
+        label: "Points Per Game Allowed",
+        opp: true,
+      },
+      { key: "yardsPerGameAllowed", label: "Yards Per Game Allowed", opp: true },
+      {
+        key: "passingYardsPerGameAllowed",
+        label: "Passing Yards Allowed",
+        opp: true,
+      },
+      {
+        key: "rushingYardsPerGameAllowed",
+        label: "Rushing Yards Allowed",
+        opp: true,
+      },
+    ];
+
+    // Possession ring
+    const awayPoss = findStat(awayStats, "possessionTime");
+    const homePoss = findStat(homeStats, "possessionTime");
+    const aSecs = Number(awayPoss?.value) || 0;
+    const hSecs = Number(homePoss?.value) || 0;
+    const totalPoss = aSecs + hSecs;
+    const aPct = totalPoss > 0 ? aSecs / totalPoss : 0.5;
+    const hPct = totalPoss > 0 ? hSecs / totalPoss : 0.5;
+
+    const R = 52;
+    const STROKE = 20;
+    const SIZE = R * 2 + STROKE * 2;
+    const CIRC = 2 * Math.PI * R;
+    const homeLen = CIRC * Math.max(0, Math.min(1, hPct));
+
+    let possHtml = "";
+    if (totalPoss > 0) {
+      possHtml = `
+        <div class="sb-stats-feature">
+          <div class="sb-stats-feature-label">Time of Possession</div>
+          <div class="sb-stats-feature-row">
+            <div class="sb-stats-feature-val">${esc(awayPoss?.displayValue || "0:00")}</div>
+            <div class="sb-ring-wrap">
+              <svg width="${SIZE}" height="${SIZE}" style="transform:rotate(-90deg)">
+                <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${R}" fill="none" stroke="${awayColor}" stroke-width="${STROKE}"/>
+                <circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${R}" fill="none" stroke="${homeColor}" stroke-width="${STROKE}"
+                  stroke-dasharray="${homeLen} ${Math.max(0, CIRC - homeLen)}" stroke-linecap="butt"/>
+              </svg>
+              <div class="sb-ring-inner">
+                <span class="sb-ring-pct" style="left:4px">${(aPct * 100).toFixed(1)}%</span>
+                <span class="sb-ring-split"></span>
+                <span class="sb-ring-pct" style="right:4px">${(hPct * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+            <div class="sb-stats-feature-val">${esc(homePoss?.displayValue || "0:00")}</div>
+          </div>
+        </div>`;
+    }
+
+    const rows = (isScheduled() ? schedBarStats : barStats)
+      .map((stat) => {
+        const a = findStat(awayStats, stat.key);
+        const h = findStat(homeStats, stat.key);
+        const aNum = parseNum(a?.displayValue);
+        const hNum = parseNum(h?.displayValue);
+        const dA = stat.opp ? hNum : aNum;
+        const dH = stat.opp ? aNum : hNum;
+        const tot = dA + dH;
+        const aShare = tot > 0 ? dA / tot : 0.5;
+        const hShare = tot > 0 ? dH / tot : 0.5;
+        return `
+          <div class="sb-stats-row">
+            <div class="sb-stats-vals"><span>${esc(a?.displayValue || "-")}</span><span>${esc(h?.displayValue || "-")}</span></div>
+            <div class="sb-stats-bar">
+              <div style="width:${Math.max(0, Math.min(100, aShare * 100))}%;background:${awayColor}"></div>
+              <div style="width:${Math.max(0, Math.min(100, hShare * 100))}%;background:${homeColor}"></div>
+            </div>
+            <div class="sb-stats-lbl">${esc(stat.label.toUpperCase())}</div>
+          </div>`;
+      })
+      .join("");
+
+    let html = `
+      <div class="sb-card">
+        <div class="sb-card-header"><span class="sb-card-title">Stats</span></div>
+        <div class="sb-card-body">${possHtml}${rows}</div>
+      </div>`;
+
+    // Game leaders
+    html += renderLeadersCard(away, home);
+
+    // Prediction (scheduled only)
+    if (isScheduled() && gameData?.predictor) {
+      const pred = gameData.predictor;
+      const aWin = parseFloat(pred.awayTeam?.gameProjection || "0");
+      const hWin = parseFloat(pred.homeTeam?.gameProjection || "0");
+      html += `
+        <div class="sb-card">
+          <div class="sb-card-header"><span class="sb-card-title">${esc(pred.header || "Prediction")}</span></div>
+          <div class="sb-card-body">
+            <div class="sb-pred-teams">
+              <span style="color:${awayColor}">${esc(getTeamAbbr(away.team))}</span>
+              <span>vs</span>
+              <span style="color:${homeColor}">${esc(getTeamAbbr(home.team))}</span>
+            </div>
+            <div class="sb-pred-bar">
+              <div style="width:${aWin}%;background:${awayColor}"></div>
+              <div style="width:${hWin}%;background:${homeColor}"></div>
+            </div>
+            <div class="sb-pred-vals"><span>${aWin.toFixed(1)}%</span><span>${hWin.toFixed(1)}%</span></div>
+          </div>
+        </div>`;
+    }
+
+    setPanelHtml(body, html);
+  }
+
+  function renderLeadersCard(away, home) {
+    const leaders = gameData?.leaders;
+    if (!leaders || !leaders.length) return "";
+    const awayLeaders = leaders.find(
+      (t) =>
+        String(t.team?.id) === String(away.team?.id) ||
+        t.team?.abbreviation === away.team?.abbreviation,
+    );
+    const homeLeaders = leaders.find(
+      (t) =>
+        String(t.team?.id) === String(home.team?.id) ||
+        t.team?.abbreviation === home.team?.abbreviation,
+    );
+    if (!awayLeaders || !homeLeaders) return "";
+
+    const categories = ["passingYards", "rushingYards", "receivingYards"];
+    const awayColor = getSmartColor(away.team);
+    const homeColor = getSmartColor(home.team);
+
+    let bodyHtml = "";
+    for (const category of categories) {
+      const aCat = awayLeaders.leaders?.find((l) => l.name === category);
+      const hCat = homeLeaders.leaders?.find((l) => l.name === category);
+      const aL = aCat?.leaders?.[0];
+      const hL = hCat?.leaders?.[0];
+      if (!aL || !hL) continue;
+
+      const row = (leader, team, color) => `
+        <div class="sb-leader-row">
+          <div class="sb-leader-team">
+            <img src="${esc(getTeamLogoUrl(team.team))}" alt="" onerror="this.style.display='none'">
+            <span>${esc(leader.athlete?.jersey || "#")}</span>
+          </div>
+          <img class="sb-leader-headshot" src="${esc(headshotUrl(leader.athlete?.id))}" alt="" loading="lazy" onerror="this.style.display='none'">
+          <div class="sb-leader-info">
+            <div class="sb-leader-name">${esc(leader.athlete?.shortName || leader.athlete?.displayName || "")}
+              <span class="sb-leader-pos">${esc(leader.athlete?.position?.abbreviation || "")}</span>
+            </div>
+            <div class="sb-leader-val" style="color:${color}">${esc(leader.displayValue || "")}</div>
+          </div>
+        </div>`;
+
+      bodyHtml += `
+        <div class="sb-leader-cat">
+          <div class="sb-leader-cat-title">${esc(aCat.displayName || category)}</div>
+          ${row(aL, away, awayColor)}
+          ${row(hL, home, homeColor)}
+        </div>`;
+    }
+    if (!bodyHtml) return "";
+
+    return `
+      <div class="sb-card">
+        <div class="sb-card-header"><span class="sb-card-title">${isScheduled() ? "Team Leaders" : "Game Leaders"}</span></div>
+        <div class="sb-card-body">${bodyHtml}</div>
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLAYER MODAL (no copy card — header + stat grid only)
+  // ═══════════════════════════════════════════════════════════════════════════
+  let modalCategories = [];
+  let modalActiveCat = "";
+  let modalTeamColor = "#1a1a2e";
+
+  function openPlayerModal(athleteId, activeCat) {
+    const boxscorePlayers = gameData?.boxscore?.players || [];
+    const categoryMap = {};
+    let athleteInfo = null;
+    let teamInfo = null;
+
+    for (const teamData of boxscorePlayers) {
+      if (!teamData?.statistics) continue;
+      for (const cat of teamData.statistics) {
+        if (!cat?.athletes) continue;
+        for (const entry of cat.athletes) {
+          const athlete = entry?.athlete;
+          if (!athlete) continue;
+          if (String(athlete.id) === String(athleteId)) {
+            athleteInfo = athleteInfo || athlete;
+            teamInfo = teamInfo || teamData.team;
+            categoryMap[cat.name] = {
+              stats: entry.stats || [],
+              text: cat.text || cat.name,
+              labels: cat.labels || [],
+            };
+          }
+        }
+      }
+    }
+    if (!athleteInfo) return;
+
+    modalCategories = Object.keys(categoryMap).map((name) => ({
+      name,
+      text: categoryMap[name].text || name,
+      labels: categoryMap[name].labels || [],
+      stats: categoryMap[name].stats || [],
+    }));
+    modalActiveCat =
+      modalCategories.find((c) => c.name === activeCat)?.name ||
+      modalCategories[0]?.name ||
+      "";
+    modalTeamColor = getSmartColor(teamInfo);
+
+    const name =
+      athleteInfo.displayName ||
+      `${athleteInfo.firstName || ""} ${athleteInfo.lastName || ""}`.trim() ||
+      "Unknown";
+    const jersey = athleteInfo.jersey ? `#${athleteInfo.jersey}` : "";
+    const pos = athleteInfo.position?.abbreviation || "";
+    const posName = athleteInfo.position?.displayName || "";
+    const height = (athleteInfo.height || "").replace(/\\"/g, "") || "—";
+    const bats = athleteInfo.batSide?.code || "—";
+
+    $("#sbPlayerModalBody").innerHTML = `
+      <div class="sb-pm-header" style="border-bottom-color:${modalTeamColor}">
+        <div class="sb-pm-headshot-wrap">
+          <img class="sb-pm-headshot" style="border-color:${modalTeamColor}" src="${esc(headshotUrl(athleteInfo.id))}" alt="" onerror="this.style.display='none'">
+          <span class="sb-pm-pos-badge">${esc(pos)}</span>
+        </div>
+        <div class="sb-pm-name">${esc(name)}</div>
+        <div class="sb-pm-meta">${[jersey, teamInfo?.name || teamInfo?.abbreviation || ""].filter(Boolean).join(" · ")}</div>
+        <div class="sb-pm-tri">
+          <div class="sb-pm-tri-cell"><span>${esc(pos || "—")}</span><span>${esc(posName)}</span></div>
+          <div class="sb-pm-tri-cell mid"><span>${esc(height)}</span><span>Height</span></div>
+          <div class="sb-pm-tri-cell"><span>${esc(bats)}</span><span>Bats</span></div>
+        </div>
       </div>
-    </div>
-  `;
-}
+      ${
+        modalCategories.length > 1
+          ? `<div class="sb-pm-cats">${modalCategories
+              .map(
+                (c) =>
+                  `<button class="sb-pm-cat${c.name === modalActiveCat ? " active" : ""}" data-cat="${esc(c.name)}">${esc(c.text)}</button>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      <div class="sb-pm-stats" id="sbPmStats"></div>`;
+
+    renderPlayerModalStats();
+
+    $("#sbPlayerModal").style.display = "flex";
+
+    $("#sbPlayerModalBody").querySelectorAll(".sb-pm-cat").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modalActiveCat = btn.dataset.cat;
+        $("#sbPlayerModalBody")
+          .querySelectorAll(".sb-pm-cat")
+          .forEach((b) =>
+            b.classList.toggle("active", b.dataset.cat === modalActiveCat),
+          );
+        renderPlayerModalStats();
+      });
+    });
+  }
+
+  function renderPlayerModalStats() {
+    const cat = modalCategories.find((c) => c.name === modalActiveCat);
+    const el = $("#sbPmStats");
+    if (!el) return;
+    if (!cat || !cat.stats.length) {
+      el.innerHTML = '<div class="sb-empty">No stats available</div>';
+      return;
+    }
+    el.innerHTML = cat.stats
+      .map(
+        (v, i) => `
+        <div class="sb-pm-stat">
+          <div class="sb-pm-stat-val">${esc(String(v ?? "—"))}</div>
+          <div class="sb-pm-stat-lbl">${esc(cat.labels[i] || `S${i + 1}`)}</div>
+        </div>`,
+      )
+      .join("");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STREAMING — StreamFree (streamfree.top) via /assets/stream-service.js
+  // ═══════════════════════════════════════════════════════════════════════════
+  const STREAM_SPORT = "nfl";
+
+  function normalizeTeamName(teamName) {
+    return StreamService.normalizeTeamName(teamName);
+  }
+
+  // Returns { sources, match } where sources is a label -> { url, ... } map.
+  async function findMatchStreams(homeTeamName, awayTeamName) {
+    try {
+      return await StreamService.findMatchStreams({
+        homeTeamName,
+        awayTeamName,
+        sport: STREAM_SPORT,
+      });
+    } catch (error) {
+      console.error("Error in findMatchStreams:", error);
+      return { sources: {}, match: null };
+    }
+  }
+
+  function renderStreamButtons() {
+    const container = $("#sbStreamButtons");
+    if (!container) return;
+    const keys = Object.keys(availableStreams);
+    if (!keys.length) {
+      container.innerHTML =
+        '<span class="sb-stream-no-streams">No live streams found for this game</span>';
+      return;
+    }
+    container.innerHTML = keys
+      .map((key) => {
+        const entry = availableStreams[key] || {};
+        const label = entry.label || key;
+        const quality = entry.quality ? ` · ${entry.quality}` : "";
+        return `<button class="sb-stream-btn${currentStreamType === key ? " active" : ""}" data-stream="${esc(key)}">${esc(label)}${esc(quality)}</button>`;
+      })
+      .join("");
+    container.querySelectorAll(".sb-stream-btn").forEach((btn) => {
+      btn.addEventListener("click", () => switchStream(btn.dataset.stream));
+    });
+  }
+
+  function setStreamFrame(url) {
+    const frame = $("#sbStreamFrame");
+    const loading = $("#sbStreamLoading");
+    if (!frame) return;
+    if (loading) loading.hidden = false;
+    frame.style.display = "none";
+    frame.src = url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
+    frame.onload = () => {
+      if (loading) loading.hidden = true;
+      frame.style.display = "block";
+    };
+  }
+
+  async function openStreamModal() {
+    const { home, away } = getTeams();
+    const homeName = home?.team?.displayName || home?.team?.name || "";
+    const awayName = away?.team?.displayName || away?.team?.name || "";
+    if (!homeName || !awayName) return;
+
+    streamModalVisible = true;
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+    $("#sbStreamModal").style.display = "flex";
+    $("#sbStreamButtons").innerHTML =
+      '<span class="sb-stream-no-streams">Finding streams…</span>';
+    $("#sbStreamFrame").style.display = "none";
+    $("#sbStreamLoading").hidden = false;
+
+    const { sources } = await findMatchStreams(homeName, awayName);
+    availableStreams = sources || {};
+
+    const keys = Object.keys(availableStreams);
+    if (keys.length) {
+      currentStreamType = keys[0];
+      streamUrl = availableStreams[currentStreamType].url;
+    } else {
+      currentStreamType = "";
+      streamUrl = "";
+    }
+
+    renderStreamButtons();
+    if (streamUrl) setStreamFrame(streamUrl);
+    else if ($("#sbStreamLoading")) $("#sbStreamLoading").hidden = true;
+  }
+
+  function switchStream(streamType) {
+    const entry = availableStreams[streamType];
+    if (!entry) return;
+    currentStreamType = streamType;
+    streamUrl = entry.url;
+    renderStreamButtons();
+    setStreamFrame(streamUrl);
+  }
+
+  function closeStreamModal() {
+    streamModalVisible = false;
+    $("#sbStreamModal").style.display = "none";
+    const frame = $("#sbStreamFrame");
+    if (frame) {
+      frame.src = "about:blank";
+      frame.style.display = "none";
+    }
+    streamUrl = "";
+    currentStreamType = "";
+    availableStreams = {};
+    // Resume background polling (and refresh immediately, like the app).
+    fetchGameDataQuiet();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INIT / LISTENERS
+  // ═══════════════════════════════════════════════════════════════════════════
+  function onSbScroll() {
+    const rect = sbHeader.getBoundingClientRect();
+    if (rect.bottom < 0) {
+      if (sbStickyHeader.style.display !== "flex") {
+        sbStickyHeader.style.display = "flex";
+        renderStickyHeader();
+      } else {
+        renderStickyHeader();
+      }
+    } else if (sbStickyHeader.style.display !== "none") {
+      sbStickyHeader.style.display = "none";
+    }
+  }
+
+  function setupScrollListener() {
+    window.addEventListener("scroll", onSbScroll, { passive: true });
+    // In split view the left panel is the scroll container, not the window.
+    const leftPanel = document.getElementById("sh-left-panel");
+    if (leftPanel)
+      leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
+  }
+
+  function setupModalListeners() {
+    const playerModal = $("#sbPlayerModal");
+    const streamModal = $("#sbStreamModal");
+    const playerClose = $("#sbPlayerModalClose");
+    if (playerClose)
+      playerClose.addEventListener("click", () => {
+        playerModal.style.display = "none";
+      });
+    if (playerModal)
+      playerModal.addEventListener("click", (e) => {
+        if (e.target === playerModal) playerModal.style.display = "none";
+      });
+    const streamClose = $("#sbStreamClose");
+    if (streamClose) streamClose.addEventListener("click", closeStreamModal);
+    if (streamModal)
+      streamModal.addEventListener("click", (e) => {
+        if (e.target === streamModal) closeStreamModal();
+      });
+  }
+
+  function setupStreamListeners() {
+    // The Stream button lives inside the header, which is re-rendered on every
+    // poll, so use event delegation on the header container.
+    sbHeader.addEventListener("click", (e) => {
+      const btn = e.target.closest("#sbStreamOpen");
+      if (btn) openStreamModal();
+    });
+  }
+
+  function isInIframe() {
+    try {
+      return window !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function setupSplitViewListeners() {
+    window.addEventListener("sh-split-activated", function () {
+      splitViewActive = true;
+      const rightPanel = document.getElementById("sbRightPanel");
+      if (rightPanel) rightPanel.style.display = "none";
+      renderTabBars();
+      renderPanel("left");
+      const leftPanel = document.getElementById("sh-left-panel");
+      if (leftPanel && !leftPanel.dataset.sbScrollBound) {
+        leftPanel.dataset.sbScrollBound = "1";
+        leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
+      }
+    });
+    window.addEventListener("sh-split-deactivated", function () {
+      splitViewActive = false;
+      const rightPanel = document.getElementById("sbRightPanel");
+      if (rightPanel) rightPanel.style.display = "";
+      renderTabBars();
+      renderPanel("left");
+      renderPanel("right");
+    });
+    if (document.getElementById("sh-split-wrapper")) {
+      splitViewActive = true;
+      const rp = document.getElementById("sbRightPanel");
+      if (rp) rp.style.display = "none";
+    }
+    if (isInIframe()) {
+      splitViewActive = true;
+      const rp2 = document.getElementById("sbRightPanel");
+      if (rp2) rp2.style.display = "none";
+    }
+  }
+
+  function init() {
+    const params = new URLSearchParams(window.location.search);
+    gameId = params.get("id") || params.get("gameId");
+    if (!gameId) {
+      sbHeader.innerHTML =
+        '<div class="sb-error">No game specified. <a href="aio.html">Back to games</a></div>';
+      return;
+    }
+    fetchGameData();
+    setupScrollListener();
+    setupModalListeners();
+    setupStreamListeners();
+    setupSplitViewListeners();
+    // Record view + subscribe to count (matches app's useGamePresence)
+    if (typeof LiveTrackerViewer !== "undefined")
+      LiveTrackerViewer.startPollingAndRecord("nfl", gameId);
+    // Auth button
+    const authContainer = document.getElementById("auth-button-container");
+    if (authContainer && typeof createAuthButton === "function") {
+      authContainer.appendChild(createAuthButton());
+    }
+    // Re-render the header when auth state changes so the Stream button
+    // appears/disappears based on sign-in status.
+    if (typeof Auth !== "undefined" && Auth.onChange) {
+      Auth.onChange(function () {
+        renderHeader();
+      });
+    }
+  }
+
+  init();
+})();

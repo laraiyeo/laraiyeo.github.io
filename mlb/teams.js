@@ -85,7 +85,7 @@ function darkenColor(hex, amount) {
 }
 
 // Build team-color gradient for game cards
-function getTeamGradient(leftColor, rightColor, customBgColor, opacity) {
+function getTeamGradient(leftColor, rightColor, customBgColor, opacity, dir) {
   const alpha = opacity / 100;
   const darkerLeft = darkenColor(leftColor);
   const darkerRight = darkenColor(rightColor);
@@ -93,7 +93,8 @@ function getTeamGradient(leftColor, rightColor, customBgColor, opacity) {
   const darkerLeftRgba = hexToRgba(darkerLeft, alpha);
   const darkerRightRgba = hexToRgba(darkerRight, alpha);
   const rightRgba = hexToRgba(rightColor, alpha);
-  return `linear-gradient(to right, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
+  const direction = dir === "top" ? "to top" : "to right";
+  return `linear-gradient(${direction}, ${leftRgba}, ${darkerLeftRgba}, ${customBgColor}, ${darkerRightRgba}, ${rightRgba})`;
 }
 
 // Apply gradient + text color to a card DOM element
@@ -116,7 +117,7 @@ function applyCardGradient(card, awayColor, homeColor) {
   card.style.color = styles.textColor;
 }
 
-// Apply gradient for a no-game card (left black, right = team color)
+// Apply gradient for a no-game card (bottom black, top = team color)
 function applyNoGameGradient(card, teamColor) {
   const styles =
     typeof window !== "undefined" && window.getCustomStyles
@@ -131,7 +132,9 @@ function applyNoGameGradient(card, teamColor) {
     teamColor,
     styles.backgroundColor,
     styles.backgroundOpacity,
+    "top",
   );
+  card.setAttribute("data-dir", "top");
   card.style.background = gradient;
   card.style.color = styles.textColor;
 }
@@ -149,11 +152,15 @@ async function getLogoUrl(teamName) {
   });
 }
 
+// Team names are static — cache each ID's name for the life of the page.
+const teamNameCache = {};
 async function getTeamNameById(id) {
+  if (teamNameCache[id]) return teamNameCache[id];
   try {
     const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}`);
     const data = await res.json();
-    return data.teams[0].teamName;
+    teamNameCache[id] = data.teams[0].teamName;
+    return teamNameCache[id];
   } catch (err) {
     console.error("Error fetching team name for ID:", id, err);
     return "";
@@ -161,11 +168,11 @@ async function getTeamNameById(id) {
 }
 
 function getInningLabel(inningHalf) {
-  return inningHalf === "Bottom"
+  return inningHalf === false
     ? "Bot"
-    : inningHalf === "Top"
+    : inningHalf === true
       ? "Top"
-      : inningHalf;
+      : null;
 }
 
 function getBaseHtml(matchup) {
@@ -200,21 +207,23 @@ async function buildFinalCardContent(
   const homeIsWinner = homeScore > awayScore;
 
   return `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-            <span style="font-size: 2.2rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayScore}</span>
+      <div class="game-content">
+        <div class="team away-team">
+          <div class="card-score-cell">
+            <span class="card-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayScore}</span>
+            <img src="${awayLogo}" alt="${awayShort}" class="card-score-logo">
           </div>
-          <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayShort}</div>
+          <div class="card-team-name" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayShort}</div>
         </div>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final${extraInning ? `/${inning}` : ""}</div>
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-            <span style="font-size: 2.2rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeScore}</span>
+        <div class="game-info">
+          <div class="game-status">Final${extraInning ? `/${inning}` : ""}</div>
+        </div>
+        <div class="team home-team">
+          <div class="card-score-cell">
+            <span class="card-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeScore}</span>
+            <img src="${homeLogo}" alt="${homeShort}" class="card-score-logo">
           </div>
-          <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeShort}</div>
+          <div class="card-team-name" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeShort}</div>
         </div>
       </div>
     `;
@@ -244,7 +253,7 @@ async function buildCard(game) {
     ["In Progress", "Manager challenge"].includes(statusText) ||
     status.codedGameState === "M"
   ) {
-    const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
+    const inningLabel = getInningLabel(game.linescore?.isTopInning) || "Inning";
     const centerText =
       `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
     const awayScore = teams.away.score || 0;
@@ -270,25 +279,25 @@ async function buildCard(game) {
     const baseHtml = getBaseHtml(matchup);
 
     card.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="text-align: center;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-                <span style="font-size: 2rem; ${leadingAway ? "font-weight: bold;" : ""}">${awayScore}</span>
+          <div class="game-content">
+            <div class="team away-team">
+              <div class="card-score-cell">
+                <span class="card-score" style="${leadingAway ? "font-weight: bold;" : ""}">${awayScore}</span>
+                <img src="${awayLogo}" alt="${awayShort}" class="card-score-logo">
               </div>
-              <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+              <div class="card-team-name">${awayShort}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
-              <div style="font-size: 0.85rem; margin-top: 4px;">Outs: ${outs}</div>
+            <div class="game-info">
+              <div class="game-status">${centerText}</div>
+              <div class="game-time">Outs: ${outs}</div>
               ${baseHtml}
             </div>
-            <div style="text-align: center;">
-              <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-                <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-                <span style="font-size: 2rem; ${leadingHome ? "font-weight: bold;" : ""}">${homeScore}</span>
+            <div class="team home-team">
+              <div class="card-score-cell">
+                <span class="card-score" style="${leadingHome ? "font-weight: bold;" : ""}">${homeScore}</span>
+                <img src="${homeLogo}" alt="${homeShort}" class="card-score-logo">
               </div>
-              <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+              <div class="card-team-name">${homeShort}</div>
             </div>
           </div>
         `;
@@ -305,21 +314,20 @@ async function buildCard(game) {
     const homeLogo = await getLogoUrl(homeFull);
 
     card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-            <span style="font-size: 0.95rem;">${awayRecord}</span>
-          </div>
-          <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+      <div class="game-content">
+        <div class="team away-team">
+          <img src="${awayLogo}" alt="${awayShort}" class="card-team-logo">
+          <div class="card-team-name">${awayShort}</div>
+          <div class="card-team-record">${awayRecord}</div>
         </div>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">${startTime}</div>
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-            <span style="font-size: 0.95rem;">${homeRecord}</span>
-          </div>
-          <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+        <div class="game-info">
+          <div class="game-status">Scheduled</div>
+          <div class="game-time">${startTime}</div>
+        </div>
+        <div class="team home-team">
+          <img src="${homeLogo}" alt="${homeShort}" class="card-team-logo">
+          <div class="card-team-name">${homeShort}</div>
+          <div class="card-team-record">${homeRecord}</div>
         </div>
       </div>
     `;
@@ -330,21 +338,19 @@ async function buildCard(game) {
     const homeLogo = await getLogoUrl(homeFull);
 
     card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-              <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
-             <span style="font-size: 0.95rem;">${awayRecord}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+        <div class="game-content">
+          <div class="team away-team">
+            <img src="${awayLogo}" alt="${awayShort}" class="card-team-logo">
+            <div class="card-team-name">${awayShort}</div>
+            <div class="card-team-record">${awayRecord}</div>
           </div>
-          <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.3rem; font-weight: bold;">PPD</div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
-              <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
-              <span style="font-size: 0.95rem;">${homeRecord}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+          <div class="game-info">
+            <div class="game-status">PPD</div>
+          </div>
+          <div class="team home-team">
+            <img src="${homeLogo}" alt="${homeShort}" class="card-team-logo">
+            <div class="card-team-name">${homeShort}</div>
+            <div class="card-team-record">${homeRecord}</div>
           </div>
         </div>
       `;
@@ -389,12 +395,8 @@ async function createTeamSection(teamName) {
 
   // Make the entire section clickable
   section.addEventListener("click", async () => {
-    const currentStyles = loadSavedStyles();
     const params = new URLSearchParams();
     params.set("team", teamName);
-    params.set("bgColor", currentStyles.backgroundColor);
-    params.set("bgOpacity", currentStyles.backgroundOpacity);
-    params.set("textColor", currentStyles.textColor);
 
     const url = `https://sportsheart.ca/mlb/team.html?${params.toString()}`;
 
@@ -442,7 +444,7 @@ function hashString(str) {
 
 async function fetchGames() {
   const today = getAdjustedDateForMLB();
-  const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+  const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,reason,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
 
   try {
     const res = await fetch(url);
@@ -639,11 +641,13 @@ function applyStylesToCards(styles) {
   gameCards.forEach((card) => {
     const awayColor = card.getAttribute("data-away-color") || "#000000";
     const homeColor = card.getAttribute("data-home-color") || "#000000";
+    const dir = card.getAttribute("data-dir") === "top" ? "top" : undefined;
     const gradient = getTeamGradient(
       awayColor,
       homeColor,
       styles.backgroundColor,
       styles.backgroundOpacity,
+      dir,
     );
     card.style.setProperty("background", gradient, "important");
     card.style.setProperty("color", styles.textColor, "important");
@@ -857,3 +861,10 @@ if (document.readyState === "loading") {
 // Make functions available globally for the team.html page
 window.getCustomStyles = loadSavedStyles;
 window.applyCustomStyles = applyStylesToCards;
+
+// Auth button in the navbar
+(function () {
+  var c = document.getElementById("auth-button-container");
+  if (c && typeof createAuthButton === "function")
+    c.appendChild(createAuthButton());
+})();
