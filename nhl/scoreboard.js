@@ -405,7 +405,9 @@
         firstName: String(
           spot?.firstName?.default || spot?.firstName || "",
         ).trim(),
-        lastName: String(spot?.lastName?.default || spot?.lastName || "").trim(),
+        lastName: String(
+          spot?.lastName?.default || spot?.lastName || "",
+        ).trim(),
         sweaterNumber: spot?.sweaterNumber,
         positionCode: String(spot?.positionCode || "").trim(),
         teamId: Number(spot?.teamId),
@@ -847,9 +849,7 @@
             team.name,
           )}" onerror="this.parentElement.innerHTML='<div class=\\'sb-team-logo-fallback\\' style=\\'background:${color}\\'>${abbr[0]}</div>'">`
         : `<div class="sb-team-logo-fallback" style="background:${color}">${abbr[0]}</div>`;
-      const ppBadge = hasPP
-        ? `<span class="sb-pp-badge">(PP)</span>`
-        : "";
+      const ppBadge = hasPP ? `<span class="sb-pp-badge">(PP)</span>` : "";
       const logoScoreRow =
         side === "home"
           ? `${scoreEl}<div class="sb-team-logo-wrap">${logoEl}</div>`
@@ -974,7 +974,8 @@
   // ═══════════════════════════════════════════════════════════════════════════
   function allTabs() {
     const base = ["Main", "Away", "Home", "Stats", "Plays", "Shifts", "Series"];
-    if (isScheduled()) return base.filter((t) => t !== "Plays" && t !== "Shifts");
+    if (isScheduled())
+      return base.filter((t) => t !== "Plays" && t !== "Shifts");
     return base;
   }
 
@@ -1105,11 +1106,15 @@
       if (!name) return { first: "", last: "" };
       const bits = name.split(/\s+/).filter(Boolean);
       if (bits.length === 1) return { first: bits[0], last: "" };
-      return { first: bits.slice(0, -1).join(" "), last: bits[bits.length - 1] };
+      return {
+        first: bits.slice(0, -1).join(" "),
+        last: bits[bits.length - 1],
+      };
     };
 
     const headshot = (leader, side, color) => {
-      const abbr = side === "away" ? game.away.abbreviation : game.home.abbreviation;
+      const abbr =
+        side === "away" ? game.away.abbreviation : game.home.abbreviation;
       const mug = getNhlMugHeadshotUrl({
         seasonCode: getNhlSeasonSpan(),
         teamAbbrev: abbr,
@@ -1129,7 +1134,11 @@
           teamAbbrev: abbr,
           headshot: leader?.headshot || null,
           stats: Number.isFinite(Number(leader?.value))
-            ? { [String(leader?.category || "").toLowerCase()]: Number(leader.value) }
+            ? {
+                [String(leader?.category || "").toLowerCase()]: Number(
+                  leader.value,
+                ),
+              }
             : {},
         }),
       );
@@ -1218,9 +1227,12 @@
 
     const goalieRow = (leader, side, color) => {
       const fullName =
-        [leader?.firstName, leader?.lastName].filter(Boolean).join(" ").trim() ||
-        "-";
-      const abbr = side === "away" ? game.away.abbreviation : game.home.abbreviation;
+        [leader?.firstName, leader?.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || "-";
+      const abbr =
+        side === "away" ? game.away.abbreviation : game.home.abbreviation;
       const mug = getNhlMugHeadshotUrl({
         seasonCode: getNhlSeasonSpan(),
         teamAbbrev: abbr,
@@ -1354,9 +1366,9 @@
     const awayTeamId = Number(game?.away?.id);
     const homeTeamId = Number(game?.home?.id);
     const profile = game?.playerMetaById?.[id] || {};
-    const roster = (game?.playRosterSpots || []).find(
-      (s) => Number(s?.playerId) === id,
-    ) || {};
+    const roster =
+      (game?.playRosterSpots || []).find((s) => Number(s?.playerId) === id) ||
+      {};
     const boxscoreEntry = getNhlBoxscoreStatsByPlayerId(game, id) || {};
     const extractedStats = extractNhlStatsFromEntry(boxscoreEntry || {});
 
@@ -1400,8 +1412,9 @@
 
     const stats = { ...(profile?.stats || {}), ...(extractedStats || {}) };
     const toi =
-      String(stats?.toi ?? boxscoreEntry?.toi ?? profile?.stats?.toi ?? "").trim() ||
-      "-";
+      String(
+        stats?.toi ?? boxscoreEntry?.toi ?? profile?.stats?.toi ?? "",
+      ).trim() || "-";
 
     return {
       id,
@@ -1424,7 +1437,9 @@
 
   function buildLivePlayStatItems(player) {
     const isGoalie =
-      String(player?.position || "").trim().toUpperCase() === "G";
+      String(player?.position || "")
+        .trim()
+        .toUpperCase() === "G";
     if (isGoalie) {
       const formatSavePct = (value) => {
         const n = Number(value);
@@ -1462,8 +1477,7 @@
     });
     const src = mug || player?.headshot || "";
     const pos = String(player?.position || "-").toUpperCase();
-    const logo =
-      side === "home" ? homeLogo() : awayLogo();
+    const logo = side === "home" ? homeLogo() : awayLogo();
     const playerJson = esc(JSON.stringify(player));
     return `
       <div class="sb-lp-hs" data-player="${playerJson}" style="border-color:${teamColor};background:${withAlpha66(teamColor)}">
@@ -1518,7 +1532,11 @@
         if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
         const ownerId = Number(details?.eventOwnerTeamId);
         const side =
-          ownerId === awayTeamId ? "away" : ownerId === homeTeamId ? "home" : null;
+          ownerId === awayTeamId
+            ? "away"
+            : ownerId === homeTeamId
+              ? "home"
+              : null;
         if (!side) return null;
         const period = Number(play?.periodDescriptor?.number || 0);
         const remaining = parseClockSecs(play?.timeRemaining);
@@ -1566,9 +1584,7 @@
 
     const teamColor = active.side === "home" ? hColor : aColor;
     const abbr = String(
-      active.side === "home"
-        ? game.home.abbreviation
-        : game.away.abbreviation,
+      active.side === "home" ? game.home.abbreviation : game.away.abbreviation,
     ).toUpperCase();
     const scoreText =
       Number.isFinite(active.awayScore) && Number.isFinite(active.homeScore)
@@ -1766,9 +1782,7 @@
 
     (game?.summaryPenalties || []).forEach((penaltyOrBlock) => {
       const blockPeriod = Number(
-        penaltyOrBlock?.periodDescriptor?.number ||
-          penaltyOrBlock?.period ||
-          0,
+        penaltyOrBlock?.periodDescriptor?.number || penaltyOrBlock?.period || 0,
       );
       const penalties = Array.isArray(penaltyOrBlock?.penalties)
         ? penaltyOrBlock.penalties
@@ -1896,7 +1910,10 @@
         const isGoalie = entry?.position === "G";
         const stats = isGoalie
           ? [
-              { label: "GAA", value: toSafeStatValue(entry?.goalsAgainstAverage) },
+              {
+                label: "GAA",
+                value: toSafeStatValue(entry?.goalsAgainstAverage),
+              },
               {
                 label: "SV%",
                 value: `${(toSafeStatValue(entry?.savePctg) * 100).toFixed(1)}%`,
@@ -1987,14 +2004,16 @@
     });
     const boxscoreSide = game?.boxscorePlayerByGameStats?.[boxscoreKey] || {};
     const boxscoreEntryById = {};
-    [boxscoreSide?.forwards, boxscoreSide?.defense, boxscoreSide?.goalies].forEach(
-      (bucket) => {
-        (Array.isArray(bucket) ? bucket : []).forEach((entry) => {
-          const id = Number(entry?.playerId ?? entry?.id);
-          if (Number.isFinite(id)) boxscoreEntryById[id] = entry;
-        });
-      },
-    );
+    [
+      boxscoreSide?.forwards,
+      boxscoreSide?.defense,
+      boxscoreSide?.goalies,
+    ].forEach((bucket) => {
+      (Array.isArray(bucket) ? bucket : []).forEach((entry) => {
+        const id = Number(entry?.playerId ?? entry?.id);
+        if (Number.isFinite(id)) boxscoreEntryById[id] = entry;
+      });
+    });
 
     const toCard = (entry, fallbackKey) => {
       const playerId = Number(entry?.playerId ?? entry?.id);
@@ -2024,7 +2043,10 @@
       ).trim();
       const stats = extractNhlStatsFromEntry(source);
       const first = String(
-        roster?.firstName || source?.firstName?.default || source?.firstName || "",
+        roster?.firstName ||
+          source?.firstName?.default ||
+          source?.firstName ||
+          "",
       ).trim();
       const last = String(
         roster?.lastName || source?.lastName?.default || source?.lastName || "",
@@ -2045,7 +2067,10 @@
         teamSide: side,
         teamAbbrev,
         headshot: mug || fallbackHeadshot || null,
-        decision: String(source?.decision || "").trim().toUpperCase() || null,
+        decision:
+          String(source?.decision || "")
+            .trim()
+            .toUpperCase() || null,
         stats: {
           ...stats,
           toi: String(stats?.toi ?? source?.toi ?? "").trim() || "-",
@@ -2068,10 +2093,12 @@
       });
     };
 
-    const skaters = dedupe([
-      ...(Array.isArray(boxscoreSide?.forwards) ? boxscoreSide.forwards : []),
-      ...(Array.isArray(boxscoreSide?.defense) ? boxscoreSide.defense : []),
-    ].map((e) => toCard(e, "skater")));
+    const skaters = dedupe(
+      [
+        ...(Array.isArray(boxscoreSide?.forwards) ? boxscoreSide.forwards : []),
+        ...(Array.isArray(boxscoreSide?.defense) ? boxscoreSide.defense : []),
+      ].map((e) => toCard(e, "skater")),
+    );
     const goalies = dedupe(
       (Array.isArray(boxscoreSide?.goalies) ? boxscoreSide.goalies : []).map(
         (e) => toCard(e, "goalie"),
@@ -2086,13 +2113,18 @@
 
     // On-ice (live)
     const iceSide = game?.iceSurface?.[boxscoreKey] || {};
-    const onIce = dedupe([
-      ...(Array.isArray(iceSide?.forwards) ? iceSide.forwards : []),
-      ...(Array.isArray(iceSide?.defensemen) ? iceSide.defensemen : []),
-    ].map((e) => toCard(e, "onice")));
+    const onIce = dedupe(
+      [
+        ...(Array.isArray(iceSide?.forwards) ? iceSide.forwards : []),
+        ...(Array.isArray(iceSide?.defensemen) ? iceSide.defensemen : []),
+      ].map((e) => toCard(e, "onice")),
+    );
     const onIceGoalies = dedupe(
       (Array.isArray(iceSide?.goalies) ? iceSide.goalies : []).map((e) =>
-        toCard({ ...e, position: String(e?.position || "G").trim() || "G" }, "onice_goalie"),
+        toCard(
+          { ...e, position: String(e?.position || "G").trim() || "G" },
+          "onice_goalie",
+        ),
       ),
     );
     const penaltyBox = dedupe(
@@ -2158,17 +2190,31 @@
     }
     const sections = [];
     if (data.skaters.length)
-      sections.push({ key: "skaters", label: "Skaters", players: data.skaters });
+      sections.push({
+        key: "skaters",
+        label: "Skaters",
+        players: data.skaters,
+      });
     if (data.goalies.length)
-      sections.push({ key: "goalies", label: goalieLabel, players: data.goalies });
+      sections.push({
+        key: "goalies",
+        label: goalieLabel,
+        players: data.goalies,
+      });
     if (data.injured.length)
-      sections.push({ key: "injured", label: "Injured", players: data.injured });
+      sections.push({
+        key: "injured",
+        label: "Injured",
+        players: data.injured,
+      });
     return sections;
   }
 
   function playerCardHtml(player, teamColor, showStats) {
     const isGoalie =
-      String(player?.position || "").trim().toUpperCase() === "G";
+      String(player?.position || "")
+        .trim()
+        .toUpperCase() === "G";
     const plusMinusRaw = Number(player?.stats?.plusMinus);
     const plusMinusDisplay = Number.isFinite(plusMinusRaw)
       ? plusMinusRaw > 0
@@ -2287,7 +2333,10 @@
     const sections = rosterSections(teamSide);
     const teamColor = teamSide === "home" ? homeColor() : awayColor();
     if (!sections.length) {
-      setPanelHtml(body, '<div class="sb-empty">No roster data available.</div>');
+      setPanelHtml(
+        body,
+        '<div class="sb-empty">No roster data available.</div>',
+      );
       return;
     }
     let activeKey = rosterSection[side];
@@ -2481,8 +2530,7 @@
         ? schedRows.map(barStat).join("")
         : '<div class="sb-empty">No stats available</div>';
     } else {
-      bodyHtml =
-        featureHtml + others.map(barStat).join("");
+      bodyHtml = featureHtml + others.map(barStat).join("");
       if (!featureHtml && !others.length)
         bodyHtml = '<div class="sb-empty">No stats available</div>';
     }
@@ -2552,7 +2600,15 @@
     const profile = (playerId, fallback = "") => {
       const id = Number(playerId);
       if (!Number.isFinite(id))
-        return { name: String(fallback || "").trim(), firstName: "", lastName: "", sweaterNumber: null, headshot: null, position: null, teamId: null };
+        return {
+          name: String(fallback || "").trim(),
+          firstName: "",
+          lastName: "",
+          sweaterNumber: null,
+          headshot: null,
+          position: null,
+          teamId: null,
+        };
       const roster = rosterSpotById[id] || {};
       const meta = playerMetaById[id] || {};
       const first = String(roster?.firstName || "").trim();
@@ -2621,7 +2677,8 @@
         const assistProfiles = [];
         [1, 2].forEach((idx) => {
           const idKey = idx === 1 ? "assist1PlayerId" : "assist2PlayerId";
-          const totalKey = idx === 1 ? "assist1PlayerTotal" : "assist2PlayerTotal";
+          const totalKey =
+            idx === 1 ? "assist1PlayerTotal" : "assist2PlayerTotal";
           const ap = profile(d?.[idKey], "");
           const an = displayName(ap, "");
           if (!an) return;
@@ -2695,15 +2752,25 @@
       }
       if (typeKey === "takeaway") {
         const p = profile(d?.playerId, "Player");
-        return { main: `Takeaway by ${displayName(p, "Player")}${sweaterTag(p)}`, sub: null };
+        return {
+          main: `Takeaway by ${displayName(p, "Player")}${sweaterTag(p)}`,
+          sub: null,
+        };
       }
       if (typeKey === "giveaway") {
         const p = profile(d?.playerId, "Player");
-        return { main: `Giveaway by ${displayName(p, "Player")}${sweaterTag(p)}`, sub: null };
+        return {
+          main: `Giveaway by ${displayName(p, "Player")}${sweaterTag(p)}`,
+          sub: null,
+        };
       }
       if (typeKey === "stoppage") {
-        const reason = String(d?.reason || "stoppage").replace(/-/g, " ").toUpperCase();
-        const secondary = String(d?.secondaryReason || "").replace(/-/g, " ").toUpperCase();
+        const reason = String(d?.reason || "stoppage")
+          .replace(/-/g, " ")
+          .toUpperCase();
+        const secondary = String(d?.secondaryReason || "")
+          .replace(/-/g, " ")
+          .toUpperCase();
         return { main: reason, sub: secondary || null };
       }
       return { main: `${teamLabel} - ${toTypeLabel(typeKey)}`, sub: null };
@@ -2712,14 +2779,24 @@
     const rows = plays
       .map((play, idx) => {
         const period = Number(play?.periodDescriptor?.number || 0);
-        const periodType = String(play?.periodDescriptor?.periodType || "").toUpperCase();
+        const periodType = String(
+          play?.periodDescriptor?.periodType || "",
+        ).toUpperCase();
         const remaining = parseClockSecs(play?.timeRemaining);
         const playoff = isNhlPlayoffGameType(game?.gameType);
         const shootout = periodType === "SO" || (!playoff && period >= 5);
         const ot = !shootout && (periodType === "OT" || period > 3);
         const len = shootout ? 0 : ot ? (playoff ? 1200 : 300) : 1200;
-        const elapsed = Number.isFinite(remaining) ? Math.max(0, len - remaining) : 0;
-        return { play, idx, period, elapsed, sortKey: period * 100000 + elapsed * 10 + idx };
+        const elapsed = Number.isFinite(remaining)
+          ? Math.max(0, len - remaining)
+          : 0;
+        return {
+          play,
+          idx,
+          period,
+          elapsed,
+          sortKey: period * 100000 + elapsed * 10 + idx,
+        };
       })
       .sort((a, b) => a.sortKey - b.sortKey);
 
@@ -2733,17 +2810,28 @@
       const ownerId = Number(d?.eventOwnerTeamId);
       const eventTeam =
         ownerId === awayTeamId
-          ? { id: awayTeamId, abbr: String(game?.away?.abbreviation || "AWY").toUpperCase() }
+          ? {
+              id: awayTeamId,
+              abbr: String(game?.away?.abbreviation || "AWY").toUpperCase(),
+            }
           : ownerId === homeTeamId
-            ? { id: homeTeamId, abbr: String(game?.home?.abbreviation || "HME").toUpperCase() }
+            ? {
+                id: homeTeamId,
+                abbr: String(game?.home?.abbreviation || "HME").toUpperCase(),
+              }
             : null;
       const x = Number(d?.xCoord);
       const y = Number(d?.yCoord);
       const eventTeamSide =
-        ownerId === awayTeamId ? "away" : ownerId === homeTeamId ? "home" : null;
+        ownerId === awayTeamId
+          ? "away"
+          : ownerId === homeTeamId
+            ? "home"
+            : null;
       const directAway = Number(d?.awayScore);
       const directHome = Number(d?.homeScore);
-      const hasDirect = Number.isFinite(directAway) && Number.isFinite(directHome);
+      const hasDirect =
+        Number.isFinite(directAway) && Number.isFinite(directHome);
       const scoreBefore = { away: awayScore, home: homeScore };
       if (hasDirect) {
         awayScore = directAway;
@@ -2765,8 +2853,10 @@
       }
       const scorerId = Number(d?.scoringPlayerId);
       const scorerProfile = profile(scorerId, "Scorer");
-      if (Number.isFinite(scorerId) && !goalCounts[scorerId]) goalCounts[scorerId] = 0;
-      if (typeKey === "goal" && Number.isFinite(scorerId)) goalCounts[scorerId] += 1;
+      if (Number.isFinite(scorerId) && !goalCounts[scorerId])
+        goalCounts[scorerId] = 0;
+      if (typeKey === "goal" && Number.isFinite(scorerId))
+        goalCounts[scorerId] += 1;
       return {
         key: `${row.idx}-${typeKey}-${row.period}`,
         typeKey,
@@ -2775,7 +2865,11 @@
         periodLabel:
           row.period <= 3
             ? `P${row.period}`
-            : getNhlExtraPeriodLabel({ number: row.period, gameType: game?.gameType, longForm: false }) || `P${row.period}`,
+            : getNhlExtraPeriodLabel({
+                number: row.period,
+                gameType: game?.gameType,
+                longForm: false,
+              }) || `P${row.period}`,
         timeRemaining: String(play?.timeRemaining || "--:--"),
         scoreAt: { away: awayScore, home: homeScore },
         scoringSide,
@@ -2788,10 +2882,15 @@
         scorerProfile,
         scorerName: displayName(scorerProfile, "Scorer"),
         scorerGoalsInGame:
-          typeKey === "goal" && Number.isFinite(scorerId) ? goalCounts[scorerId] : 0,
+          typeKey === "goal" && Number.isFinite(scorerId)
+            ? goalCounts[scorerId]
+            : 0,
         eventTeamAbbr: eventTeam?.abbr || null,
         eventTeamSide,
-        homeTeamDefendingSide: String(play?.homeTeamDefendingSide || "").trim().toLowerCase() || null,
+        homeTeamDefendingSide:
+          String(play?.homeTeamDefendingSide || "")
+            .trim()
+            .toLowerCase() || null,
         xCoord: Number.isFinite(x) ? x : null,
         yCoord: Number.isFinite(y) ? y : null,
       };
@@ -2851,7 +2950,9 @@
       ? visible
           .map((row) => {
             const headerColor = row.isGoal ? "#fff" : "var(--text-primary)";
-            const bodyColor = row.isGoal ? "rgba(255,255,255,0.9)" : "var(--text-secondary)";
+            const bodyColor = row.isGoal
+              ? "rgba(255,255,255,0.9)"
+              : "var(--text-secondary)";
             const canExpand =
               !row.isGoal &&
               Number.isFinite(Number(row.xCoord)) &&
@@ -2876,7 +2977,19 @@
                     row.isGoal
                       ? `<div class="sb-play-goal-row">
                           <div class="sb-play-goal-avatar" data-player="${playerJson}" style="border-color:${row.teamColor}">
-                            ${row.scorerProfile?.headshot ? `<img src="${esc(row.scorerProfile.headshot)}" alt="" onerror="this.style.display='none'">` : `<span>${esc(String(row.scorerName || "P").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>`}
+                            ${
+                              row.scorerProfile?.headshot
+                                ? `<img src="${esc(row.scorerProfile.headshot)}" alt="" onerror="this.style.display='none'">`
+                                : `<span>${esc(
+                                    String(row.scorerName || "P")
+                                      .split(" ")
+                                      .filter(Boolean)
+                                      .slice(0, 2)
+                                      .map((p) => p[0])
+                                      .join("")
+                                      .toUpperCase(),
+                                  )}</span>`
+                            }
                             <span class="sb-play-goal-count">🏒 ${row.scorerGoalsInGame}</span>
                           </div>
                           <div class="sb-play-goal-text">
@@ -2972,7 +3085,10 @@
       return secs / 60;
     };
     const formatAxisLabel = (minuteValue) => {
-      const totalSecs = Math.max(0, Math.round((Number(minuteValue) || 0) * 60));
+      const totalSecs = Math.max(
+        0,
+        Math.round((Number(minuteValue) || 0) * 60),
+      );
       const h = Math.floor(totalSecs / 3600);
       const m = Math.floor((totalSecs % 3600) / 60);
       const s = totalSecs % 60;
@@ -3012,9 +3128,10 @@
         return a.name.localeCompare(b.name);
       });
 
-    const playerSections = (filter.teamId
-      ? teamOptions.filter((t) => t.id === String(filter.teamId))
-      : teamOptions
+    const playerSections = (
+      filter.teamId
+        ? teamOptions.filter((t) => t.id === String(filter.teamId))
+        : teamOptions
     ).map((team) => {
       const playersObj = shiftsByTeam?.[team.id] || {};
       const names = Object.keys(playersObj || {})
@@ -3036,7 +3153,11 @@
       });
       return {
         team,
-        players: deduped.map((name) => ({ key: `${team.id}::${name}`, name, team })),
+        players: deduped.map((name) => ({
+          key: `${team.id}::${name}`,
+          name,
+          team,
+        })),
       };
     });
 
@@ -3053,7 +3174,8 @@
       return Array.from(periods).sort((a, b) => a - b);
     })();
 
-    const selectedTeam = teamOptions.find((t) => t.id === String(filter.teamId)) || null;
+    const selectedTeam =
+      teamOptions.find((t) => t.id === String(filter.teamId)) || null;
     const selectedPlayer = (() => {
       if (!filter.playerKey) return null;
       for (const s of playerSections) {
@@ -3066,7 +3188,9 @@
     const periodWindow = filter.period
       ? {
           startMin: getPeriodStartMin(filter.period),
-          endMin: getPeriodStartMin(filter.period) + getPeriodLengthMin(filter.period),
+          endMin:
+            getPeriodStartMin(filter.period) +
+            getPeriodLengthMin(filter.period),
         }
       : null;
 
@@ -3075,7 +3199,9 @@
       const rows = section.players
         .filter((p) => !filter.playerKey || p.key === filter.playerKey)
         .map((player) => {
-          const rawShifts = Array.isArray(shiftsByTeam?.[section.team.id]?.[player.name])
+          const rawShifts = Array.isArray(
+            shiftsByTeam?.[section.team.id]?.[player.name],
+          )
             ? shiftsByTeam[section.team.id][player.name]
             : [];
           const seenShift = new Set();
@@ -3100,7 +3226,11 @@
               endMin = t;
             }
             if (periodWindow) {
-              if (endMin < periodWindow.startMin || startMin > periodWindow.endMin) return;
+              if (
+                endMin < periodWindow.startMin ||
+                startMin > periodWindow.endMin
+              )
+                return;
             }
             bars.push({ period, startMin, endMin });
           });
@@ -3111,11 +3241,15 @@
       rows.sort((a, b) => {
         const s = a.bars[0].startMin - b.bars[0].startMin;
         if (s !== 0) return s;
-        const d = (b.bars[0].endMin - b.bars[0].startMin) - (a.bars[0].endMin - a.bars[0].startMin);
+        const d =
+          b.bars[0].endMin -
+          b.bars[0].startMin -
+          (a.bars[0].endMin - a.bars[0].startMin);
         if (d !== 0) return d;
         return a.player.name.localeCompare(b.player.name);
       });
-      if (rows.length) chartSections.push({ type: "team", team: section.team, rows });
+      if (rows.length)
+        chartSections.push({ type: "team", team: section.team, rows });
     });
 
     const chartRows = [];
@@ -3138,7 +3272,11 @@
       minStart = 0;
     }
     const axisTicks = [];
-    for (let t = Math.floor(minStart / 5) * 5; t <= Math.ceil(maxEnd / 5) * 5; t += 5)
+    for (
+      let t = Math.floor(minStart / 5) * 5;
+      t <= Math.ceil(maxEnd / 5) * 5;
+      t += 5
+    )
       axisTicks.push(t);
     const timelineWidth = Math.max(420, (maxEnd - minStart) * PX_PER_MIN);
 
@@ -3148,7 +3286,9 @@
       plays.forEach((play, idx) => {
         const typeKey = String(play?.typeDescKey || "").toLowerCase();
         const isGoal =
-          Number(play?.typeCode) === 505 || typeKey === "goal" || play?.scoringPlay === true;
+          Number(play?.typeCode) === 505 ||
+          typeKey === "goal" ||
+          play?.scoringPlay === true;
         if (!isGoal) return;
         const period = Number(play?.periodDescriptor?.number || 0);
         if (!Number.isFinite(period) || period <= 0) return;
@@ -3167,7 +3307,10 @@
             : null;
         if (!Number.isFinite(elapsed)) return;
         const minute = base + elapsed / 60;
-        if (periodWindow && (minute < periodWindow.startMin || minute > periodWindow.endMin))
+        if (
+          periodWindow &&
+          (minute < periodWindow.startMin || minute > periodWindow.endMin)
+        )
           return;
         const ownerId = Number(play?.details?.eventOwnerTeamId);
         const isAway = String(ownerId) === String(game?.away?.id);
@@ -3212,7 +3355,8 @@
 
     let chartHtml;
     if (!chartRows.length) {
-      chartHtml = '<div class="sb-empty">No shifts found for the selected filters.</div>';
+      chartHtml =
+        '<div class="sb-empty">No shifts found for the selected filters.</div>';
     } else {
       const namesCol = chartRows
         .map((row) =>
@@ -3228,7 +3372,10 @@
             : `<div class="sb-shifts-player-row">${row.bars
                 .map((bar) => {
                   const left = (bar.startMin - minStart) * PX_PER_MIN;
-                  const width = Math.max(2, (bar.endMin - bar.startMin) * PX_PER_MIN);
+                  const width = Math.max(
+                    2,
+                    (bar.endMin - bar.startMin) * PX_PER_MIN,
+                  );
                   return `<div class="sb-shifts-bar" style="left:${left}px;width:${width}px;background:${row.team.color}"></div>`;
                 })
                 .join("")}</div>`,
@@ -3277,7 +3424,9 @@
       btn.addEventListener("click", () => {
         const picker = btn.dataset.picker;
         if (picker === "team") {
-          const idx = teamOptions.findIndex((t) => t.id === String(filter.teamId));
+          const idx = teamOptions.findIndex(
+            (t) => t.id === String(filter.teamId),
+          );
           const next = teamOptions[idx + 1] || null;
           filter.teamId = next ? next.id : null;
           filter.playerKey = null;
@@ -3325,7 +3474,8 @@
       const hs = Number(m?.homeTeam?.score);
       const as = Number(m?.awayTeam?.score);
       if (!Number.isFinite(hs) || !Number.isFinite(as) || hs === as) return;
-      const winner = hs > as ? Number(m?.homeTeam?.id) : Number(m?.awayTeam?.id);
+      const winner =
+        hs > as ? Number(m?.homeTeam?.id) : Number(m?.awayTeam?.id);
       if (winner === currentHomeId) homeWins += 1;
       else if (winner === currentAwayId) awayWins += 1;
     });
@@ -3379,19 +3529,40 @@
             ).toUpperCase();
             const leftColor = getTeamColor(leftAbbr, aColor);
             const rightColor = getTeamColor(rightAbbr, hColor);
-            const leftScore = left?.score != null && left?.score !== "" ? Number(left.score) : null;
-            const rightScore = right?.score != null && right?.score !== "" ? Number(right.score) : null;
+            const leftScore =
+              left?.score != null && left?.score !== ""
+                ? Number(left.score)
+                : null;
+            const rightScore =
+              right?.score != null && right?.score !== ""
+                ? Number(right.score)
+                : null;
             const hasScore = leftScore != null && rightScore != null;
             const state = String(match?.gameState || "").toUpperCase();
             const live = state === "LIVE" || state === "CRIT" || state === "IN";
             const leftWon = hasScore && !live && leftScore > rightScore;
             const rightWon = hasScore && !live && rightScore > leftScore;
-            const { time, ampm } = formatLocalTime(match?.startTimeUTC || match?.gameDate);
+            const { time, ampm } = formatLocalTime(
+              match?.startTimeUTC || match?.gameDate,
+            );
             let topDate = "";
             try {
               const d = new Date(match?.startTimeUTC || match?.gameDate);
               if (!Number.isNaN(d.getTime())) {
-                const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                const months = [
+                  "Jan",
+                  "Feb",
+                  "Mar",
+                  "Apr",
+                  "May",
+                  "Jun",
+                  "Jul",
+                  "Aug",
+                  "Sep",
+                  "Oct",
+                  "Nov",
+                  "Dec",
+                ];
                 topDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
               }
             } catch {
@@ -3405,7 +3576,9 @@
                   : Number(match?.gameType) === 3
                     ? "Playoffs"
                     : "NHL";
-            const topLine = topDate ? `${topDate} · ${gameTypeDesc}` : gameTypeDesc;
+            const topLine = topDate
+              ? `${topDate} · ${gameTypeDesc}`
+              : gameTypeDesc;
             const leftLogo =
               left?.logo ||
               (leftId === currentAwayId ? awayLogo() : homeLogo());
@@ -3437,7 +3610,10 @@
           .join("")
       : '<div class="sb-empty">No series matches available.</div>';
 
-    setPanelHtml(body, `<div class="sb-series-wrap">${summary}${matchCards}</div>`);
+    setPanelHtml(
+      body,
+      `<div class="sb-series-wrap">${summary}${matchCards}</div>`,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3478,7 +3654,9 @@
     };
 
     const safeTeamColor = String(teamColor || "#2563eb");
-    const safeTeamSide = String(teamSide || "").trim().toLowerCase();
+    const safeTeamSide = String(teamSide || "")
+      .trim()
+      .toLowerCase();
     const safeDefendingSide = String(homeTeamDefendingSide || "")
       .trim()
       .toLowerCase();
@@ -3748,7 +3926,8 @@
     if (!frame) return;
     if (loading) loading.hidden = false;
     frame.style.display = "none";
-    frame.src = url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
+    frame.src =
+      url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
     frame.onload = () => {
       if (loading) loading.hidden = true;
       frame.style.display = "block";

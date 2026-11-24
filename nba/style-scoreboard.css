@@ -692,7 +692,10 @@
   border-radius: 22px;
   object-fit: cover;
 }
-.sb-play-goal-avatar > span:not(.sb-play-goal-count):not(.sb-play-goal-team):not(.sb-play-goal-pos) {
+.sb-play-goal-avatar
+  > span:not(.sb-play-goal-count):not(.sb-play-goal-team):not(
+    .sb-play-goal-pos
+  ) {
   display: flex;
   align-items: center;
   justify-content: center;

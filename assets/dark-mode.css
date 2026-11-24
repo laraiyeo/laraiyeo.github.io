@@ -1389,7 +1389,9 @@ body.sh-split-active .modal-content {
   .sh-embedded
     body
     > *:where(
-      :not(.screen-size-warning):not(.sb-modal-overlay):not(.sb-stream-overlay):not(.modal-overlay)
+      :not(.screen-size-warning):not(.sb-modal-overlay):not(
+          .sb-stream-overlay
+        ):not(.modal-overlay)
     ) {
     display: revert !important;
   }

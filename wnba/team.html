@@ -230,7 +230,9 @@
             const text = await res.text();
             const start = text.indexOf("{");
             const end = text.lastIndexOf("}");
-            return start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
+            return start !== -1 && end !== -1
+              ? text.slice(start, end + 1)
+              : text;
           }
         }
 

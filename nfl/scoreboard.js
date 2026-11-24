@@ -171,8 +171,12 @@
     homeFallback,
     awayFallback,
   }) {
-    const homeColors = [homePrimary, homeSecondary, homeFallback].filter(Boolean);
-    const awayColors = [awayPrimary, awaySecondary, awayFallback].filter(Boolean);
+    const homeColors = [homePrimary, homeSecondary, homeFallback].filter(
+      Boolean,
+    );
+    const awayColors = [awayPrimary, awaySecondary, awayFallback].filter(
+      Boolean,
+    );
     for (const homeColor of homeColors) {
       for (const awayColor of awayColors) {
         if (!areColorsSimilar(homeColor, awayColor)) {
@@ -205,9 +209,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   function getCompetition() {
     return (
-      gameData?.header?.competitions?.[0] ||
-      gameData?.competitions?.[0] ||
-      null
+      gameData?.header?.competitions?.[0] || gameData?.competitions?.[0] || null
     );
   }
 
@@ -268,8 +270,10 @@
     if (!team) return "#1a1a2e";
     const { home, away } = getTeams();
     const pair = getMatchColors();
-    if (home && String(home.team?.id) === String(team.id)) return pair.homeColor;
-    if (away && String(away.team?.id) === String(team.id)) return pair.awayColor;
+    if (home && String(home.team?.id) === String(team.id))
+      return pair.homeColor;
+    if (away && String(away.team?.id) === String(team.id))
+      return pair.awayColor;
     if (team.color) return `#${team.color}`;
     return FALLBACK_ABBR_COLORS[getTeamAbbr(team)] || "#1a1a2e";
   }
@@ -308,8 +312,7 @@
   function getCurrentDrive() {
     if (!Array.isArray(drivesData)) return null;
     return (
-      drivesData.find((d) => !d.end?.text && d.result !== "End of Game") ||
-      null
+      drivesData.find((d) => !d.end?.text && d.result !== "End of Game") || null
     );
   }
 
@@ -1273,7 +1276,8 @@
     if (skip.some((t) => typeText.includes(t) || descText.includes(t)))
       return null;
 
-    const dd = play?.start?.downDistanceText || play?.end?.downDistanceText || "";
+    const dd =
+      play?.start?.downDistanceText || play?.end?.downDistanceText || "";
     const m = dd.match(/&\s*(.+)/);
     if (!m) return null;
     const distStr = m[1].trim().toLowerCase();
@@ -1636,11 +1640,15 @@
                     </span>
                   </div>
                   <div class="sb-drive-play-text">${esc(playText)}</div>
-                  ${ddText || winPct !== null ? `
+                  ${
+                    ddText || winPct !== null
+                      ? `
                     <div class="sb-drive-play-sub">
                       ${ddText ? `<span>${esc(ddText)}</span>` : ""}
                       ${winPct !== null ? `<span>W ${winPct.toFixed(1)}%</span>` : ""}
-                    </div>` : ""}
+                    </div>`
+                      : ""
+                  }
                   ${expanded}
                 </div>
               </div>`;
@@ -1771,12 +1779,10 @@
       const athlete = entry.athlete;
       if (!athlete || seen.has(athlete.id)) continue;
       seen.add(athlete.id);
-      const stats = (entry.stats || [])
-        .slice(0, 6)
-        .map((v, i) => ({
-          label: labels[i] || `S${i + 1}`,
-          value: String(v ?? "0"),
-        }));
+      const stats = (entry.stats || []).slice(0, 6).map((v, i) => ({
+        label: labels[i] || `S${i + 1}`,
+        value: String(v ?? "0"),
+      }));
       if (stats.length) players.push({ athlete, stats });
     }
 
@@ -1974,7 +1980,11 @@
         label: "Points Per Game Allowed",
         opp: true,
       },
-      { key: "yardsPerGameAllowed", label: "Yards Per Game Allowed", opp: true },
+      {
+        key: "yardsPerGameAllowed",
+        label: "Yards Per Game Allowed",
+        opp: true,
+      },
       {
         key: "passingYardsPerGameAllowed",
         label: "Passing Yards Allowed",
@@ -2228,17 +2238,19 @@
 
     $("#sbPlayerModal").style.display = "flex";
 
-    $("#sbPlayerModalBody").querySelectorAll(".sb-pm-cat").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        modalActiveCat = btn.dataset.cat;
-        $("#sbPlayerModalBody")
-          .querySelectorAll(".sb-pm-cat")
-          .forEach((b) =>
-            b.classList.toggle("active", b.dataset.cat === modalActiveCat),
-          );
-        renderPlayerModalStats();
+    $("#sbPlayerModalBody")
+      .querySelectorAll(".sb-pm-cat")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          modalActiveCat = btn.dataset.cat;
+          $("#sbPlayerModalBody")
+            .querySelectorAll(".sb-pm-cat")
+            .forEach((b) =>
+              b.classList.toggle("active", b.dataset.cat === modalActiveCat),
+            );
+          renderPlayerModalStats();
+        });
       });
-    });
   }
 
   function renderPlayerModalStats() {
@@ -2311,7 +2323,8 @@
     if (!frame) return;
     if (loading) loading.hidden = false;
     frame.style.display = "none";
-    frame.src = url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
+    frame.src =
+      url + (url.includes("?") ? "&" : "?") + "_nocache=" + Date.now();
     frame.onload = () => {
       if (loading) loading.hidden = true;
       frame.style.display = "block";

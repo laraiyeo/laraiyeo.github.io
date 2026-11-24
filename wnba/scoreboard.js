@@ -23,7 +23,10 @@
   let rightTab = "Away";
   let splitViewActive = false;
   let rosterSection = { left: null, right: null };
-  let playsState = { left: { type: "ALL", period: null }, right: { type: "ALL", period: null } };
+  let playsState = {
+    left: { type: "ALL", period: null },
+    right: { type: "ALL", period: null },
+  };
 
   // ─── Streaming state ────────────────────────────────────────────────────────
   let streamModalVisible = false;
@@ -186,9 +189,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   function getCompetition() {
     return (
-      gameData?.header?.competitions?.[0] ||
-      gameData?.competitions?.[0] ||
-      null
+      gameData?.header?.competitions?.[0] || gameData?.competitions?.[0] || null
     );
   }
 
@@ -248,8 +249,10 @@
     if (!team) return FALLBACK_COLOR;
     const { home, away } = getTeams();
     const pair = getMatchColors();
-    if (home && String(home.team?.id) === String(team.id)) return pair.homeColor;
-    if (away && String(away.team?.id) === String(team.id)) return pair.awayColor;
+    if (home && String(home.team?.id) === String(team.id))
+      return pair.homeColor;
+    if (away && String(away.team?.id) === String(team.id))
+      return pair.awayColor;
     if (team.color) return `#${team.color}`;
     return getTeamColor(getTeamAbbr(team));
   }
@@ -831,7 +834,11 @@
       const starters = players.filter((p) => p.starter);
       const bench = players.filter((p) => !p.starter);
       if (starters.length)
-        sections.push({ key: "starters", label: "Starters", players: starters });
+        sections.push({
+          key: "starters",
+          label: "Starters",
+          players: starters,
+        });
       if (bench.length)
         sections.push({ key: "bench", label: "Bench", players: bench });
       return sections;
@@ -894,7 +901,9 @@
   function renderRosterPanel(body, side, teamSide) {
     const sections = rosterSections(teamSide);
     const teamColor =
-      teamSide === "home" ? getMatchColors().homeColor : getMatchColors().awayColor;
+      teamSide === "home"
+        ? getMatchColors().homeColor
+        : getMatchColors().awayColor;
     if (!sections.length) {
       setPanelHtml(body, '<div class="sb-empty">No players available</div>');
       return;
@@ -1120,8 +1129,8 @@
     const isHome = teamSide === "home";
     const xNorm = isHome ? Number(x) : 50 - Number(x);
     const yNorm = isHome ? Number(y) : 47 - Number(y);
-    const sx = padL + Math.max(0, Math.min(50, xNorm)) / 50 * iw;
-    const sy = padT + Math.max(0, Math.min(47, yNorm)) / 47 * ih;
+    const sx = padL + (Math.max(0, Math.min(50, xNorm)) / 50) * iw;
+    const sy = padT + (Math.max(0, Math.min(47, yNorm)) / 47) * ih;
 
     let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="sb-court-svg">`;
     s += `<rect x="${padL}" y="${padT}" width="${iw}" height="${ih}" fill="#F2E3CF" stroke="${c}" stroke-width="2.5" rx="4"/>`;
@@ -1219,7 +1228,19 @@
             const scorerAvatar =
               row.isScoring && row.scorerId
                 ? `<div class="sb-play-goal-avatar" data-player='${esc(JSON.stringify({ id: row.scorerId, name: row.scorerName, jersey: row.scorerBox?.jersey || "", position: row.scorerPosition, headshot: row.scorerHeadshot, labels: row.scorerBox?.labels || [], stats: row.scorerBox?.stats || [], teamAbbrev: row.teamAbbr || "" }))}' style="border-color:${row.teamColor};background:${withAlpha66(row.teamColor)}">
-                     ${row.scorerHeadshot ? `<img src="${esc(row.scorerHeadshot)}" alt="" onerror="this.style.display='none'">` : `<span>${esc(String(row.scorerName || "P").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>`}
+                     ${
+                       row.scorerHeadshot
+                         ? `<img src="${esc(row.scorerHeadshot)}" alt="" onerror="this.style.display='none'">`
+                         : `<span>${esc(
+                             String(row.scorerName || "P")
+                               .split(" ")
+                               .filter(Boolean)
+                               .slice(0, 2)
+                               .map((p) => p[0])
+                               .join("")
+                               .toUpperCase(),
+                           )}</span>`
+                     }
                      ${row.teamLogo ? `<span class="sb-play-goal-team" style="border-color:${row.teamColor};background:${withAlpha66(row.teamColor)}"><img src="${esc(row.teamLogo)}" alt="" onerror="this.style.display='none'"></span>` : ""}
                      ${row.scorerPosition ? `<span class="sb-play-goal-pos" style="border-color:${row.teamColor}">${esc(row.scorerPosition)}</span>` : ""}
                      <span class="sb-play-goal-count">🏀 ${esc(row.scorerPoints || row.scorerGoalsInGame || "")}</span>
@@ -1353,9 +1374,7 @@
         const ea = String(
           e?.competitors?.find((c) => c.homeAway === "away")?.team?.id || "",
         );
-        return (
-          [eh, ea].includes(homeTeamId) && [eh, ea].includes(awayTeamId)
-        );
+        return [eh, ea].includes(homeTeamId) && [eh, ea].includes(awayTeamId);
       })
       .sort((a, b) => {
         const at = new Date(a?.date || 0).getTime();
@@ -1485,7 +1504,10 @@
           .join("")
       : '<div class="sb-empty">No series matches available.</div>';
 
-    setPanelHtml(body, `<div class="sb-series-wrap">${summary}${matchCards}</div>`);
+    setPanelHtml(
+      body,
+      `<div class="sb-series-wrap">${summary}${matchCards}</div>`,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

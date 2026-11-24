@@ -129,7 +129,9 @@ let lastScheduleHash = null;
 async function buildGameCard(game, team) {
   const logoUrl =
     team.logos?.find((logo) =>
-      logo.rel.includes(["14", "19", "20"].includes(team.id) ? "dark" : "default"),
+      logo.rel.includes(
+        ["14", "19", "20"].includes(team.id) ? "dark" : "default",
+      ),
     )?.href ||
     `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`;
 

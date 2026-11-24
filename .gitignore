@@ -13,6 +13,8 @@ livetracker-test.html
 3.txt
 code.txt
 mlb-tester.html
+/spotify-proxy
+/spotify-tournament
  
 # Ignore generated Android autolinking outputs (can contain host-specific absolute paths)
 SportsTrackerExpo/android/build/generated/

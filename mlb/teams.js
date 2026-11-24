@@ -168,11 +168,7 @@ async function getTeamNameById(id) {
 }
 
 function getInningLabel(inningHalf) {
-  return inningHalf === false
-    ? "Bot"
-    : inningHalf === true
-      ? "Top"
-      : null;
+  return inningHalf === false ? "Bot" : inningHalf === true ? "Top" : null;
 }
 
 function getBaseHtml(matchup) {

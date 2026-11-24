@@ -23,7 +23,10 @@
   let rightTab = "Away";
   let splitViewActive = false;
   let rosterSection = { left: null, right: null };
-  let playsState = { left: { type: "ALL", period: null }, right: { type: "ALL", period: null } };
+  let playsState = {
+    left: { type: "ALL", period: null },
+    right: { type: "ALL", period: null },
+  };
 
   // ─── Streaming state ────────────────────────────────────────────────────────
   let streamModalVisible = false;
@@ -203,9 +206,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   function getCompetition() {
     return (
-      gameData?.header?.competitions?.[0] ||
-      gameData?.competitions?.[0] ||
-      null
+      gameData?.header?.competitions?.[0] || gameData?.competitions?.[0] || null
     );
   }
 
@@ -265,8 +266,10 @@
     if (!team) return FALLBACK_COLOR;
     const { home, away } = getTeams();
     const pair = getMatchColors();
-    if (home && String(home.team?.id) === String(team.id)) return pair.homeColor;
-    if (away && String(away.team?.id) === String(team.id)) return pair.awayColor;
+    if (home && String(home.team?.id) === String(team.id))
+      return pair.homeColor;
+    if (away && String(away.team?.id) === String(team.id))
+      return pair.awayColor;
     if (team.color) return `#${team.color}`;
     return getTeamColor(getTeamAbbr(team));
   }
@@ -848,7 +851,11 @@
       const starters = players.filter((p) => p.starter);
       const bench = players.filter((p) => !p.starter);
       if (starters.length)
-        sections.push({ key: "starters", label: "Starters", players: starters });
+        sections.push({
+          key: "starters",
+          label: "Starters",
+          players: starters,
+        });
       if (bench.length)
         sections.push({ key: "bench", label: "Bench", players: bench });
       return sections;
@@ -911,7 +918,9 @@
   function renderRosterPanel(body, side, teamSide) {
     const sections = rosterSections(teamSide);
     const teamColor =
-      teamSide === "home" ? getMatchColors().homeColor : getMatchColors().awayColor;
+      teamSide === "home"
+        ? getMatchColors().homeColor
+        : getMatchColors().awayColor;
     if (!sections.length) {
       setPanelHtml(body, '<div class="sb-empty">No players available</div>');
       return;
@@ -1010,7 +1019,10 @@
   function nbaBoxPoints(box) {
     if (!box) return "";
     const labels = (box.labels || []).map((l) => String(l).toUpperCase());
-    const idx = labels.indexOf("PTS") >= 0 ? labels.indexOf("PTS") : labels.indexOf("POINTS");
+    const idx =
+      labels.indexOf("PTS") >= 0
+        ? labels.indexOf("PTS")
+        : labels.indexOf("POINTS");
     if (idx < 0) return "";
     const raw = box.stats[idx];
     return raw != null ? String(raw) : "";
@@ -1117,7 +1129,8 @@
         scorerHeadshot: scorerBox?.headshot || "",
         scorerPosition: scorerBox?.position || "",
         scorerPoints: nbaBoxPoints(scorerBox),
-        scorerGoalsInGame: isScoring && scorerId ? scorerCounts[scorerId] || 1 : 0,
+        scorerGoalsInGame:
+          isScoring && scorerId ? scorerCounts[scorerId] || 1 : 0,
       };
     });
 
@@ -1135,8 +1148,8 @@
     const isHome = teamSide === "home";
     const xNorm = isHome ? Number(x) : 50 - Number(x);
     const yNorm = isHome ? Number(y) : 47 - Number(y);
-    const sx = padL + Math.max(0, Math.min(50, xNorm)) / 50 * iw;
-    const sy = padT + Math.max(0, Math.min(47, yNorm)) / 47 * ih;
+    const sx = padL + (Math.max(0, Math.min(50, xNorm)) / 50) * iw;
+    const sy = padT + (Math.max(0, Math.min(47, yNorm)) / 47) * ih;
 
     let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="sb-court-svg">`;
     // Half court (aspect ~50x47 -> drawn as iw x ih)
@@ -1238,7 +1251,9 @@
     const cards = visibleRows.length
       ? visibleRows
           .map((row) => {
-            const headerColor = row.isScoring ? "#FFFFFF" : "var(--text-primary)";
+            const headerColor = row.isScoring
+              ? "#FFFFFF"
+              : "var(--text-primary)";
             const bodyColor = row.isScoring
               ? "rgba(255,255,255,0.92)"
               : "var(--text-secondary)";
@@ -1248,7 +1263,19 @@
             const scorerAvatar =
               row.isScoring && row.scorerId
                 ? `<div class="sb-play-goal-avatar" data-player='${esc(JSON.stringify({ id: row.scorerId, name: row.scorerName, jersey: row.scorerBox?.jersey || "", position: row.scorerPosition, headshot: row.scorerHeadshot, labels: row.scorerBox?.labels || [], stats: row.scorerBox?.stats || [], teamAbbrev: row.teamAbbr || "" }))}' style="border-color:${row.teamColor};background:${withAlpha66(row.teamColor)}">
-                     ${row.scorerHeadshot ? `<img src="${esc(row.scorerHeadshot)}" alt="" onerror="this.style.display='none'">` : `<span>${esc(String(row.scorerName || "P").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase())}</span>`}
+                     ${
+                       row.scorerHeadshot
+                         ? `<img src="${esc(row.scorerHeadshot)}" alt="" onerror="this.style.display='none'">`
+                         : `<span>${esc(
+                             String(row.scorerName || "P")
+                               .split(" ")
+                               .filter(Boolean)
+                               .slice(0, 2)
+                               .map((p) => p[0])
+                               .join("")
+                               .toUpperCase(),
+                           )}</span>`
+                     }
                      ${row.teamLogo ? `<span class="sb-play-goal-team" style="border-color:${row.teamColor};background:${withAlpha66(row.teamColor)}"><img src="${esc(row.teamLogo)}" alt="" onerror="this.style.display='none'"></span>` : ""}
                      ${row.scorerPosition ? `<span class="sb-play-goal-pos" style="border-color:${row.teamColor}">${esc(row.scorerPosition)}</span>` : ""}
                      <span class="sb-play-goal-count">🏀 ${esc(row.scorerPoints || row.scorerGoalsInGame || "")}</span>
@@ -1303,7 +1330,8 @@
       btn.addEventListener("click", () => {
         const idx = periodOptions.indexOf(state.period);
         if (btn.dataset.pager === "next")
-          state.period = periodOptions[Math.min(periodOptions.length - 1, idx + 1)];
+          state.period =
+            periodOptions[Math.min(periodOptions.length - 1, idx + 1)];
         else state.period = periodOptions[Math.max(0, idx - 1)];
         renderPlaysPanel(body, side);
       });
@@ -1382,9 +1410,7 @@
         const ea = String(
           e?.competitors?.find((c) => c.homeAway === "away")?.team?.id || "",
         );
-        return (
-          [eh, ea].includes(homeTeamId) && [eh, ea].includes(awayTeamId)
-        );
+        return [eh, ea].includes(homeTeamId) && [eh, ea].includes(awayTeamId);
       })
       .sort((a, b) => {
         const at = new Date(a?.date || 0).getTime();
@@ -1400,9 +1426,7 @@
       const hs = Number(hc?.score);
       const as = Number(ac?.score);
       if (!Number.isFinite(hs) || !Number.isFinite(as) || hs === as) return;
-      const winner = String(
-        hs > as ? hc?.team?.id : ac?.team?.id,
-      );
+      const winner = String(hs > as ? hc?.team?.id : ac?.team?.id);
       if (winner === homeTeamId) homeWins++;
       else if (winner === awayTeamId) awayWins++;
     });
@@ -1434,10 +1458,16 @@
     const matchCards = filtered.length
       ? filtered
           .map((e) => {
-            const left = e.competitors?.find((c) => c.homeAway === "away") || {};
-            const right = e.competitors?.find((c) => c.homeAway === "home") || {};
-            const leftAbbr = String(left?.team?.abbreviation || "AWY").toUpperCase();
-            const rightAbbr = String(right?.team?.abbreviation || "HME").toUpperCase();
+            const left =
+              e.competitors?.find((c) => c.homeAway === "away") || {};
+            const right =
+              e.competitors?.find((c) => c.homeAway === "home") || {};
+            const leftAbbr = String(
+              left?.team?.abbreviation || "AWY",
+            ).toUpperCase();
+            const rightAbbr = String(
+              right?.team?.abbreviation || "HME",
+            ).toUpperCase();
             const leftName =
               left?.team?.shortDisplayName ||
               left?.team?.displayName ||
@@ -1447,8 +1477,12 @@
               right?.team?.displayName ||
               rightAbbr;
             const isLeftCurrentAway = String(left?.team?.id) === awayTeamId;
-            const leftColor = isLeftCurrentAway ? pair.awayColor : pair.homeColor;
-            const rightColor = isLeftCurrentAway ? pair.homeColor : pair.awayColor;
+            const leftColor = isLeftCurrentAway
+              ? pair.awayColor
+              : pair.homeColor;
+            const rightColor = isLeftCurrentAway
+              ? pair.homeColor
+              : pair.awayColor;
             const leftLogo =
               left?.team?.logos?.[0]?.href ||
               `https://a.espncdn.com/i/teamlogos/${LOGO_PATH}/500/${leftAbbr.toLowerCase()}.png`;
@@ -1456,7 +1490,8 @@
               right?.team?.logos?.[0]?.href ||
               `https://a.espncdn.com/i/teamlogos/${LOGO_PATH}/500/${rightAbbr.toLowerCase()}.png`;
             const completed = e?.statusType?.completed === true;
-            const hasScore = completed && left?.score != null && right?.score != null;
+            const hasScore =
+              completed && left?.score != null && right?.score != null;
             const lScore = Number(left?.score);
             const rScore = Number(right?.score);
             const leftWon = hasScore && lScore > rScore;
@@ -1465,7 +1500,10 @@
             const d = new Date(e?.date || 0);
             const valid = !Number.isNaN(d.getTime());
             const dateStr = valid
-              ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              ? d.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })
               : "";
             const timeStr = valid
               ? d
@@ -1476,11 +1514,7 @@
                   })
                   .replace(/\s?(AM|PM)/i, "")
               : "--:--";
-            const ampm = valid
-              ? d.getHours() >= 12
-                ? "PM"
-                : "AM"
-              : "";
+            const ampm = valid ? (d.getHours() >= 12 ? "PM" : "AM") : "";
             return `
               <a class="sb-series-match" href="scoreboard.html?id=${esc(e?.id)}">
                 <div class="sb-series-match-top">${esc(dateStr)} · ${esc(LOGO_PATH.toUpperCase())}</div>
@@ -1506,7 +1540,10 @@
           .join("")
       : '<div class="sb-empty">No series matches available.</div>';
 
-    setPanelHtml(body, `<div class="sb-series-wrap">${summary}${matchCards}</div>`);
+    setPanelHtml(
+      body,
+      `<div class="sb-series-wrap">${summary}${matchCards}</div>`,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1687,7 +1724,8 @@
     window.addEventListener("scroll", onSbScroll, { passive: true });
     // In split view the left panel is the scroll container, not the window.
     const leftPanel = document.getElementById("sh-left-panel");
-    if (leftPanel) leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
+    if (leftPanel)
+      leftPanel.addEventListener("scroll", onSbScroll, { passive: true });
   }
 
   function setupModalListeners() {

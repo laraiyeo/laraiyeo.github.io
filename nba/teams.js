@@ -278,10 +278,12 @@ async function buildGameCard(game, team) {
     const awayColorFinal = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColorFinal = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
-    const awayLoss = parseInt(awayTeamScore) < parseInt(homeTeamScore) ? true : false;
-    const homeLoss = parseInt(homeTeamScore) < parseInt(awayTeamScore) ? true : false;
+    const awayLoss =
+      parseInt(awayTeamScore) < parseInt(homeTeamScore) ? true : false;
+    const homeLoss =
+      parseInt(homeTeamScore) < parseInt(awayTeamScore) ? true : false;
 
-    console.log(awayLoss, awayTeamScore, homeTeamScore, homeLoss)
+    console.log(awayLoss, awayTeamScore, homeTeamScore, homeLoss);
 
     return `
       <div class="game-card final-game-card" ${getGradientStyleAttrs(awayColorFinal, homeColorFinal)}>
@@ -289,10 +291,10 @@ async function buildGameCard(game, team) {
         <div class="game-content">
           <div class="team away-team">
             <div class="card-score-cell">
-              <span class="card-score${awayLoss ? '-loss' : ''}">${awayTeamScore}</span>
+              <span class="card-score${awayLoss ? "-loss" : ""}">${awayTeamScore}</span>
               <img src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/scoreboard/${awayTeam.abbreviation}.png&w=200&h=200" alt="${awayTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
-            <div class="card-team-name${awayLoss ? '-loss' : ''}">${awayTeamShortName}</div>
+            <div class="card-team-name${awayLoss ? "-loss" : ""}">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
           </div>
           <div class="game-info">
@@ -301,10 +303,10 @@ async function buildGameCard(game, team) {
           </div>
           <div class="team home-team">
             <div class="card-score-cell">
-              <span class="card-score${homeLoss ? '-loss' : ''}">${homeTeamScore}</span>
+              <span class="card-score${homeLoss ? "-loss" : ""}">${homeTeamScore}</span>
               <img src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/scoreboard/${homeTeam.abbreviation}.png&w=200&h=200" alt="${homeTeam?.displayName || "Unknown"}" class="card-score-logo">
             </div>
-            <div class="card-team-name${homeLoss ? '-loss' : ''}">${homeTeamShortName}</div>
+            <div class="card-team-name${homeLoss ? "-loss" : ""}">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
           </div>
         </div>
@@ -371,7 +373,7 @@ async function buildGameCard(game, team) {
     const awayColorLive = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColorLive = homeTeam?.color ? "#" + homeTeam.color : "#000000";
 
-    console.log(awayTeam)
+    console.log(awayTeam);
 
     return `
       <div class="game-card in-progress-game-card" ${getGradientStyleAttrs(awayColorLive, homeColorLive)}>
