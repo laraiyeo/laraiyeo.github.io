@@ -120,6 +120,7 @@ function getGradientStyleAttrs(awayColor, homeColor, dir) {
           backgroundOpacity: 100,
           textColor: "#ffffff",
         };
+
   var gradient = getTeamGradientStr(
     awayColor,
     homeColor,
@@ -127,19 +128,18 @@ function getGradientStyleAttrs(awayColor, homeColor, dir) {
     styles.backgroundOpacity,
     dir,
   );
+
   var dirAttr = dir ? ' data-dir="1"' : "";
-  return (
-    'style="background:' +
-    gradient +
-    ";color:" +
-    styles.textColor +
-    ';" data-away-color="' +
-    awayColor +
-    '" data-home-color="' +
-    homeColor +
-    '"' +
-    dirAttr
-  );
+
+return (
+  `style="background:${gradient};` +
+  `color:${styles.textColor};` +
+  `border-${dir ? 'bottom' : 'left'}:1px solid ${awayColor};` +
+  `border-${dir ? 'top' : 'right'}:1px solid ${homeColor};"` +
+  ` data-away-color="${awayColor}"` +
+  ` data-home-color="${homeColor}"` +
+  dirAttr
+);
 }
 
 async function buildGameCard(game, team) {
@@ -283,8 +283,6 @@ async function buildGameCard(game, team) {
     const homeLoss =
       parseInt(homeTeamScore) < parseInt(awayTeamScore) ? true : false;
 
-    console.log(awayLoss, awayTeamScore, homeTeamScore, homeLoss);
-
     return `
       <div class="game-card final-game-card" ${getGradientStyleAttrs(awayColorFinal, homeColorFinal)}>
         <div class="game-headline">${headline}</div>
@@ -372,8 +370,6 @@ async function buildGameCard(game, team) {
 
     const awayColorLive = awayTeam?.color ? "#" + awayTeam.color : "#000000";
     const homeColorLive = homeTeam?.color ? "#" + homeTeam.color : "#000000";
-
-    console.log(awayTeam);
 
     return `
       <div class="game-card in-progress-game-card" ${getGradientStyleAttrs(awayColorLive, homeColorLive)}>

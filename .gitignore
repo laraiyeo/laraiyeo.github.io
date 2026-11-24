@@ -15,6 +15,7 @@ code.txt
 mlb-tester.html
 /spotify-proxy
 /spotify-tournament
+4.txt
  
 # Ignore generated Android autolinking outputs (can contain host-specific absolute paths)
 SportsTrackerExpo/android/build/generated/

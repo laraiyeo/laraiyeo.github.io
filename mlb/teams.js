@@ -98,7 +98,7 @@ function getTeamGradient(leftColor, rightColor, customBgColor, opacity, dir) {
 }
 
 // Apply gradient + text color to a card DOM element
-function applyCardGradient(card, awayColor, homeColor) {
+function applyCardGradient(card, awayColor, homeColor, dir) {
   const styles =
     typeof window !== "undefined" && window.getCustomStyles
       ? window.getCustomStyles()
@@ -107,14 +107,22 @@ function applyCardGradient(card, awayColor, homeColor) {
           backgroundOpacity: 100,
           textColor: "#ffffff",
         };
+
   const gradient = getTeamGradient(
     awayColor,
     homeColor,
     styles.backgroundColor,
     styles.backgroundOpacity,
   );
+
   card.style.background = gradient;
   card.style.color = styles.textColor;
+
+  card.style[dir ? "borderTop" : "borderLeft"] =
+    `1px solid ${awayColor}`;
+
+  card.style[dir ? "borderBottom" : "borderRight"] =
+    `1px solid ${homeColor}`;
 }
 
 // Apply gradient for a no-game card (bottom black, top = team color)
@@ -127,6 +135,7 @@ function applyNoGameGradient(card, teamColor) {
           backgroundOpacity: 100,
           textColor: "#ffffff",
         };
+
   const gradient = getTeamGradient(
     "#000000",
     teamColor,
@@ -134,9 +143,13 @@ function applyNoGameGradient(card, teamColor) {
     styles.backgroundOpacity,
     "top",
   );
+
   card.setAttribute("data-dir", "top");
   card.style.background = gradient;
   card.style.color = styles.textColor;
+
+  card.style.borderBottom = `1px solid #000000`;
+  card.style.borderTop = `1px solid ${teamColor}`;
 }
 
 async function getLogoUrl(teamName) {

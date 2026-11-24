@@ -103,6 +103,7 @@ function getGradientStyleAttrs(awayColor, homeColor, dir) {
           backgroundOpacity: 100,
           textColor: "#ffffff",
         };
+
   var gradient = getTeamGradientStr(
     awayColor,
     homeColor,
@@ -110,19 +111,18 @@ function getGradientStyleAttrs(awayColor, homeColor, dir) {
     styles.backgroundOpacity,
     dir,
   );
+
   var dirAttr = dir ? ' data-dir="1"' : "";
-  return (
-    'style="background:' +
-    gradient +
-    ";color:" +
-    styles.textColor +
-    ';" data-away-color="' +
-    awayColor +
-    '" data-home-color="' +
-    homeColor +
-    '"' +
-    dirAttr
-  );
+
+return (
+  `style="background:${gradient};` +
+  `color:${styles.textColor};` +
+  `border-${dir ? 'bottom' : 'left'}:1px solid ${awayColor};` +
+  `border-${dir ? 'top' : 'right'}:1px solid ${homeColor};"` +
+  ` data-away-color="${awayColor}"` +
+  ` data-home-color="${homeColor}"` +
+  dirAttr
+);
 }
 
 async function buildGameCard(game, team) {

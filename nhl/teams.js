@@ -576,7 +576,7 @@ function getTeamGradientStr(
 }
 
 // Get gradient style + data attrs as inline string
-function getGradientStyleAttrs(awayColor, homeColor) {
+function getGradientStyleAttrs(awayColor, homeColor, dir) {
   var styles =
     typeof window !== "undefined" && window.getCustomStyles
       ? window.getCustomStyles()
@@ -585,23 +585,26 @@ function getGradientStyleAttrs(awayColor, homeColor) {
           backgroundOpacity: 100,
           textColor: "#ffffff",
         };
+
   var gradient = getTeamGradientStr(
     awayColor,
     homeColor,
     styles.backgroundColor,
     styles.backgroundOpacity,
+    dir,
   );
-  return (
-    'style="background:' +
-    gradient +
-    ";color:" +
-    styles.textColor +
-    ';" data-away-color="' +
-    awayColor +
-    '" data-home-color="' +
-    homeColor +
-    '"'
-  );
+
+  var dirAttr = dir ? ' data-dir="1"' : "";
+
+return (
+  `style="background:${gradient};` +
+  `color:${styles.textColor};` +
+  `border-${dir ? 'bottom' : 'left'}:1px solid ${awayColor};` +
+  `border-${dir ? 'top' : 'right'}:1px solid ${homeColor};"` +
+  ` data-away-color="${awayColor}"` +
+  ` data-home-color="${homeColor}"` +
+  dirAttr
+);
 }
 
 function getAdjustedDateForNHL() {
@@ -847,47 +850,51 @@ async function fetchGames() {
           gameCard.setAttribute("data-game-id", game.id); // Add game ID for dynamic updates
           teamGamesContainer.appendChild(gameCard);
         }
-      } else {
-        // No game scheduled card
-        const teamColorHex = teamColors[team.id] || "#000000";
-        const noGameCard = document.createElement("div");
-        noGameCard.className = "game-card no-game-card";
-        noGameCard.setAttribute("data-away-color", "#000000");
-        noGameCard.setAttribute("data-home-color", teamColorHex);
-        var noGameStyles =
-          typeof window !== "undefined" && window.getCustomStyles
-            ? window.getCustomStyles()
-            : {
-                backgroundColor: "#000000",
-                backgroundOpacity: 100,
-                textColor: "#ffffff",
-              };
-        var noGameGradient = getTeamGradientStr(
-          "#000000",
-          teamColorHex,
-          noGameStyles.backgroundColor,
-          noGameStyles.backgroundOpacity,
-          "top",
-        );
-        noGameCard.setAttribute("data-dir", "top");
-        noGameCard.style.setProperty("background", noGameGradient, "important");
-        noGameCard.style.setProperty(
-          "color",
-          noGameStyles.textColor,
-          "important",
-        );
-        noGameCard.style.display = "flex";
-        noGameCard.style.alignItems = "center";
-        noGameCard.style.gap = "35px";
-        noGameCard.style.padding = "20px";
+      }else {
+  // No game scheduled card
+  const teamColorHex = teamColors[team.id] || "#000000";
+  const noGameCard = document.createElement("div");
+  noGameCard.className = "game-card no-game-card";
+  noGameCard.setAttribute("data-away-color", "#000000");
+  noGameCard.setAttribute("data-home-color", teamColorHex);
 
-        noGameCard.innerHTML = `
-          <img src="${logoUrl}" alt="${team.fullName} logo" style="width: 100px; height: 70px;">
-          <div style="font-weight: bold; font-size: 1.2rem;">No game scheduled <br> for today</div>
-        `;
+  var noGameStyles =
+    typeof window !== "undefined" && window.getCustomStyles
+      ? window.getCustomStyles()
+      : {
+          backgroundColor: "#000000",
+          backgroundOpacity: 100,
+          textColor: "#ffffff",
+        };
 
-        teamGamesContainer.appendChild(noGameCard);
-      }
+  var noGameGradient = getTeamGradientStr(
+    "#000000",
+    teamColorHex,
+    noGameStyles.backgroundColor,
+    noGameStyles.backgroundOpacity,
+    "top",
+  );
+
+  noGameCard.setAttribute("data-dir", "top");
+  noGameCard.style.setProperty("background", noGameGradient, "important");
+  noGameCard.style.setProperty("color", noGameStyles.textColor, "important");
+
+  // Border colors
+  noGameCard.style.setProperty("border-bottom", "1px solid #000000", "important");
+  noGameCard.style.setProperty("border-top", `1px solid ${teamColorHex}`, "important");
+
+  noGameCard.style.display = "flex";
+  noGameCard.style.alignItems = "center";
+  noGameCard.style.gap = "35px";
+  noGameCard.style.padding = "20px";
+
+  noGameCard.innerHTML = `
+    <img src="${logoUrl}" alt="${team.fullName} logo" style="width: 100px; height: 70px;">
+    <div style="font-weight: bold; font-size: 1.2rem;">No game scheduled <br> for today</div>
+  `;
+
+  teamGamesContainer.appendChild(noGameCard);
+}
 
       container.appendChild(teamCard);
 
