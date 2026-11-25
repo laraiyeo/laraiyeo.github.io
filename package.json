@@ -1,0 +1,10 @@
+{
+  "name": "live-sports-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live Sports Tracker - real-time MLB, NHL, NBA, NFL, WNBA, Soccer and F1 scoreboards with OBS integration",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "start": "node dev-server.js"
+  }
+}

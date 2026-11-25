@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page Not Found - SportsHeart</title>
+    <!-- SEO -->
+    <meta name="robots" content="noindex, nofollow" />
+
+
+
+    <link rel="icon" href="/assets/33115791.png" />
+    <link rel="stylesheet" href="/assets/dark-mode.css" />
+    <script src="/assets/analytics.js"></script>
+    <style>
+      .nf-wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 96px 24px 120px;
+        text-align: center;
+      }
+      .nf-code {
+        font-size: 96px;
+        font-weight: 800;
+        line-height: 1;
+        margin: 0 0 8px;
+        background: linear-gradient(135deg, #ff4d4d, #ff9a3c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .nf-wrap h1 {
+        font-size: 28px;
+        margin: 0 0 12px;
+      }
+      .nf-wrap p {
+        color: #a1a1aa;
+        margin: 0 0 32px;
+        line-height: 1.6;
+      }
+      .nf-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+      }
+      .nf-links a {
+        padding: 10px 18px;
+        border: 1px solid #2a2a35;
+        border-radius: 999px;
+        color: #e5e5e5;
+        text-decoration: none;
+        font-size: 14px;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .nf-links a:hover {
+        border-color: #ff4d4d;
+        background: rgba(255, 77, 77, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar-left">
+        <a href="/" class="navbar-logo">
+          <img src="/assets/33115791.png" alt="" onerror="this.style.display='none'" />
+          <span>SportsHeart</span>
+        </a>
+      </div>
+      <div class="navbar-center">
+        <a href="/mlb/aio" class="nav-link">MLB</a>
+        <a href="/nhl/aio" class="nav-link">NHL</a>
+        <a href="/nba/aio" class="nav-link">NBA</a>
+        <a href="/nfl/aio" class="nav-link">NFL</a>
+        <a href="/wnba/aio" class="nav-link">WNBA</a>
+        <a href="/music" class="nav-link">Song Wars</a>
+      </div>
+      <div class="navbar-right">
+        <div id="auth-button-container"></div>
+      </div>
+    </nav>
+
+    <main class="nf-wrap">
+      <p class="nf-code">404</p>
+      <h1>We couldn't find that page</h1>
+      <p>
+        The link may be out of date, or the page may have moved. Pick a league
+        below to get back to live scores.
+      </p>
+      <div class="nf-links">
+        <a href="/">Home</a>
+        <a href="/mlb/aio">MLB</a>
+        <a href="/nhl/aio">NHL</a>
+        <a href="/nba/aio">NBA</a>
+        <a href="/nfl/aio">NFL</a>
+        <a href="/wnba/aio">WNBA</a>
+        <a href="/f1/standings">F1</a>
+        <a href="/soccer/standings">Soccer</a>
+        <a href="/ncaa/ncaaf/scoreboard">NCAA</a>
+        <a href="/music">Song Wars</a>
+        <a href="/legal">Legal &amp; Support</a>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="/assets/auth.js"></script>
+  </body>
+</html>

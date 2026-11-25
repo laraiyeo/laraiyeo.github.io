@@ -450,7 +450,7 @@ function showSeriesPopup(matchup) {
         gameCard.addEventListener('click', () => {
           document.body.removeChild(modal);
           // Navigate using same pattern as search.js
-          window.location.href = `scoreboard.html?gameId=${game.id}&date=${formattedGameDate}`;
+          window.location.href = `scoreboard?gameId=${game.id}&date=${formattedGameDate}`;
         });
       }
 

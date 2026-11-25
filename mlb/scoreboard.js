@@ -145,7 +145,7 @@
     gamePk = params.get("gamePk") || params.get("id");
     if (!gamePk) {
       sbHeader.innerHTML =
-        '<div class="sb-error">No game specified. <a href="aio.html">Back to games</a></div>';
+        '<div class="sb-error">No game specified. <a href="aio">Back to games</a></div>';
       return;
     }
     fetchGameData();
@@ -1389,7 +1389,7 @@
           const scoreHtml = hasScores
             ? `<div class="sb-sgc-score-row"><span class="sb-sgc-score-num" style="color:${isLive ? "var(--accent-error)" : mAW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mAW ? "800" : "500"};opacity:${!opacity ? 1 : mAW ? 1 : 0.55}">${mAS}</span><span class="sb-sgc-score-dash">-</span><span class="sb-sgc-score-num" style="color:${isLive ? "var(--accent-error)" : mHW ? "var(--text-primary)" : "var(--text-secondary)"};font-weight:${mHW ? "800" : "500"};opacity:${!opacity ? 1 : mHW ? 1 : 0.55}">${mHS}</span></div>`
             : `<div class="sb-sgc-time">${fmtGameTimeOnly(match?.gameDate)}</div><div class="sb-sgc-ampm">${fmtGameAmPm(match?.gameDate)}</div>`;
-          return `<div class="sb-series-game-card${isCurrent ? " current" : ""}" onclick="window.location.href='scoreboard.html?gamePk=${match.gamePk}'">
+          return `<div class="sb-series-game-card${isCurrent ? " current" : ""}" onclick="window.location.href='scoreboard?gamePk=${match.gamePk}'">
           <div class="sb-sgc-top">${topLine}</div>
           <div class="sb-sgc-body" style="background:var(--bg-surface-secondary)"><div class="sb-sgc-gradient" style="background:linear-gradient(90deg,${leftColor}59 0%,transparent 35%,transparent 65%,${rightColor}59 100%)"></div>
             <div class="sb-sgc-inner">

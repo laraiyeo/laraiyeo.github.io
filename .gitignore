@@ -5,16 +5,17 @@
 /cs2
 /backend
 /foot manager
-/proxy-server/.env.example
-/proxy-server/README_RAILWAY.md
+/proxy-server
 livetracker-test.html
 1.txt
 2.txt
 3.txt
 code.txt
 mlb-tester.html
-/spotify-proxy
-/spotify-tournament
+/music-proxy
+/stream
+/widgets
+/notification-backend
 4.txt
  
 # Ignore generated Android autolinking outputs (can contain host-specific absolute paths)

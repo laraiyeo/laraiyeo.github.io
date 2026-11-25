@@ -293,7 +293,7 @@ function buildGameCard(game) {
   
   // Add click handler to navigate to respective page
   card.addEventListener('click', () => {
-    window.location.href = `scoreboard.html?gameId=${game.id}`;
+    window.location.href = `scoreboard?gameId=${game.id}`;
   });
   
   card.style.cursor = 'pointer';

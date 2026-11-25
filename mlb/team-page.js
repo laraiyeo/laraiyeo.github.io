@@ -185,7 +185,7 @@
         html +=
           '<div class="game-card' +
           (isLive ? " live" : "") +
-          '" style="margin-bottom:8px;cursor:pointer;" onclick="window.location.href=\'scoreboard.html?gamePk=' +
+          '" style="margin-bottom:8px;cursor:pointer;" onclick="window.location.href=\'scoreboard?gamePk=' +
           g.gamePk +
           "'\">" +
           '<div class="game-card-header">' +
@@ -348,7 +348,7 @@
           p.person.id +
           "/headshot/67/current";
         html +=
-          '<div class="card" style="cursor:pointer;text-align:center;padding:12px;" onclick="window.location.href=\'player.html?playerId=' +
+          '<div class="card" style="cursor:pointer;text-align:center;padding:12px;" onclick="window.location.href=\'player?playerId=' +
           p.person.id +
           "'\">" +
           '<img src="' +
@@ -405,7 +405,7 @@
               ? ' style="background:var(--bg-surface-secondary);"'
               : "") +
             ">" +
-            '<td class="team-cell" style="cursor:pointer;" onclick="window.location.href=\'team-page.html?teamId=' +
+            '<td class="team-cell" style="cursor:pointer;" onclick="window.location.href=\'team-page?teamId=' +
             tr.team.id +
             "'\">" +
             '<img src="' +

@@ -175,7 +175,7 @@ async function fetchLiveGame() {
       fetchGameDetails(gamePk);
 
       gameDiv.addEventListener("click", () => {
-        window.location.href = `scoreboard.html?gamePk=${gamePk}`;
+        window.location.href = `scoreboard?gamePk=${gamePk}`;
       });
       
     }

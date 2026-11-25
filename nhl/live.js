@@ -85,7 +85,7 @@ async function loadLiveGames() {
 
         // Add click event to navigate to the scoreboard
         gameDiv.addEventListener("click", () => {
-          window.location.href = `scoreboard.html?gameId=${gameId}`;
+          window.location.href = `scoreboard?gameId=${gameId}`;
         });
       }
 

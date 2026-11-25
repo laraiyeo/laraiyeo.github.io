@@ -156,7 +156,7 @@ const teamAbbrMap = {
 
           // Add event listener to redirect to scoreboard.html
           card.addEventListener("click", () => {
-            window.location.href = `scoreboard.html?gamePk=${gamePk}`;
+            window.location.href = `scoreboard?gamePk=${gamePk}`;
           });
 
           finishedGameElements.set(gamePk, card);

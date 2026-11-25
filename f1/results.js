@@ -626,7 +626,7 @@ function renderRaceResults() {
         raceDate: race.date.toISOString()
       });
       
-      window.location.href = `race-info.html?${queryParams.toString()}`;
+      window.location.href = `race-info?${queryParams.toString()}`;
     });
 
     // Add hover effect for better UX

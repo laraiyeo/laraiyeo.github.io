@@ -1,4 +1,154 @@
+# ==========================================================================
+# robots.txt — sportsheart.ca
+# ==========================================================================
+# Generated alongside sitemap.xml from each page's own robots meta, so the two
+# files always agree: anything disallowed here is noindex in its own markup,
+# and anything indexable is absent from this list.
+#
+# The "$" on each rule anchors it to the exact path, so /mlb/team cannot
+# accidentally block /mlb/teams or /mlb/team-page.
+#
+# Note: robots.txt only affects crawlers. The navbar/footer partials stay
+# disallowed and are still fetched normally by visitors' browsers.
+# ==========================================================================
+
 User-agent: *
 Allow: /
 
+# ── Pages excluded from the index ─────────────────────────────────────────
+# Redirect stubs that forward to /use-app, transparent OBS embed views,
+# JS-injected partials, and the internal test/admin pages.
+
+# 404
+Disallow: /404$
+
+# cs2
+Disallow: /cs2/
+
+# error_admin
+Disallow: /error_admin$
+
+# f1
+Disallow: /f1/race-info$
+Disallow: /f1/results$
+Disallow: /f1/scheduled$
+Disallow: /f1/standings$
+Disallow: /f1/team$
+
+# f1-fastf1
+Disallow: /f1-fastf1/
+
+# livetracker-test
+Disallow: /livetracker-test$
+
+# mlb
+Disallow: /mlb/aio-obs$
+Disallow: /mlb/finished$
+Disallow: /mlb/live$
+Disallow: /mlb/scheduled$
+Disallow: /mlb/search$
+Disallow: /mlb/standings$
+Disallow: /mlb/team$
+Disallow: /mlb/ticker$
+
+# mlb-tester
+Disallow: /mlb-tester$
+
+# nba
+Disallow: /nba/bracket$
+Disallow: /nba/finished$
+Disallow: /nba/live$
+Disallow: /nba/scheduled$
+Disallow: /nba/search$
+Disallow: /nba/standings$
+Disallow: /nba/team$
+
+# ncaa
+Disallow: /ncaa/ncaaf/finished$
+Disallow: /ncaa/ncaaf/live$
+Disallow: /ncaa/ncaaf/scheduled$
+Disallow: /ncaa/ncaaf/scoreboard$
+Disallow: /ncaa/ncaaf/search$
+Disallow: /ncaa/ncaaf/standings$
+Disallow: /ncaa/ncaaf/team$
+Disallow: /ncaa/ncaaf/team-page$
+
+# nfl
+Disallow: /nfl/finished$
+Disallow: /nfl/live$
+Disallow: /nfl/scheduled$
+Disallow: /nfl/search$
+Disallow: /nfl/standings$
+Disallow: /nfl/team$
+Disallow: /nfl/ticker$
+
+# nhl
+Disallow: /nhl/finished$
+Disallow: /nhl/live$
+Disallow: /nhl/scheduled$
+Disallow: /nhl/search$
+Disallow: /nhl/standings$
+Disallow: /nhl/team$
+
+# soccer
+Disallow: /soccer/aio$
+Disallow: /soccer/cwc/finished$
+Disallow: /soccer/cwc/live$
+Disallow: /soccer/cwc/playoffs$
+Disallow: /soccer/cwc/scheduled$
+Disallow: /soccer/cwc/scoreboard$
+Disallow: /soccer/cwc/standings$
+Disallow: /soccer/cwc/team$
+Disallow: /soccer/cwc/teams$
+Disallow: /soccer/fantasy$
+Disallow: /soccer/finished$
+Disallow: /soccer/live$
+Disallow: /soccer/scheduled$
+Disallow: /soccer/scoreboard$
+Disallow: /soccer/search$
+Disallow: /soccer/team$
+Disallow: /soccer/team-page$
+Disallow: /soccer/uefa/bracket$
+Disallow: /soccer/uefa/fixtures$
+Disallow: /soccer/uefa/live$
+Disallow: /soccer/uefa/scoreboard$
+Disallow: /soccer/uefa/search$
+Disallow: /soccer/uefa/standings$
+Disallow: /soccer/uefa/team$
+Disallow: /soccer/uefa/team-page$
+Disallow: /soccer/uefa/teams$
+
+# wnba
+Disallow: /wnba/finished$
+Disallow: /wnba/live$
+Disallow: /wnba/scheduled$
+Disallow: /wnba/search$
+Disallow: /wnba/standings$
+Disallow: /wnba/team$
+
+# ── Explicitly welcome the crawlers that matter ───────────────────────────
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /assets/
+
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: Mediapartners-Google
+Allow: /
+
+# ── Optional crawl budget controls ────────────────────────────────────────
+# SEO audit tools that add load without bringing visitors.
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Disallow: /
+
+# ── Sitemap ───────────────────────────────────────────────────────────────
 Sitemap: https://sportsheart.ca/sitemap.xml

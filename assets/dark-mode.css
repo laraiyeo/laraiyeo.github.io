@@ -1217,6 +1217,23 @@ a:hover {
   height: 24px;
 }
 
+/* Song Wars stays playable on a phone even when the rest of the site is
+   desktop-only, so it gets a button on the warning screen itself. Tinted red
+   to read as the primary action rather than a second app-store link.
+   Named "song-wars-cta" rather than "song-wars-btn" because index.html already
+   uses .song-wars-btn for its large hero pill — different shape, different job. */
+.song-wars-cta {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-color: transparent;
+  color: #fff;
+}
+
+.song-wars-cta:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: transparent;
+  color: #fff;
+}
+
 /* ============================================
    SPLIT SCREEN (2nd Screen) — scoreboard only
    ============================================ */

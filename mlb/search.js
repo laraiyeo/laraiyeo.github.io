@@ -137,7 +137,7 @@ async function displayTeamResults(teams) {
       const teamId = card.getAttribute('data-team-id');
       if (teamId) {
         // Navigate to team page
-        window.location.href = `team-page.html?teamId=${teamId}`;
+        window.location.href = `team-page?teamId=${teamId}`;
       }
     });
   });

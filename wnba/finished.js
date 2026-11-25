@@ -101,7 +101,7 @@ async function loadFinishedGames() {
 
       // Add event listener to redirect to scoreboard.html
       gameCard.addEventListener("click", () => {
-        window.location.href = `scoreboard.html?gameId=${game.id}`;
+        window.location.href = `scoreboard?gameId=${game.id}`;
       });
 
       container.appendChild(gameCard);

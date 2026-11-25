@@ -1247,7 +1247,7 @@ function createGameCard(game, status) {
 // Function to navigate to the appropriate scoreboard page
 function navigateToScoreboard(gameId) {
   // Navigate to the scoreboard page with the specific game ID
-  window.location.href = `scoreboard.html?gameId=${gameId}`;
+  window.location.href = `scoreboard?gameId=${gameId}`;
 }
 
 // PAGE 2: Player Stats
@@ -3343,7 +3343,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   // Set fantasy link as active in navbar
   setTimeout(() => {
-    const fantasyLinks = document.querySelectorAll('a[href="fantasy.html"]');
+    const fantasyLinks = document.querySelectorAll('a[href="fantasy"]');
     fantasyLinks.forEach(link => link.classList.add('active'));
   }, 100);
   

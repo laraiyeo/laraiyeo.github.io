@@ -431,7 +431,7 @@
           : `<div class="sb-team-logo-wrap">${logoEl}</div>${scoreEl}`;
       return `
         <div class="sb-team-col">
-          <a href="team-page.html?id=${esc(team.id)}" class="sb-team-link">
+          <a href="team-page?id=${esc(team.id)}" class="sb-team-link">
             <div class="sb-logo-score-row">${logoScoreRow}</div>
             <div class="sb-team-name" style="opacity:${final && isLoser ? "0.55" : "1"}">${esc(name)}</div>
           </a>
@@ -1480,7 +1480,7 @@
               : "--:--";
             const ampm = valid ? (d.getHours() >= 12 ? "PM" : "AM") : "";
             return `
-              <a class="sb-series-match" href="scoreboard.html?id=${esc(e?.id)}">
+              <a class="sb-series-match" href="scoreboard?id=${esc(e?.id)}">
                 <div class="sb-series-match-top">${esc(dateStr)} · ${esc(LOGO_PATH.toUpperCase())}</div>
                 <div class="sb-series-match-body" style="background:linear-gradient(90deg,${withAlpha30(leftColor)},transparent 35%,transparent 65%,${withAlpha30(rightColor)})">
                   <div class="sb-series-match-side">
@@ -1765,7 +1765,7 @@
     gameId = params.get("id") || params.get("gameId");
     if (!gameId) {
       sbHeader.innerHTML =
-        '<div class="sb-error">No game specified. <a href="aio.html">Back to games</a></div>';
+        '<div class="sb-error">No game specified. <a href="aio">Back to games</a></div>';
       return;
     }
 

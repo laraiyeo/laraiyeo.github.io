@@ -132,7 +132,7 @@ async function loadFinishedGames() {
 
         // Add event listener to redirect to scoreboard.html
         card.addEventListener("click", () => {
-          window.location.href = `scoreboard.html?gameId=${gameId}`;
+          window.location.href = `scoreboard?gameId=${gameId}`;
         });
 
         finishedGameElements.set(gameId, card);

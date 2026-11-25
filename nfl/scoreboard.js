@@ -581,7 +581,7 @@
           : `<div class="sb-team-logo-wrap">${logoEl}${possBadge}</div>${scoreEl}`;
       return `
         <div class="sb-team-col">
-          <a href="team-page.html?id=${esc(team.team?.id)}" class="sb-team-link" style="text-decoration:none">
+          <a href="team-page?id=${esc(team.team?.id)}" class="sb-team-link" style="text-decoration:none">
             <div class="sb-logo-score-row">${logoScoreRow}</div>
             <div class="sb-team-name" style="opacity:${final && !isWinner ? "0.55" : "1"}">${esc(name)}</div>
             ${record ? `<div class="sb-team-record" style="opacity:${final && !isWinner ? "0.55" : "1"}">${esc(record)}</div>` : ""}
@@ -1442,7 +1442,7 @@
                 })
               : "";
             return `
-              <a class="sb-last5-row" href="scoreboard.html?id=${esc(evt.id)}">
+              <a class="sb-last5-row" href="scoreboard?id=${esc(evt.id)}">
                 <span class="sb-last5-badge" style="background:${isWin ? "#27ae60" : isLoss ? "#e74c3c" : "var(--text-secondary)"}">${esc(evt.gameResult || "-")}</span>
                 <span class="sb-last5-opp">${esc(evt.atVs || "")} ${esc(opp.displayName || opp.abbreviation || "")}</span>
                 <span class="sb-last5-score">${esc(evt.score || "")}</span>
@@ -2489,7 +2489,7 @@
     gameId = params.get("id") || params.get("gameId");
     if (!gameId) {
       sbHeader.innerHTML =
-        '<div class="sb-error">No game specified. <a href="aio.html">Back to games</a></div>';
+        '<div class="sb-error">No game specified. <a href="aio">Back to games</a></div>';
       return;
     }
     fetchGameData();

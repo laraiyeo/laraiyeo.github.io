@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   currentTeamId = urlParams.get('teamId');
   
   if (!currentTeamId) {
-    window.location.href = 'search.html';
+    window.location.href = 'search';
     return;
   }
   
@@ -511,7 +511,7 @@ async function loadCurrentGame() {
         gameCardElement.addEventListener('click', () => {
           const gameId = gameCardElement.getAttribute('data-game-id');
           if (gameId) {
-            window.location.href = `scoreboard.html?gameId=${gameId}`;
+            window.location.href = `scoreboard?gameId=${gameId}`;
           }
         });
       }
@@ -543,7 +543,7 @@ async function loadCurrentGame() {
           gameCardElement.addEventListener('click', () => {
             const gameId = gameCardElement.getAttribute('data-game-id');
             if (gameId) {
-              window.location.href = `scoreboard.html?gameId=${gameId}`;
+              window.location.href = `scoreboard?gameId=${gameId}`;
             }
           });
         }
@@ -732,7 +732,7 @@ function displayRecentMatches() {
         item.addEventListener('click', () => {
           const gameId = item.getAttribute('data-game-id');
           if (gameId) {
-            window.location.href = `scoreboard.html?gameId=${gameId}`;
+            window.location.href = `scoreboard?gameId=${gameId}`;
           }
         });
       });
@@ -886,7 +886,7 @@ async function loadUpcomingMatches() {
       item.addEventListener('click', () => {
         const gameId = item.getAttribute('data-game-id');
         if (gameId) {
-          window.location.href = `scoreboard.html?gameId=${gameId}`;
+          window.location.href = `scoreboard?gameId=${gameId}`;
         }
       });
     });
@@ -4227,7 +4227,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
         </div>
 
         <!-- Game Header -->
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}', '_blank')">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard?gameId=${game.id}', '_blank')">
           <div style="display: flex; align-items: center; gap: 15px;">
             <img src="${teamLogo}" alt="${seasonTeamName}" style="height: 30px;" onerror="this.src='soccer-ball-png-24.png';">
             <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamS}</span>

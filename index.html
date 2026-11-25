@@ -4,7 +4,120 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SportsHeart - Live Sports Scores & Tracker</title>
-  <meta name="description" content="Track live sports scores and updates for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and more." />
+    <!-- SEO -->
+    <meta name="description" content="SportsHeart tracks live sports scores in real time for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and NCAA. Follow every game, standings and stats in one place." />
+    <meta name="keywords" content="MLB scores, baseball live scores, MLB standings, MLB schedule, baseball scores today, MLB game tracker, NBA scores, basketball live scores, NBA standings, NBA schedule, NBA playoff bracket, basketball scores today, NFL scores, football live scores, NFL standings, NFL schedule, NFL scores today, NFL game tracker, NHL scores, hockey live scores, NHL standings, NHL schedule, NHL scores today, hockey game tracker, live sports scores, sports tracker, real-time scores, sports stats, live scoreboard, sports app" />
+    <meta name="author" content="SportsHeart" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <link rel="canonical" href="https://sportsheart.ca/" />
+    <link rel="alternate" hreflang="en" href="https://sportsheart.ca/" />
+    <link rel="alternate" hreflang="x-default" href="https://sportsheart.ca/" />
+    <meta name="theme-color" content="#0b0b0f" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SportsHeart" />
+    <meta property="og:title" content="SportsHeart - Live Sports Scores &amp; Tracker" />
+    <meta property="og:description" content="SportsHeart tracks live sports scores in real time for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and NCAA. Follow every game, standings and stats in one place." />
+    <meta property="og:url" content="https://sportsheart.ca/" />
+    <meta property="og:image" content="https://sportsheart.ca/assets/33115791.png" />
+    <meta property="og:image:alt" content="SportsHeart live sports tracker" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@sportsheart_" />
+    <meta name="twitter:title" content="SportsHeart - Live Sports Scores &amp; Tracker" />
+    <meta name="twitter:description" content="SportsHeart tracks live sports scores in real time for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and NCAA. Follow every game, standings and stats in one place." />
+    <meta name="twitter:image" content="https://sportsheart.ca/assets/33115791.png" />
+    <meta name="twitter:image:alt" content="SportsHeart live sports tracker" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://sportsheart.ca/#organization",
+      "name": "SportsHeart",
+      "url": "https://sportsheart.ca/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://sportsheart.ca/assets/33115791.png",
+        "width": 512,
+        "height": 512
+      },
+      "sameAs": [
+        "https://x.com/sportsheart_",
+        "https://discord.gg/fGt3sMfwge"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://sportsheart.ca/#website",
+      "url": "https://sportsheart.ca/",
+      "name": "SportsHeart",
+      "description": "Live sports scores and stats tracker covering MLB, NBA, NFL, NHL, WNBA, F1, Soccer and NCAA.",
+      "publisher": {
+        "@id": "https://sportsheart.ca/#organization"
+      },
+      "inLanguage": "en-US",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://sportsheart.ca/nba/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "MobileApplication",
+      "@id": "https://sportsheart.ca/#app",
+      "name": "SportsHeart",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "iOS, Android",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "installUrl": [
+        "https://apps.apple.com/app/id6754208862",
+        "https://play.google.com/store/apps/details?id=com.sportsheart.app"
+      ],
+      "publisher": {
+        "@id": "https://sportsheart.ca/#organization"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://sportsheart.ca/#webpage",
+      "url": "https://sportsheart.ca/",
+      "name": "SportsHeart - Live Sports Scores & Tracker",
+      "description": "SportsHeart tracks live sports scores in real time for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and NCAA. Follow every game, standings and stats in one place.",
+      "isPartOf": {
+        "@id": "https://sportsheart.ca/#website"
+      },
+      "about": {
+        "@id": "https://sportsheart.ca/#organization"
+      },
+      "inLanguage": "en-US",
+      "primaryImageOfPage": {
+        "@type": "ImageObject",
+        "url": "https://sportsheart.ca/assets/33115791.png"
+      }
+    }
+  ]
+}
+    </script>
+
+
   <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
   <link rel="icon" href="assets/33115791.png" type="image/png" />
   <link rel="stylesheet" href="assets/dark-mode.css" />
@@ -96,6 +209,43 @@
       margin-right: 6px;
       animation: livePulse 2s infinite;
     }
+    .song-wars-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 0 20px 40px;
+    }
+    .song-wars-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 28px;
+      border-radius: 999px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-primary);
+      color: var(--text-primary);
+      font-size: 1.15rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .song-wars-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(255, 0, 0, 0.25);
+      border-color: var(--border-secondary);
+    }
+    .song-wars-logo {
+      width: 40px;
+      height: 40px;
+      animation: songWarsSpin 4s linear infinite;
+      margin-right: -2px;
+    }
+    @keyframes songWarsSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .song-wars-logo { animation: none; }
+    }
     .home-footer {
       text-align: center;
       padding: 20px;
@@ -103,6 +253,36 @@
       font-size: 0.8rem;
       border-top: 1px solid var(--border-primary);
       margin-top: 75px;
+    }
+    .home-footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 6px 14px;
+      margin-bottom: 10px;
+    }
+    .home-footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .home-footer-links a:hover {
+      color: var(--text-primary);
+      text-decoration: underline;
+    }
+    .home-footer-links .footer-sep {
+      color: var(--border-secondary);
+    }
+    .home-footer-copy {
+      margin: 0;
+    }
+    .home-footer-copy a {
+      color: var(--text-secondary);
+      text-decoration: underline;
+    }
+    .home-footer-copy a:hover {
+      color: var(--text-primary);
     }
   </style>
 </head>
@@ -120,6 +300,14 @@
       <a href="https://play.google.com/store/apps/details?id=com.sportsheart.app" class="store-btn" target="_blank" rel="noopener">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.807 1.626a1 1 0 0 1 0 1.732l-2.807 1.626L15.206 12l2.492-2.492zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z"/></svg>
         Google Play
+      </a>
+      <a
+        href="/music"
+        class="store-btn song-wars-cta"
+        aria-label="Open SportsHeart Song Wars music tournament"
+      >
+        <span aria-hidden="true">🎵</span>
+        Play Song Wars
       </a>
     </div>
   </div>
@@ -145,7 +333,7 @@
 
   <!-- Sport Cards Grid -->
   <div class="home-grid">
-    <a href="/mlb/aio.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/mlb/aio" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/mlb.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">⚾</div>
@@ -153,7 +341,7 @@
         <div class="sport-card-desc">Major League Baseball</div>
       </div>
     </a>
-    <a href="/nhl/aio.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/nhl/aio" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/nhl.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🏒</div>
@@ -161,7 +349,7 @@
         <div class="sport-card-desc">National Hockey League</div>
       </div>
     </a>
-    <a href="/nba/aio.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/nba/aio" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/nba.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🏀</div>
@@ -169,7 +357,7 @@
         <div class="sport-card-desc">National Basketball Association</div>
       </div>
     </a>
-    <a href="/nfl/aio.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/nfl/aio" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/nfl.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🏈</div>
@@ -177,7 +365,7 @@
         <div class="sport-card-desc">National Football League</div>
       </div>
     </a>
-    <a href="/wnba/aio.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/wnba/aio" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/wnba.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🏀</div>
@@ -185,7 +373,7 @@
         <div class="sport-card-desc">Women's National Basketball Association</div>
       </div>
     </a>
-    <a href="/soccer/live.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/soccer/live" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/soccer.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">⚽</div>
@@ -193,7 +381,7 @@
         <div class="sport-card-desc">Global Football</div>
       </div>
     </a>
-    <a href="/f1/results.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/f1/results" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/f1.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🏎️</div>
@@ -201,7 +389,7 @@
         <div class="sport-card-desc">Formula 1 Racing</div>
       </div>
     </a>
-    <a href="/ncaa/ncaaf/live.html" class="sport-card" style="background:var(--bg-surface);">
+    <a href="/ncaa/ncaaf/live" class="sport-card" style="background:var(--bg-surface);">
       <div class="sport-card-bg" style="background-image:url('assets/ncaa.png');"></div>
       <div class="sport-card-content">
         <div class="sport-card-icon">🎓</div>
@@ -211,8 +399,28 @@
     </a>
   </div>
 
+  <!-- Song Wars tournament entry point -->
+  <div class="song-wars-wrap">
+    <a href="music" class="song-wars-btn">
+      <img class="song-wars-logo" src="assets/33115791.png" alt="" />
+      <span>SportsHeart Song Wars</span>
+    </a>
+  </div>
+
   <div class="home-footer">
-    &copy; 2026 SportsHeart. All rights reserved.
+    <div class="home-footer-links">
+      <a href="/legal#terms">Terms of Service</a>
+      <span class="footer-sep">|</span>
+      <a href="/legal#privacy">Privacy Policy</a>
+      <span class="footer-sep">|</span>
+      <a href="/legal#contact">Contact &amp; Support</a>
+      <span class="footer-sep">|</span>
+      <a href="/music">Song Wars</a>
+    </div>
+    <p class="home-footer-copy">
+      &copy; 2026 SportsHeart. All rights reserved. &middot;
+      <a href="/legal">Legal &amp; Support</a>
+    </p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -225,105 +433,6 @@
         const btn = createAuthButton();
         container.appendChild(btn);
       }
-    });
-  </script>
-</body>
-  </style>
-
-  <script>
-    // App Download Modal Script
-    window.addEventListener('load', function() {
-      var modal = document.getElementById('appDownloadModal');
-      var span = document.getElementsByClassName('app-modal-close')[0];
-      var downloadBtn = document.querySelector('.app-download-btn');
-
-      console.log('[SportsHeart Popup] Modal initialized');
-
-      // Show modal on page load
-      modal.style.display = 'block';
-      console.log('[SportsHeart Popup] Modal displayed on page load');
-
-      // Track modal view
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'popup_view', {
-          'event_category': 'App Download Popup',
-          'event_label': 'Modal Opened',
-          'value': 1
-        });
-        console.log('[SportsHeart Analytics] Event tracked: popup_view');
-      } else {
-        console.warn('[SportsHeart Analytics] gtag not available for popup_view event');
-      }
-
-      // Close modal when X is clicked
-      span.onclick = function() {
-        modal.style.display = 'none';
-        console.log('[SportsHeart Popup] Modal closed via X button');
-        
-        // Track close button click
-        if (typeof gtag !== 'undefined') {
-          gtag('event', 'popup_close', {
-            'event_category': 'App Download Popup',
-            'event_label': 'Close Button Clicked',
-            'value': 1
-          });
-          console.log('[SportsHeart Analytics] Event tracked: popup_close (X button)');
-        } else {
-          console.warn('[SportsHeart Analytics] gtag not available for close button event');
-        }
-      }
-
-      // Close modal when clicking outside of it
-      window.onclick = function(event) {
-        if (event.target == modal) {
-          modal.style.display = 'none';
-          console.log('[SportsHeart Popup] Modal closed via outside click');
-          
-          // Track outside click
-          if (typeof gtag !== 'undefined') {
-            gtag('event', 'popup_close', {
-              'event_category': 'App Download Popup',
-              'event_label': 'Clicked Outside Modal',
-              'value': 1
-            });
-            console.log('[SportsHeart Analytics] Event tracked: popup_close (outside click)');
-          } else {
-            console.warn('[SportsHeart Analytics] gtag not available for outside click event');
-          }
-        }
-      }
-
-      // Track download button click
-      if (downloadBtn) {
-        downloadBtn.addEventListener('click', function() {
-          console.log('[SportsHeart Popup] Download button clicked');
-          
-          if (typeof gtag !== 'undefined') {
-            gtag('event', 'download_click', {
-              'event_category': 'App Download Popup',
-              'event_label': 'iOS Download Button',
-              'value': 1
-            });
-            console.log('[SportsHeart Analytics] Event tracked: download_click');
-          } else {
-            console.warn('[SportsHeart Analytics] gtag not available for download click event');
-          }
-        });
-        console.log('[SportsHeart Popup] Download button event listener attached');
-      } else {
-        console.error('[SportsHeart Popup] Download button not found in DOM');
-      }
-    });
-  </script>
-
-  <script>
-    document.querySelectorAll('.block').forEach(block => {
-    block.addEventListener('click', () => {
-    const link = block.querySelector('.block-link');
-    if (link) {
-      window.location.href = link.href;
-    }
-    });
     });
   </script>
 </body>

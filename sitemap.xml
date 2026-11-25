@@ -1,51 +1,255 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<!--
+  SportsHeart sitemap — generated from each page's own robots meta, so it can
+  never list a page that is marked noindex.
+
+  Every URL here is the clean, extensionless form. The matching ".html" address
+  301-redirects to it, so listing both would ask Google to index duplicates.
+
+  Deliberately absent: navbar/footer partials (fetched by JS and injected), the
+  redirect stubs that forward to /use-app, and the transparent OBS embed views.
+  See robots.txt, which excludes the same set.
+-->
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
   <url>
     <loc>https://sportsheart.ca/</loc>
-    <lastmod>2025-10-19</lastmod>
+    <lastmod>2026-11-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/33115791.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
   </url>
   <url>
-    <loc>https://sportsheart.ca/mlb/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/nba/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/nfl/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/nhl/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/wnba/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/soccer/live.html</loc>
-    <lastmod>2025-10-19</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://sportsheart.ca/f1/results.html</loc>
-    <lastmod>2025-10-19</lastmod>
+    <loc>https://sportsheart.ca/f1/teams</loc>
+    <lastmod>2026-11-24</lastmod>
     <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/f1.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/legal</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/mlb/aio</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>hourly</changefreq>
     <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/mlb.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/mlb/player</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/mlb/scoreboard</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/mlb/team-page</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/mlb/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/music</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nba/aio</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/nba.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nba/player</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nba/scoreboard</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nba/team-page</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nba/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/ncaa/ncaaf/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/ncaa.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nfl/aio</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/nfl.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nfl/player</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nfl/scoreboard</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nfl/team-page</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nfl/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nhl/aio</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/nhl.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nhl/player</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nhl/scoreboard</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nhl/team-page</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/nhl/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/soccer/standings</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/soccer.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/soccer/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/soccer.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/use-app</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/wnba/aio</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://sportsheart.ca/assets/wnba.png</image:loc>
+      <image:title>SportsHeart live sports tracker</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/wnba/player</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/wnba/scoreboard</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/wnba/team-page</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportsheart.ca/wnba/teams</loc>
+    <lastmod>2026-11-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

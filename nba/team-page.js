@@ -117,7 +117,7 @@
         html +=
           '<div class="game-card' +
           (isLive ? " live" : "") +
-          '" style="margin-bottom:8px;cursor:pointer;" onclick="window.location.href=\'scoreboard.html?gameId=' +
+          '" style="margin-bottom:8px;cursor:pointer;" onclick="window.location.href=\'scoreboard?gameId=' +
           g.id +
           "'\">" +
           '<div class="game-card-header">' +
@@ -234,7 +234,7 @@
       athletes.forEach(function (a) {
         var headshot = a.headshot?.href || "";
         html +=
-          '<div class="card" style="cursor:pointer;text-align:center;padding:12px;" onclick="window.location.href=\'player.html?playerId=' +
+          '<div class="card" style="cursor:pointer;text-align:center;padding:12px;" onclick="window.location.href=\'player?playerId=' +
           a.id +
           "'\">" +
           (headshot
@@ -288,7 +288,7 @@
             '<img src="https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/' +
             (entry.team?.abbreviation || "").toLowerCase() +
             '.png" style="width:24px;height:24px;" onerror="this.style.display=\'none\'">' +
-            '<span style="flex:1;font-weight:600;cursor:pointer;" onclick="window.location.href=\'team-page.html?teamId=' +
+            '<span style="flex:1;font-weight:600;cursor:pointer;" onclick="window.location.href=\'team-page?teamId=' +
             entry.team?.id +
             "'\">" +
             entry.team?.displayName +

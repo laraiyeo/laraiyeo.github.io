@@ -678,7 +678,7 @@
     return (
       '<div class="mlb-grid-card" data-game-id="' +
       game.id +
-      '" onclick="window.location.href=\'scoreboard.html?gamePk=' +
+      '" onclick="window.location.href=\'scoreboard?gamePk=' +
       game.id +
       "'\">" +
       // Gradient overlay

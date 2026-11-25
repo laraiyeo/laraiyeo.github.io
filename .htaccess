@@ -1,0 +1,174 @@
+# ==========================================================================
+# SportsHeart — Apache configuration (GoDaddy cPanel / shared Linux hosting)
+# ==========================================================================
+# What this file does:
+#   1. Serves every page WITHOUT the ".html" extension  (/mlb/aio -> aio.html)
+#   2. 301-redirects every ".html" request to its clean URL, so search engines
+#      only ever index one address per page
+#   3. Compression, browser caching and a few security headers
+#
+# Nothing here depends on a specific GoDaddy plan — it is plain mod_rewrite +
+# mod_deflate + mod_expires, all of which are enabled on GoDaddy shared Linux
+# hosting by default.
+# ==========================================================================
+
+Options -MultiViews -Indexes
+DirectoryIndex index.html
+
+# /music is both a page (music.html) and the folder holding that page's own
+# assets (music/style.css, music/js/…). By default Apache's mod_dir appends a
+# trailing slash to any request that matches a real directory, so /music would
+# 301 to /music/ and then 403 (there is no index file in there). Turning the
+# automatic slash off lets the rewrite rules below decide what /music means.
+# Folder URLs are handled explicitly further down.
+DirectorySlash Off
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # GoDaddy terminates TLS at a proxy, so HTTPS shows up in
+  # HTTP:X-Forwarded-Proto rather than HTTPS:on. Without this the redirect
+  # below would loop forever.
+  RewriteCond %{HTTP:X-Forwarded-Proto} =http
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Force the canonical host: strip "www." so https://www.sportsheart.ca/ and
+  # https://sportsheart.ca/ are not two separate pages to Google.
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+  # ── JS-injected partials ──────────────────────────────────────────────────
+  # navbar.html / footer.html are fetched by JavaScript and injected into the
+  # page, so they must keep their ".html" address. Serving them here and
+  # stopping means the extension-stripping rule below never sees them.
+  RewriteRule ^(.*/)?(navbar|footer)\.html$ - [L]
+
+  # ── One address per page ──────────────────────────────────────────────────
+  # /index.html, /index and /music/ are the same content as / and /music.
+  # Redirecting keeps Google from seeing two URLs for one page. This runs
+  # before the extension-stripping rule so /index.html resolves in one hop.
+  RewriteRule ^index(\.html)?/?$ / [R=301,L]
+  RewriteRule ^music/$ /music [R=301,L]
+  # The 404 page is served by ErrorDocument, never linked, so it has no clean
+  # URL of its own.
+  RewriteRule ^404\.html$ - [L]
+
+  # ── Strip the extension from real requests ────────────────────────────────
+  # If someone (or an old bookmark / backlink) asks for /mlb/aio.html, send
+  # them to /mlb/aio. THE_REQUEST is checked so this only matches what the
+  # browser actually asked for, not the rewritten path, and `-f` keeps a
+  # request for a page that does not exist from bouncing through a redirect
+  # before it 404s.
+  RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ /%1 [R=301,L]
+
+  # ── Folder URLs land on that sport's main page ────────────────────────────
+  # /mlb/ would otherwise 403 (Options -Indexes and no mlb/index.html).
+  RewriteRule ^(mlb|nba|nfl|nhl|wnba)/?$ /$1/aio [R=301,L]
+  RewriteRule ^f1/?$ /f1/standings [R=301,L]
+  RewriteRule ^soccer/?$ /soccer/standings [R=301,L]
+  RewriteRule ^ncaa/?$ /ncaa/ncaaf/scoreboard [R=301,L]
+  RewriteRule ^ncaa/ncaaf/?$ /ncaa/ncaaf/scoreboard [R=301,L]
+
+  # ── Serve extensionless URLs ──────────────────────────────────────────────
+  # /mlb/aio  ->  /mlb/aio.html
+  # The .html file is used WITHOUT changing the address bar.
+  #
+  # `!-d` skips real directories, so a folder is never shadowed by a same-named
+  # page. /music is the one place where a page and a folder share a name, and
+  # it is handled by the explicit rule just below.
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}\.html -f
+  RewriteRule ^(.+)$ $1.html [L]
+
+  # /music is both a page (music.html) and the folder holding that page's own
+  # assets (music/style.css, music/js/…). The rule above skips real directories,
+  # so the folder would win and the public /music URL would 403. Serve the page
+  # explicitly; requests for /music/style.css still resolve inside the folder.
+  RewriteRule ^music$ /music.html [L]
+</IfModule>
+
+# ==========================================================================
+# Error documents
+# ==========================================================================
+# A real 404 page, not a redirect to the home page: a redirect would turn
+# every bad link into a soft 404, which Google reports as an error and which
+# hides genuine broken links from you.
+ErrorDocument 404 /404.html
+
+# ==========================================================================
+# Compression — smaller HTML/CSS/JS = faster pages = better ranking
+# ==========================================================================
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+  AddOutputFilterByType DEFLATE text/javascript application/javascript
+  AddOutputFilterByType DEFLATE application/json application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+  # GoDaddy sometimes compresses images that are already compressed; skip them.
+  SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|avif|woff2?|ttf|eot|mp4|webm)$ no-gzip dont-vary
+</IfModule>
+
+# ==========================================================================
+# Browser caching
+# ==========================================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                      "access plus 1 month"
+  ExpiresByType application/javascript        "access plus 1 month"
+  ExpiresByType text/javascript               "access plus 1 month"
+  ExpiresByType image/png                     "access plus 6 months"
+  ExpiresByType image/jpeg                    "access plus 6 months"
+  ExpiresByType image/webp                    "access plus 6 months"
+  ExpiresByType image/svg+xml                 "access plus 6 months"
+  ExpiresByType font/woff2                    "access plus 1 year"
+  # Pages themselves change, so keep them short-lived.
+  ExpiresByType text/html                     "access plus 0 seconds"
+  ExpiresByType application/xml               "access plus 1 hour"
+  ExpiresByType text/xml                      "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Pages: revalidate. Everything else: the Expires rules above are enough.
+  <FilesMatch "\.(html|htm)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(xml|txt)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Navbar / footer partials are injected by JS via fetch(), never viewed on
+  # their own — they must stay reachable, but they should not be indexed as
+  # thin duplicate content.
+  <FilesMatch "^(navbar|footer)\.html$">
+    Header set X-Robots-Tag "noindex, nofollow"
+  </FilesMatch>
+
+  # Remove the PHP/Apache version banner (minor hardening).
+  Header unset X-Powered-By
+</IfModule>
+
+# ==========================================================================
+# MIME types
+# ==========================================================================
+<IfModule mod_mime.c>
+  AddType application/javascript          .js
+  AddType image/svg+xml                   .svg
+  AddType image/webp                      .webp
+  AddType font/woff2                      .woff2
+  AddType application/manifest+json       .webmanifest
+</IfModule>
+
+# ==========================================================================
+# Feed sitemap + robots consistently
+# ==========================================================================
+<Files "sitemap.xml">
+  <IfModule mod_headers.c>
+    Header set Content-Type "application/xml; charset=utf-8"
+  </IfModule>
+</Files>

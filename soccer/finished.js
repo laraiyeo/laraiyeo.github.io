@@ -288,7 +288,7 @@ async function fetchAndDisplayFinishedGames() {
         gameCard.innerHTML = gameCardHtml;
         // Add event listener to redirect to scoreboard.html
         gameCard.addEventListener("click", () => {
-        window.location.href = `scoreboard.html?gameId=${game.id}`;
+        window.location.href = `scoreboard?gameId=${game.id}`;
         });
       
         dayContainer.appendChild(gameCard);

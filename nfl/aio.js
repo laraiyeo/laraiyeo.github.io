@@ -379,7 +379,7 @@
     return (
       '<div class="mlb-grid-card" data-game-id="' +
       game.id +
-      '" onclick="window.location.href=\'scoreboard.html?gameId=' +
+      '" onclick="window.location.href=\'scoreboard?gameId=' +
       game.id +
       "'\">" +
       '<div class="mlb-grid-card-gradient" style="background:linear-gradient(90deg,' +

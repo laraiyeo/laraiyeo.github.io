@@ -244,6 +244,67 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 ---
 
+## 🔗 Clean URLs
+
+Every page is reachable **without** the `.html` extension. The old addresses still
+work — they 301 to the clean one — so existing links and bookmarks keep working.
+
+| Old address | Clean address |
+| --- | --- |
+| `/index.html` | `/` |
+| `/mlb/aio.html` | `/mlb/aio` |
+| `/nba/teams.html` | `/nba/teams` |
+| `/music.html` | `/music` |
+| `/legal.html` | `/legal` |
+
+Folder roots redirect to that sport's main page, so `/mlb` and `/mlb/` both land
+on `/mlb/aio`. Unknown addresses return a real **404** page rather than silently
+redirecting to the home page.
+
+This is handled by the root [`.htaccess`](./.htaccess), which also enables gzip
+compression, long-lived browser caching for assets, and a few security headers.
+It needs no configuration — GoDaddy's shared Linux hosting enables
+`mod_rewrite`, `mod_deflate` and `mod_expires` by default.
+
+> **Note:** `/music` is both a page (`music.html`) and the folder holding that
+> page's own assets (`music/style.css`, `music/js/…`). The `.htaccess` turns off
+> Apache's automatic trailing-slash redirect so the page wins at `/music` while
+> the assets inside the folder keep resolving normally.
+
+### Running locally
+
+Clean URLs are an **Apache** feature, so a plain static server cannot serve them.
+VS Code's Live Server has no rewrite support, which is why `/mlb/aio` answers
+`Cannot GET /mlb/aio` there — the file on disk is `mlb/aio.html`.
+
+Use the bundled dev server instead. It reproduces the `.htaccess` rules exactly,
+so the URLs you test locally match production:
+
+```bash
+npm run dev            # http://127.0.0.1:5500
+npm run dev -- --port 8080
+```
+
+It serves clean URLs, 301s `.html` addresses to their clean form, redirects
+folder roots (`/mlb` → `/mlb/aio`), keeps `navbar.html` / `footer.html`
+reachable for the JS that injects them, and returns the real `404.html` for
+unknown paths. If port 5500 is taken (for example by Live Server) it moves to
+the next free port and prints the URL it chose.
+
+> **Note:** Stop Live Server before running `npm run dev` if you want port 5500.
+> Live Server will still show `Cannot GET` for clean URLs — that is expected and
+> is not a bug in the site.
+
+### SEO files
+
+- [`sitemap.xml`](./sitemap.xml) — every indexable page, with image entries
+- [`robots.txt`](./robots.txt) — disallows the pages that are marked `noindex`
+
+Both are generated from the `robots` meta tag in each page, so a page can never
+be listed in the sitemap *and* blocked in `robots.txt` at the same time.
+
+---
+
 ## 🖥️ How to Use in OBS
 
 1. Go to the Teams page in the respective sport tracker page through the navbar
@@ -282,6 +343,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(08/23/2025) Added fully functional NCAAF (College Football) tracker** - Complete NCAA Division I FBS coverage with live game tracking, advanced play-by-play system, team dashboards, conference-based standings, and OBS integration. Includes college-specific features like student-athlete statistics, recruiting class support, and bowl game tracking. 
 - **(08/25/2025) Soccer Domestic Competition Integration** - Enhanced soccer coverage with comprehensive domestic cup competition support including FA Cup, Copa del Rey, DFB Pokal, Coppa Italia, Coupe de France, and more. Features multi-competition game tracking, visual competition indicators, and cross-season player tracking with accurate historical data for players who changed teams.
 - (08/28/2025) Added fixtures page to UEFA for League Phase matches
+- **(11/24/2025) Clean URLs, SEO overhaul and mobile Song Wars access** - Every page is now served without the `.html` extension (`/mlb/aio` instead of `/mlb/aio.html`) via a root `.htaccess`, with 301 redirects from the old addresses so search engines only ever index one URL per page. Added a full SEO layer to all 133 pages (descriptions, keywords, canonical + hreflang links, Open Graph, Twitter cards and JSON-LD structured data), plus a generated `sitemap.xml` and `robots.txt` that stay in sync with each page's own `robots` meta. Rewrote the Legal & Support page and linked it from the home page footer. Song Wars is now reachable from every "Desktop Only" screen, so the music tournament works on a phone even though the sports trackers are desktop-only.
 
 ---
 

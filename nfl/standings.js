@@ -168,7 +168,7 @@ function renderConferenceStandings(conference, containerId) {
         // Add click handler to navigate to team page
         teamNameCell.style.cursor = 'pointer';
         teamNameCell.addEventListener('click', () => {
-          window.location.href = `team-page.html?teamId=${entry.team.id}`;
+          window.location.href = `team-page?teamId=${entry.team.id}`;
         });
 
         tbody.appendChild(row);
