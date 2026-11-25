@@ -19,9 +19,13 @@
   }
 
   // ── Only activate on scoreboard pages ───────────────────────────────────
+  // The site serves clean URLs (`/mlb/scoreboard`), while the raw file is
+  // `scoreboard.html`. Both forms are accepted: the extensionless URL is what
+  // the address bar shows, but the `.html` path is still reachable directly and
+  // is what a local static server (Live Server, file://) will give us.
   function isScoreboardPage() {
     var path = window.location.pathname;
-    return path.indexOf("/scoreboard.html") !== -1;
+    return /(^|\/)scoreboard(\.html)?$/i.test(path);
   }
 
   if (!isScoreboardPage()) return;
